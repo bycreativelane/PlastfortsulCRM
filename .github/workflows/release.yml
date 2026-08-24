@@ -1,0 +1,40 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  github-release:
+    name: GitHub Release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Resolve notes file
+        id: notes
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          FILE="docs/releases/${TAG}.md"
+          if [ -f "$FILE" ]; then
+            echo "file=$FILE" >> "$GITHUB_OUTPUT"
+          else
+            echo "file=" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          NOTES_ARGS=(--generate-notes)
+          if [ -n "${{ steps.notes.outputs.file }}" ]; then
+            NOTES_ARGS=(--notes-file "${{ steps.notes.outputs.file }}")
+          fi
+          gh release create "$GITHUB_REF_NAME" \
+            --title "PlastfortSul CRM ${GITHUB_REF_NAME}" \
+            --latest \
+            "${NOTES_ARGS[@]}"

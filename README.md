@@ -5,6 +5,7 @@
 > funis de venda, campanhas e automações.
 
 [![CI](https://github.com/gabrielspencerf/Plastfortsul-CRM/actions/workflows/ci.yml/badge.svg)](https://github.com/gabrielspencerf/Plastfortsul-CRM/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/gabrielspencerf/Plastfortsul-CRM)](https://github.com/gabrielspencerf/Plastfortsul-CRM/releases)
 [![Next.js 16](https://img.shields.io/badge/Next.js-16-black?logo=nextdotjs)](https://nextjs.org)
 [![Supabase](https://img.shields.io/badge/Supabase-Postgres%20%2B%20Auth-3ecf8e?logo=supabase)](https://supabase.com)
 
@@ -98,6 +99,14 @@ HOST_PORT=8080 docker compose up --build
 
 Detalhes e resolução de problemas em [docs/docker.md](./docs/docker.md).
 
+## Produção (outro servidor, a partir deste GitHub)
+
+Passo a passo: [docs/deploy.md](./docs/deploy.md). Resumo:
+
+- **Releases** — zip da versão (hoje `v0.8.1`). É isto que se baixa para subir em outro lugar.
+- **Packages** — deixe vazio. Não é um pacote npm; não precisa preencher nada.
+- Caminho mais curto: importe o repositório na **Vercel** e cole as variáveis do [guia de env](./docs/configuracao-env.md). Alternativa: `git clone` + Docker no VPS.
+
 ## Migrações
 
 Os arquivos ficam em `supabase/migrations/`, numerados e aplicados em
@@ -116,6 +125,7 @@ de segredo nenhum.
 | [docs/public-api.md](./docs/public-api.md)                 | A API REST pública                                                               |
 | [docs/mcp.md](./docs/mcp.md)                               | O servidor MCP                                                                   |
 | [docs/docker.md](./docs/docker.md)                         | Docker e Docker Compose                                                          |
+| [docs/deploy.md](./docs/deploy.md)                         | Produção: Vercel, VPS, o que é Releases vs Packages                              |
 | `src/app/globals.css`                                      | O sistema de design: tokens, doutrina de cor, escala de tipo, movimento          |
 
 O sistema de design não vive num arquivo separado — ele vive nos

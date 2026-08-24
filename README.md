@@ -4,8 +4,8 @@
 > WhatsApp Business: atendimento compartilhado, cadastro de clientes,
 > funis de venda, campanhas e automações.
 
-[![CI](https://github.com/gabrielspencerf/Plastfortsul-CRM/actions/workflows/ci.yml/badge.svg)](https://github.com/gabrielspencerf/Plastfortsul-CRM/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/gabrielspencerf/Plastfortsul-CRM)](https://github.com/gabrielspencerf/Plastfortsul-CRM/releases)
+[![CI](https://github.com/bycreativelane/PlastfortsulCRM/actions/workflows/ci.yml/badge.svg)](https://github.com/bycreativelane/PlastfortsulCRM/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/bycreativelane/PlastfortsulCRM)](https://github.com/bycreativelane/PlastfortsulCRM/releases)
 [![Next.js 16](https://img.shields.io/badge/Next.js-16-black?logo=nextdotjs)](https://nextjs.org)
 [![Supabase](https://img.shields.io/badge/Supabase-Postgres%20%2B%20Auth-3ecf8e?logo=supabase)](https://supabase.com)
 

@@ -27,7 +27,7 @@ Nunca commite `.env.local`. No host de produção as variáveis vão no **painel
 
 ## Caminho A — Vercel (o mais simples a partir do GitHub)
 
-1. [vercel.com](https://vercel.com) → Add New → Project → importe `gabrielspencerf/Plastfortsul-CRM`.
+1. [vercel.com](https://vercel.com) → Add New → Project → importe `bycreativelane/PlastfortsulCRM`.
 2. Framework: Next.js (detecta sozinho). Root: `.`
 3. Environment Variables — cole o bloco de [configuracao-env.md](./configuracao-env.md) com valores **de produção**:
    - `NEXT_PUBLIC_SITE_URL` = `https://seu-dominio` (sem barra no final)
@@ -52,8 +52,8 @@ Rebuild se mudar qualquer `NEXT_PUBLIC_*` (a Vercel faz isso no próximo deploy 
 No servidor:
 
 ```bash
-git clone https://github.com/gabrielspencerf/Plastfortsul-CRM.git
-cd Plastfortsul-CRM
+git clone https://github.com/bycreativelane/PlastfortsulCRM.git
+cd PlastfortsulCRM
 git checkout v0.8.1   # ou main
 cp .env.local.example .env.local
 # edite .env.local — SITE_URL com o domínio público (https)

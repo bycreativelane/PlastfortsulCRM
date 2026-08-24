@@ -1,7 +1,7 @@
 # PlastfortSul CRM — servidor MCP
 
 A [Model Context Protocol](https://modelcontextprotocol.io) server for
-**[PlastfortSul CRM](https://github.com/gabrielspencerf/Plastfortsul-CRM)** — the self-hostable
+**[PlastfortSul CRM](https://github.com/bycreativelane/PlastfortsulCRM)** — the self-hostable
 WhatsApp CRM. It lets MCP clients (Claude Desktop, Claude Code, Cursor,
 and others) drive your CRM in natural language:
 

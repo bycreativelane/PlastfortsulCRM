@@ -9,7 +9,7 @@ vulnerability here as an incident, not a bug.
 
 Report privately, never in a public issue:
 
-- [GitHub Security Advisories](https://github.com/gabrielspencerf/Plastfortsul-CRM/security/advisories/new)
+- [GitHub Security Advisories](https://github.com/bycreativelane/PlastfortsulCRM/security/advisories/new)
   — the private disclosure flow on this repository.
 - Or contact Creative Lane directly through the usual channel.
 

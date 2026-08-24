@@ -1,6 +1,8 @@
 # O que foi publicado no GitHub (cópia local)
 
-O repositório remoto **foi apagado**. Tudo abaixo ainda existe **neste disco**: branch `main`, tag `v0.8.1` e os dois commits. Nada de `.env.local` foi enviado.
+Destino atual: `https://github.com/bycreativelane/PlastfortsulCRM`. O inventário abaixo descreve o repo antigo (`gabrielspencerf/Plastfortsul-CRM`), que foi apagado.
+
+O repositório remoto antigo **foi apagado**. Tudo abaixo ainda existe **neste disco**: branch `main`, tag `v0.8.1` e os commits locais. Nada de `.env.local` foi enviado.
 
 Data do último estado no GitHub: **24 de agosto de 2026** (horário de Brasília). Conta: `gabrielspencerf`.
 
@@ -103,14 +105,14 @@ A lista de ~15 contribuidores vinha sobretudo de `refs/pull/*` do Dependabot com
 
 ## Como republicar o mesmo conteúdo
 
-1. GitHub → New repository → nome `Plastfortsul-CRM` (ou outro) → **vazio** (sem README, sem LICENSE).
+1. GitHub → New repository → nome `PlastfortsulCRM` → **vazio** (sem README, sem LICENSE).
 2. Público ou privado, como quiser.
 3. About: a descrição da tabela acima.
 4. Neste PC:
 
 ```bash
 cd d:\wacrm\wacrm
-git remote set-url origin https://github.com/gabrielspencerf/NOME.git
+git remote set-url origin https://github.com/bycreativelane/PlastfortsulCRM.git
 git push -u origin main
 git push origin v0.8.1
 ```
@@ -122,7 +124,7 @@ O push da tag recria o Release se o Actions estiver ligado e o workflow existir 
 Clone depois disso:
 
 ```bash
-git clone https://github.com/gabrielspencerf/NOME.git
+git clone https://github.com/bycreativelane/PlastfortsulCRM.git
 ```
 
 ---

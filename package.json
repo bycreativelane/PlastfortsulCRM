@@ -5,13 +5,13 @@
   "description": "CRM comercial da PlastfortSul, operado sobre o WhatsApp Business — atendimento compartilhado, clientes, funis de venda, campanhas e automações.",
   "license": "MIT",
   "author": "Creative Lane",
-  "homepage": "https://github.com/gabrielspencerf/Plastfortsul-CRM",
+  "homepage": "https://github.com/bycreativelane/PlastfortsulCRM",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/gabrielspencerf/Plastfortsul-CRM.git"
+    "url": "git+https://github.com/bycreativelane/PlastfortsulCRM.git"
   },
   "bugs": {
-    "url": "https://github.com/gabrielspencerf/Plastfortsul-CRM/issues"
+    "url": "https://github.com/bycreativelane/PlastfortsulCRM/issues"
   },
   "keywords": [
     "crm",

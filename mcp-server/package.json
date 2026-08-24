@@ -4,10 +4,10 @@
     "description": "Model Context Protocol (MCP) server for PlastfortSul CRM — drive your self-hosted WhatsApp CRM from Claude, Cursor, and other MCP clients.",
   "license": "MIT",
   "author": "Creative Lane",
-  "homepage": "https://github.com/gabrielspencerf/Plastfortsul-CRM",
+  "homepage": "https://github.com/bycreativelane/PlastfortsulCRM",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/gabrielspencerf/Plastfortsul-CRM.git",
+    "url": "git+https://github.com/bycreativelane/PlastfortsulCRM.git",
     "directory": "mcp-server"
   },
   "keywords": [

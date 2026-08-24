@@ -13,15 +13,50 @@ import { APP_LOCALE } from '@/lib/i18n/locale';
  */
 
 /** App-wide fallback when no account/deal currency is available. */
-export const DEFAULT_CURRENCY = "USD";
+export const DEFAULT_CURRENCY = 'USD';
 
 export interface CurrencyOption {
   /** ISO-4217 code, e.g. "USD". Stored verbatim in the DB. */
   code: string;
-  /** Human label for the dropdown, e.g. "US Dollar". */
+  /**
+   * Fallback name, in English.
+   *
+   * NOT what the picker shows — see `currencyName`. Kept as the answer
+   * for a runtime whose `Intl.DisplayNames` does not know the code, which
+   * beats printing a bare three-letter code at somebody.
+   */
   label: string;
   /** Symbol for compact display, e.g. "$". */
   symbol: string;
+}
+
+/**
+ * What a currency is CALLED, in the language the instance runs in.
+ *
+ * The picker used to render `label` directly, so a pt-BR install offered
+ * "Brazilian Real" and "Euro" in a list of otherwise Portuguese settings.
+ * Keying fifteen names by hand in three locales would have been fifteen
+ * strings that drift; `Intl.DisplayNames` already holds every one of them
+ * for every locale the platform supports, which is the same table
+ * `Intl.NumberFormat` below reads its symbols from.
+ *
+ * Built once. Constructing a `DisplayNames` per option per render is the
+ * kind of cost that only shows up on a slow phone.
+ */
+const CURRENCY_NAMES = (() => {
+  try {
+    return new Intl.DisplayNames([APP_LOCALE], { type: 'currency' });
+  } catch {
+    return null;
+  }
+})();
+
+export function currencyName(option: CurrencyOption): string {
+  try {
+    return CURRENCY_NAMES?.of(option.code) ?? option.label;
+  } catch {
+    return option.label;
+  }
 }
 
 /**
@@ -30,21 +65,21 @@ export interface CurrencyOption {
  * list to offer more — nothing else needs to change.
  */
 export const CURRENCIES: CurrencyOption[] = [
-  { code: "USD", label: "US Dollar", symbol: "$" },
-  { code: "EUR", label: "Euro", symbol: "€" },
-  { code: "GBP", label: "British Pound", symbol: "£" },
-  { code: "INR", label: "Indian Rupee", symbol: "₹" },
-  { code: "AUD", label: "Australian Dollar", symbol: "A$" },
-  { code: "CAD", label: "Canadian Dollar", symbol: "C$" },
-  { code: "BRL", label: "Brazilian Real", symbol: "R$" },
-  { code: "JPY", label: "Japanese Yen", symbol: "¥" },
-  { code: "CNY", label: "Chinese Yuan", symbol: "¥" },
-  { code: "AED", label: "UAE Dirham", symbol: "د.إ" },
-  { code: "ZAR", label: "South African Rand", symbol: "R" },
-  { code: "NGN", label: "Nigerian Naira", symbol: "₦" },
-  { code: "SGD", label: "Singapore Dollar", symbol: "S$" },
-  { code: "MXN", label: "Mexican Peso", symbol: "$" },
-  { code: "COP", label: "Colombian Peso", symbol: "$" },
+  { code: 'USD', label: 'US Dollar', symbol: '$' },
+  { code: 'EUR', label: 'Euro', symbol: '€' },
+  { code: 'GBP', label: 'British Pound', symbol: '£' },
+  { code: 'INR', label: 'Indian Rupee', symbol: '₹' },
+  { code: 'AUD', label: 'Australian Dollar', symbol: 'A$' },
+  { code: 'CAD', label: 'Canadian Dollar', symbol: 'C$' },
+  { code: 'BRL', label: 'Brazilian Real', symbol: 'R$' },
+  { code: 'JPY', label: 'Japanese Yen', symbol: '¥' },
+  { code: 'CNY', label: 'Chinese Yuan', symbol: '¥' },
+  { code: 'AED', label: 'UAE Dirham', symbol: 'د.إ' },
+  { code: 'ZAR', label: 'South African Rand', symbol: 'R' },
+  { code: 'NGN', label: 'Nigerian Naira', symbol: '₦' },
+  { code: 'SGD', label: 'Singapore Dollar', symbol: 'S$' },
+  { code: 'MXN', label: 'Mexican Peso', symbol: '$' },
+  { code: 'COP', label: 'Colombian Peso', symbol: '$' },
 ];
 
 /**
@@ -62,13 +97,13 @@ export const CURRENCIES: CurrencyOption[] = [
  */
 export function formatCurrency(
   value: number,
-  currency: string = DEFAULT_CURRENCY,
+  currency: string = DEFAULT_CURRENCY
 ): string {
   const code = (currency || DEFAULT_CURRENCY).trim();
   const amount = Number(value) || 0;
   try {
     return new Intl.NumberFormat(APP_LOCALE, {
-      style: "currency",
+      style: 'currency',
       currency: code,
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
@@ -89,7 +124,7 @@ export function formatCurrency(
  */
 export function formatCurrencyShort(
   value: number,
-  currency: string = DEFAULT_CURRENCY,
+  currency: string = DEFAULT_CURRENCY
 ): string {
   const code = currency || DEFAULT_CURRENCY;
   const symbol = CURRENCIES.find((c) => c.code === code)?.symbol ?? `${code} `;

@@ -73,6 +73,7 @@ import {
 } from 'lucide-react';
 import { Tag as TagChip } from '@/components/ui/tag';
 import { StatePanel } from '@/components/ui/state-panel';
+import { formatPhone } from '@/lib/whatsapp/phone-format';
 import { FieldLabel } from '@/components/ui/field';
 import { ContactForm } from '@/components/contacts/contact-form';
 import { ContactDetailView } from '@/components/contacts/contact-detail-view';
@@ -548,7 +549,9 @@ function ContactsPageInner() {
             </div>
 
             <div>
-              <FieldLabel htmlFor="seg-idle">{t('segmentation.idle')}</FieldLabel>
+              <FieldLabel htmlFor="seg-idle">
+                {t('segmentation.idle')}
+              </FieldLabel>
               <OptionSelect
                 id="seg-idle"
                 disabled={segmentationBlocked}
@@ -573,7 +576,9 @@ function ContactsPageInner() {
             </div>
 
             <div>
-              <FieldLabel htmlFor="seg-city">{t('segmentation.city')}</FieldLabel>
+              <FieldLabel htmlFor="seg-city">
+                {t('segmentation.city')}
+              </FieldLabel>
               <Input
                 id="seg-city"
                 disabled={segmentationBlocked}
@@ -899,7 +904,10 @@ function ContactsPageInner() {
                       were 12/14/14/12 in one colour, which is a size ramp
                       that encodes nothing. */}
                   <TableCell className="text-foreground font-semibold">
-                    <div className="max-w-[22ch] truncate" title={contact.name || undefined}>
+                    <div
+                      className="max-w-[22ch] truncate"
+                      title={contact.name || undefined}
+                    >
                       {contact.name || (
                         <span className="text-muted-foreground font-normal italic">
                           {t('unnamed')}
@@ -908,28 +916,32 @@ function ContactsPageInner() {
                     </div>
                   </TableCell>
                   <TableCell className="text-muted-foreground font-mono text-xs">
-                    {contact.phone}
+                    {formatPhone(contact.phone)}
                   </TableCell>
                   <TableCell className="text-muted-foreground hidden text-xs md:table-cell">
-                    <div className="max-w-[26ch] truncate" title={contact.email || undefined}>
+                    <div
+                      className="max-w-[26ch] truncate"
+                      title={contact.email || undefined}
+                    >
                       {contact.email || '-'}
                     </div>
                   </TableCell>
                   <TableCell className="text-muted-foreground hidden text-xs lg:table-cell">
-                    <div className="max-w-[20ch] truncate" title={contact.company || undefined}>
+                    <div
+                      className="max-w-[20ch] truncate"
+                      title={contact.company || undefined}
+                    >
                       {contact.company || '-'}
                     </div>
                   </TableCell>
                   <TableCell className="hidden md:table-cell">
                     <div className="flex max-w-[18rem] flex-wrap gap-1.5">
                       {contact.tags && contact.tags.length > 0 ? (
-                        contact.tags
-                          .slice(0, 3)
-                          .map((tag) => (
-                            <TagChip key={tag.id} color={tag.color} size="sm">
-                              {tag.name}
-                            </TagChip>
-                          ))
+                        contact.tags.slice(0, 3).map((tag) => (
+                          <TagChip key={tag.id} color={tag.color} size="sm">
+                            {tag.name}
+                          </TagChip>
+                        ))
                       ) : (
                         <span className="text-muted-foreground text-xs">-</span>
                       )}

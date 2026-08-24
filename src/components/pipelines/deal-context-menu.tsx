@@ -22,6 +22,7 @@ import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
+  ContextMenuGroup,
   ContextMenuLabel,
   ContextMenuSeparator,
   ContextMenuSub,
@@ -175,8 +176,15 @@ export function DealContextMenu({
       <ContextMenuTrigger className="block">{children}</ContextMenuTrigger>
 
       <ContextMenuContent>
-        {/* The title, because the menu covers the card that carried it. */}
-        <ContextMenuLabel>{deal.title}</ContextMenuLabel>
+        {/* The title, because the menu covers the card that carried it.
+            Inside a `ContextMenuGroup` because `ContextMenuLabel` is
+            base-ui's `Menu.GroupLabel` and THROWS at render without a
+            `Menu.Group` ancestor — which turned every right-click on a card
+            into the dashboard error screen. Same trap `flow-builder.tsx`
+            documented and `conversation-menu.tsx` also fell into. */}
+        <ContextMenuGroup>
+          <ContextMenuLabel>{deal.title}</ContextMenuLabel>
+        </ContextMenuGroup>
 
         <ContextMenuItem onClick={() => onEdit(deal)}>
           <Pencil />

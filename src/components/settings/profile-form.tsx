@@ -3,21 +3,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Loader2, Upload, Trash2, Mail, CircleAlert } from 'lucide-react';
-import {
-  Panel,
-  PanelBody,
-} from '@/components/ui/panel';
+import { Panel, PanelBody } from '@/components/ui/panel';
 
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { FieldLabel } from '@/components/ui/field';
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useTranslations } from 'next-intl';
 import { SettingsPanelHead } from './settings-panel-head';
 import { APP_LOCALE } from '@/lib/i18n/locale';
@@ -64,7 +57,7 @@ export function ProfileForm() {
   }, [previewUrl]);
 
   const currentAvatar =
-    previewUrl ?? (!removeAvatar ? profile?.avatar_url ?? null : null);
+    previewUrl ?? (!removeAvatar ? (profile?.avatar_url ?? null) : null);
 
   const initial = (fullName || profile?.full_name || profile?.email || 'U')
     .charAt(0)
@@ -122,8 +115,7 @@ export function ProfileForm() {
 
       // Upload a newly-staged image, if any.
       if (pendingAvatar) {
-        const ext =
-          pendingAvatar.name.split('.').pop()?.toLowerCase() || 'png';
+        const ext = pendingAvatar.name.split('.').pop()?.toLowerCase() || 'png';
         const path = `${user.id}/avatar-${Date.now()}.${ext}`;
         const { error: uploadError } = await supabase.storage
           .from('avatars')
@@ -183,13 +175,11 @@ export function ProfileForm() {
       await refreshProfile();
 
       toast.success(
-        emailSent
-          ? t('profileSavedEmailCheck')
-          : t('profileSaved'),
+        emailSent ? t('profileSavedEmailCheck') : t('profileSaved')
       );
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Unknown error';
-      toast.error(msg);
+      console.error('Profile save failed:', err);
+      toast.error(t('saveFailed'));
     } finally {
       setSaving(false);
     }
@@ -211,136 +201,132 @@ export function ProfileForm() {
     : '—';
 
   return (
-    <section className="max-w-2xl animate-in fade-in-50 duration-(--dur-3)">
-      <SettingsPanelHead
-        title={t('title')}
-        description={t('description')}
-      />
+    <section className="animate-in fade-in-50 max-w-2xl duration-(--dur-3)">
+      <SettingsPanelHead title={t('title')} description={t('description')} />
       <form onSubmit={onSubmit} className="space-y-4">
         <Panel>
           <PanelBody className="space-y-6">
-          {/* Avatar row */}
-          <div className="flex flex-wrap items-center gap-5">
-            <Avatar size="lg" className="size-16">
-              {currentAvatar ? (
-                <AvatarImage src={currentAvatar} alt={fullName || 'Avatar'} />
-              ) : null}
-              <AvatarFallback seed={fullName} className="text-base">
-                {initial}
-              </AvatarFallback>
-            </Avatar>
+            {/* Avatar row */}
+            <div className="flex flex-wrap items-center gap-5">
+              <Avatar size="lg" className="size-16">
+                {currentAvatar ? (
+                  <AvatarImage src={currentAvatar} alt={fullName || 'Avatar'} />
+                ) : null}
+                <AvatarFallback seed={fullName} className="text-base">
+                  {initial}
+                </AvatarFallback>
+              </Avatar>
 
-            <div className="flex flex-wrap gap-2">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/png,image/jpeg,image/webp,image/gif"
-                className="hidden"
-                onChange={onPickFile}
-              />
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={saving}
-              >
-                <Upload className="size-4" />
-                {currentAvatar ? t('changePhoto') : t('uploadPhoto')}
-              </Button>
-              {currentAvatar && (
+              <div className="flex flex-wrap gap-2">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  className="hidden"
+                  onChange={onPickFile}
+                />
                 <Button
                   type="button"
-                  variant="ghost"
-                  onClick={onRemoveAvatar}
+                  variant="outline"
+                  onClick={() => fileInputRef.current?.click()}
                   disabled={saving}
-                  className="text-muted-foreground hover:text-foreground"
                 >
-                  <Trash2 className="size-4" />
-                  {t('remove')}
+                  <Upload className="size-4" />
+                  {currentAvatar ? t('changePhoto') : t('uploadPhoto')}
                 </Button>
-              )}
-              <p className="w-full text-xs text-muted-foreground">
-                {t('photoHint')}
-              </p>
+                {currentAvatar && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={onRemoveAvatar}
+                    disabled={saving}
+                    className="text-muted-foreground hover:text-foreground"
+                  >
+                    <Trash2 className="size-4" />
+                    {t('remove')}
+                  </Button>
+                )}
+                <p className="text-muted-foreground w-full text-xs">
+                  {t('photoHint')}
+                </p>
+              </div>
             </div>
-          </div>
 
-          {/* Name */}
-          <div className="space-y-2">
-            <FieldLabel htmlFor="profile-full-name">
-              {t('displayName')}
-            </FieldLabel>
-            <Input
-              id="profile-full-name"
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              placeholder={t('namePlaceholder')}
-              maxLength={120}
-              disabled={saving}
-              required
-            />
-          </div>
+            {/* Name */}
+            <div className="space-y-2">
+              <FieldLabel htmlFor="profile-full-name">
+                {t('displayName')}
+              </FieldLabel>
+              <Input
+                id="profile-full-name"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                placeholder={t('namePlaceholder')}
+                maxLength={120}
+                disabled={saving}
+                required
+              />
+            </div>
 
-          {/* Email */}
-          <div className="space-y-2">
-            <FieldLabel htmlFor="profile-email">
-              {t('email')}
-            </FieldLabel>
-            <Input
-              id="profile-email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              disabled={saving}
-              required
-            />
-            {emailChangePending && (
-              <p className="border-human-border bg-human-soft text-human-ink flex items-start gap-2 rounded-md border px-3 py-2 text-xs">
-                <Mail className="mt-0.5 size-3.5 shrink-0" />
-                <span>
-                  {t.rich('emailChangeHint', { 
-                    oldEmail: profile?.email || '', 
-                    newEmail: email,
-                    bold: (chunks: React.ReactNode) => <strong>{chunks}</strong>
-                  })}
-                </span>
+            {/* Email */}
+            <div className="space-y-2">
+              <FieldLabel htmlFor="profile-email">{t('email')}</FieldLabel>
+              <Input
+                id="profile-email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={saving}
+                required
+              />
+              {emailChangePending && (
+                <p className="border-human-border bg-human-soft text-human-ink flex items-start gap-2 rounded-md border px-3 py-2 text-xs">
+                  <Mail className="mt-0.5 size-3.5 shrink-0" />
+                  <span>
+                    {t.rich('emailChangeHint', {
+                      oldEmail: profile?.email || '',
+                      newEmail: email,
+                      bold: (chunks: React.ReactNode) => (
+                        <strong>{chunks}</strong>
+                      ),
+                    })}
+                  </span>
+                </p>
+              )}
+            </div>
+
+            {/* Read-only block */}
+            <div className="border-border bg-muted rounded-lg border p-4">
+              <p className="eyebrow text-muted-foreground mb-3">
+                {t('accountDetails')}
+              </p>
+              <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+                <div>
+                  <dt className="text-muted-foreground">{t('role')}</dt>
+                  <dd className="text-foreground mt-0.5 font-mono">
+                    {profile?.role ?? 'user'}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-muted-foreground">{t('joined')}</dt>
+                  <dd className="text-foreground mt-0.5">{joined}</dd>
+                </div>
+                <div className="sm:col-span-2">
+                  <dt className="text-muted-foreground">{t('userId')}</dt>
+                  <dd className="text-muted-foreground mt-0.5 font-mono text-xs break-all">
+                    {user?.id ?? '—'}
+                  </dd>
+                </div>
+              </dl>
+            </div>
+
+            {!profile && (
+              <p className="text-muted-foreground flex items-center gap-2 text-sm">
+                <CircleAlert className="size-4" />
+                {t('loading')}
               </p>
             )}
-          </div>
-
-          {/* Read-only block */}
-          <div className="rounded-lg border border-border bg-muted p-4">
-            <p className="eyebrow mb-3 text-muted-foreground">
-              {t('accountDetails')}
-            </p>
-            <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
-              <div>
-                <dt className="text-muted-foreground">{t('role')}</dt>
-                <dd className="mt-0.5 font-mono text-foreground">
-                  {profile?.role ?? 'user'}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-muted-foreground">{t('joined')}</dt>
-                <dd className="mt-0.5 text-foreground">{joined}</dd>
-              </div>
-              <div className="sm:col-span-2">
-                <dt className="text-muted-foreground">{t('userId')}</dt>
-                <dd className="mt-0.5 break-all font-mono text-xs text-muted-foreground">
-                  {user?.id ?? '—'}
-                </dd>
-              </div>
-            </dl>
-          </div>
-
-          {!profile && (
-            <p className="flex items-center gap-2 text-sm text-muted-foreground">
-              <CircleAlert className="size-4" />
-              {t('loading')}
-            </p>
-          )}
-
-        </PanelBody>
+          </PanelBody>
         </Panel>
 
         <div className="flex justify-end">

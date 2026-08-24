@@ -3,6 +3,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { addContactTag, deleteContactTag } from '@/lib/contacts/tag-api';
+import { withManualName } from '@/lib/contacts/name-source';
+import { PhoneInput } from '@/components/ui/phone-input';
+import { formatPhone, toE164 } from '@/lib/whatsapp/phone-format';
 import { useAuth } from '@/hooks/use-auth';
 import { formatCurrency } from '@/lib/currency';
 import { toast } from 'sonner';
@@ -240,16 +243,29 @@ export function ContactDetailView({
     }
 
     setSavingDetails(true);
-    const { error } = await supabase
-      .from('contacts')
-      .update({
-        name: editName.trim() || null,
-        phone: editPhone.trim(),
-        email: editEmail.trim() || null,
-        company: editCompany.trim() || null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', contactId);
+    // `withManualName` stamps `name_source: 'manual'`, which is what stops
+    // the inbound webhook putting the WhatsApp profile name back. THIS
+    // SURFACE WAS THE GAP: the contact form claimed authorship from the
+    // day 045 shipped, this inline editor never did, so "salvei o nome e
+    // depois de alguns minutos voltou" stayed true for anyone who renamed
+    // from the contact page instead of the form.
+    const { error } = await withManualName((nameSource) =>
+      supabase
+        .from('contacts')
+        .update({
+          ...nameSource,
+          name: editName.trim() || null,
+          // E.164 on the way in, like every other write path. Stored raw,
+          // this field could hold `+55 (51) 99000-0001` while the form
+          // stored `+5551990000001` — two rows the 022 dedup index reads
+          // as different people, since it normalises from `phone`.
+          phone: toE164(editPhone),
+          email: editEmail.trim() || null,
+          company: editCompany.trim() || null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', contactId)
+    );
 
     if (error) {
       toast.error(t('toastUpdateFailed'));
@@ -406,8 +422,12 @@ export function ContactDetailView({
 
       toast.success(t('toastTemplateSent', { name: template.name }));
     } catch (err) {
-      const reason = err instanceof Error ? err.message : 'network error';
-      toast.error(`Failed to send template: ${reason}`);
+      // The same key line 419 already uses. This branch bypassed it and
+      // built its own English sentence, so whether you got Portuguese
+      // depended on whether the request reached the server.
+      const reason =
+        err instanceof Error ? err.message : t('toastNetworkError');
+      toast.error(t('toastTemplateFailed', { reason }));
     } finally {
       setSendingTemplate(false);
     }
@@ -527,7 +547,7 @@ export function ContactDetailView({
                         className="text-muted-foreground hover:text-primary -mx-2 text-xs font-normal"
                       >
                         <Phone className="size-3" />
-                        {contact.phone}
+                        {formatPhone(contact.phone)}
                         {copiedPhone ? (
                           <Check className="text-primary size-3" />
                         ) : (
@@ -656,10 +676,14 @@ export function ContactDetailView({
                           {t('phone')}{' '}
                           <span className="text-danger-ink">*</span>
                         </FieldLabel>
-                        <Input
+                        {/* The masked field, same as the contact form. A
+                            plain `Input` here was the second phone entry
+                            point in the product and the only one that did
+                            not read back as a phone number. */}
+                        <PhoneInput
                           id="cd-phone"
                           value={editPhone}
-                          onChange={(e) => setEditPhone(e.target.value)}
+                          onValueChange={setEditPhone}
                           className="bg-muted border-border text-foreground"
                         />
                       </div>

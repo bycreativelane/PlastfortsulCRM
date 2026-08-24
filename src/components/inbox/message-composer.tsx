@@ -45,6 +45,7 @@ import {
 import { useCan } from '@/hooks/use-can';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { MISSING_MIGRATION_CODE } from '@/lib/quick-replies/errors';
 import {
   uploadAccountMedia,
   deleteAccountMedia,
@@ -63,6 +64,8 @@ import { QuickReplyPicker } from './quick-reply-picker';
 import { filterQuickReplies, slashQuery } from './slash-command';
 import { mediaKindFromMime } from '@/lib/quick-replies/media';
 import { signMessage, useSignature } from '@/hooks/use-signature';
+import { useCoarsePointer } from '@/hooks/use-coarse-pointer';
+import { extensionForMime } from '@/lib/media/filename';
 import { Switch } from '@/components/ui/switch';
 import {
   assignQuery,
@@ -263,6 +266,7 @@ export function MessageComposer({
   }, []);
 
   const signature = useSignature(conversationId, agentName ?? '');
+  const touch = useCoarsePointer();
 
   const handleSend = useCallback(async () => {
     const trimmed = text.trim();
@@ -467,7 +471,8 @@ export function MessageComposer({
         if (data.code === 'ai_not_configured') {
           toast.error(t('toastAiNotConfigured'));
         } else {
-          toast.error(data.error ?? "Couldn't draft a reply.");
+          console.error('AI draft failed:', data.error);
+          toast.error(t('toastAiDraftFailed'));
         }
         return;
       }
@@ -537,7 +542,15 @@ export function MessageComposer({
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        toast.error(data.error ?? t('quickReplySaveError'));
+        // The route's `error` is English prose — including migration 044's
+        // whole explanation, which used to land in a toast verbatim. The
+        // code is what the UI reads; the prose stays in the console.
+        console.error('Quick reply save failed:', data.error);
+        toast.error(
+          data.error_code === MISSING_MIGRATION_CODE
+            ? t('quickReplyNeedsMigration')
+            : t('quickReplySaveError')
+        );
         return;
       }
       toast.success(t('quickReplySaved'));
@@ -625,9 +638,13 @@ export function MessageComposer({
       const max = MEDIA_MAX_BYTES_BY_KIND[kind];
       if (file.size > max) {
         toast.error(
-          `File is ${(file.size / 1024 / 1024).toFixed(1)} MB — ${kind} limit is ${Math.round(
-            max / 1024 / 1024
-          )} MB.`
+          t('toastFileTooLarge', {
+            size: (file.size / 1024 / 1024).toFixed(1),
+            // The attach menu's own word for this kind, so the sentence
+            // does not switch languages halfway through.
+            kind: t(kind === 'image' ? 'photo' : kind),
+            limit: Math.round(max / 1024 / 1024),
+          })
         );
         return;
       }
@@ -647,12 +664,15 @@ export function MessageComposer({
           caption: '',
         });
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : 'Upload failed.');
+        // `uploadAccountMedia` throws English prose. It belongs in the
+        // console, not in a toast on a pt-BR install.
+        console.error('Upload failed:', err);
+        toast.error(t('toastUploadFailed'));
       } finally {
         setBusy(false);
       }
     },
-    [removeStaged]
+    [removeStaged, t]
   );
 
   const handlePicked = useCallback(
@@ -660,6 +680,76 @@ export function MessageComposer({
       if (file) void stageUpload(kind, file);
     },
     [stageUpload]
+  );
+
+  /**
+   * Ctrl+V with a screenshot on the clipboard.
+   *
+   * There was no paste path at all — attachments only ever arrived through
+   * the three hidden `<input type="file">`s behind the clip menu — so
+   * copying a print and pasting it did nothing at all, silently. On a
+   * support desk a screenshot IS the message half the time: the customer's
+   * error, the label on the wrong bag, the printed order.
+   *
+   * The pasted file goes through `stageUpload` like any other attachment,
+   * so it lands in the caption preview rather than firing off immediately.
+   * A screenshot almost always needs a sentence next to it.
+   */
+  const handlePaste = useCallback(
+    (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
+      if (inputsDisabled || busy) return;
+
+      const item = Array.from(event.clipboardData?.items ?? []).find(
+        (candidate) =>
+          candidate.kind === 'file' && candidate.type.startsWith('image/')
+      );
+      if (!item) return;
+
+      const file = item.getAsFile();
+      if (!file) return;
+
+      // Text pasted alongside an image (some apps put both on the
+      // clipboard) would otherwise land in the field behind the preview.
+      event.preventDefault();
+
+      // A pasted screenshot usually has no name, or a generic one the OS
+      // invented. `buildMediaPath` needs a real extension to key the
+      // storage object off, so it comes from the MIME type instead — the
+      // same table `@/lib/media/filename` already maintains.
+      const named =
+        file.name && file.name.includes('.')
+          ? file
+          : new File([file], `print.${extensionForMime(file.type)}`, {
+              type: file.type,
+            });
+
+      void stageUpload('image', named);
+    },
+    [inputsDisabled, busy, stageUpload]
+  );
+
+  /**
+   * The same file, dragged onto the thread.
+   *
+   * The second gesture everybody tries after Ctrl+V, and free once the
+   * first one exists. Images and video are staged by kind; anything else is
+   * a document, which is what the clip menu would have called it too.
+   */
+  const handleDrop = useCallback(
+    (event: React.DragEvent<HTMLDivElement>) => {
+      if (inputsDisabled || busy) return;
+      const file = event.dataTransfer?.files?.[0];
+      if (!file) return;
+      event.preventDefault();
+
+      const kind: ComposerMediaKind = file.type.startsWith('image/')
+        ? 'image'
+        : file.type.startsWith('video/')
+          ? 'video'
+          : 'document';
+      void stageUpload(kind, file);
+    },
+    [inputsDisabled, busy, stageUpload]
   );
 
   // ---- Voice recording (client-side Ogg/Opus, no server transcode) ---
@@ -697,12 +787,15 @@ export function MessageComposer({
           caption: '',
         });
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : 'Upload failed.');
+        // `uploadAccountMedia` throws English prose. It belongs in the
+        // console, not in a toast on a pt-BR install.
+        console.error('Upload failed:', err);
+        toast.error(t('toastUploadFailed'));
       } finally {
         setBusy(false);
       }
     },
-    [removeStaged]
+    [removeStaged, t]
   );
 
   const startRecording = useCallback(async () => {
@@ -806,7 +899,17 @@ export function MessageComposer({
     // above it, which is the gutter the thread header (`px-3 sm:px-4`) and the
     // message list (`px-4`) already use. The composer was the only edge in
     // this column sitting 4px outside that line.
-    <div className="px-3 py-3 sm:px-4">
+    <div
+      className="px-3 py-3 sm:px-4"
+      // Drop anywhere over the composer, not on a target you have to aim
+      // for. `onDragOver` has to preventDefault or the browser navigates to
+      // the file instead of handing it over — the default that turns a
+      // dropped PDF into a lost draft.
+      onDragOver={(e) => {
+        if (!inputsDisabled && !busy) e.preventDefault();
+      }}
+      onDrop={handleDrop}
+    >
       {replyTo && (
         <div className="mb-2">
           <ReplyQuote
@@ -1027,7 +1130,7 @@ export function MessageComposer({
                       i === slashCursor && 'bg-muted'
                     )}
                   >
-    {/* The SHORTCUT leads when there is one — it is what was just
+                    {/* The SHORTCUT leads when there is one — it is what was just
                         typed, and reading back the thing you typed is how you
                         know the panel understood you. The title follows it,
                         quieter, because by then it is a reminder and not a
@@ -1162,15 +1265,39 @@ export function MessageComposer({
             value={text}
             onChange={handleChange}
             onKeyDown={handleKeyDown}
+            onPaste={handlePaste}
             placeholder={
               readOnly
                 ? t('readOnlyPlaceholder')
                 : sessionExpired
                   ? t('sessionExpiredPlaceholder')
-                  : t('typeMessagePlaceholder')
+                  : // "Escreva uma mensagem... (Shift+Enter quebra linha)" is
+                    // 45 characters in a one-row textarea. On a phone it
+                    // wraps and the second line is clipped by the field's own
+                    // height — the reported "texto quebrado no input".
+                    //
+                    // The short one is not a truncation, it is the correct
+                    // copy for the device: there is no Shift+Enter on a touch
+                    // keyboard, so the hint was never addressed to this reader
+                    // in the first place.
+                    touch
+                    ? t('typeMessagePlaceholderShort')
+                    : t('typeMessagePlaceholder')
             }
             disabled={sessionExpired || readOnly}
             rows={1}
+            // Portuguese sentences start with a capital and the field was
+            // not asking the keyboard for one. `sentences` is the browser
+            // default for a textarea, but "default" is decided by the
+            // engine, and on the in-app browsers this runs in it was not
+            // happening. Stating it costs nothing and removes the question.
+            //
+            // Not done in JavaScript on purpose: capitalising as the agent
+            // types would fight product codes ("pE 40"), abbreviations and
+            // the cursor.
+            autoCapitalize="sentences"
+            autoCorrect="on"
+            spellCheck
             // Textarea keeps its own inline title — the GatedButton
             // wrapping pattern doesn't apply to non-button inputs.
             // The placeholder text also surfaces the read-only state.

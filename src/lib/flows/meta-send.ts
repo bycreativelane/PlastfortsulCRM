@@ -16,6 +16,7 @@ import {
   isRecipientNotAllowedError,
 } from '@/lib/whatsapp/phone-utils'
 import { supabaseAdmin } from './admin-client'
+import { writeLastMessage } from '@/lib/conversations/last-message'
 
 // ------------------------------------------------------------
 // Flows-side Meta sender (interactive variants).
@@ -144,14 +145,10 @@ export async function engineSendText(
     throw new Error(`sent to Meta but DB insert failed: ${msgErr.message}`)
   }
 
-  await db
-    .from('conversations')
-    .update({
-      last_message_text: args.text,
-      last_message_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', args.conversationId)
+  await writeLastMessage(db, args.conversationId, {
+    text: args.text,
+    kind: 'text',
+  })
 
   return { whatsapp_message_id: waMessageId }
 }
@@ -261,14 +258,13 @@ export async function engineSendMedia(
     throw new Error(`sent to Meta but DB insert failed: ${msgErr.message}`)
   }
 
-  await db
-    .from('conversations')
-    .update({
-      last_message_text: preview,
-      last_message_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', args.conversationId)
+  await writeLastMessage(db, args.conversationId, {
+    text: preview,
+    kind: args.kind,
+    // The link we just handed Meta. Without it the row keeps whatever
+    // image was there before beside this attachment's caption.
+    mediaUrl: args.link,
+  })
 
   return { whatsapp_message_id: waMessageId }
 }
@@ -454,14 +450,10 @@ async function sendInteractiveViaMeta(
     throw new Error(`sent to Meta but DB insert failed: ${msgErr.message}`)
   }
 
-  await db
-    .from('conversations')
-    .update({
-      last_message_text: input.bodyText,
-      last_message_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', input.conversationId)
+  await writeLastMessage(db, input.conversationId, {
+    text: input.bodyText,
+    kind: 'interactive',
+  })
 
   return { whatsapp_message_id: waMessageId }
 }

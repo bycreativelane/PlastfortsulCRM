@@ -15,6 +15,11 @@ export default defineConfig({
       ENCRYPTION_KEY:
         "0000000000000000000000000000000000000000000000000000000000000000",
       META_APP_SECRET: "test-meta-app-secret",
+      // The locale the app actually ships in. Without it `APP_LOCALE`
+      // falls back to 'en' and every date-formatting helper is exercised
+      // in a language no installation runs — which is how nine hard-coded
+      // English strings in `presence.ts` passed a green suite for months.
+      NEXT_PUBLIC_APP_LOCALE: "pt-BR",
     },
     clearMocks: true,
   },

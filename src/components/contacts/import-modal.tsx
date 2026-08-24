@@ -18,6 +18,7 @@ import {
   type ContactTagAssignment,
 } from '@/lib/contacts/resolve-import-tags';
 import { cn } from '@/lib/utils';
+import { withManualName } from '@/lib/contacts/name-source';
 import { toast } from 'sonner';
 import {
   Dialog,
@@ -275,10 +276,18 @@ export function ImportModal({
           company: row.company || null,
         }));
 
-        const { data, error } = await supabase
-          .from('contacts')
-          .insert(rows)
-          .select('id');
+        // Imported names are typed by a person too — they came out of a
+        // spreadsheet somebody maintains. Without `name_source: 'manual'`
+        // the first inbound message from each imported contact silently
+        // replaces the whole import with WhatsApp profile names, which is
+        // the reported "volta o nome que estava antes" arriving at the
+        // scale of the CSV.
+        const { data, error } = await withManualName((nameSource) =>
+          supabase
+            .from('contacts')
+            .insert(rows.map((row) => ({ ...row, ...nameSource })))
+            .select('id')
+        );
 
         if (error) {
           // Retry individually so one bad/duplicate row doesn't sink
@@ -286,11 +295,14 @@ export function ImportModal({
           for (let j = 0; j < rows.length; j++) {
             const row = rows[j];
             const source = chunk[j];
-            const { data: singleData, error: singleErr } = await supabase
-              .from('contacts')
-              .insert(row)
-              .select('id')
-              .single();
+            const { data: singleData, error: singleErr } = await withManualName(
+              (nameSource) =>
+                supabase
+                  .from('contacts')
+                  .insert({ ...row, ...nameSource })
+                  .select('id')
+                  .single()
+            );
 
             if (!singleErr && singleData) {
               imported++;
@@ -357,8 +369,8 @@ export function ImportModal({
         toast.error(t('toastFailed', { count: failed }));
       }
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : t('toastError');
-      toast.error(message);
+      console.error('Contact import failed:', err);
+      toast.error(t('toastError'));
     } finally {
       setImporting(false);
     }

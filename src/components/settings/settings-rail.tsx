@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useTranslations } from 'next-intl';
 
 import { cn } from '@/lib/utils';
+import { hasUnreadRelease, lastSeenRelease } from '@/lib/releases';
 import {
   RAIL_GROUPS,
   SECTION_META,
@@ -31,6 +32,20 @@ export function SettingsRail({
   onSelect: (section: SettingsSection) => void;
   hints?: Partial<Record<SettingsSection, ReactNode>>;
 }) {
+  /**
+   * Whether this browser has seen the latest release notes.
+   *
+   * Read in an effect rather than during render: `localStorage` is not
+   * available on the server, and a dot that exists in the client tree and
+   * not the server one is a hydration mismatch. One frame without the dot
+   * costs nothing.
+   */
+  const [unreadRelease, setUnreadRelease] = useState(false);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setUnreadRelease(hasUnreadRelease(lastSeenRelease()));
+  }, [active]);
+
   const t = useTranslations('Settings');
   const activeRef = useRef<HTMLButtonElement>(null);
 
@@ -51,7 +66,7 @@ export function SettingsRail({
     <nav
       aria-label={t('railAria')}
       className={cn(
-        'flex [scrollbar-width:none] snap-x gap-1 overflow-x-auto pb-2 [&::-webkit-scrollbar]:hidden',
+        'flex snap-x [scrollbar-width:none] gap-1 overflow-x-auto pb-2 [&::-webkit-scrollbar]:hidden',
         // Twelve sections, no scrollbar in either engine, chips sized to
         // their content: the last visible one could end flush with the
         // edge and read as the end of the list. The edge fade says "there
@@ -106,6 +121,17 @@ export function SettingsRail({
                 >
                   <Icon className="size-4 shrink-0" />
                   <span className="flex-1">{t(`sections.${s}`)}</span>
+                  {/* The dot is the entire announcement mechanism for a
+                      release. It is 6px and it is not amber: nothing here is
+                      waiting on the operator, and borrowing the colour that
+                      means "act on this" for "there is reading available"
+                      is how that colour stops meaning anything. */}
+                  {s === 'whats-new' && unreadRelease && (
+                    <span
+                      aria-hidden
+                      className="bg-primary size-1.5 shrink-0 rounded-full"
+                    />
+                  )}
                   {hints?.[s] != null ? (
                     <span
                       className={cn(

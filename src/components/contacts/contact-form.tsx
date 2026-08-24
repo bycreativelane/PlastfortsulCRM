@@ -2,6 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { withManualName } from '@/lib/contacts/name-source';
+import { ContactAvatarField } from './contact-avatar-field';
+import { PhoneInput } from '@/components/ui/phone-input';
+import {
+  CHAT_MEDIA_BUCKET,
+  uploadAccountMedia,
+} from '@/lib/storage/upload-media';
 import { useAuth } from '@/hooks/use-auth';
 import { addContactTag, deleteContactTag } from '@/lib/contacts/tag-api';
 import { toast } from 'sonner';
@@ -55,6 +62,13 @@ export function ContactForm({
 
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+
+  /* The photo, staged rather than uploaded on pick: choosing one and then
+     closing the dialog must leave neither an object in the bucket nor a
+     change on the contact. */
+  const [pendingAvatar, setPendingAvatar] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [removeAvatar, setRemoveAvatar] = useState(false);
   const [email, setEmail] = useState('');
   const [company, setCompany] = useState('');
 
@@ -94,6 +108,12 @@ export function ContactForm({
   useEffect(() => {
     if (open) {
       setName(contact?.name ?? '');
+      setPendingAvatar(null);
+      setAvatarPreview((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return null;
+      });
+      setRemoveAvatar(false);
       setPhone(contact?.phone ?? '');
       setEmail(contact?.email ?? '');
       setCompany(contact?.company ?? '');
@@ -198,69 +218,106 @@ export function ContactForm({
 
       let contactId = contact?.id;
 
+      // The photo goes up first, so a failed upload fails the save instead
+      // of silently writing everything except the thing the operator just
+      // picked.
+      //
+      // `chat-media` and NOT the `avatars` bucket: that one's policy
+      // (migration 008) scopes writes to `auth.uid()` as the first folder,
+      // so whoever uploaded a customer's photo would be the only person who
+      // could ever replace it. A customer belongs to the account, not to
+      // the agent who happened to add them — and `chat-media` (023) is
+      // scoped per account, which is the same shape as the fact.
+      let nextAvatarUrl: string | null | undefined;
+      if (pendingAvatar) {
+        const { publicUrl } = await uploadAccountMedia(
+          CHAT_MEDIA_BUCKET,
+          pendingAvatar
+        );
+        nextAvatarUrl = publicUrl;
+      } else if (removeAvatar) {
+        nextAvatarUrl = null;
+      }
+
       if (isEdit && contactId) {
-        const { error } = await supabase
-          .from('contacts')
-          .update({
-            name: name.trim() || null,
-            phone: phone.trim(),
-            email: email.trim() || null,
-            company: company.trim() || null,
-            job_title: jobTitle.trim() || null,
-            tax_id: taxId.trim() || null,
-            city: city.trim() || null,
-            // The CHECK only accepts two uppercase letters, so normalise
-            // rather than handing the database something it will reject.
-            state: state.trim().toUpperCase() || null,
-            source: source.trim() || null,
-            birthday: birthday || null,
-            last_purchase_at: lastPurchaseAt || null,
-            next_purchase_expected_at: nextPurchaseAt || null,
-            repurchase_cycle_days: cycleDays ? Number(cycleDays) : null,
-            average_ticket: averageTicket ? Number(averageTicket) : null,
-            opted_out: optedOut,
-            // Stamped only on the transition, so the date reflects when they
-            // actually asked and not the last time anyone saved the form.
-            opted_out_at: optedOut
-              ? (contact?.opted_out_at ?? new Date().toISOString())
-              : null,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', contactId);
+        // `withManualName` stamps `name_source: 'manual'` so the inbound
+        // webhook stops overwriting this name with the WhatsApp profile's.
+        const { error } = await withManualName((nameSource) =>
+          supabase
+            .from('contacts')
+            .update({
+              ...nameSource,
+              // `undefined` is left out of the payload by supabase-js, so an
+              // untouched photo is not overwritten with null.
+              ...(nextAvatarUrl !== undefined
+                ? { avatar_url: nextAvatarUrl }
+                : {}),
+              name: name.trim() || null,
+              phone: phone.trim(),
+              email: email.trim() || null,
+              company: company.trim() || null,
+              job_title: jobTitle.trim() || null,
+              tax_id: taxId.trim() || null,
+              city: city.trim() || null,
+              // The CHECK only accepts two uppercase letters, so normalise
+              // rather than handing the database something it will reject.
+              state: state.trim().toUpperCase() || null,
+              source: source.trim() || null,
+              birthday: birthday || null,
+              last_purchase_at: lastPurchaseAt || null,
+              next_purchase_expected_at: nextPurchaseAt || null,
+              repurchase_cycle_days: cycleDays ? Number(cycleDays) : null,
+              average_ticket: averageTicket ? Number(averageTicket) : null,
+              opted_out: optedOut,
+              // Stamped only on the transition, so the date reflects when they
+              // actually asked and not the last time anyone saved the form.
+              opted_out_at: optedOut
+                ? (contact?.opted_out_at ?? new Date().toISOString())
+                : null,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', contactId)
+        );
         if (error) throw error;
       } else {
-        const { data, error } = await supabase
-          .from('contacts')
-          .insert({
-            user_id: user.id,
-            account_id: accountId,
-            name: name.trim() || null,
-            phone: phone.trim(),
-            email: email.trim() || null,
-            company: company.trim() || null,
-            job_title: jobTitle.trim() || null,
-            tax_id: taxId.trim() || null,
-            city: city.trim() || null,
-            // The CHECK only accepts two uppercase letters, so normalise
-            // rather than handing the database something it will reject.
-            state: state.trim().toUpperCase() || null,
-            source: source.trim() || null,
-            birthday: birthday || null,
-            last_purchase_at: lastPurchaseAt || null,
-            next_purchase_expected_at: nextPurchaseAt || null,
-            repurchase_cycle_days: cycleDays ? Number(cycleDays) : null,
-            average_ticket: averageTicket ? Number(averageTicket) : null,
-            opted_out: optedOut,
-            // Stamped only on the transition, so the date reflects when they
-            // actually asked and not the last time anyone saved the form.
-            opted_out_at: optedOut
-              ? (contact?.opted_out_at ?? new Date().toISOString())
-              : null,
-          })
-          .select('id')
-          .single();
+        const { data, error } = await withManualName((nameSource) =>
+          supabase
+            .from('contacts')
+            .insert({
+              ...nameSource,
+              ...(nextAvatarUrl !== undefined
+                ? { avatar_url: nextAvatarUrl }
+                : {}),
+              user_id: user.id,
+              account_id: accountId,
+              name: name.trim() || null,
+              phone: phone.trim(),
+              email: email.trim() || null,
+              company: company.trim() || null,
+              job_title: jobTitle.trim() || null,
+              tax_id: taxId.trim() || null,
+              city: city.trim() || null,
+              // The CHECK only accepts two uppercase letters, so normalise
+              // rather than handing the database something it will reject.
+              state: state.trim().toUpperCase() || null,
+              source: source.trim() || null,
+              birthday: birthday || null,
+              last_purchase_at: lastPurchaseAt || null,
+              next_purchase_expected_at: nextPurchaseAt || null,
+              repurchase_cycle_days: cycleDays ? Number(cycleDays) : null,
+              average_ticket: averageTicket ? Number(averageTicket) : null,
+              opted_out: optedOut,
+              // Stamped only on the transition, so the date reflects when they
+              // actually asked and not the last time anyone saved the form.
+              opted_out_at: optedOut
+                ? (contact?.opted_out_at ?? new Date().toISOString())
+                : null,
+            })
+            .select('id')
+            .single()
+        );
         if (error) throw error;
-        contactId = data.id;
+        contactId = data!.id;
       }
 
       // Sync tags
@@ -302,8 +359,11 @@ export function ContactForm({
         }
         return;
       }
-      const message = err instanceof Error ? err.message : t('toastError');
-      toast.error(message);
+      // `err.message` here is a Supabase/storage string in English, and
+      // it always won over the key written for this case. The detail goes
+      // to the console; the person gets the sentence.
+      console.error('Save contact failed:', err);
+      toast.error(t('toastError'));
     } finally {
       setSaving(false);
     }
@@ -322,6 +382,31 @@ export function ContactForm({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Above the name, because it is the same fact said two ways and
+              a face is the one an agent recognises first. */}
+          <ContactAvatarField
+            currentUrl={removeAvatar ? null : (contact?.avatar_url ?? null)}
+            previewUrl={avatarPreview}
+            name={name || phone || ''}
+            disabled={saving}
+            onPick={(file) => {
+              setPendingAvatar(file);
+              setRemoveAvatar(false);
+              setAvatarPreview((prev) => {
+                if (prev) URL.revokeObjectURL(prev);
+                return URL.createObjectURL(file);
+              });
+            }}
+            onRemove={() => {
+              setPendingAvatar(null);
+              setRemoveAvatar(true);
+              setAvatarPreview((prev) => {
+                if (prev) URL.revokeObjectURL(prev);
+                return null;
+              });
+            }}
+          />
+
           <div className="space-y-2">
             <FieldLabel htmlFor="cf-name">{t('nameLabel')}</FieldLabel>
             <Input
@@ -337,16 +422,20 @@ export function ContactForm({
             <FieldLabel htmlFor="cf-phone">
               {t('phoneLabel')} <span className="text-danger-ink">*</span>
             </FieldLabel>
-            <Input
+            {/* Masked while typing, stored as E.164. The field used to
+                print `+555199000001` straight back — thirteen digits in a
+                row that nobody can check against a business card without
+                counting them. See `ui/phone-input`. */}
+            <PhoneInput
               id="cf-phone"
               value={phone}
-              onChange={(e) => {
-                setPhone(e.target.value);
+              onValueChange={(next) => {
+                setPhone(next);
                 if (dupMatch) setDupMatch(null);
               }}
               onBlur={checkDuplicate}
               placeholder={t('phonePlaceholder')}
-              className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
+              className="border-border bg-muted text-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 flex h-9 w-full min-w-0 rounded-md border px-3 py-1 text-base shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-3 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
             />
             {dupMatch ? (
               <div

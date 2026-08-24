@@ -39,6 +39,7 @@ import { toast } from 'sonner';
 import { getBroadcastStatus, getRecipientStatus } from '@/lib/broadcast-status';
 import { useTranslations } from 'next-intl';
 import { PageHeader } from '@/components/layout/page-header';
+import { formatPhone } from '@/lib/whatsapp/phone-format';
 import { APP_LOCALE } from '@/lib/i18n/locale';
 import { StatTile } from '@/components/ui/stat-tile';
 import { StatusBadge } from '@/components/ui/status-badge';
@@ -419,7 +420,7 @@ export default function BroadcastDetailPage() {
           variant="ghost"
           size="sm"
           onClick={() => router.push('/broadcasts')}
-          className="text-muted-foreground hover:text-foreground -ml-2.5 mb-2"
+          className="text-muted-foreground hover:text-foreground mb-2 -ml-2.5"
         >
           <ArrowLeft />
           {t('backToBroadcasts')}
@@ -440,7 +441,9 @@ export default function BroadcastDetailPage() {
                 <span aria-hidden>·</span>
                 <span>
                   {t('createdAt', {
-                    date: new Date(broadcast.created_at).toLocaleDateString(APP_LOCALE),
+                    date: new Date(broadcast.created_at).toLocaleDateString(
+                      APP_LOCALE
+                    ),
                   })}
                 </span>
               </span>
@@ -733,37 +736,41 @@ export default function BroadcastDetailPage() {
                       <TableCell className="text-foreground font-medium">
                         {recipient.contact?.name ?? t('unknownContact')}
                         {recipient.error_message ? (
-                          <span className="text-danger-ink mt-0.5 block text-2xs font-normal whitespace-normal lg:hidden">
+                          <span className="text-danger-ink text-2xs mt-0.5 block font-normal whitespace-normal lg:hidden">
                             {recipient.error_message}
                           </span>
                         ) : null}
-                        <span className="text-muted-foreground mt-0.5 block text-2xs font-normal sm:hidden">
-                          {recipient.contact?.phone ?? '-'}
+                        <span className="text-muted-foreground text-2xs mt-0.5 block font-normal sm:hidden">
+                          {recipient.contact?.phone
+                            ? formatPhone(recipient.contact.phone)
+                            : '-'}
                         </span>
                       </TableCell>
                       <TableCell className="text-muted-foreground hidden sm:table-cell">
-                        {recipient.contact?.phone ?? '-'}
+                        {recipient.contact?.phone
+                          ? formatPhone(recipient.contact.phone)
+                          : '-'}
                       </TableCell>
                       <TableCell>
                         <StatusBadge variant={rStatus.variant}>
                           {tStatus(rStatus.label)}
                         </StatusBadge>
                       </TableCell>
-                      <TableCell className="text-muted-foreground hidden sm:table-cell tabular-nums">
+                      <TableCell className="text-muted-foreground hidden tabular-nums sm:table-cell">
                         {recipient.sent_at
                           ? new Date(recipient.sent_at).toLocaleString(
                               APP_LOCALE
                             )
                           : '-'}
                       </TableCell>
-                      <TableCell className="text-muted-foreground hidden md:table-cell tabular-nums">
+                      <TableCell className="text-muted-foreground hidden tabular-nums md:table-cell">
                         {recipient.delivered_at
                           ? new Date(recipient.delivered_at).toLocaleString(
                               APP_LOCALE
                             )
                           : '-'}
                       </TableCell>
-                      <TableCell className="text-muted-foreground hidden md:table-cell tabular-nums">
+                      <TableCell className="text-muted-foreground hidden tabular-nums md:table-cell">
                         {recipient.read_at
                           ? new Date(recipient.read_at).toLocaleString(
                               APP_LOCALE

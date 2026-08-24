@@ -5,7 +5,10 @@ import { getMediaUrl, downloadMedia } from '@/lib/whatsapp/meta-api';
 import { mirrorInboundMedia } from '@/lib/whatsapp/mirror-inbound-media';
 import { normalizePhone } from '@/lib/whatsapp/phone-utils';
 import { findExistingContact, isUniqueViolation } from '@/lib/contacts/dedupe';
-import { reopenClosedConversation } from '@/lib/conversations/reopen';
+import { markWaitingOnInbound } from '@/lib/conversations/reopen';
+import { autoAssignConversation } from '@/lib/conversations/auto-assign';
+import { notifyNewInboundMessage } from '@/lib/notifications/new-message';
+import { isUnknownColumn } from '@/lib/supabase/pg-errors';
 import { verifyMetaWebhookSignature } from '@/lib/whatsapp/webhook-signature';
 import { runAutomationsForTrigger } from '@/lib/automations/engine';
 import { dispatchInboundToFlows } from '@/lib/flows/engine';
@@ -775,20 +778,83 @@ async function processMessage(
   const { error: convError } = await supabaseAdmin().rpc(
     'bump_conversation_on_inbound',
     {
+      // The bracketed type name stays as the FALLBACK text, for a database
+      // without 047 — the two columns below are what the list reads once it
+      // has them.
       p_conversation_id: conversation.id,
       p_last_message_text: contentText || `[${message.type}]`,
+      // What the message WAS, so a row can show that a photo arrived even
+      // when it carried a caption — the one case parsing the text back out
+      // cannot see.
+      p_last_message_kind: contentType,
+      p_last_message_media_url: mediaUrl ?? null,
     }
   );
 
   if (convError) {
-    console.error('Error updating conversation:', convError);
+    // Pre-047 the function still has its two-argument signature and
+    // PostgREST cannot resolve the four-argument call. Retrying without the
+    // new fields keeps the unread bump and the preview text working on an
+    // un-migrated database — losing those is a far worse regression than a
+    // missing thumbnail.
+    const { error: legacyError } = await supabaseAdmin().rpc(
+      'bump_conversation_on_inbound',
+      {
+        p_conversation_id: conversation.id,
+        p_last_message_text: contentText || `[${message.type}]`,
+      }
+    );
+    if (legacyError) {
+      console.error('Error updating conversation:', convError);
+    }
   }
 
-  // A customer writing again re-opens the thread (issue #409). Kept as a
-  // separate conditional statement rather than a `status` field on the
-  // update above so the write can be gated on the row's CURRENT status in
-  // SQL — see the helper for why that matters.
-  await reopenClosedConversation(supabaseAdmin(), conversation);
+  // Nobody owns this thread yet, and the account asked for it to be handed
+  // out — see `auto-assign`. Runs before the flow/automation dispatch below
+  // so an automation that notifies "the assigned agent" has somebody to
+  // notify. Never touches a thread that already has an owner, and never
+  // throws: a missed assignment is a much smaller problem than a redelivered
+  // webhook running everything twice.
+  const autoAssigned = await autoAssignConversation(supabaseAdmin(), {
+    accountId,
+    conversationId: conversation.id,
+    currentAssignee: conversation.assigned_agent_id,
+  });
+
+  // Tell somebody a customer wrote.
+  //
+  // AFTER the assignment, and reading its result rather than the snapshot
+  // we loaded at the top: when the rotation has just handed this thread to
+  // somebody, they are the one person who needs telling, and announcing it
+  // to the whole team a millisecond after giving it an owner is the noisiest
+  // possible order to do these two things in.
+  //
+  // Here rather than in a database trigger, which is where this started:
+  // `AFTER INSERT ON messages` fires for every row that table receives,
+  // including a broadcast's thousands of outbound ones, and on the inbound
+  // path it fanned out one INSERT per team member INSIDE the transaction of
+  // the message insert itself. A notification is the least important thing
+  // in this request and it was in front of everything else. See
+  // `@/lib/notifications/new-message`.
+  //
+  // This whole function already runs in the route's `after()` block, so
+  // nothing here is on Meta's clock. Best-effort and never throws.
+  await notifyNewInboundMessage(supabaseAdmin(), {
+    accountId,
+    conversationId: conversation.id,
+    contactId: contactRecord.id,
+    assignedAgentId: autoAssigned.assignedTo ?? conversation.assigned_agent_id,
+    contactName: contactRecord.name,
+    text: contentText,
+  });
+
+  // The customer wrote, so they are waiting on us: the thread moves to
+  // Esperando whatever it was before — Entrada, Finalizados, or hidden.
+  // That is what the tab means (see the helper), and an agent replying is
+  // what takes it back out. Kept as a separate statement rather than fields
+  // on the RPC above because the decision depends on the row's current
+  // status and the RPC is a plain increment.
+  await markWaitingOnInbound(supabaseAdmin(), conversation);
 
   // If this contact was a recent broadcast recipient, flag the reply
   // so the broadcast's `replied_count` advances (via the aggregate
@@ -1194,12 +1260,41 @@ async function findOrCreateContact(
   );
 
   if (existingContact) {
-    // Update name if it changed
-    if (name && name !== existingContact.name) {
-      await supabaseAdmin()
+    // Refresh the name from the WhatsApp profile — but only when the
+    // webhook is the one that put it there.
+    //
+    // This used to overwrite unconditionally, and it is why renaming a
+    // contact appeared to work and then silently reverted: the "few
+    // minutes" in the bug report was however long it took the customer to
+    // write again. The overwrite is still worth doing for the contacts
+    // nobody has edited — it is what turns a bare phone number into a name
+    // and keeps it current — so the rule is provenance, not a freeze.
+    //
+    // `?? 'whatsapp'` covers the window before migration 045 is applied:
+    // no column, no claim of manual authorship, old behaviour.
+    const namedByHand =
+      (existingContact.name_source ?? 'whatsapp') === 'manual';
+    if (name && name !== existingContact.name && !namedByHand) {
+      const { error } = await supabaseAdmin()
         .from('contacts')
         .update({ name, updated_at: new Date().toISOString() })
-        .eq('id', existingContact.id);
+        .eq('id', existingContact.id)
+        // Re-checked in SQL as well as in the branch above: the row was read
+        // a moment ago, and an agent renaming the contact in that gap is
+        // exactly the case this whole change exists to protect.
+        .neq('name_source', 'manual');
+
+      // Pre-045 the filter itself is the unknown column. Fall back to the
+      // old unconditional write rather than dropping the refresh — before
+      // the migration there is no manual name to protect anyway.
+      if (error && isUnknownColumn(error)) {
+        await supabaseAdmin()
+          .from('contacts')
+          .update({ name, updated_at: new Date().toISOString() })
+          .eq('id', existingContact.id);
+      } else if (error) {
+        console.error('Error refreshing contact name:', error);
+      }
     }
     return { contact: existingContact, wasCreated: false };
   }

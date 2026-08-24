@@ -39,11 +39,18 @@ const CONTACT_TYPE_SET = new Set<string>(CONTACT_TYPE_NAMES.map(norm));
 const PRIMARY_TYPES = new Set([norm('Lead'), norm('Cliente')]);
 
 /**
- * The one automatic tag section 16 allows - "não usar uma etiqueta para cada
- * problema", but a single flag saying a problem EXISTS is exactly what the
- * row indicator needs. Until `contact_occurrences` lands this is the whole
- * source of truth for that warning; after it, it becomes the tag the
- * occurrence trigger writes rather than the fact itself.
+ * The tag this warning used to be read from, kept only as a fallback.
+ *
+ * The plan was that `Possui Ocorrência` would be the one automatic tag
+ * section 16 allows, standing in until `contact_occurrences` landed. What
+ * actually happened is that the table landed, the dialog wrote rows into it,
+ * and NOTHING ever wrote the tag — so registering an occurrence produced no
+ * triangle, no sidebar warning and no filter match. Two sources of truth,
+ * one of them never written.
+ *
+ * `occurrence_count` (migration 042, maintained by trigger) is the source of
+ * truth now. The tag survives here for accounts that applied it by hand
+ * before the table existed, and for nothing else — do not write it.
  */
 export const OCCURRENCE_TAG_NAME = 'Possui Ocorrência';
 
@@ -57,9 +64,29 @@ export function typeTagOf(
   return null;
 }
 
-/** Whether this contact carries the occurrence flag. */
+/** Whether this contact has ever had a problem on record. */
 export function hasOccurrence(c: Conversation): boolean {
-  return (c.contact?.tags ?? []).some(
+  return contactHasOccurrence(c.contact);
+}
+
+/**
+ * The same question, asked of a contact rather than a conversation — the
+ * sidebar and the contacts table have one but not the other.
+ *
+ * Counter first, tag second. The counter is written by a trigger on every
+ * insert, so it cannot drift; the tag is only ever right by coincidence.
+ * Reading both means an account that pre-dates migration 042 keeps its
+ * warning, and every account gets the warning the moment an occurrence is
+ * actually registered.
+ */
+export function contactHasOccurrence(
+  contact:
+    | { occurrence_count?: number; tags?: Array<{ name: string }> }
+    | null
+    | undefined
+): boolean {
+  if ((contact?.occurrence_count ?? 0) > 0) return true;
+  return (contact?.tags ?? []).some(
     (t) => norm(t.name) === norm(OCCURRENCE_TAG_NAME)
   );
 }
@@ -67,26 +94,67 @@ export function hasOccurrence(c: Conversation): boolean {
 /**
  * The inbox's two-level filter model.
  *
- * Level one is the SCOPE, and it is the only split that stays on screen:
- * conversations somebody owns, versus conversations sitting in the queue with
- * nobody on them. In a shared mailbox that is the difference between "my work"
- * and "work nobody has claimed", and it is the only distinction that changes
- * what you do next. Everything else is level two — behind the Filter menu,
- * invisible until asked for.
+ * Level one is the SCOPE, and it is the only split that stays on screen. It
+ * is the conversation's STATE — where the thread itself stands — because
+ * that is the axis that changes what you do next: answer it, wait on it, or
+ * leave it alone.
  *
- * The two combine with AND, never OR. "Esperando" + "Não lidas" means the ones
- * nobody picked up AND nobody read, which is a real question someone asks; the
- * union of those two sets is not.
+ * IT USED TO BE OWNERSHIP, and that was the bug. `entrada` was
+ * `!!assigned_agent_id` and `esperando` was its negation, so the tab called
+ * Esperando meant "nobody claimed this". Meanwhile the thread header offered
+ * a status called `pending` which `pt-BR.json` also translates to
+ * "Esperando". Two controls, one word, no relationship between them.
+ *
+ * And ESPERANDO MEANS THE CUSTOMER IS WAITING — not that a thread is
+ * unclaimed, and not that an agent parked it. A message from them puts it
+ * there; a reply from us takes it out. See `@/lib/conversations/reopen`,
+ * which owns that rule and records how it was misread once.
+ *
+ * So the scope reads `status`, the field both controls were already writing,
+ * and ownership drops to where it belongs — a filter in the menu, one line
+ * down. In a shared mailbox "who has this" is a real question; it is just
+ * not the same question as "is this thread finished".
+ *
+ * Scope and filter combine with AND, never OR. "Esperando" + "Sem
+ * responsável" means parked AND unclaimed, which is a real thing to ask for;
+ * the union of those two sets is not.
  */
 
 export type Scope = 'entrada' | 'esperando';
 
 export const SCOPES: Record<Scope, (c: Conversation) => boolean> = {
-  /** Somebody owns it — it is being handled. */
-  entrada: (c) => !!c.assigned_agent_id,
-  /** In the shared queue, unclaimed. This is the amber one. */
-  esperando: (c) => !c.assigned_agent_id,
+  /** Answered. Somebody has replied and is carrying the conversation. */
+  entrada: (c) => c.status === 'open',
+  /**
+   * The customer is waiting for us. Set automatically the moment they
+   * write, cleared the moment an agent replies — see
+   * `@/lib/conversations/reopen`. This is the amber one, and it is the only
+   * tab where time passing is itself the problem.
+   */
+  esperando: (c) => c.status === 'pending',
 };
+
+/**
+ * TWO TABS, NOT THREE.
+ *
+ * A `finalizados` scope was here briefly and has been removed: nobody asked
+ * for it, and it was the wrong shape anyway. The bar answers "what needs me
+ * now" — a finished conversation is by definition not that, so it was a
+ * permanent third of the width spent on the one state that never needs
+ * looking at. Encerradas is a FILTER, which is where it was before and where
+ * it is again.
+ */
+
+/**
+ * Hidden conversations are not in any scope.
+ *
+ * Filtered before the scopes rather than inside each one, so "hidden" cannot
+ * accidentally mean three different things in three tabs, and so the tab
+ * counts agree with the rows underneath them.
+ */
+export function isVisible(c: Conversation): boolean {
+  return !c.hidden_at;
+}
 
 export interface FilterOption {
   id: string;
@@ -94,6 +162,14 @@ export interface FilterOption {
   group: string;
   label: string;
   match: (c: Conversation) => boolean;
+  /**
+   * This option REPLACES the current tab instead of narrowing it.
+   *
+   * Encerradas and Ocultas are the only two, and they have to be marked
+   * because their counts cannot be measured the way every other option's
+   * is. See `withCounts`.
+   */
+  replacesScope?: boolean;
 }
 
 /**
@@ -132,11 +208,12 @@ export function buildFilterOptions(
     groupPipeline: string;
     groupStage: string;
     mine: string;
+    unassigned: string;
     unread: string;
     withAutomation: string;
     withOccurrence: string;
-    open: string;
     closed: string;
+    hidden: string;
     typeLead: string;
     typeCustomer: string;
     typeInternal: string;
@@ -154,24 +231,24 @@ export function buildFilterOptions(
     });
   }
 
+  // The other half of the ownership question, and the reason it can leave
+  // the tab bar without being lost: "nobody has this" is still one click
+  // away, inside whichever state you are looking at. It is a better filter
+  // than it was a tab — as a tab it could only ever mean "unclaimed across
+  // everything", and unclaimed-and-finished is not work.
+  options.push({
+    id: 'unassigned',
+    group: labels.groupOwner,
+    label: labels.unassigned,
+    match: (c) => !c.assigned_agent_id,
+  });
+
   options.push(
     {
       id: 'unread',
       group: labels.groupState,
       label: labels.unread,
       match: (c) => c.unread_count > 0,
-    },
-    {
-      id: 'open',
-      group: labels.groupState,
-      label: labels.open,
-      match: (c) => c.status === 'open',
-    },
-    {
-      id: 'closed',
-      group: labels.groupState,
-      label: labels.closed,
-      match: (c) => c.status === 'closed',
     },
     {
       id: 'ai',
@@ -189,6 +266,30 @@ export function buildFilterOptions(
       // prototype puts it too: "has a problem on record" is a state of the
       // relationship, not a kind of contact.
       match: hasOccurrence,
+    }
+  );
+
+  // The two options that reach OUTSIDE the current tab rather than narrowing
+  // it. Everything above answers "of the conversations in front of me,
+  // which"; these two answer "and what about the ones that are not".
+  //
+  // Encerradas is here rather than in the tab bar — see the note on SCOPES.
+  // Ocultas is what makes hiding safe to offer at all: a row you cannot get
+  // back is a row nobody dares put away.
+  options.push(
+    {
+      id: 'closed',
+      group: labels.groupState,
+      label: labels.closed,
+      match: (c) => c.status === 'closed',
+      replacesScope: true,
+    },
+    {
+      id: 'hidden',
+      group: labels.groupState,
+      label: labels.hidden,
+      match: (c) => !!c.hidden_at,
+      replacesScope: true,
     }
   );
 
@@ -264,12 +365,32 @@ export function buildFilterOptions(
  */
 export function withCounts(
   options: FilterOption[],
-  inScope: Conversation[]
+  inScope: Conversation[],
+  /**
+   * Everything the search matched, before the tab narrowed it.
+   *
+   * THE TWO SCOPE-REPLACING OPTIONS CANNOT BE COUNTED AGAINST `inScope`,
+   * and counting them there was a bug that made both unclickable.
+   *
+   * Encerradas matches `status === 'closed'` and Ocultas matches
+   * `hidden_at`; `inScope` is the current tab, which by construction holds
+   * neither. So both counted zero in every tab, forever — and the menu
+   * disables a zero-count row. The dependency was circular: reaching the
+   * filter needed a count, and the count needed the filter.
+   *
+   * That took a finished conversation out of the inbox entirely once the
+   * Finalizados TAB was removed, and it made "Ocultar" a one-way door,
+   * contradicting the promise the hide action is sold on.
+   */
+  outsideScope: Conversation[] = inScope
 ): Array<FilterOption & { count: number }> {
-  return options.map((option) => ({
-    ...option,
-    count: inScope.reduce((n, c) => (option.match(c) ? n + 1 : n), 0),
-  }));
+  return options.map((option) => {
+    const against = option.replacesScope ? outsideScope : inScope;
+    return {
+      ...option,
+      count: against.reduce((n, c) => (option.match(c) ? n + 1 : n), 0),
+    };
+  });
 }
 
 /** Group options for rendering, preserving the order they were built in. */

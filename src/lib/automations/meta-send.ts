@@ -16,6 +16,7 @@ import {
   templateContentText,
 } from '@/lib/whatsapp/template-body'
 import { supabaseAdmin } from './admin-client'
+import { writeLastMessage } from '@/lib/conversations/last-message'
 
 /** Why a scheduled send_template after a wait still must not go out. */
 export const CONTACT_OPTED_OUT = 'contact opted out'
@@ -251,17 +252,13 @@ async function sendViaMeta(input: SendInput): Promise<{ whatsapp_message_id: str
     throw new Error(`sent to Meta but DB insert failed: ${msgErr.message}`)
   }
 
-  await db
-    .from('conversations')
-    .update({
-      last_message_text:
-        input.kind === 'template'
-          ? (content_text ?? `[template:${input.templateName}]`)
-          : input.text,
-      last_message_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', input.conversationId)
+  await writeLastMessage(db, input.conversationId, {
+    text:
+      input.kind === 'template'
+        ? (content_text ?? `[template:${input.templateName}]`)
+        : input.text,
+    kind: content_type,
+  })
 
   return { whatsapp_message_id: waMessageId }
 }

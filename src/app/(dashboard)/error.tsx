@@ -68,6 +68,16 @@ export default function DashboardError({
 
   return (
     <StatePanel
+      // `min-h` + the panel's own centring, so the message sits in the
+      // middle of the space rather than pinned under the top edge with the
+      // rest of the page empty below it. `StatePanel` already centres on
+      // both axes — it just had no height to centre inside, the same thing
+      // that was wrong beside the agenda calendar.
+      //
+      // 60vh and not `h-full`: this boundary renders inside route bodies of
+      // different heights, and a percentage of a parent that has not
+      // committed to one resolves to auto.
+      className="min-h-vh-60"
       size="md"
       icon={AlertTriangle}
       title={t('errorTitle')}

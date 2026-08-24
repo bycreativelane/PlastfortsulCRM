@@ -298,7 +298,13 @@ function SignupPageInner() {
             <Button
               type="submit"
               disabled={loading}
-              className="h-10 w-full disabled:opacity-50"
+              // `flex-1 min-w-0`, NOT `w-full`. Every Button in this app
+              // carries `shrink-0` in its base class (ui/button.tsx), so
+              // `w-full` in a flex row asks for 100% of the row AND refuses
+              // to give any of it back — the pair then overflowed by exactly
+              // the width of the back button plus the gap, which is the
+              // shifted, clipped button in the report.
+              className="h-10 min-w-0 flex-1 disabled:opacity-50"
             >
               {loading ? t('creating') : t('submit')}
             </Button>

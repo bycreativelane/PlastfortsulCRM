@@ -113,6 +113,137 @@ BEGIN
     RAISE EXCEPTION 'quick_replies.shortcut is missing — migration 044 did not apply';
   END IF;
 
+  -- 045: inbox state (waiting clock, hiding) and contact name provenance.
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+     WHERE table_schema = 'public'
+       AND table_name = 'contacts'
+       AND column_name = 'name_source'
+  ) THEN
+    RAISE EXCEPTION 'contacts.name_source is missing — migration 045 did not apply';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+     WHERE table_schema = 'public'
+       AND table_name = 'conversations'
+       AND column_name = 'hidden_at'
+  ) THEN
+    RAISE EXCEPTION 'conversations.hidden_at is missing — migration 045 did not apply';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+     WHERE table_schema = 'public'
+       AND table_name = 'accounts'
+       AND column_name = 'auto_assign_mode'
+  ) THEN
+    RAISE EXCEPTION 'accounts.auto_assign_mode is missing — migration 045 did not apply';
+  END IF;
+
+  -- Deleting a conversation cascades to every message in it, so 045
+  -- narrows the policy from 'agent' to 'admin'. Asserted because the
+  -- interface hiding the menu item is a courtesy and this is the guard.
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+     WHERE schemaname = 'public'
+       AND tablename = 'conversations'
+       AND policyname = 'conversations_delete'
+       AND qual LIKE '%admin%'
+  ) THEN
+    RAISE EXCEPTION 'conversations_delete is not admin-scoped — migration 045 did not apply';
+  END IF;
+
+  -- 046: the team's own room, and notifications for an inbound message.
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.tables
+     WHERE table_schema = 'public' AND table_name = 'team_messages'
+  ) THEN
+    RAISE EXCEPTION 'team_messages is missing — migration 046 did not apply';
+  END IF;
+
+  -- The CHECK is the assertion worth making: 027 allowed exactly one type,
+  -- so a trigger writing 'new_message' against the old constraint fails
+  -- silently into the trigger's own EXCEPTION handler and nobody is told.
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+     WHERE conname = 'notifications_type_check'
+       AND pg_get_constraintdef(oid) LIKE '%new_message%'
+  ) THEN
+    RAISE EXCEPTION 'notifications does not accept new_message — migration 046 did not apply';
+  END IF;
+
+  -- The trigger version of this must be GONE: it fired on every row of every
+  -- broadcast, and it fanned out inside the inbound insert's transaction.
+  -- The app writes these rows now. See the note in 046.
+  IF EXISTS (
+    SELECT 1 FROM pg_trigger WHERE tgname = 'on_new_inbound_message'
+  ) THEN
+    RAISE EXCEPTION 'on_new_inbound_message still exists — re-apply migration 046';
+  END IF;
+
+  -- 047: the conversation row knows what the last message WAS.
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+     WHERE table_schema = 'public'
+       AND table_name = 'conversations'
+       AND column_name = 'last_message_kind'
+  ) THEN
+    RAISE EXCEPTION 'conversations.last_message_kind is missing — migration 047 did not apply';
+  END IF;
+
+  -- The RPC has to carry the four-argument signature, not the old two. A
+  -- leftover 2-arg version makes the webhook's call ambiguous rather than
+  -- merely stale, so this asserts the shape and not just the columns.
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_proc p
+      JOIN pg_namespace n ON n.oid = p.pronamespace
+     WHERE n.nspname = 'public'
+       AND p.proname = 'bump_conversation_on_inbound'
+       AND p.pronargs = 4
+  ) THEN
+    RAISE EXCEPTION 'bump_conversation_on_inbound is not the 4-argument version — migration 047 did not apply';
+  END IF;
+
+  -- The GRANT is the half of 047 that was missing when it was written, and
+  -- it is invisible from the outside: the columns land, the function has the
+  -- right shape, and every inbound message silently loses its unread bump
+  -- because the webhook cannot execute it. `DROP FUNCTION` takes the ACL
+  -- with it and `REVOKE ... FROM PUBLIC` removes the default, so this has to
+  -- be asserted rather than assumed.
+  IF NOT has_function_privilege(
+       'service_role',
+       'public.bump_conversation_on_inbound(uuid, text, text, text)',
+       'EXECUTE'
+     ) THEN
+    RAISE EXCEPTION 'service_role cannot execute bump_conversation_on_inbound — migration 047 is missing its GRANT';
+  END IF;
+
+  -- 048: the room's write policies are scoped by ACCOUNT, not just by
+  -- author. 046 checked authorship alone, and `account_id` is a writable
+  -- column — so an author could PATCH their own message into another
+  -- account's room, where realtime delivered it live.
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+     WHERE schemaname = 'public'
+       AND tablename = 'team_messages'
+       AND policyname = 'team_messages_update'
+       AND qual LIKE '%is_account_member%'
+       AND with_check LIKE '%is_account_member%'
+  ) THEN
+    RAISE EXCEPTION 'team_messages_update is not account-scoped — migration 048 did not apply';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+     WHERE schemaname = 'public'
+       AND tablename = 'team_messages'
+       AND policyname = 'team_messages_delete'
+       AND qual LIKE '%is_account_member%'
+  ) THEN
+    RAISE EXCEPTION 'team_messages_delete is not account-scoped — migration 048 did not apply';
+  END IF;
+
   RAISE NOTICE 'schema verification passed';
 END
 $$;

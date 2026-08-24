@@ -13,7 +13,7 @@ import {
 
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
-import { CURRENCIES } from '@/lib/currency';
+import { CURRENCIES, currencyName } from '@/lib/currency';
 import { Button } from '@/components/ui/button';
 import { FieldLabel } from '@/components/ui/field';
 import { useTranslations } from 'next-intl';
@@ -94,7 +94,7 @@ export function DealsSettings() {
             >
               {CURRENCIES.map((c) => (
                 <option key={c.code} value={c.code}>
-                  {c.code} — {c.label}
+                  {c.code} — {currencyName(c)}
                 </option>
               ))}
             </OptionSelect>

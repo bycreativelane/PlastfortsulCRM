@@ -6,12 +6,10 @@ import { Menu, Search } from 'lucide-react';
 import { ModeToggle } from '@/components/layout/mode-toggle';
 import { GlobalSearch } from '@/components/layout/global-search';
 import { NotificationsMenu } from '@/components/layout/notifications-menu';
+import { CalendarStrip } from '@/components/layout/calendar-strip';
+import { OnlineMembers } from '@/components/layout/online-members';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 
 /**
  * The top bar carries what belongs to the APP: search, notifications,
@@ -90,7 +88,7 @@ export function Header({ onOpenSidebar }: HeaderProps) {
   // interface disagreeing about where the left edge of the app is.
   return (
     <header className="border-border bg-card flex h-14 shrink-0 items-center gap-3 border-b px-4 sm:px-6 lg:px-8">
-      <div className="flex min-w-0 flex-1 items-center gap-2">
+      <div className="flex min-w-0 flex-1 basis-0 items-center gap-2">
         {/* Hamburger — mobile only. 44×44, which is what the comment
             here always claimed and what `size-10` (40px) never was.
             It is the ONLY way back to the navigation on a phone — on
@@ -115,12 +113,31 @@ export function Header({ onOpenSidebar }: HeaderProps) {
             {t(titleKey)}
           </p>
         ) : null}
-        <div className="hidden min-w-0 flex-1 lg:block">
+        {/* Who else is here, at the left edge — the first thing the bar
+            says, before what you can look for. "Am I alone in here" is a
+            question a shared inbox makes people ask several times a day:
+            it decides whether you park a thread for a colleague or just
+            answer it yourself.
+
+            NOT ON `/inbox` at any width, and that is a decision rather
+            than an oversight: `dashboard-shell.tsx` wraps this header in
+            `lg:hidden` on that route so the thread keeps its 56px, and
+            this control has one home rather than a copy per surface. */}
+        <OnlineMembers className="hidden shrink-0 lg:inline-flex" />
+        <div className="hidden min-w-0 flex-1 items-center lg:flex">
           <GlobalSearch />
         </div>
       </div>
 
-      <div className="flex items-center gap-1 sm:gap-2">
+      {/* The week, in the middle of the bar.
+          Centred by construction, not by eye: the zones on either side are
+          `flex-1 basis-0`, so they claim equal width whatever they hold and
+          this one lands on the bar's centre line. Below `xl` it stands
+          down — at 1024px the seven cells would start squeezing the search
+          field, and finding a customer beats reading a date. */}
+      <CalendarStrip className="hidden shrink-0 xl:flex" />
+
+      <div className="flex min-w-0 flex-1 basis-0 items-center justify-end gap-1 sm:gap-2">
         {/* Search, on the devices that had none.
             `GlobalSearch` has exactly one call site and it sits behind
             `hidden lg:block`, so below 1024px — every phone, and an

@@ -2,11 +2,14 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { setConversationStatus } from '@/lib/conversations/actions';
+import { ConversationMenu } from './conversation-menu';
 import { useAuth } from '@/hooks/use-auth';
 import { usePresence } from '@/hooks/use-presence';
 import { PresenceDot } from '@/components/presence/presence-dot';
 import { presenceLabel } from '@/lib/presence';
 import { cn } from '@/lib/utils';
+import { formatPhone } from '@/lib/whatsapp/phone-format';
 import { avatarClass, avatarInitials } from '@/lib/avatar-color';
 import {
   DealOutcomeDialogs,
@@ -33,6 +36,7 @@ import {
   Info,
   Phone,
   RefreshCw,
+  MoreVertical,
 } from 'lucide-react';
 import { format, isToday, isYesterday } from 'date-fns';
 import { useTranslations } from 'next-intl';
@@ -83,7 +87,21 @@ interface MessageThreadProps {
   onMessagesLoaded: (messages: Message[]) => void;
   onNewMessage: (message: Message) => void;
   onUpdateMessage: (id: string, updates: Partial<Message>) => void;
-  onStatusChange: (conversationId: string, status: ConversationStatus) => void;
+  onStatusChange: (
+    conversationId: string,
+    patch: Partial<Conversation>
+  ) => void;
+  /**
+   * Apply a conversation write's patch to the page's state. Optional so the
+   * thread still renders in harnesses and tests that do not wire the inbox
+   * page's store; without them the phone overflow menu simply does not
+   * render its conversation actions.
+   */
+  onConversationPatch?: (
+    conversationId: string,
+    patch: Partial<Conversation>
+  ) => void;
+  onConversationRemoved?: (conversationId: string) => void;
   onAssignChange: (
     conversationId: string,
     assignedAgentId: string | null
@@ -198,6 +216,8 @@ export function MessageThread({
   onUpdateMessage,
   onStatusChange,
   onAssignChange,
+  onConversationPatch,
+  onConversationRemoved,
   onBack,
   resyncToken = 0,
   onRefresh,
@@ -207,6 +227,7 @@ export function MessageThread({
   const t = useTranslations('Inbox.messageThread');
   const tTimer = useTranslations('Inbox.sessionTimer');
   const tQuote = useTranslations('Inbox.replyQuote');
+  const tPresence = useTranslations('Presence');
 
   const { user, defaultCurrency } = useAuth();
   const { getPresence, getRow, now } = usePresence();
@@ -555,7 +576,7 @@ export function MessageThread({
         if (!res.ok) {
           const reason = payload?.error || `HTTP ${res.status}`;
           console.error('Failed to send message:', reason);
-          toast.error(`Failed to send: ${reason}`);
+          toast.error(t('toastSendFailed', { reason }));
           // Mark the optimistic bubble as failed so the user sees what happened
           onUpdateMessage(tempId, { status: 'failed' });
           return;
@@ -567,12 +588,12 @@ export function MessageThread({
         onUpdateMessage(tempId, { status: 'sent' });
       } catch (err) {
         console.error('Failed to send message:', err);
-        const reason = err instanceof Error ? err.message : 'network error';
-        toast.error(`Failed to send: ${reason}`);
+        const reason = err instanceof Error ? err.message : t('networkError');
+        toast.error(t('toastSendFailed', { reason }));
         onUpdateMessage(tempId, { status: 'failed' });
       }
     },
-    [conversation, onNewMessage, onUpdateMessage]
+    [conversation, onNewMessage, onUpdateMessage, t]
   );
 
   // Best-effort GC of an object no message ended up owning. A null path is
@@ -628,7 +649,7 @@ export function MessageThread({
         if (!res.ok) {
           const reason = data?.error || `HTTP ${res.status}`;
           console.error('Failed to send media:', reason);
-          toast.error(`Failed to send: ${reason}`);
+          toast.error(t('toastSendFailed', { reason }));
           onUpdateMessage(tempId, { status: 'failed' });
           // The upload never reached the recipient — GC the orphaned
           // object rather than leaving it in the public bucket forever.
@@ -644,13 +665,13 @@ export function MessageThread({
         onUpdateMessage(tempId, { status: 'sent' });
       } catch (err) {
         console.error('Failed to send media:', err);
-        const reason = err instanceof Error ? err.message : 'network error';
-        toast.error(`Failed to send: ${reason}`);
+        const reason = err instanceof Error ? err.message : t('networkError');
+        toast.error(t('toastSendFailed', { reason }));
         onUpdateMessage(tempId, { status: 'failed' });
         discardOrphan(payload.path);
       }
     },
-    [conversation, onNewMessage, onUpdateMessage, discardOrphan]
+    [conversation, onNewMessage, onUpdateMessage, discardOrphan, t]
   );
 
   const handleSendInteractive = useCallback(
@@ -690,7 +711,7 @@ export function MessageThread({
         if (!res.ok) {
           const reason = data?.error || `HTTP ${res.status}`;
           console.error('Failed to send interactive message:', reason);
-          toast.error(`Failed to send: ${reason}`);
+          toast.error(t('toastSendFailed', { reason }));
           onUpdateMessage(tempId, { status: 'failed' });
           return;
         }
@@ -698,27 +719,43 @@ export function MessageThread({
         onUpdateMessage(tempId, { status: 'sent' });
       } catch (err) {
         console.error('Failed to send interactive message:', err);
-        const reason = err instanceof Error ? err.message : 'network error';
-        toast.error(`Failed to send: ${reason}`);
+        const reason = err instanceof Error ? err.message : t('networkError');
+        toast.error(t('toastSendFailed', { reason }));
         onUpdateMessage(tempId, { status: 'failed' });
       }
     },
-    [conversation, onNewMessage, onUpdateMessage]
+    [conversation, onNewMessage, onUpdateMessage, t]
   );
 
   const handleStatusChange = useCallback(
     async (status: ConversationStatus) => {
       if (!conversation) return;
 
-      const supabase = createClient();
-      await supabase
-        .from('conversations')
-        .update({ status })
-        .eq('id', conversation.id);
+      // Through the shared writer rather than an inline update, so parking a
+      // thread from here starts the same clock the row menu starts. The two
+      // controls used to write different things — this one wrote `status`
+      // and nothing else — which is exactly how "Esperando" ended up meaning
+      // two unrelated things in two places.
+      const { error, patch } = await setConversationStatus(
+        createClient(),
+        conversation.id,
+        status,
+        conversation.status
+      );
+      if (error) {
+        toast.error(t('statusFailed'));
+        return;
+      }
 
-      onStatusChange(conversation.id, status);
+      // The whole patch, not just the status. Parking from here also writes
+      // `waiting_since`, and forwarding only the status left the list
+      // sorting the row by whatever timestamp it happened to be carrying —
+      // usually an old one, sometimes none — until a realtime event
+      // arrived to correct it. The Esperando tab sorts on exactly that
+      // column, so the row landed in the wrong place and then jumped.
+      onStatusChange(conversation.id, patch);
     },
-    [conversation, onStatusChange]
+    [conversation, onStatusChange, t]
   );
 
   const handleOpenTemplates = useCallback(() => {
@@ -779,7 +816,7 @@ export function MessageThread({
         if (!res.ok) {
           const reason = payload?.error || `HTTP ${res.status}`;
           console.error('Failed to send template:', reason);
-          toast.error(`Failed to send template: ${reason}`);
+          toast.error(t('toastTemplateSendFailed', { reason }));
           onUpdateMessage(tempId, { status: 'failed' });
           return;
         }
@@ -787,12 +824,12 @@ export function MessageThread({
         onUpdateMessage(tempId, { status: 'sent' });
       } catch (err) {
         console.error('Failed to send template:', err);
-        const reason = err instanceof Error ? err.message : 'network error';
-        toast.error(`Failed to send template: ${reason}`);
+        const reason = err instanceof Error ? err.message : t('networkError');
+        toast.error(t('toastTemplateSendFailed', { reason }));
         onUpdateMessage(tempId, { status: 'failed' });
       }
     },
-    [conversation, onNewMessage, onUpdateMessage]
+    [conversation, onNewMessage, onUpdateMessage, t]
   );
 
   // Build a quick id → Message map so reply quotes can be rendered without
@@ -897,12 +934,12 @@ export function MessageThread({
           throw new Error(payload?.error || `HTTP ${res.status}`);
         }
       } catch (err) {
-        const reason = err instanceof Error ? err.message : 'network error';
-        toast.error(`Reaction failed: ${reason}`);
+        const reason = err instanceof Error ? err.message : t('networkError');
+        toast.error(t('toastReactionFailed', { reason }));
         setReactions(snapshot);
       }
     },
-    [conversation, user?.id]
+    [conversation, user?.id, t]
   );
 
   /* ---- Moving the deal ------------------------------------------------
@@ -1188,7 +1225,7 @@ export function MessageThread({
               )
             ) : (
               <p className="text-muted-foreground truncate text-xs">
-                {contact.phone}
+                {formatPhone(contact.phone)}
               </p>
             )}
           </div>
@@ -1224,7 +1261,12 @@ export function MessageThread({
               // 44px of target, and not one pixel of extra header width —
               // which this header cannot spare at 360px.
               data-slot="button"
-              className="text-muted-foreground hover:bg-muted hover:text-foreground inline-flex size-7 shrink-0 items-center justify-center rounded-md transition-colors duration-(--dur-1) xl:hidden"
+              // `hidden sm:inline-flex` is the phone half of the fix for
+              // "quebra fora da janela": back + avatar + name + info + call
+              // + refresh + status + owner is ~330px of controls that all
+              // refuse to shrink, against a 390px viewport. Everything
+              // secondary moves into the `⋯` menu below `sm`.
+              className="text-muted-foreground hover:bg-muted hover:text-foreground hidden size-7 shrink-0 items-center justify-center rounded-md transition-colors duration-(--dur-1) sm:inline-flex xl:hidden"
             >
               <Info className="size-4" />
             </button>
@@ -1243,7 +1285,7 @@ export function MessageThread({
               aria-label={t('logCall')}
               title={t('logCall')}
               data-slot="button"
-              className="text-muted-foreground hover:bg-muted hover:text-foreground inline-flex size-7 shrink-0 items-center justify-center rounded-md transition-colors duration-(--dur-1)"
+              className="text-muted-foreground hover:bg-muted hover:text-foreground hidden size-7 shrink-0 items-center justify-center rounded-md transition-colors duration-(--dur-1) sm:inline-flex"
             >
               <Phone className="size-4" />
             </button>
@@ -1262,7 +1304,7 @@ export function MessageThread({
               aria-label={t('refreshConversation')}
               title={t('refresh')}
               data-slot="button"
-              className="text-muted-foreground hover:bg-muted hover:text-foreground inline-flex size-7 shrink-0 items-center justify-center rounded-md transition-colors duration-(--dur-1) disabled:opacity-60"
+              className="text-muted-foreground hover:bg-muted hover:text-foreground hidden size-7 shrink-0 items-center justify-center rounded-md transition-colors duration-(--dur-1) disabled:opacity-60 sm:inline-flex"
             >
               <RefreshCw
                 className={cn('h-3.5 w-3.5', isRefreshing && 'animate-spin')}
@@ -1277,7 +1319,7 @@ export function MessageThread({
               // 44px tappable, header width unchanged.
               data-slot="button"
               className={cn(
-                'hover:bg-muted inline-flex h-7 shrink-0 items-center justify-center gap-1 rounded-md px-2 text-xs whitespace-nowrap transition-colors duration-(--dur-1)',
+                'hover:bg-muted hidden h-7 shrink-0 items-center justify-center gap-1 rounded-md px-2 text-xs whitespace-nowrap transition-colors duration-(--dur-1) sm:inline-flex',
                 currentStatus?.color ?? 'text-muted-foreground'
               )}
             >
@@ -1333,7 +1375,8 @@ export function MessageThread({
                         label={presenceLabel(
                           presence,
                           getRow(p.user_id)?.last_seen_at ?? null,
-                          now
+                          now,
+                          tPresence
                         )}
                         className="mr-2"
                       />
@@ -1377,6 +1420,56 @@ export function MessageThread({
               )}
             </DropdownMenuContent>
           </DropdownMenu>
+
+          {/* The overflow, phone only.
+              Everything the header just stopped drawing lives in here,
+              plus the conversation actions the list rows already have —
+              so parking a thread, hiding it or marking it unread is
+              reachable from inside the conversation too, which is where
+              somebody actually decides those things. */}
+          {conversation && onConversationPatch && onConversationRemoved && (
+            <ConversationMenu
+              conversation={conversation}
+              onPatch={onConversationPatch}
+              onRemoved={onConversationRemoved}
+              variant="dropdown"
+              leadingItems={
+                <>
+                  {onOpenContactSheet && (
+                    <DropdownMenuItem onClick={onOpenContactSheet}>
+                      <Info className="mr-2 size-4" />
+                      {t('contactDetails')}
+                    </DropdownMenuItem>
+                  )}
+                  {onLogCall && (
+                    <DropdownMenuItem onClick={onLogCall}>
+                      <Phone className="mr-2 size-4" />
+                      {t('logCall')}
+                    </DropdownMenuItem>
+                  )}
+                  {onRefresh && (
+                    <DropdownMenuItem
+                      disabled={isRefreshing}
+                      onClick={handleRefreshClick}
+                    >
+                      <RefreshCw className="mr-2 size-4" />
+                      {t('refresh')}
+                    </DropdownMenuItem>
+                  )}
+                </>
+              }
+            >
+              <button
+                type="button"
+                aria-label={t('moreActions')}
+                title={t('moreActions')}
+                data-slot="button"
+                className="text-muted-foreground hover:bg-muted hover:text-foreground inline-flex size-7 shrink-0 items-center justify-center rounded-md transition-colors duration-(--dur-1) sm:hidden"
+              >
+                <MoreVertical className="size-4" />
+              </button>
+            </ConversationMenu>
+          )}
         </div>
       </div>
 

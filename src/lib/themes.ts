@@ -79,7 +79,15 @@ export function isMode(value: unknown): value is Mode {
 export interface ThemeMeta {
   id: ThemeId;
   name: string;
-  tagline: string;
+  /**
+   * NO TAGLINE HERE, deliberately. The sentence under each swatch lives
+   * at `Settings.appearance.themes.<id>.tagline`.
+   *
+   * It used to be six hardcoded strings, five of them in English next to
+   * one in Portuguese, on the settings page of a pt-BR install. A tagline
+   * is copy; copy belongs in the message catalogue with everything else
+   * that gets read.
+   */
   /**
    * Static swatch color for the picker chip. Hard-coded so the boot
    * script / picker cards don't need a getComputedStyle round trip
@@ -93,37 +101,31 @@ export const THEMES: ReadonlyArray<ThemeMeta> = [
   {
     id: 'plastfortsul',
     name: 'PlastfortSul',
-    tagline: 'A marca — azul que marca onde você está, não o que é urgente.',
     swatch: 'oklch(0.523 0.169 262)',
   },
   {
     id: 'violet',
     name: 'Violet',
-    tagline: 'The default — confident, slightly playful.',
     swatch: 'oklch(0.526 0.247 293)',
   },
   {
     id: 'emerald',
     name: 'Emerald',
-    tagline: 'Growth-coded, nods at messaging without copying WhatsApp green.',
     swatch: 'oklch(0.62 0.16 162)',
   },
   {
     id: 'cobalt',
     name: 'Cobalt',
-    tagline: 'Clean B2B-SaaS blue — calm and product-y.',
     swatch: 'oklch(0.585 0.2 254)',
   },
   {
     id: 'amber',
     name: 'Amber',
-    tagline: 'Warm and friendly — feels good for SMB teams.',
     swatch: 'oklch(0.745 0.16 65)',
   },
   {
     id: 'rose',
     name: 'Rose',
-    tagline: 'Bold and modern — D2C, creator-economy, lifestyle.',
     swatch: 'oklch(0.645 0.22 16)',
   },
 ];

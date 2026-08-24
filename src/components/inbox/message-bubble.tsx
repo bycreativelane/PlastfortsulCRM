@@ -24,6 +24,7 @@ import {
 } from './message-media';
 import { InteractivePreview } from '@/components/interactive/interactive-preview';
 import { useTranslations } from 'next-intl';
+import { splitSignature } from '@/lib/inbox/message-preview';
 
 interface MessageBubbleProps {
   message: Message;
@@ -249,6 +250,23 @@ export function MessageBubble({
     message.sender_type === 'agent' || message.sender_type === 'bot';
   const time = format(new Date(message.created_at), 'HH:mm');
 
+  // "Quem escreveu isso?" is answered IN the message, because the customer
+  // has no interface to read a label off — `signMessage` prefixes `*Nome*`
+  // and WhatsApp renders it bold on their phone. On OUR side that prefix is
+  // noise: we already know it was us, and the asterisks are an artefact of
+  // their renderer, not ours.
+  //
+  // So it is lifted out here and drawn as what it actually is. The body goes
+  // down to `MessageContent` in place of the raw text, which fixes every
+  // content type at once — a photo's caption is signed the same way a text
+  // message is. See `@/lib/inbox/message-preview` for why the parse is as
+  // narrow as it is.
+  const signed = splitSignature(message.content_text, { outbound: isAgent });
+  const body =
+    signed.signature === null
+      ? message
+      : { ...message, content_text: signed.body };
+
   // Row alignment + width cap are owned by <MessageActions> so its hover
   // group matches the bubble's content area, not the full row.
   return (
@@ -279,8 +297,17 @@ export function MessageBubble({
             onPrimary={false}
           />
         )}
+        {signed.signature && (
+          // The same grey every machine-and-metadata marker in this thread
+          // uses. It is attribution, not emphasis: the person reading it
+          // works here and needs to know which colleague replied, which is
+          // one glance, not a headline.
+          <span className="text-muted-foreground eyebrow block leading-tight">
+            {signed.signature}
+          </span>
+        )}
         <MessageContent
-          message={message}
+          message={body}
           t={t}
           isAgent={isAgent}
           onOpenMedia={onOpenMedia}

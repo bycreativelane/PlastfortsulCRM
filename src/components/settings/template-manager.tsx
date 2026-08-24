@@ -129,6 +129,7 @@ function emptyButton(type: TemplateButton['type']): TemplateButton {
 
 export function TemplateManager() {
   const t = useTranslations('Settings.templates');
+  const tStatus = useTranslations('Settings.templates.status');
   const supabase = createClient();
   const { user, loading: authLoading } = useAuth();
 
@@ -300,7 +301,7 @@ export function TemplateManager() {
       setEditingId(null);
     } catch (err) {
       console.error('Submit error:', err);
-      toast.error(err instanceof Error ? err.message : t('toastSubmitFailed'));
+      toast.error(t('toastSubmitFailed'));
     } finally {
       setSubmitting(false);
     }
@@ -552,7 +553,7 @@ export function TemplateManager() {
                           per card, none of them saying "act". */}
                       <Tag>{template.category}</Tag>
                       <StatusBadge variant={status.variant}>
-                        {status.label}
+                        {tStatus(status.labelKey)}
                       </StatusBadge>
                       {template.language && (
                         <span className="text-muted-foreground eyebrow">
@@ -584,7 +585,7 @@ export function TemplateManager() {
                     )}
                     {(template.rejection_reason ||
                       template.submission_error) && (
-                      <div className="flex items-start gap-1.5 rounded border-danger/30 bg-danger-soft text-danger-ink border px-2 py-1.5 text-xs">
+                      <div className="border-danger/30 bg-danger-soft text-danger-ink flex items-start gap-1.5 rounded border px-2 py-1.5 text-xs">
                         <AlertCircle className="mt-0.5 size-3.5 shrink-0" />
                         <span>
                           {template.rejection_reason ||
@@ -635,7 +636,7 @@ export function TemplateManager() {
                           ? t('deleteMetaLocallyTitle')
                           : t('deleteLocallyTitle')
                       }
-                      className="text-muted-foreground h-8 w-8 hover:bg-danger-soft hover:text-danger-ink"
+                      className="text-muted-foreground hover:bg-danger-soft hover:text-danger-ink h-8 w-8"
                     >
                       {deletingId === template.id ? (
                         <Loader2 className="size-4 animate-spin" />
@@ -672,7 +673,7 @@ export function TemplateManager() {
           </DialogHeader>
 
           {form.category === 'Authentication' && (
-            <div className="flex items-start gap-2 rounded border-human-border bg-human-soft text-human-ink border px-3 py-2 text-xs">
+            <div className="border-human-border bg-human-soft text-human-ink flex items-start gap-2 rounded border px-3 py-2 text-xs">
               <AlertCircle className="mt-0.5 size-4 shrink-0" />
               <p>
                 {t.rich('authWarning', {
@@ -684,9 +685,7 @@ export function TemplateManager() {
 
           <div className="space-y-4 py-2">
             <div className="space-y-2">
-              <FieldLabel>
-                {t('templateName')}
-              </FieldLabel>
+              <FieldLabel>{t('templateName')}</FieldLabel>
               <Input
                 placeholder={t('namePlaceholder')}
                 value={form.name}
@@ -876,7 +875,7 @@ export function TemplateManager() {
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={form.header_media_url}
-                      alt="Header sample"
+                      alt={t('headerSampleAlt')}
                       className="border-border max-h-28 rounded-md border object-contain"
                     />
                   )}
@@ -1032,7 +1031,7 @@ export function TemplateManager() {
                           variant="ghost"
                           size="icon"
                           onClick={() => removeButton(i)}
-                          className="text-muted-foreground size-7 hover:bg-danger-soft hover:text-danger-ink"
+                          className="text-muted-foreground hover:bg-danger-soft hover:text-danger-ink size-7"
                         >
                           <X className="size-3.5" />
                         </Button>
@@ -1146,7 +1145,7 @@ export function TemplateManager() {
             <Button
               onClick={confirmDelete}
               disabled={deletingId !== null}
-              className="bg-danger-solid text-white hover:bg-danger-solid/90"
+              className="bg-danger-solid hover:bg-danger-solid/90 text-white"
             >
               {deletingId !== null ? (
                 <>

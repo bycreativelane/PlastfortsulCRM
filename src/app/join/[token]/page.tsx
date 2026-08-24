@@ -38,13 +38,6 @@ import {
 
 import { Button } from '@/components/ui/button';
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -219,67 +212,56 @@ export default function JoinPage() {
 
   // ----- Loading state (peek pending OR auth not yet resolved) -----
   if (peek === null || authedUserId === undefined) {
-    return (
-      <Card className="w-full max-w-md py-0">
-        <StatePanel size="md" icon={SpinnerIcon} title={t('verifying')} />
-      </Card>
-    );
+    return <StatePanel size="md" icon={SpinnerIcon} title={t('verifying')} />;
   }
 
   // ----- Peek failed -----
   if (!peek.ok) {
     const failKey = FAIL_KEY[peek.reason];
     return (
-      <Card className="w-full max-w-md py-0">
-        <StatePanel
-          size="md"
-          icon={MailX}
-          title={t(`fail.${failKey}.title`)}
-          description={t(`fail.${failKey}.body`)}
-          actions={
-            /* For server_error the failure is transient — the network
-               flapped or the peek endpoint hiccupped. Try-again is
-               the right primary action; the "create account" /
-               "sign in" links stay as secondary options. Other
-               failure reasons (not_found / used / expired) are
-               terminal for this token, so no retry — just the
-               signup/sign-in escape hatches. */
-            peek.reason === 'server_error' ? (
-              <>
-                <Button onClick={loadPeekAndAuth} className="h-10">
-                  {t('tryAgain')}
-                </Button>
-                <Button
-                  variant="outline"
-                  className="h-10"
-                  nativeButton={false}
-                  render={<Link href="/signup" />}
-                >
-                  {t('createAccountInstead')}
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button
-                  className="h-10"
-                  nativeButton={false}
-                  render={<Link href="/signup" />}
-                >
-                  {t('createAccountInstead')}
-                </Button>
-                <Button
-                  variant="outline"
-                  className="h-10"
-                  nativeButton={false}
-                  render={<Link href="/login" />}
-                >
-                  {t('signIn')}
-                </Button>
-              </>
-            )
-          }
-        />
-      </Card>
+      <StatePanel
+        size="md"
+        icon={MailX}
+        title={t(`fail.${failKey}.title`)}
+        description={t(`fail.${failKey}.body`)}
+        actions={
+          /* For server_error the failure is transient — the network
+               flapped or the peek endpoint hiccupped — so try-again is
+               the right primary action. The other reasons (not_found /
+               used / expired) are terminal for THIS token.
+
+               There used to be a "criar uma conta" button on both paths.
+               It is gone because registration is invite-only now (see the
+               gate in `proxy.ts`): the link went to a page that would
+               bounce the visitor straight to /login, which is a dead end
+               wearing the costume of a next step. Somebody holding a dead
+               invite needs a new invite, and the copy says so. */
+          peek.reason === 'server_error' ? (
+            <>
+              <Button onClick={loadPeekAndAuth} className="h-10">
+                {t('tryAgain')}
+              </Button>
+              <Button
+                variant="outline"
+                className="h-10"
+                nativeButton={false}
+                render={<Link href="/login" />}
+              >
+                {t('signIn')}
+              </Button>
+            </>
+          ) : (
+            <Button
+              variant="outline"
+              className="h-10"
+              nativeButton={false}
+              render={<Link href="/login" />}
+            >
+              {t('signIn')}
+            </Button>
+          )
+        }
+      />
     );
   }
 
@@ -291,20 +273,23 @@ export default function JoinPage() {
   });
 
   const inviteHeader = (
-    <CardHeader className="justify-items-center text-center">
+    // Centred, and the only block on this screen that is: the reader has
+    // one decision to make and the account's name is the fact they are
+    // making it about.
+    <div className="mb-5 grid justify-items-center text-center">
       {/* Same disc geometry StatePanel uses, so the invite card and the
           failure card read as two states of one screen. */}
       <div className="bg-primary/10 text-primary mb-2 grid size-12 place-items-center rounded-full">
         <UsersRound className="size-5" />
       </div>
-      <CardTitle className="text-foreground text-2xl font-bold tracking-tight">
+      <h1 className="text-foreground text-2xl font-bold tracking-tight">
         {t.rich('invitedTo', {
           account: () => (
             <span className="text-primary">{peek.account_name}</span>
           ),
         })}
-      </CardTitle>
-      <CardDescription>
+      </h1>
+      <p className="text-muted-foreground text-sm">
         {t.rich('joinAs', {
           date: expiresOn,
           role: () => (
@@ -314,17 +299,17 @@ export default function JoinPage() {
             </span>
           ),
         })}
-      </CardDescription>
-    </CardHeader>
+      </p>
+    </div>
   );
 
   // ----- Authed: show Accept button -----
   if (authedUserId) {
     return (
       <>
-        <Card className="w-full max-w-md">
+        <div className="flex flex-col">
           {inviteHeader}
-          <CardContent className="flex flex-col gap-3">
+          <div className="flex flex-col gap-3">
             <Button
               onClick={handleAccept}
               disabled={accepting}
@@ -349,8 +334,8 @@ export default function JoinPage() {
                 ),
               })}
             </p>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
         {/* Conflict modal — opens when the redeem endpoint returns 409
             (caller already in a shared account or has domain data).
@@ -410,9 +395,9 @@ export default function JoinPage() {
 
   // ----- Not authed: prompt to sign up or sign in -----
   return (
-    <Card className="w-full max-w-md">
+    <div className="flex flex-col">
       {inviteHeader}
-      <CardContent className="flex flex-col gap-2">
+      <div className="flex flex-col gap-2">
         <Button
           className="h-10 w-full"
           nativeButton={false}
@@ -430,7 +415,7 @@ export default function JoinPage() {
         >
           {t('haveAccount')}
         </Button>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }

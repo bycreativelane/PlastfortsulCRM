@@ -28,6 +28,16 @@ export function isMissingQuickReplyColumn(error: {
   );
 }
 
+/**
+ * The machine-readable half, and the half the UI actually renders.
+ *
+ * The prose below is English and reached the operator verbatim, beating
+ * the `saveError` key that had been written for exactly this toast. The
+ * route now sends both: the code for the client to translate, the sentence
+ * for a log line and for anyone reading the API directly.
+ */
+export const MISSING_MIGRATION_CODE = 'migration_044_required';
+
 export const MISSING_MIGRATION_MESSAGE =
   'Shortcuts and file snippets need migration 044 ' +
   '(044_quick_reply_shortcut_media.sql), which has not been applied yet. ' +

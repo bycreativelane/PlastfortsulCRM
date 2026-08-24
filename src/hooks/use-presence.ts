@@ -1,16 +1,16 @@
-"use client";
+'use client';
 
-import { useCallback, useEffect, useState } from "react";
-import type { RealtimeChannel } from "@supabase/supabase-js";
+import { useCallback, useEffect, useId, useState } from 'react';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 
-import { createClient } from "@/lib/supabase/client";
-import { useAuth } from "@/hooks/use-auth";
+import { createClient } from '@/lib/supabase/client';
+import { useAuth } from '@/hooks/use-auth';
 import {
   derivePresence,
   type PresenceRow,
   type PresenceStatus,
   type StoredPresence,
-} from "@/lib/presence";
+} from '@/lib/presence';
 
 // How often the viewer re-derives presence locally. The online→offline
 // transition fires NO database event (it's just the clock passing the
@@ -44,6 +44,37 @@ interface UsePresenceResult {
  */
 export function usePresence(enabled = true): UsePresenceResult {
   const { accountId } = useAuth();
+
+  /**
+   * ONE CHANNEL PER CONSUMER, and this is a crash fix rather than a
+   * preference.
+   *
+   * The topic was `presence:${accountId}` — fixed per account. supabase-js
+   * caches channels by topic, so the SECOND component to call this hook got
+   * back the same already-subscribed channel object, and `.on()` after
+   * `.subscribe()` throws:
+   *
+   *   cannot add `postgres_changes` callbacks for realtime:presence:… after
+   *   `subscribe()`
+   *
+   * It never fired while the only two consumers were the thread's assign
+   * menu and the members tab, which live on different routes and are never
+   * mounted together. The header's online list is mounted on EVERY route, so
+   * it collided with both on sight — and the throw happens in an effect, so
+   * React unwound to the dashboard error boundary and the whole screen went
+   * to "Algo quebrou nesta tela".
+   *
+   * `useId` is stable across re-renders and unique per component instance,
+   * which is exactly the scope a subscription should have. The cost is one
+   * websocket channel per consumer — two on the inbox — which is the same
+   * trade `use-total-unread` makes for the same reason — though that hook
+   * only started making it once a second consumer existed and crashed the
+   * dashboard exactly as described above.
+   *
+   * The tidier answer is one subscription in a provider with consumers
+   * reading context. That is a bigger change than a live crash deserves.
+   */
+  const instanceId = useId();
 
   // Presence rows keyed by user_id, held in immutable state — each
   // update replaces the Map so React renders and the derived getters
@@ -81,17 +112,17 @@ export function usePresence(enabled = true): UsePresenceResult {
     // rather than replacing the map — so an event that lands while the
     // fetch is in flight isn't clobbered by a staler snapshot row.
     const channel: RealtimeChannel = supabase
-      .channel(`presence:${accountId}`)
+      .channel(`presence:${accountId}:${instanceId}`)
       .on(
-        "postgres_changes",
+        'postgres_changes',
         {
-          event: "*",
-          schema: "public",
-          table: "member_presence",
+          event: '*',
+          schema: 'public',
+          table: 'member_presence',
           filter: `account_id=eq.${accountId}`,
         },
         (payload) => {
-          if (payload.eventType === "DELETE") {
+          if (payload.eventType === 'DELETE') {
             const old = payload.old as { user_id?: string };
             if (!old.user_id) return;
             setRows((prev) => {
@@ -107,20 +138,20 @@ export function usePresence(enabled = true): UsePresenceResult {
               user_id: string;
               status: StoredPresence;
               last_seen_at: string;
-            },
+            }
           );
-        },
+        }
       )
       .subscribe();
 
     supabase
-      .from("member_presence")
-      .select("user_id, status, last_seen_at")
-      .eq("account_id", accountId)
+      .from('member_presence')
+      .select('user_id, status, last_seen_at')
+      .eq('account_id', accountId)
       .then(({ data, error }) => {
         if (cancelled) return;
         if (error) {
-          console.error("[usePresence] initial fetch error:", error.message);
+          console.error('[usePresence] initial fetch error:', error.message);
           return;
         }
         setRows((prev) => {
@@ -152,11 +183,11 @@ export function usePresence(enabled = true): UsePresenceResult {
       clearInterval(tick);
       supabase.removeChannel(channel);
     };
-  }, [active, accountId]);
+  }, [active, accountId, instanceId]);
 
   const getRow = useCallback(
     (userId: string): PresenceRow | undefined => rows.get(userId),
-    [rows],
+    [rows]
   );
 
   const getPresence = useCallback(
@@ -164,7 +195,7 @@ export function usePresence(enabled = true): UsePresenceResult {
       const row = rows.get(userId);
       return derivePresence(row?.status, row?.last_seen_at, now);
     },
-    [rows, now],
+    [rows, now]
   );
 
   return { getPresence, getRow, now };

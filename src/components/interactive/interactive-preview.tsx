@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { List, Reply } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { InteractiveMessagePayload } from '@/lib/whatsapp/interactive';
@@ -33,6 +34,10 @@ export function InteractivePreview({
    */
   onBubble?: boolean;
 }) {
+  // `Interactive.previewPlaceholders`, NOT `Interactive.preview` — that
+  // one is the word "Preview" the builder prints above this component, and
+  // turning it into an object silently replaced the label with nothing.
+  const t = useTranslations('Interactive.previewPlaceholders');
   const rib = onBubble ? 'border-foreground/10' : 'border-border';
   return (
     <div
@@ -50,7 +55,9 @@ export function InteractivePreview({
         ) : null}
         <p className="text-sm break-words whitespace-pre-wrap">
           {payload.body || (
-            <span className="text-muted-foreground">Message body…</span>
+            <span className="text-muted-foreground">
+              {t('bodyPlaceholder')}
+            </span>
           )}
         </p>
         {payload.footer ? (
@@ -78,7 +85,9 @@ export function InteractivePreview({
               )}
             >
               <Reply className="h-3.5 w-3.5" />
-              <span className="truncate">{b.title || 'Button'}</span>
+              <span className="truncate">
+                {b.title || t('buttonPlaceholder')}
+              </span>
             </button>
           ))}
         </div>
@@ -92,7 +101,9 @@ export function InteractivePreview({
           )}
         >
           <List className="h-3.5 w-3.5" />
-          <span className="truncate">{payload.button_label || 'Menu'}</span>
+          <span className="truncate">
+            {payload.button_label || t('menuPlaceholder')}
+          </span>
         </button>
       )}
     </div>

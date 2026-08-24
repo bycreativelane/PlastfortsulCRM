@@ -42,8 +42,8 @@ export function SessionsCard() {
       }
       window.location.href = '/login';
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Unknown error';
-      toast.error(msg);
+      console.error('Sign out failed:', err);
+      toast.error(t('signOutFailed'));
     } finally {
       setSigningOut(false);
     }
@@ -55,20 +55,14 @@ export function SessionsCard() {
         <PanelHeader>
           <div className="min-w-0">
             <PanelTitle className="flex items-center gap-2">
-              <LogOut className="size-4 text-primary" />
+              <LogOut className="text-primary size-4" />
               {t('sessionsTitle')}
             </PanelTitle>
-            <PanelSub>
-              {t('sessionsDesc')}
-            </PanelSub>
+            <PanelSub>{t('sessionsDesc')}</PanelSub>
           </div>
         </PanelHeader>
         <PanelBody>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => setOpen(true)}
-          >
+          <Button type="button" variant="outline" onClick={() => setOpen(true)}>
             <LogOut className="size-4" />
             {t('signOutAll')}
           </Button>
@@ -79,9 +73,7 @@ export function SessionsCard() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t('signOutConfirmTitle')}</DialogTitle>
-            <DialogDescription>
-              {t('signOutConfirmDesc')}
-            </DialogDescription>
+            <DialogDescription>{t('signOutConfirmDesc')}</DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button

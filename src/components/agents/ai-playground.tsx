@@ -54,7 +54,10 @@ export function AiPlayground({ onGoToSetup }: { onGoToSetup?: () => void }) {
         if (data.code === 'ai_not_configured') {
           toast.error(t('notConfigured'));
         } else {
-          toast.error(data.error ?? t('replyError'));
+          // The route's `error` is English prose and always won over the
+          // key beside it.
+          console.error('AI playground reply failed:', data.error);
+          toast.error(t('replyError'));
         }
         // Roll the unsent user turn back so the transcript stays clean.
         setTurns(turns);
@@ -97,9 +100,7 @@ export function AiPlayground({ onGoToSetup }: { onGoToSetup?: () => void }) {
           <span className="text-foreground text-sm font-medium">
             {t('title')}
           </span>
-          <span className="text-muted-foreground text-xs">
-            {t('subtitle')}
-          </span>
+          <span className="text-muted-foreground text-xs">{t('subtitle')}</span>
         </div>
         <Button
           variant="ghost"
@@ -126,46 +127,49 @@ export function AiPlayground({ onGoToSetup }: { onGoToSetup?: () => void }) {
                 onClick={onGoToSetup}
                 className="mt-1 h-auto p-0 text-xs"
               >
-                {t('goToSetup')}{' '}
-                <ArrowRight className="ml-1 h-3 w-3" />
+                {t('goToSetup')} <ArrowRight className="ml-1 h-3 w-3" />
               </Button>
             )}
           </div>
         )}
 
-        {turns.map((t, i) => (
+        {/* `turn`, not `t` — `t` is the translator, and shadowing it here
+            made every string inside this block unreachable. */}
+        {turns.map((turn, i) => (
           <div
             key={i}
             className={cn(
               'flex gap-2',
-              t.role === 'user' ? 'justify-end' : 'justify-start'
+              turn.role === 'user' ? 'justify-end' : 'justify-start'
             )}
           >
-            {t.role === 'assistant' && (
+            {turn.role === 'assistant' && (
               <Bot className="text-primary mt-1 h-5 w-5 shrink-0" />
             )}
             <div
               className={cn(
                 'max-w-[80%] rounded-2xl px-3.5 py-2 text-sm',
-                t.role === 'user'
+                turn.role === 'user'
                   ? 'bg-primary text-primary-foreground rounded-br-sm'
                   : 'bg-muted text-foreground rounded-bl-sm'
               )}
             >
-              {t.content && <p className="whitespace-pre-wrap">{t.content}</p>}
-              {t.role === 'assistant' && t.handoff && (
+              {turn.content && (
+                <p className="whitespace-pre-wrap">{turn.content}</p>
+              )}
+              {turn.role === 'assistant' && turn.handoff && (
                 <p
                   className={cn(
                     'flex items-center gap-1 text-xs text-amber-500',
-                    t.content && 'border-border/50 mt-1.5 border-t pt-1.5'
+                    turn.content && 'border-border/50 mt-1.5 border-t pt-1.5'
                   )}
                 >
                   <UserCircle2 className="h-3.5 w-3.5" />
-                  Would hand off to a human here
+                  {t('wouldHandOff')}
                 </p>
               )}
             </div>
-            {t.role === 'user' && (
+            {turn.role === 'user' && (
               <UserCircle2 className="text-muted-foreground mt-1 h-5 w-5 shrink-0" />
             )}
           </div>

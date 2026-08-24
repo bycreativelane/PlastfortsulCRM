@@ -36,6 +36,8 @@ import {
 } from '@/lib/whatsapp/interactive';
 import { decrypt, encrypt, isLegacyFormat } from '@/lib/whatsapp/encryption';
 import { supabaseAdmin } from '@/lib/flows/admin-client';
+import { answeredPatch } from '@/lib/conversations/reopen';
+import { isUnknownColumn } from '@/lib/supabase/pg-errors';
 import {
   sanitizePhoneForMeta,
   isValidE164,
@@ -119,8 +121,13 @@ export function validateSendMessageParams(params: {
   templateName?: string | null;
   interactivePayload?: InteractiveMessagePayload | null;
 }): void {
-  const { messageType, contentText, mediaUrl, templateName, interactivePayload } =
-    params;
+  const {
+    messageType,
+    contentText,
+    mediaUrl,
+    templateName,
+    interactivePayload,
+  } = params;
 
   if (!messageType) {
     throw new SendMessageError('bad_request', 'message_type is required', 400);
@@ -500,14 +507,54 @@ export async function sendMessageToConversation(
       ? interactivePayloadPreviewText(interactivePayload!)
       : persistedText || `[${messageType}]`;
 
-  await db
+  // A HUMAN just replied, so the customer is no longer waiting: the thread
+  // leaves Esperando and lands back in Entrada. This file is the agent's
+  // send path — automation and flow sends have their own, and deliberately
+  // do NOT clear the wait, because an auto-reply has not answered anybody.
+  //
+  // Folded into the update that was already happening rather than issued as
+  // a second statement: this is the hot path of pressing Enter.
+  const conversationPatch = {
+    last_message_text: lastMessageText,
+    // Kind and media travel with the text (047), so the list draws our own
+    // outgoing photo the way it draws theirs. `null` rather than omitted: a
+    // text message after a photo has to CLEAR the thumbnail, or the row
+    // shows an hour-old image beside a sentence sent just now.
+    last_message_kind: messageType,
+    last_message_media_url: mediaUrl ?? null,
+    last_message_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    ...answeredPatch(),
+  };
+
+  const { error: convPatchError } = await db
     .from('conversations')
-    .update({
-      last_message_text: lastMessageText,
-      last_message_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    })
+    .update(conversationPatch)
     .eq('id', conversationId);
+
+  // A column this write uses may not be there yet: `waiting_since` arrives
+  // with migration 045, and `last_message_kind` / `last_message_media_url`
+  // with 047 — the branch catches either. Dropping `last_message_text`
+  // along with them would leave the conversation list showing the
+  // customer's old message as the latest, which looks like the send failed,
+  // so the retry keeps the text and gives up only the extras.
+  //
+  // It also has to keep clearing the wait: this is a human replying, and a
+  // thread that stays in Esperando after somebody answered it is the
+  // original bug report.
+  if (convPatchError && isUnknownColumn(convPatchError)) {
+    await db
+      .from('conversations')
+      .update({
+        last_message_text: lastMessageText,
+        last_message_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        // Pre-045 there is no `waiting_since` to null out, and `status`
+        // alone is what "answered" means on that schema.
+        status: 'open',
+      })
+      .eq('id', conversationId);
+  }
 
   // Pause any active Flow run for this contact — the agent stepping in
   // is the strongest "yield, human is here" signal. Best-effort.

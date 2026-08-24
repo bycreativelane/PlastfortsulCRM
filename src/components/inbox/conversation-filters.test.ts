@@ -4,6 +4,7 @@ import {
   OCCURRENCE_TAG_NAME,
   SCOPES,
   buildFilterOptions,
+  isVisible,
   groupOptions,
   hasOccurrence,
   matchesSearch,
@@ -18,11 +19,12 @@ const LABELS = {
   groupPipeline: 'Funil',
   groupStage: 'Etapa',
   mine: 'Meus atendimentos',
+  unassigned: 'Sem responsável',
   unread: 'Não lidas',
   withAutomation: 'Com automação',
   withOccurrence: 'Com ocorrência',
-  open: 'Em aberto',
   closed: 'Encerradas',
+  hidden: 'Ocultas',
   typeLead: 'Lead',
   typeCustomer: 'Cliente',
   typeInternal: 'Funcionário e parceiros',
@@ -57,26 +59,68 @@ function conv(over: Partial<Conversation> = {}): Conversation {
 }
 
 describe('SCOPES', () => {
-  it('splits on whether anyone owns the conversation', () => {
-    const owned = conv({ assigned_agent_id: 'u1' });
-    const queued = conv({ assigned_agent_id: undefined });
+  // These used to split on `assigned_agent_id`, so the tab called Esperando
+  // meant "nobody claimed this" while the thread header's Esperando wrote
+  // `status: 'pending'`. One word, two meanings, no connection between them
+  // — and three of the August bug reports were that gap. The scope is the
+  // conversation's STATE now; ownership is a filter.
+  it('splits on the state of the conversation, not on who owns it', () => {
+    const live = conv({ status: 'open', assigned_agent_id: undefined });
+    const parked = conv({ status: 'pending', assigned_agent_id: 'u1' });
 
-    expect(SCOPES.entrada(owned)).toBe(true);
-    expect(SCOPES.entrada(queued)).toBe(false);
-    expect(SCOPES.esperando(queued)).toBe(true);
-    expect(SCOPES.esperando(owned)).toBe(false);
+    expect(SCOPES.entrada(live)).toBe(true);
+    expect(SCOPES.esperando(parked)).toBe(true);
+
+    // An owned thread is still Entrada, and an unowned one is not Esperando.
+    expect(SCOPES.esperando(live)).toBe(false);
+    expect(SCOPES.entrada(parked)).toBe(false);
   });
 
-  it('puts every conversation in exactly one scope', () => {
-    // The two tabs have to partition the inbox — a conversation visible in
-    // both, or in neither, is a conversation somebody loses.
+  it('never shows one conversation in both tabs', () => {
     for (const c of [
-      conv({ assigned_agent_id: 'u1' }),
-      conv({ assigned_agent_id: undefined }),
+      conv({ status: 'open' }),
+      conv({ status: 'pending' }),
+      conv({ status: 'open', assigned_agent_id: 'u1' }),
     ]) {
       const scopes = [SCOPES.entrada(c), SCOPES.esperando(c)].filter(Boolean);
       expect(scopes).toHaveLength(1);
     }
+  });
+
+  it('leaves a finished conversation out of both tabs', () => {
+    // TWO TABS, not three. A finished conversation is by definition not
+    // "what needs me now", so it is reachable through the Encerradas filter
+    // instead of owning a third of the bar forever.
+    const done = conv({ status: 'closed' });
+    expect(SCOPES.entrada(done)).toBe(false);
+    expect(SCOPES.esperando(done)).toBe(false);
+  });
+});
+
+describe('isVisible', () => {
+  it('keeps a hidden conversation out of every tab', () => {
+    expect(isVisible(conv())).toBe(true);
+    expect(isVisible(conv({ hidden_at: '2026-08-24T10:00:00Z' }))).toBe(false);
+  });
+});
+
+describe('hasOccurrence', () => {
+  it('reads the trigger-maintained counter', () => {
+    // The tag it used to read was never written by anything — registering an
+    // occurrence produced no triangle at all. `occurrence_count` comes from
+    // migration 042's trigger, so it cannot drift.
+    expect(
+      hasOccurrence(conv({ contact: { occurrence_count: 2 } as never }))
+    ).toBe(true);
+    expect(
+      hasOccurrence(conv({ contact: { occurrence_count: 0 } as never }))
+    ).toBe(false);
+  });
+
+  it('still honours the legacy tag for accounts that applied it by hand', () => {
+    expect(
+      hasOccurrence(conv({ contact: { tags: [TAG_OCORRENCIA] } as never }))
+    ).toBe(true);
   });
 });
 

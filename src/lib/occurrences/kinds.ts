@@ -55,10 +55,14 @@ export interface ContactOccurrence {
 /**
  * True when the failure is "the table does not exist yet".
  *
- * `042_contact_occurrences.sql` is written and unapplied — migrations are
- * applied by Gabriel, never by an agent — so between shipping this and him
- * running it, every write here fails. PostgREST answers a missing relation
- * with `PGRST205` (schema cache) or Postgres `42P01`, and the operator
+ * `042_contact_occurrences.sql` HAS been applied since this was written —
+ * measured against the project in `.env.local`, where the table and
+ * `contacts.occurrence_count` both answer. The guard stays anyway, and not
+ * out of caution: migrations are applied by hand, one database at a time, so
+ * "applied here" says nothing about the next account to run this build.
+ *
+ * PostgREST answers a missing relation with `PGRST205` (schema cache) or
+ * Postgres `42P01`, and an operator whose database is a migration behind
  * deserves "this feature is waiting on a migration" rather than a raw
  * database string.
  */

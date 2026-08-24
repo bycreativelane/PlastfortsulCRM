@@ -44,9 +44,8 @@ export function Step1ChooseTemplate({
         if (fetchError) throw fetchError;
         setTemplates(data ?? []);
       } catch (err) {
-        setError(
-          err instanceof Error ? err.message : t('chooseTemplate.errorLoad')
-        );
+        console.error('Load templates failed:', err);
+        setError(t('chooseTemplate.errorLoad'));
       } finally {
         setLoading(false);
       }
@@ -137,7 +136,7 @@ export function Step1ChooseTemplate({
                 <p className="text-muted-foreground line-clamp-3 text-xs">
                   {template.body_text}
                 </p>
-                <div className="text-muted-foreground flex items-center gap-2 text-2xs">
+                <div className="text-muted-foreground text-2xs flex items-center gap-2">
                   <span>{template.language ?? 'en_US'}</span>
                   {/* Status is omitted on purpose — every template
                       shown here is already filtered to APPROVED,

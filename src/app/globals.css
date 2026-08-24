@@ -959,6 +959,43 @@ html[data-theme='rose'] {
   height: calc(--value(integer) * 1dvh / var(--zoom));
 }
 
+/**
+ * The dot grid both editors are drawn on.
+ *
+ * `flows` had it inside React Flow's own `<Background>` and `automations`
+ * had a hand-written radial-gradient at a different spacing, so the two
+ * builders — the same gesture, the same mental model — sat on visibly
+ * different paper. One rule now, and React Flow is configured to match it
+ * (see `flow-canvas.tsx`).
+ *
+ * The dot means "you can put things here". That is why it runs edge to edge
+ * behind the whole editor rather than inside a bordered box: the box said
+ * the canvas was a widget on a page, when the canvas IS the page.
+ */
+/**
+ * Every row in the nav, the same distance from the next.
+ *
+ * The groups used to be separated by a label and 20px of air. With the
+ * labels gone the air marked nothing, so the column had 4px between some
+ * rows and 20px between others and read as misaligned — which is exactly
+ * what was reported.
+ *
+ * 0.25rem matches the `gap-1` INSIDE each group, so nine rows have eight
+ * identical spaces whether or not a group boundary falls between them. The
+ * collapsed rail already worked this way (see the rule under
+ * `[data-nav='collapsed']`); this makes the expanded one agree with it
+ * rather than keeping two answers to the same question.
+ */
+[data-nav-group]:not(:first-child) {
+  margin-top: 0.25rem;
+}
+
+@utility editor-grid {
+  background-color: var(--card-2);
+  background-image: radial-gradient(circle, var(--border) 1.4px, transparent 1.4px);
+  background-size: 22px 22px;
+}
+
 @utility min-h-vh-* {
   min-height: calc(--value(integer) * 1vh / var(--zoom));
   min-height: calc(--value(integer) * 1dvh / var(--zoom));
@@ -1039,6 +1076,16 @@ html[data-theme='rose'] {
     padding-inline: 0;
   }
 
+  /* The team room's unread dot, which only exists at this width.
+   *
+   * Expanded, the dot sits next to the word "Equipe" and this one would be
+   * a second dot saying the same thing. Collapsed, the word is gone and the
+   * disc is the entire card, so the announcement has to ride the artwork or
+   * it does not happen at all. */
+  html[data-nav='collapsed'] [data-nav-dot] {
+    display: block;
+  }
+
   /* The brand strip gives up its gutters as well, so the mark centres in
    * the 62px rail rather than in the 38px left over after them. Expanded,
    * the strip keeps its px-3 and the lockup takes the navigation's own
@@ -1093,6 +1140,7 @@ html[data-theme='rose'] {
   html[data-nav='collapsed'] [data-nav-group]:not(:first-child) {
     margin-top: 0.25rem;
   }
+
 
   /* Counters have no room for a number — they become a corner dot. */
   html[data-nav='collapsed'] [data-nav-badge] {

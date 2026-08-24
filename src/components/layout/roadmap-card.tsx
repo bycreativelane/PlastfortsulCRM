@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { ArrowRight, Boxes, Plug, X } from 'lucide-react';
+import { ArrowRight, Boxes, Plug, Sparkles, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 /**
@@ -29,8 +29,20 @@ import { cn } from '@/lib/utils';
  * out of it.
  */
 
-/** The announcements, newest intent first. */
+/**
+ * The announcements, newest intent first.
+ *
+ * Three now, and the carousel was already built for N — the dots, the arrow
+ * and the shared grid cell all count the array rather than assuming two, so
+ * this addition is one line and no layout change.
+ */
 const SLIDES = [
+  {
+    id: 'hermes',
+    icon: Sparkles,
+    titleKey: 'hermesTitle',
+    bodyKey: 'hermesBody',
+  },
   { id: 'vysen', icon: Plug, titleKey: 'vysenTitle', bodyKey: 'vysenBody' },
   { id: 'bling', icon: Boxes, titleKey: 'blingTitle', bodyKey: 'blingBody' },
 ] as const;

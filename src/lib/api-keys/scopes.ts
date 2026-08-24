@@ -25,15 +25,21 @@ export const API_SCOPES = [
 
 export type ApiScope = (typeof API_SCOPES)[number];
 
-/** Human-readable descriptions, surfaced in the key-creation UI. */
-export const SCOPE_DESCRIPTIONS: Record<ApiScope, string> = {
-  'messages:send': 'Send WhatsApp messages',
-  'messages:read': 'Read messages and their delivery status',
-  'contacts:read': 'List and read contacts',
-  'contacts:write': 'Create and update contacts',
-  'conversations:read': 'List and read conversations',
-  'broadcasts:send': 'Launch broadcast campaigns',
-  'webhooks:manage': 'Register and manage outbound event webhooks',
+/**
+ * Scope → key under `Settings.apiKeys.scopes`.
+ *
+ * The scope IDENTIFIER (`messages:send`) is an API contract and stays
+ * English forever; the sentence under it is copy for whoever is ticking
+ * the box, and sat in English under a translated label.
+ */
+export const SCOPE_DESCRIPTION_KEYS: Record<ApiScope, string> = {
+  'messages:send': 'messagesSend',
+  'messages:read': 'messagesRead',
+  'contacts:read': 'contactsRead',
+  'contacts:write': 'contactsWrite',
+  'conversations:read': 'conversationsRead',
+  'broadcasts:send': 'broadcastsSend',
+  'webhooks:manage': 'webhooksManage',
 };
 
 /** Type-narrow an unknown value into a valid `ApiScope`. */

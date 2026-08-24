@@ -18,10 +18,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { Copy, KeyRound, Loader2, Plus, Trash2 } from 'lucide-react';
-import {
-  Panel,
-  PanelBody,
-} from '@/components/ui/panel';
+import { Panel, PanelBody } from '@/components/ui/panel';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -41,7 +38,7 @@ import { RequireRole } from '@/components/auth/require-role';
 import { useAuth } from '@/hooks/use-auth';
 import {
   API_SCOPES,
-  SCOPE_DESCRIPTIONS,
+  SCOPE_DESCRIPTION_KEYS,
   type ApiScope,
 } from '@/lib/api-keys/scopes';
 import { useTranslations } from 'next-intl';
@@ -88,7 +85,8 @@ export function ApiKeysSettings() {
       const res = await fetch('/api/account/api-keys', { cache: 'no-store' });
       if (!res.ok) {
         const payload = await res.json().catch(() => ({}));
-        toast.error(payload.error || t('loadFailed'));
+        console.error('Load API keys failed:', payload.error);
+        toast.error(t('loadFailed'));
         return;
       }
       const data = (await res.json()) as { keys: ApiKey[] };
@@ -113,7 +111,8 @@ export function ApiKeysSettings() {
       });
       if (!res.ok) {
         const payload = await res.json().catch(() => ({}));
-        toast.error(payload.error || t('revokeFailed'));
+        console.error('Revoke API key failed:', payload.error);
+        toast.error(t('revokeFailed'));
         return;
       }
       toast.success(t('revokeSuccess', { name: key.name }));
@@ -143,12 +142,14 @@ export function ApiKeysSettings() {
     <section className="animate-in fade-in-50 space-y-6 duration-(--dur-3)">
       <SettingsPanelHead
         title={t('title')}
-        description={
-          t.rich('description', {
-            apiCode: (chunks: React.ReactNode) => <code className="text-xs">{chunks}</code>,
-            headerCode: (chunks: React.ReactNode) => <code className="text-xs">{chunks}</code>
-          })
-        }
+        description={t.rich('description', {
+          apiCode: (chunks: React.ReactNode) => (
+            <code className="text-xs">{chunks}</code>
+          ),
+          headerCode: (chunks: React.ReactNode) => (
+            <code className="text-xs">{chunks}</code>
+          ),
+        })}
         action={
           <RequireRole min="admin">
             <Button onClick={() => setCreateOpen(true)}>
@@ -288,6 +289,7 @@ function CreateKeyDialog({
   onCreated: () => void;
 }) {
   const t = useTranslations('Settings.apiKeys');
+  const tScopes = useTranslations('Settings.apiKeys.scopes');
   const [name, setName] = useState('');
   const [scopes, setScopes] = useState<ApiScope[]>([]);
   const [submitting, setSubmitting] = useState(false);
@@ -322,7 +324,8 @@ function CreateKeyDialog({
       });
       const payload = await res.json().catch(() => ({}));
       if (!res.ok) {
-        toast.error(payload.error || t('createError'));
+        console.error('Create API key failed:', payload.error);
+        toast.error(t('createError'));
         return;
       }
       setCreatedKey(payload.plaintext as string);
@@ -405,9 +408,7 @@ function CreateKeyDialog({
 
             <div className="space-y-4">
               <div className="space-y-1.5">
-                <FieldLabel htmlFor="api-key-name">
-                  {t('nameLabel')}
-                </FieldLabel>
+                <FieldLabel htmlFor="api-key-name">{t('nameLabel')}</FieldLabel>
                 <Input
                   id="api-key-name"
                   value={name}
@@ -437,7 +438,7 @@ function CreateKeyDialog({
                           {scope}
                         </span>
                         <span className="text-muted-foreground block text-xs">
-                          {SCOPE_DESCRIPTIONS[scope]}
+                          {tScopes(SCOPE_DESCRIPTION_KEYS[scope])}
                         </span>
                       </span>
                     </label>

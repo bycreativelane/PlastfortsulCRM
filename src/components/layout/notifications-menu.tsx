@@ -4,8 +4,17 @@ import { useCallback, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
+import { destinationFor } from '@/lib/notifications/destination';
+import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
-import { Bell, CheckCheck, Loader2, UserPlus, WifiOff } from 'lucide-react';
+import {
+  Bell,
+  CheckCheck,
+  Loader2,
+  MessageSquare,
+  UserPlus,
+  WifiOff,
+} from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
@@ -27,9 +36,10 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 
-/** One icon per type. Only one type exists today; new ones are a line each. */
+/** One icon per type. New ones are a line each. */
 const TYPE_ICON: Record<Notification['type'], typeof Bell> = {
   conversation_assigned: UserPlus,
+  new_message: MessageSquare,
 };
 
 /** Enough to answer "anything new?" without becoming a page. */
@@ -52,12 +62,6 @@ const PANEL_LIMIT = 8;
  * that is missing the row renders as a `<div>` — no hover, no cursor,
  * no promise.
  */
-function destinationFor(n: Notification): string | null {
-  if (n.conversation_id) return `/inbox?c=${n.conversation_id}`;
-  if (n.contact_id) return `/contacts?id=${n.contact_id}`;
-  return null;
-}
-
 /**
  * The bell, and what is behind it.
  *
@@ -130,11 +134,19 @@ export function NotificationsMenu({ className }: { className?: string }) {
           ) ?? prev
       );
       const supabase = createClient();
-      await supabase
+      // The optimistic update above is a promise about what the server is
+      // doing. Discarding the error broke that promise silently: the row
+      // went grey, the badge kept counting it, and the two disagreed until
+      // a reload. `load()` puts the panel back on the truth.
+      const { error: updateErr } = await supabase
         .from('notifications')
         .update({ read_at: new Date().toISOString() })
         .eq('id', n.id)
         .is('read_at', null);
+      if (updateErr) {
+        toast.error(t('toastFailedMarkRead'));
+        load();
+      }
     }
     const to = destinationFor(n);
     if (to) router.push(to);
@@ -149,11 +161,18 @@ export function NotificationsMenu({ className }: { className?: string }) {
         prev?.map((r) => (r.read_at ? r : { ...r, read_at: now })) ?? prev
     );
     const supabase = createClient();
-    await supabase
+    const { error: updateErr } = await supabase
       .from('notifications')
       .update({ read_at: now })
       .is('read_at', null);
     setMarking(false);
+    // Same rule as the page's own "mark all", which already did this: an
+    // all-read panel next to a non-zero badge is the state that teaches
+    // somebody to stop trusting the bell.
+    if (updateErr) {
+      toast.error(t('toastFailedMarkAll'));
+      load();
+    }
   }
 
   return (
@@ -179,7 +198,20 @@ export function NotificationsMenu({ className }: { className?: string }) {
             towers over everything else in the bar. */}
         <Bell className="size-4.5" strokeWidth={1.75} />
         {unread > 0 ? (
-          <span className="bg-human-strong text-3xs absolute top-1 right-1 grid h-4 min-w-4 place-items-center rounded-full px-1 font-bold text-white">
+          // ANCHORED TO THE CORNER, NOT INSET BY A FIXED 4px.
+          //
+          // `top-1 right-1` is fine on the 36px trigger this was written
+          // for and wrong on the 28px one the inbox mounts (see the call
+          // site there): four pixels in from a smaller box puts a 16px
+          // badge straight on top of an 18px bell, and the bell disappears
+          // under it — reported as the icon looking "ofuscado".
+          //
+          // Sitting just outside the corner works at both sizes because it
+          // stops being a function of the button's width. The ring in the
+          // surface colour is what keeps it legible there: without it the
+          // badge and whatever it overlaps share an edge and read as one
+          // smudged shape.
+          <span className="bg-human-strong text-3xs ring-card absolute -top-1 -right-1 grid h-4 min-w-4 place-items-center rounded-full px-1 font-bold text-white ring-2">
             {unread > 9 ? '9+' : unread}
           </span>
         ) : (
@@ -189,7 +221,7 @@ export function NotificationsMenu({ className }: { className?: string }) {
           needsWhatsApp && (
             <span
               aria-hidden
-              className="bg-human-strong absolute top-1.5 right-1.5 size-2 rounded-full"
+              className="bg-human-strong ring-card absolute -top-0.5 -right-0.5 size-2 rounded-full ring-2"
             />
           )
         )}

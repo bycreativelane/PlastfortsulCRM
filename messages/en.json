@@ -110,7 +110,9 @@
     "blingBody": "An order paid or an invoice issued in Bling will be able to trigger an automation here.",
     "next": "Next",
     "goTo": "Show announcement {index} of {total}",
-    "dismiss": "Dismiss"
+    "dismiss": "Dismiss",
+    "hermesTitle": "Hermes working alongside you",
+    "hermesBody": "An agent that follows the conversations and gets ahead of what it can, without taking the decision away from you."
   },
   "Header": {
     "dashboard": "Dashboard",
@@ -130,7 +132,13 @@
     "menuProfile": "Profile",
     "menuSettings": "Settings",
     "menuSignOut": "Sign out",
-    "unreadNotifications": "{count} unread {count, plural, =1 {notification} other {notifications}}"
+    "unreadNotifications": "{count} unread {count, plural, =1 {notification} other {notifications}}",
+    "calendar": {
+      "aria": "Agenda — today is {date}",
+      "prevWeek": "Previous week",
+      "nextWeek": "Next week",
+      "openFull": "Open the full agenda"
+    }
   },
   "Search": {
     "placeholder": "Search a customer, company or number…",
@@ -320,8 +328,6 @@
       "groupStage": "Stage",
       "filterMine": "Assigned to me",
       "filterUnread": "Unread",
-      "filterOpen": "Open",
-      "filterClosed": "Closed",
       "filterAutomated": "Answered by AI",
       "assigned": "Assigned",
       "unassigned": "Unassigned",
@@ -336,9 +342,25 @@
       "filterTypeCustomer": "Customer",
       "filterTypeInternal": "Staff and partners",
       "filterTypeNone": "Unclassified",
-      "hasOccurrence": "Customer with an occurrence on record"
+      "hasOccurrence": "Customer with an occurrence on record",
+      "filterUnassigned": "Unassigned",
+      "filterHidden": "Hidden",
+      "mediaImage": "Photo",
+      "mediaVideo": "Video",
+      "mediaAudio": "Audio",
+      "mediaVoice": "Voice message",
+      "mediaDocument": "Document",
+      "mediaSticker": "Sticker",
+      "mediaLocation": "Location",
+      "mediaContacts": "Contact",
+      "waitingSince": "Waiting for {duration}",
+      "filterClosed": "Finished"
     },
     "messageThread": {
+      "toastSendFailed": "Could not send: {reason}",
+      "toastTemplateSendFailed": "Could not send the template: {reason}",
+      "toastReactionFailed": "Could not react: {reason}",
+      "networkError": "network error",
       "backToConversations": "Back to conversations",
       "hideContactPanel": "Hide contact panel",
       "showContactPanel": "Show contact panel",
@@ -372,7 +394,9 @@
       "logCall": "Log a call",
       "changeStage": "Change stage",
       "toastStageChanged": "Stage changed",
-      "toastFailedStage": "Could not change the stage"
+      "toastFailedStage": "Could not change the stage",
+      "statusFailed": "Could not change the status. Try again.",
+      "moreActions": "More actions"
     },
     "sessionTimer": {
       "expired": "Expired",
@@ -414,6 +438,9 @@
       "assignPanelLabel": "Assign this conversation",
       "assignNoMatch": "No teammate matches.",
       "assignHint": "↑↓ to choose · Enter to assign · Esc to cancel",
+      "toastAiDraftFailed": "Couldn't draft a reply.",
+      "toastFileTooLarge": "The file is {size} MB — the limit for {kind} is {limit} MB.",
+      "toastUploadFailed": "Could not upload the file.",
       "toastAiNotConfigured": "AI isn't set up yet — enable it in Settings → AI Assistant.",
       "toastAiNoReply": "The assistant didn't return a reply.",
       "toastAiUnreachable": "Couldn't reach the AI assistant.",
@@ -427,7 +454,9 @@
       "quickReplyHint": "↑↓ to choose · Enter inserts · Esc cancels",
       "signatureToggle": "Sign",
       "signaturePlaceholder": "your name",
-      "signatureNameLabel": "Name used in the signature"
+      "signatureNameLabel": "Name used in the signature",
+      "typeMessagePlaceholderShort": "Write a message...",
+      "quickReplyNeedsMigration": "Shortcuts and file snippets are waiting on migration 044. Text and interactive quick replies still work."
     },
     "bubble": {
       "photo": "Photo",
@@ -542,7 +571,8 @@
       "dealOwner": "Owner",
       "registerOccurrence": "Record occurrence",
       "futurePurchase": "Future purchase",
-      "logCall": "Log a call"
+      "logCall": "Log a call",
+      "occurrenceCount": "{count} {count, plural, =1 {occurrence} other {occurrences}} on record — read them before promising a date."
     },
     "aiBanner": {
       "pausedTitle": "AI assistant is paused here",
@@ -553,6 +583,49 @@
       "resumed": "AI resumed.",
       "updateError": "Couldn’t update the AI assistant.",
       "networkError": "Couldn’t reach the server."
+    },
+    "conversationMenu": {
+      "untitled": "Conversation",
+      "moveToInbox": "Move to Inbox",
+      "moveToWaiting": "Mark as waiting",
+      "moveToDone": "Finish conversation",
+      "markUnread": "Mark as unread",
+      "assign": "Assign to…",
+      "assignNobody": "Nobody",
+      "hide": "Hide conversation",
+      "unhide": "Show again",
+      "delete": "Delete conversation",
+      "deleteTitle": "Delete this conversation?",
+      "deleteBody": "Every message exchanged with {name} goes with it. This cannot be undone.",
+      "deleteConfirmHint": "Type {name} to confirm.",
+      "deleteAlternative": "If you only want it out of the list, use Hide — it comes back on its own when the customer writes.",
+      "deleteConfirm": "Delete forever",
+      "cancel": "Cancel",
+      "toastParked": "Conversation is waiting.",
+      "toastClosed": "Conversation finished.",
+      "toastReopened": "Conversation back in the Inbox.",
+      "toastAssigned": "Conversation assigned to {name}.",
+      "toastUnassigned": "Conversation unassigned.",
+      "toastMarkedUnread": "Marked as unread.",
+      "toastHidden": "Conversation hidden.",
+      "toastUnhidden": "Conversation back in the list.",
+      "toastDeleted": "Conversation deleted.",
+      "toastFailed": "Could not save. Try again.",
+      "toastFailedDelete": "Could not delete. Admins only.",
+      "toastNeedsMigration": "This feature is waiting on migration 045."
+    },
+    "team": {
+      "title": "My team",
+      "rowHint": "Internal PlastfortSul conversation",
+      "subtitle": "{count, plural, one {# person on the team} other {# people on the team}}",
+      "placeholder": "Write to the team...",
+      "readOnlyPlaceholder": "Read-only — viewers can follow along, but not write",
+      "emptyTitle": "Nothing here yet.",
+      "emptyBody": "This conversation is the team's only. Nothing written here reaches a customer.",
+      "unknownAuthor": "Someone",
+      "pendingTitle": "Migration 046 has not been applied.",
+      "pendingBody": "The team room is ready in the app — it is only waiting on the table being created.",
+      "cardEmpty": "No messages yet"
     }
   },
   "Contacts": {
@@ -625,7 +698,7 @@
       "nameLabel": "Name",
       "namePlaceholder": "Jane Doe",
       "phoneLabel": "Phone Number",
-      "phonePlaceholder": "+1234567890",
+      "phonePlaceholder": "+55 (51) 99000-0001",
       "phoneHint": "Include country code, e.g. +1 for US",
       "emailLabel": "Email",
       "emailPlaceholder": "jane@example.com",
@@ -663,7 +736,11 @@
       "cycleHint": "Days between purchases. Leave empty if unknown — the automation skips rather than guessing.",
       "ticketLabel": "Average ticket",
       "optedOutLabel": "Opted out of messages",
-      "optedOutHint": "Excluded from every broadcast and automation. Switch on only when the customer asked."
+      "optedOutHint": "Excluded from every broadcast and automation. Switch on only when the customer asked.",
+      "avatarAdd": "Add photo",
+      "avatarChange": "Change photo",
+      "avatarRemove": "Remove photo",
+      "avatarHint": "PNG, JPG or WebP. Optional."
     },
     "detailView": {
       "tabs": {
@@ -728,6 +805,7 @@
       "toastCustomFieldsSaved": "Custom fields saved",
       "toastCustomFieldsFailed": "Failed to save custom fields",
       "toastTemplateSent": "Template \"{name}\" sent",
+      "toastNetworkError": "network error",
       "toastTemplateFailed": "Failed to send template: {reason}"
     },
     "importModal": {
@@ -1138,6 +1216,7 @@
       "toastNotSignedIn": "Not signed in.",
       "toastNotLinked": "Your profile is not linked to an account.",
       "toastFailedDraft": "Failed to save draft: {error}",
+      "toastSendFailed": "Could not send the broadcast.",
       "toastDraftSaved": "Draft saved"
     },
     "wizard": {
@@ -1545,7 +1624,12 @@
     "rowDescriptionPlaceholder": "Description (optional)",
     "removeRow": "Remove row",
     "addRow": "Add row",
-    "addSection": "Add section"
+    "addSection": "Add section",
+    "previewPlaceholders": {
+      "bodyPlaceholder": "Message body…",
+      "buttonPlaceholder": "Button",
+      "menuPlaceholder": "Menu"
+    }
   },
   "Flows": {
     "list": {
@@ -1612,7 +1696,10 @@
           "topics": {
             "text": "What can I help you with?",
             "button_label": "View topics",
-            "sections": ["Common questions", "Other"],
+            "sections": [
+              "Common questions",
+              "Other"
+            ],
             "options": {
               "hours": "Opening hours",
               "pricing": "Pricing",
@@ -1765,6 +1852,12 @@
         "pickNextNode": "Pick a next node…",
         "none": "— None —",
         "removeSection": "Remove section",
+        "fieldName": "Name",
+        "fieldEmail": "Email",
+        "fieldPhone": "Phone",
+        "fieldCompany": "Company",
+        "toastFileTooLarge": "The file is {size} MB — the limit is {limit} MB.",
+        "toastUploadFailed": "Could not upload the file.",
         "toastFileUploaded": "File uploaded."
       },
       "categories": {
@@ -1831,7 +1924,8 @@
       "statusActive": "Active",
       "statusArchived": "Archived",
       "editorView": "Editor view",
-      "nodesEmptyTitle": "No nodes yet"
+      "nodesEmptyTitle": "No nodes yet",
+      "legend": "Legend"
     },
     "validation": {
       "noIssues": "No issues. Ready to activate.",
@@ -1840,6 +1934,10 @@
     },
     "editorState": {
       "saved": "Saved.",
+      "saveError": "Could not save the flow.",
+      "statusError": "Could not change the status.",
+      "deleteError": "Could not delete the flow.",
+      "deleteConfirm": "Delete “{name}”? Any active runs end immediately. This cannot be undone.",
       "fixIssues": "Fix the issues below before activating.",
       "statusActivated": "Flow activated.",
       "statusArchived": "Archived.",
@@ -1896,6 +1994,11 @@
       "unnamed": "Unnamed",
       "joined": "Joined {date}",
       "remove": "Remove",
+      "loadMembersError": "Could not load members.",
+      "loadInvitesError": "Could not load invitations.",
+      "updateRoleError": "Could not change the role.",
+      "removeError": "Could not remove the member.",
+      "revokeError": "Could not revoke the invitation.",
       "removedToast": "Removed {name}",
       "updatedToast": "Updated {name} to {role}",
       "pendingInvitations": "Pending invitations",
@@ -1941,6 +2044,7 @@
       "generateLink": "Generate link",
       "labelTooLong": "Label must be {max} characters or fewer",
       "copied": "Invite link copied",
+      "toastCreateFailed": "Could not create the invitation.",
       "clipboardBlocked": "Clipboard blocked — copy the link manually",
       "whatsappMessage": "Join {accountName} on PlastfortSul using this link (valid for {expiresInDays} days): {url}",
       "toastServerUnreachable": "Could not reach the server. Try again?"
@@ -1963,23 +2067,13 @@
       "deleteAria": "Delete {name}",
       "noTags": "No tags yet — create your first one below.",
       "placeholder": "e.g. Newsletter",
-      "useColor": "Use {color}",
       "addTag": "Add tag",
       "deleteTag": "Delete tag",
       "deleteConfirm": "Delete the tag \"{name}\"? This removes it from all contacts and cannot be undone.",
       "cancel": "Cancel",
       "deleting": "Deleting...",
-      "colors": {
-        "red": "Red",
-        "orange": "Orange",
-        "amber": "Amber",
-        "emerald": "Emerald",
-        "cyan": "Cyan",
-        "blue": "Blue",
-        "violet": "Violet",
-        "pink": "Pink"
-      },
-      "noTagsTitle": "No tags yet"
+      "noTagsTitle": "No tags yet",
+      "changeColor": "Change the colour"
     },
     "templates": {
       "title": "Message templates",
@@ -2077,7 +2171,18 @@
       "toastUploadSuccess": "Image uploaded.",
       "toastUploadFailed": "Upload failed.",
       "qualityScoreTitle": "Meta quality score",
-      "headerTextAria": "Header text"
+      "headerTextAria": "Header text",
+      "status": {
+        "draft": "Draft",
+        "pending": "Pending",
+        "approved": "Approved",
+        "rejected": "Rejected",
+        "paused": "Paused",
+        "disabled": "Disabled",
+        "inAppeal": "In appeal",
+        "pendingDeletion": "Pending deletion"
+      },
+      "headerSampleAlt": "Header sample"
     },
     "roles": {
       "admin": "Admin",
@@ -2172,6 +2277,13 @@
       "toastVerifyUnreachable": "Could not reach the verification endpoint.",
       "toastCleared": "Configuration cleared. You can now re-enter your credentials.",
       "toastFailedReset": "Failed to reset configuration",
+      "toastRegisterFailed": "Saved, but Meta couldn't register the number: {reason}",
+      "toastConnectedTo": "Connected to {name}",
+      "toastConnectionOk": "API connection successful.",
+      "toastConnectionFailed": "API connection failed.",
+      "resetConfirm": "This deletes the current WhatsApp configuration so you can enter it again. Continue?",
+      "phoneNumberIdPlaceholder": "e.g. 100234567890123",
+      "wabaIdPlaceholder": "e.g. 100234567890456",
       "toastWebhookCopied": "Webhook URL copied to clipboard",
       "toggleTokenVisibility": "Show or hide the access token",
       "tokenCorruptedTitle": "Reconnect WhatsApp"
@@ -2188,7 +2300,8 @@
       "fields": "Fields & tags",
       "deals": "Deals & currency",
       "members": "Team members",
-      "api": "API keys"
+      "api": "API keys",
+      "whats-new": "What's new"
     },
     "groups": {
       "account": "Account",
@@ -2254,7 +2367,27 @@
       "active": "Active",
       "accentColor": "Accent color",
       "useTheme": "Use {name} theme",
-      "colorModeAria": "Color mode"
+      "colorModeAria": "Color mode",
+      "themes": {
+        "plastfortsul": {
+          "tagline": "The brand — a blue that marks where you are, not what is urgent."
+        },
+        "violet": {
+          "tagline": "The default — confident, slightly playful."
+        },
+        "emerald": {
+          "tagline": "Growth-coded, nods at messaging without copying WhatsApp green."
+        },
+        "cobalt": {
+          "tagline": "Clean B2B-SaaS blue — calm and product-y."
+        },
+        "amber": {
+          "tagline": "Warm and friendly — feels good for SMB teams."
+        },
+        "rose": {
+          "tagline": "Bold and modern — D2C, creator-economy, lifestyle."
+        }
+      }
     },
     "security": {
       "title": "Login & security",
@@ -2296,7 +2429,16 @@
       "newKeyTitle": "New API key",
       "newKeyDesc": "Name it after the integration that will use it, and grant only the scopes it needs.",
       "done": "Done",
-      "networkError": "Could not reach the server"
+      "networkError": "Could not reach the server",
+      "scopes": {
+        "messagesSend": "Send WhatsApp messages",
+        "messagesRead": "Read messages and their delivery status",
+        "contactsRead": "List and read contacts",
+        "contactsWrite": "Create and update contacts",
+        "conversationsRead": "List and read conversations",
+        "broadcastsSend": "Launch broadcast campaigns",
+        "webhooksManage": "Register and manage outbound event webhooks"
+      }
     },
     "deals": {
       "title": "Deals & currency",
@@ -2419,7 +2561,9 @@
       "nameRequired": "Give the quick reply a name.",
       "created": "Quick reply created.",
       "updated": "Quick reply updated.",
-      "confirmDelete": "Delete this quick reply?"
+      "confirmDelete": "Delete this quick reply?",
+      "needsMigration": "Shortcuts and file snippets are waiting on migration 044. Text and interactive quick replies still work.",
+      "uploadError": "Could not upload the file."
     },
     "aiPlayground": {
       "emptyState": "Send a message to see how your agent would reply.",
@@ -2431,16 +2575,42 @@
       "reset": "Reset",
       "emptyHint": "It uses your knowledge base and behaves exactly like the auto-reply bot — including handoff.",
       "goToSetup": "Not set up yet? Go to Setup",
-      "notConfigured": "No agent configured yet — finish Setup first."
+      "notConfigured": "No agent configured yet — finish Setup first.",
+      "wouldHandOff": "Would hand off to a human here"
     },
-    "railAria": "Settings sections"
+    "railAria": "Settings sections",
+    "autoAssign": {
+      "title": "Automatic assignment",
+      "description": "Each new unassigned conversation goes to the next teammate who is online, in rotation. A conversation that already has an owner never changes hands.",
+      "needsMigration": "This feature is waiting on migration 045.",
+      "turnedOn": "Rotation on.",
+      "turnedOff": "Rotation off.",
+      "saveFailed": "Could not save. Try again."
+    },
+    "aiUsage": {
+      "title": "Token usage",
+      "description": "Tokens spent on your provider key by drafts and the auto-reply bot. Counts only — no message content is stored here.",
+      "loadError": "Could not load usage.",
+      "windowOption": "Last {days} days",
+      "emptyTitle": "No AI usage in the last {days} days yet.",
+      "emptyBody": "This fills in as the assistant drafts and auto-replies.",
+      "statTotalTokens": "Total tokens",
+      "statCalls": "LLM calls",
+      "statAutoReply": "Auto-reply",
+      "statDrafts": "Drafts",
+      "perDay": "Tokens per day",
+      "byModel": "By model",
+      "seriesTokens": "Tokens",
+      "modelSummary": "{tokens} tok · {calls, plural, one {# call} other {# calls}}",
+      "truncated": "Showing a partial window — usage is high enough that only the most recent records are summarized here."
+    }
   },
   "Notifications": {
     "title": "Notifications",
-    "description": "Conversations other teammates assign to you show up here.",
+    "description": "New customer messages and conversations your teammates assign to you show up here.",
     "markAllRead": "Mark all as read",
     "emptyTitle": "No notifications yet",
-    "emptyDesc": "You'll see an alert here when someone assigns you a conversation.",
+    "emptyDesc": "You'll see an alert here when a customer writes or someone assigns you a conversation.",
     "unreadAria": "Unread",
     "viewAll": "View all",
     "unreadCountAria": "{count} {count, plural, =1 {unread notification} other {unread notifications}}",
@@ -2452,7 +2622,8 @@
     "assignedTitle": "New conversation assigned",
     "assignedBody": "{actor} assigned you a conversation with {contact}",
     "assignedActorSystem": "The system",
-    "assignedContactUnknown": "a contact"
+    "assignedContactUnknown": "a contact",
+    "newMessageNoText": "Sent an attachment"
   },
   "Routes": {
     "loading": "Loading…",
@@ -2511,5 +2682,120 @@
     "toastAcceptFailed": "Failed to accept invitation",
     "toastNetwork": "Could not reach the server",
     "toastSignOutFailed": "Could not sign out. Try refreshing the page."
+  },
+  "WhatsNew": {
+    "title": "What's new",
+    "description": "What changed in the CRM.",
+    "versionLabel": "Version {version}",
+    "latest": "Latest",
+    "earlier": "Earlier versions",
+    "summary": "{total} changes — {new} new, {improved} improved, {fixed} fixed.",
+    "showAll": "See all {count}",
+    "hideAll": "Hide the list",
+    "changeCount": "{count} changes",
+    "kind": {
+      "new": "New",
+      "improved": "Improved",
+      "fixed": "Fixed"
+    },
+    "highlights": {
+      "waiting": {
+        "title": "Waiting looks after itself",
+        "body": "The customer writes and the thread moves to Waiting; somebody answers and it returns to Inbox. Nobody has to mark anything, and the tab sorts oldest first so the forgotten one surfaces."
+      },
+      "teamRoom": {
+        "title": "The team has a room",
+        "body": "An internal conversation inside the CRM, so the note about a case sits next to the case. Nothing written there reaches a customer."
+      },
+      "conversationMenu": {
+        "title": "Act without opening the thread",
+        "body": "Right-click any row in the list, or the menu on a phone, to mark as waiting, finish, assign, hide or delete."
+      },
+      "firstRelease": {
+        "title": "The first release",
+        "body": "WhatsApp inbox, contacts, pipelines, campaigns and automations."
+      },
+      "weekStrip": {
+        "title": "The week at the top of the screen",
+        "body": "Seven days beside the search, with a dot on any day that has something on it — a deal closing, a repurchase, an occurrence, an automation, a campaign or a birthday. Click a day to see what it is, from any screen."
+      },
+      "assignFromList": {
+        "title": "Assign without opening the conversation",
+        "body": "Right-click a conversation and pick the owner there. “Nobody” puts it back in the automatic rotation."
+      },
+      "mediaThumb": {
+        "title": "The conversation row shows the right media",
+        "body": "A photo with a caption now shows both, and an automated reply stopped inheriting the photo the customer had sent earlier."
+      },
+      "customColors": {
+        "title": "The colour is yours",
+        "body": "Tags and pipeline stages take any colour, not the six on a list — pick it in the system picker or type the code. The preview shows how the chip will read before you save."
+      }
+    },
+    "items": {
+      "waitingTab": "Waiting means the customer is waiting for a reply: a thread lands there when they write and leaves when somebody answers.",
+      "messageNotifications": "A new customer message rings the bell. Only assignment did before.",
+      "contactName": "An edited contact name no longer reverts.",
+      "occurrenceWarning": "A registered occurrence shows on the contact, with the count in the panel.",
+      "signupButton": "The create-account button no longer overflows the edge.",
+      "teamRoom": "My team: an internal conversation, inside the CRM.",
+      "conversationMenu": "Right-click a conversation (or the menu on a phone) to mark, finish and assign.",
+      "hideConversation": "Hide a conversation: it leaves the list without deleting, and returns if the customer writes.",
+      "autoAssign": "Automatic round-robin assignment among whoever is online.",
+      "contactPhoto": "Contact profile photos on the contact form.",
+      "pasteImage": "Ctrl+V pastes a screenshot into the message field. Dragging a file works too.",
+      "mediaPreview": "Audio, photos and documents show an icon and a name instead of [audio].",
+      "signature": "A signed message no longer shows the name in asterisks.",
+      "mobileThread": "The conversation on a phone: header and field fit the screen, and the keyboard capitalises again.",
+      "phoneMask": "Phone numbers are masked: +55 (51) 99000-0001 instead of a run of digits.",
+      "inviteScreen": "The invitation screen uses the same design as the sign-in screens.",
+      "agendaEmpty": "Agenda: the \"nothing scheduled\" state is centred beside the calendar.",
+      "inviteOnly": "Sign-up is invite-only.",
+      "editorCanvas": "Flows and automations are drawn on the same grid, edge to edge.",
+      "firstRelease": "First release: shared inbox, contacts, pipelines, campaigns and automations.",
+      "playbook": "The commercial playbook, inside the CRM.",
+      "uxOverhaul": "General interface pass: menus, notifications, the calendar and spacing.",
+      "onlineMembers": "Who is online shows in the header, on every screen.",
+      "teamPreview": "The team's last message shows in the sidebar, from any page.",
+      "presenceLocale": "Presence timestamps in the app language — they were English.",
+      "weekStrip": "The week shows beside the search, with a dot on any day that has something on it.",
+      "assignFromList": "You can pick the owner by right-clicking a conversation.",
+      "onlineFaces": "Who is online reads from the faces, each carrying its own presence dot.",
+      "mediaThumb": "A captioned photo shows both; a flow or automation reply no longer inherits the previous media.",
+      "closedFilter": "The Closed and Hidden filters work again — they were permanently disabled.",
+      "contactNameAgain": "A name edited from the contact page no longer reverts to the WhatsApp one.",
+      "csvNames": "Imported CSV names stop being overwritten too.",
+      "waitingClock": "Parking an already-waiting conversation no longer resets its place in the queue.",
+      "phoneMaskSecond": "The phone field on the contact page got the mask and saves in the canonical format.",
+      "foreignPhone": "A foreign number shows the correct country code.",
+      "teamRoomExit": "You can leave the team room on a phone.",
+      "teamRoomDot": "The team room unread dot clears once you have read it.",
+      "teamRoomLink": "The team room shortcut works on every click, not only the first.",
+      "notificationRead": "Marking a notification read reports a failure instead of pretending.",
+      "notificationDeadClick": "A notification with nowhere to go no longer looks like a broken button.",
+      "emptyFlowCanvas": "A brand-new flow opens on the same grid as one that has nodes.",
+      "translations": "Over thirty screens and messages that were still in English were translated.",
+      "customColors": "Tags and pipeline stages take any colour, with a preview of how the chip will read."
+    },
+    "seeIt": "See it"
+  },
+  "Presence": {
+    "onlineTitle": "Here right now",
+    "onlineCount": "{count} online",
+    "onlineCountAria": "{count} teammates online",
+    "you": " (you)",
+    "labelOnline": "Online",
+    "labelAway": "Away",
+    "labelOffline": "Offline — last seen {lastSeen}"
+  },
+  "Common": {
+    "close": "Close",
+    "colorPicker": {
+      "hexLabel": "Colour code",
+      "preview": "Looks like",
+      "sample": "Sample",
+      "squareLabel": "Saturation and brightness",
+      "hueLabel": "Hue"
+    }
   }
 }

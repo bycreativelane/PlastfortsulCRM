@@ -8,6 +8,7 @@ const h = vi.hoisted(() => ({
   dispatchWebhookEvent: vi.fn(),
   state: {
     contactUpdates: [] as Record<string, unknown>[],
+    conversationUpdates: [] as Record<string, unknown>[],
     // Result the message upsert's .select() resolves to. A genuine insert
     // returns the row; a replayed delivery conflicts and returns [].
     messageUpsertResult: [{ id: 'msg-1' }] as { id: string }[],
@@ -65,6 +66,7 @@ vi.mock('@supabase/supabase-js', () => ({
           };
         case 'conversations':
           // findOrCreateConversation: select().eq().eq().order().limit()
+          // markWaitingOnInbound / autoAssign:  update().eq()[.eq()|.is()]
           return {
             select: () => ({
               eq: () => ({
@@ -79,16 +81,32 @@ vi.mock('@supabase/supabase-js', () => ({
                 }),
               }),
             }),
+            update: (row: Record<string, unknown>) => {
+              h.state.conversationUpdates.push(row);
+              // Thenable at every depth, because the callers filter to
+              // different depths — `.eq('id')` alone, or `.eq('id').is(...)`
+              // for the assignment race guard.
+              const chain: Record<string, unknown> = {};
+              chain.eq = () => chain;
+              chain.is = () => chain;
+              chain.neq = () => chain;
+              chain.then = (onFulfilled: (v: { error: null }) => unknown) =>
+                Promise.resolve({ error: null }).then(onFulfilled);
+              return chain;
+            },
           };
         case 'contacts':
           return {
             update: (row: Record<string, unknown>) => {
               h.state.contactUpdates.push(row);
-              return {
-                eq: () => ({
-                  eq: () => Promise.resolve({ error: null }),
-                }),
-              };
+              // `.eq().eq()` for the opt-out write, `.eq().neq()` for the
+              // name refresh's `name_source <> 'manual'` guard (045).
+              const chain: Record<string, unknown> = {};
+              chain.eq = () => chain;
+              chain.neq = () => chain;
+              chain.then = (onFulfilled: (v: { error: null }) => unknown) =>
+                Promise.resolve({ error: null }).then(onFulfilled);
+              return chain;
             },
           };
         case 'broadcast_recipients':
@@ -261,6 +279,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   h.state.messageUpsertResult = [{ id: 'msg-1' }];
   h.state.contactUpdates = [];
+  h.state.conversationUpdates = [];
   h.state.priorCustomerMsgCount = 0;
   h.state.replyContextParent = null;
   h.state.conversation = { id: 'conv-1', unread_count: 0, account_id: 'acc-1' };
@@ -538,6 +557,48 @@ describe('inbound webhook: inbound media is mirrored (#466)', () => {
     expect(mockGetMediaUrl).not.toHaveBeenCalled();
     expect(h.state.storageUploads).toHaveLength(0);
     expect(h.state.upsertCalls[0].row).toMatchObject({ media_type: null });
+  });
+});
+
+describe('inbound webhook: the customer writing means they are waiting', () => {
+  // Reported three ways and all one rule: "Esperando" is the customer
+  // waiting for an answer, so an inbound message puts the thread there
+  // whatever it was before. See `@/lib/conversations/reopen`.
+  it.each([
+    ['open', 'in Entrada'],
+    ['closed', 'already finished'],
+  ])('moves a conversation that was %s (%s) to waiting', async (status) => {
+    h.state.conversation = {
+      id: 'conv-1',
+      unread_count: 0,
+      account_id: 'acc-1',
+      status,
+    } as typeof h.state.conversation;
+
+    await runWebhook();
+
+    const waiting = h.state.conversationUpdates.find(
+      (row) => row.status === 'pending'
+    );
+    expect(waiting).toBeTruthy();
+    expect(waiting).toHaveProperty('waiting_since');
+  });
+
+  it('does not restart the clock for a thread already waiting', async () => {
+    // Four messages in a row are one wait. Re-stamping would make the
+    // longest-neglected thread look freshest in a tab sorted oldest-first.
+    h.state.conversation = {
+      id: 'conv-1',
+      unread_count: 2,
+      account_id: 'acc-1',
+      status: 'pending',
+    } as typeof h.state.conversation;
+
+    await runWebhook();
+
+    expect(
+      h.state.conversationUpdates.some((row) => 'waiting_since' in row)
+    ).toBe(false);
   });
 });
 

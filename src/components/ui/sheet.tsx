@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { useTranslations } from 'next-intl';
 import { Dialog as SheetPrimitive } from '@base-ui/react/dialog';
 import { cva, type VariantProps } from 'class-variance-authority';
 
@@ -116,6 +117,8 @@ function SheetContent({
     side?: 'top' | 'right' | 'bottom' | 'left';
     showCloseButton?: boolean;
   }) {
+  // Same label, same reason, same namespace as `dialog.tsx`.
+  const tCommon = useTranslations('Common');
   return (
     <SheetPortal>
       <SheetOverlay />
@@ -138,7 +141,7 @@ function SheetContent({
             }
           >
             <XIcon />
-            <span className="sr-only">Close</span>
+            <span className="sr-only">{tCommon('close')}</span>
           </SheetPrimitive.Close>
         )}
       </SheetPrimitive.Popup>

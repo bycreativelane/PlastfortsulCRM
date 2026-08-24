@@ -69,9 +69,11 @@ export default function NewBroadcastPage() {
     } catch (err) {
       // Previously swallowed with console.error — the wizard would
       // just no-op, leaving the user confused. Surface the reason.
-      const message = err instanceof Error ? err.message : 'Broadcast failed';
+      // `use-broadcast-sending.ts` throws English prose ('You are not
+      // signed in.', 'No contacts found for this audience.'). The console
+      // keeps it; the wizard says it in the reader's language.
       console.error('Broadcast failed:', err);
-      toast.error(message);
+      toast.error(t('toastSendFailed'));
     }
   }
 

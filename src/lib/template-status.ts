@@ -28,14 +28,20 @@
 import type { MessageTemplateStatus } from '@/types';
 
 export type TemplateStatusVariant =
-  | 'neutral'
-  | 'auto'
-  | 'human'
-  | 'ok'
-  | 'danger';
+  'neutral' | 'auto' | 'human' | 'ok' | 'danger';
 
 export interface TemplateStatusDisplay {
-  label: string;
+  /**
+   * A key under `Settings.templates.status`, not a word.
+   *
+   * These pills used to carry English literals — 'Draft', 'Pending
+   * Deletion' — which is how a pt-BR install ended up with an English
+   * badge next to every template name. The status comes from Meta in
+   * SCREAMING_CASE and has to be mapped to something readable either way;
+   * mapping it to a key instead of a word costs nothing and is the only
+   * version that can be translated.
+   */
+  labelKey: string;
   variant: TemplateStatusVariant;
 }
 
@@ -43,12 +49,12 @@ export const templateStatusConfig: Record<
   MessageTemplateStatus,
   TemplateStatusDisplay
 > = {
-  DRAFT: { label: 'Draft', variant: 'neutral' },
-  PENDING: { label: 'Pending', variant: 'auto' },
-  APPROVED: { label: 'Approved', variant: 'ok' },
-  REJECTED: { label: 'Rejected', variant: 'danger' },
-  PAUSED: { label: 'Paused', variant: 'human' },
-  DISABLED: { label: 'Disabled', variant: 'danger' },
-  IN_APPEAL: { label: 'In Appeal', variant: 'auto' },
-  PENDING_DELETION: { label: 'Pending Deletion', variant: 'neutral' },
+  DRAFT: { labelKey: 'draft', variant: 'neutral' },
+  PENDING: { labelKey: 'pending', variant: 'auto' },
+  APPROVED: { labelKey: 'approved', variant: 'ok' },
+  REJECTED: { labelKey: 'rejected', variant: 'danger' },
+  PAUSED: { labelKey: 'paused', variant: 'human' },
+  DISABLED: { labelKey: 'disabled', variant: 'danger' },
+  IN_APPEAL: { labelKey: 'inAppeal', variant: 'auto' },
+  PENDING_DELETION: { labelKey: 'pendingDeletion', variant: 'neutral' },
 };

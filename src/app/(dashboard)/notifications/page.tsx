@@ -13,6 +13,7 @@ import {
   Bell,
   CheckCheck,
   Loader2,
+  MessageSquare,
   UserPlus,
   WifiOff,
 } from 'lucide-react';
@@ -20,6 +21,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { destinationFor } from '@/lib/notifications/destination';
 import { PageActions } from '@/components/layout/page-actions';
 import { PageHeader } from '@/components/layout/page-header';
 import { StatePanel } from '@/components/ui/state-panel';
@@ -32,10 +34,10 @@ type NotificationRow = Notification & {
   contact?: { name: string | null; phone: string | null } | null;
 };
 
-// Icon per notification type. Only one type exists today
-// (conversation_assigned) but this keeps future types a one-line add.
+// Icon per notification type. One line per type.
 const TYPE_ICON: Record<Notification['type'], typeof Bell> = {
   conversation_assigned: UserPlus,
+  new_message: MessageSquare,
 };
 
 export default function NotificationsPage() {
@@ -145,9 +147,12 @@ export default function NotificationsPage() {
   const handleClick = useCallback(
     (n: Notification) => {
       if (!n.read_at) markRead(n.id);
-      if (n.conversation_id) {
-        router.push(`/inbox?c=${n.conversation_id}`);
-      }
+      // Through the shared resolver, so this page follows a `contact_id`
+      // the same way the bell panel does. It used to check only
+      // `conversation_id`, which made every contact-scoped notification a
+      // button that swallowed the click and went nowhere.
+      const to = destinationFor(n);
+      if (to) router.push(to);
     },
     [markRead, router]
   );
@@ -266,11 +271,20 @@ export default function NotificationsPage() {
           {notifications.map((n) => {
             const Icon = TYPE_ICON[n.type] ?? Bell;
             const isUnread = !n.read_at;
+            // A row is a control only when clicking it DOES something —
+            // going somewhere, or marking itself read. Same rule, same
+            // shape as the bell panel.
+            const clickable = destinationFor(n) !== null || isUnread;
+            const Row = clickable ? 'button' : 'div';
             return (
               <li key={n.id}>
-                <button
-                  type="button"
-                  onClick={() => handleClick(n)}
+                <Row
+                  {...(clickable
+                    ? {
+                        type: 'button' as const,
+                        onClick: () => handleClick(n),
+                      }
+                    : {})}
                   className={cn(
                     'surface-interactive flex w-full items-start gap-3 rounded-lg border p-4 text-left',
                     // Unread moves the BORDER, never the fill: the panel and
@@ -340,7 +354,7 @@ export default function NotificationsPage() {
                       })}
                     </p>
                   </div>
-                </button>
+                </Row>
               </li>
             );
           })}

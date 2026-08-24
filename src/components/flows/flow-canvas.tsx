@@ -528,19 +528,41 @@ function FlowCanvasInner() {
 
   if (rfNodes.length === 0) {
     return (
-      <StatePanel
-        size="md"
-        icon={Workflow}
-        title={t('noNodesYet')}
-        actions={<CanvasAddNodeButton t={t} />}
-        className="h-full"
-      />
+      // On the SAME paper as a flow that has nodes. Bare, this state
+      // dropped both the dotted grid and the canvas surface colour, so a
+      // brand-new flow — the first screen anybody sees — looked like a
+      // different editor from the one they get after adding a node, and
+      // the surface appeared out of nowhere on that first click. The empty
+      // state is not a different place; it is the same canvas with nothing
+      // on it yet.
+      <div className="editor-grid border-border h-full w-full border-t">
+        <StatePanel
+          size="md"
+          icon={Workflow}
+          title={t('noNodesYet')}
+          actions={<CanvasAddNodeButton t={t} />}
+          className="h-full"
+        />
+      </div>
     );
   }
 
   return (
     <>
-      <div className="h-full w-full overflow-hidden">
+      {/* The ground belongs to the canvas now that it is the page surface.
+          `editor-grid` paints the same dots the automations builder uses —
+          React Flow's own `<Background>` below draws on top of it at
+          matching spacing, so panning has a grid that moves and a grid that
+          does not, which is what gives the drag its sense of distance.
+
+          THE TWO EDITORS ARE NOT PIXEL-IDENTICAL, and the difference is
+          here rather than an accident: automations paints the grid on its
+          ROOT, so the paper runs behind its toolbar; this one paints it on
+          the canvas only, so the flows toolbar keeps the page surface. Both
+          use the same `editor-grid` utility at the same spacing — what
+          differs is how far up it reaches. Deciding to unify them is a
+          design call, not a defect to patch silently. */}
+      <div className="editor-grid border-border h-full w-full overflow-hidden border-t">
         <ReactFlow
           nodes={rfNodes}
           edges={rfEdges}
@@ -573,14 +595,33 @@ function FlowCanvasInner() {
             size={1.4}
             color="var(--border)"
           />
+          {/* Zoom, as one horizontal control instead of a vertical stack.
+              
+              React Flow stacks its three buttons into a 26x78px tower in
+              the bottom-left corner, which is the shape of a toolbar from a
+              different application: nothing else in this product is a
+              vertical strip of unlabelled square buttons. Laid out
+              horizontally it matches the pill the composer and the segment
+              bars already use, and it reads as one control rather than
+              three stuck together.
+              
+              `!bottom-4 !left-4` puts it on the same 16px inset as the Add
+              node button diagonally opposite it, so the two corners of the
+              canvas agree with each other. */}
           <Controls
-            className="!border-border !bg-card [&_button]:!border-border [&_button]:!bg-card [&_button:hover]:!bg-muted [&_button_svg]:!fill-foreground !overflow-hidden !rounded-lg !border !shadow-[var(--lift-shadow)]"
+            orientation="horizontal"
             showInteractive={false}
+            className="!border-border !bg-card/90 [&_button]:!border-border [&_button:hover]:!bg-muted [&_button_svg]:!fill-foreground !bottom-4 !left-4 !overflow-hidden !rounded-lg !border !shadow-[var(--lift-shadow)] !backdrop-blur-sm [&_button]:!size-8 [&_button]:!border-l [&_button]:!bg-transparent [&_button_svg]:!max-w-3.5 [&_button:first-child]:!border-l-0"
           />
           {/* React Flow's minimap is a fixed 200x150 anchored bottom-
               right. On a 768px stage that is ~27% of the width and a
               band of the height, spent on something `fitView` already
-              gives — so it only appears once the stage can afford it. */}
+              gives — so it only appears once the stage can afford it.
+              
+              Shrunk to 160x110 and given the same inset, fill and blur as
+              the zoom control opposite it: at 200x150 with an opaque white
+              fill it was the heaviest object on the canvas, and it is the
+              one object on it you never interact with. */}
           <MiniMap
             pannable
             zoomable
@@ -590,7 +631,8 @@ function FlowCanvasInner() {
             nodeStrokeWidth={0}
             nodeBorderRadius={3}
             maskColor="color-mix(in oklch, var(--background) 70%, transparent)"
-            className="!border-border !bg-card !hidden !rounded-lg !border !shadow-[var(--lift-shadow)] lg:!block"
+            style={{ width: 160, height: 110 }}
+            className="!border-border !bg-card/90 !right-4 !bottom-4 !hidden !rounded-lg !border !shadow-[var(--lift-shadow)] !backdrop-blur-sm lg:!block"
           />
           <Panel position="top-left" className="!top-4 !left-4">
             <CanvasAddNodeButton t={t} />

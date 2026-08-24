@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { Conversation } from "@/types";
 
@@ -11,9 +11,28 @@ import type { Conversation } from "@/types";
  *
  * Lives on its own realtime channel (distinct from the inbox page's
  * "inbox-realtime") so both can coexist without sharing state.
+ *
+ * ONE CHANNEL PER CONSUMER, and this is a crash fix rather than a
+ * preference — the same one `use-presence` took, for the same reason.
+ * The topic was the fixed string "total-unread-realtime", and supabase-js
+ * caches channels by topic: the SECOND component to call this hook got back
+ * the already-subscribed channel, and `.on()` after `.subscribe()` throws
+ *
+ *   cannot add `postgres_changes` callbacks for
+ *   realtime:total-unread-realtime after `subscribe()`
+ *
+ * It stayed invisible while the shell was the only caller. The throw
+ * happens inside an effect, so React unwinds to the dashboard error
+ * boundary and the whole screen becomes "Algo quebrou nesta tela" — a
+ * second consumer anywhere in the tree took the app down.
+ *
+ * `useId` is stable across re-renders and unique per component instance,
+ * which is the scope a subscription should have. The cost is one websocket
+ * channel per consumer.
  */
 export function useTotalUnread(): number {
   const [total, setTotal] = useState(0);
+  const instanceId = useId();
 
   // Keep a live local mirror of {id: unread_count} so INSERT/UPDATE/DELETE
   // events can adjust the total in O(1) without refetching.
@@ -43,7 +62,7 @@ export function useTotalUnread(): number {
     })();
 
     const channel = supabase
-      .channel("total-unread-realtime")
+      .channel(`total-unread-realtime:${instanceId}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "conversations" },
@@ -68,7 +87,7 @@ export function useTotalUnread(): number {
       cancelled = true;
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [instanceId]);
 
   return total;
 }

@@ -833,11 +833,20 @@ export function AutomationBuilder({ initial }: { initial: BuilderInitial }) {
     // editor: 0px tall. The toolbar overflowed and showed; the canvas,
     // being `flex-1` of nothing, did not. The shell hands app-shaped
     // routes a real height now — see dashboard-shell.tsx.
-    <div className="bg-background flex min-h-0 flex-1 flex-col">
+    // `editor-grid` on the ROOT, so the paper runs behind the toolbar too.
+    // The header keeps a translucent fill of its own so the controls stay
+    // readable over the dots.
+    //
+    // NOT what the flow editor does, despite what this comment used to
+    // claim: there the grid is on the canvas wrapper and stops below the
+    // toolbar. Same utility, same 22px spacing, different reach. Written
+    // down because a comment asserting a parity that was never built is
+    // how the next person "fixes" the wrong file.
+    <div className="editor-grid flex min-h-0 flex-1 flex-col">
       {/* Top bar. At sub-sm widths the "Active" label is hidden and the
           switch moves to the right of the save button, so the name input
           gets maximum width. */}
-      <header className="border-border bg-card/80 flex flex-shrink-0 items-center gap-2 border-b px-4 py-3 sm:gap-3 sm:px-6 lg:px-8">
+      <header className="border-border bg-card/80 flex flex-shrink-0 items-center gap-2 border-b px-4 py-3 backdrop-blur-sm sm:gap-3 sm:px-6 lg:px-8">
         {/* A <Button>, not a bare <button>: the coarse-pointer 44px shield
             in globals.css keys off [data-slot="button"], and 36px is the
             only way out of a full-screen editor on a phone. */}
@@ -872,7 +881,6 @@ export function AutomationBuilder({ initial }: { initial: BuilderInitial }) {
 
       {/* Canvas */}
       <div className="relative flex-1 overflow-y-auto">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle,var(--border)_1px,transparent_1px)] [background-size:20px_20px]" />
         <div className="relative mx-auto flex max-w-2xl flex-col items-center gap-0 px-4 py-10">
           <ResourcesProvider>
             <TriggerCard

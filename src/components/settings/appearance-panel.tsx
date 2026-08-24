@@ -1,12 +1,12 @@
-"use client";
+'use client';
 
-import { Check, Moon, Palette, SunMoon, Sun } from "lucide-react";
+import { Check, Moon, Palette, SunMoon, Sun } from 'lucide-react';
 
-import { useTheme } from "@/hooks/use-theme";
-import { MODES, THEMES, type Mode, type ThemeId } from "@/lib/themes";
-import { cn } from "@/lib/utils";
-import { useTranslations } from "next-intl";
-import { SettingsPanelHead } from "./settings-panel-head";
+import { useTheme } from '@/hooks/use-theme';
+import { MODES, THEMES, type Mode, type ThemeId } from '@/lib/themes';
+import { cn } from '@/lib/utils';
+import { useTranslations } from 'next-intl';
+import { SettingsPanelHead } from './settings-panel-head';
 
 /**
  * Appearance panel — light/dark mode + accent-color picker.
@@ -22,24 +22,21 @@ import { SettingsPanelHead } from "./settings-panel-head";
  */
 export function AppearancePanel() {
   const { theme, setTheme, mode, setMode } = useTheme();
-  const t = useTranslations("Settings.appearance");
+  const t = useTranslations('Settings.appearance');
 
   return (
-    <section className="max-w-3xl animate-in fade-in-50 duration-(--dur-3)">
-      <SettingsPanelHead
-        title={t("title")}
-        description={t("description")}
-      />
+    <section className="animate-in fade-in-50 max-w-3xl duration-(--dur-3)">
+      <SettingsPanelHead title={t('title')} description={t('description')} />
 
       <div className="space-y-4">
-        <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
-          <SunMoon className="size-4 text-muted-foreground" />
-          {t("mode")}
+        <h3 className="text-foreground flex items-center gap-2 text-sm font-semibold">
+          <SunMoon className="text-muted-foreground size-4" />
+          {t('mode')}
         </h3>
 
         <div
           role="radiogroup"
-          aria-label={t("colorModeAria")}
+          aria-label={t('colorModeAria')}
           className="grid max-w-md grid-cols-1 gap-3 @xs:grid-cols-2"
         >
           {MODES.map((m) => (
@@ -54,9 +51,9 @@ export function AppearancePanel() {
       </div>
 
       <div className="mt-8 space-y-4">
-        <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
-          <Palette className="size-4 text-muted-foreground" />
-          {t("accentColor")}
+        <h3 className="text-foreground flex items-center gap-2 text-sm font-semibold">
+          <Palette className="text-muted-foreground size-4" />
+          {t('accentColor')}
         </h3>
 
         {/* Container queries, not `lg:`. The settings rail turns into a
@@ -70,7 +67,7 @@ export function AppearancePanel() {
               key={tObj.id}
               id={tObj.id}
               name={tObj.name}
-              tagline={tObj.tagline}
+              tagline={t(`themes.${tObj.id}.tagline`)}
               swatch={tObj.swatch}
               isActive={tObj.id === theme}
               onPick={() => setTheme(tObj.id)}
@@ -91,8 +88,8 @@ function ModeCard({
   isActive: boolean;
   onPick: () => void;
 }) {
-  const t = useTranslations("Settings.appearance");
-  const isLight = mode === "light";
+  const t = useTranslations('Settings.appearance');
+  const isLight = mode === 'light';
   const Icon = isLight ? Sun : Moon;
   return (
     <button
@@ -100,27 +97,27 @@ function ModeCard({
       role="radio"
       onClick={onPick}
       aria-checked={isActive}
-      aria-label={t("useMode", { mode })}
+      aria-label={t('useMode', { mode })}
       className={cn(
-        "flex items-center gap-3 rounded-lg border bg-card p-4 text-left transition-colors duration-(--dur-1)",
+        'bg-card flex items-center gap-3 rounded-lg border p-4 text-left transition-colors duration-(--dur-1)',
         isActive
-          ? "border-primary/60 ring-2 ring-primary/40"
-          : "border-border hover:border-border hover:bg-muted/40",
+          ? 'border-primary/60 ring-primary/40 ring-2'
+          : 'border-border hover:border-border hover:bg-muted/40'
       )}
     >
       <span
         aria-hidden
-        className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-foreground"
+        className="bg-muted text-foreground flex size-9 shrink-0 items-center justify-center rounded-full"
       >
         <Icon className="size-4" />
       </span>
-      <span className="flex-1 text-sm font-semibold capitalize text-foreground">
+      <span className="text-foreground flex-1 text-sm font-semibold capitalize">
         {mode}
       </span>
       {isActive && (
-        <span className="bg-primary-soft text-primary inline-flex h-5 shrink-0 items-center gap-1 rounded-full px-2 text-2xs font-medium">
+        <span className="bg-primary-soft text-primary text-2xs inline-flex h-5 shrink-0 items-center gap-1 rounded-full px-2 font-medium">
           <Check className="size-3" />
-          {t("active")}
+          {t('active')}
         </span>
       )}
     </button>
@@ -142,18 +139,18 @@ function ThemeCard({
   isActive: boolean;
   onPick: () => void;
 }) {
-  const t = useTranslations("Settings.appearance");
+  const t = useTranslations('Settings.appearance');
   return (
     <button
       type="button"
       onClick={onPick}
       aria-pressed={isActive}
-      aria-label={t("useTheme", { name })}
+      aria-label={t('useTheme', { name })}
       className={cn(
-        "flex flex-col gap-3 rounded-lg border bg-card p-4 text-left transition-colors duration-(--dur-1)",
+        'bg-card flex flex-col gap-3 rounded-lg border p-4 text-left transition-colors duration-(--dur-1)',
         isActive
-          ? "border-primary/60 ring-2 ring-primary/40"
-          : "border-border hover:border-border hover:bg-muted/40",
+          ? 'border-primary/60 ring-primary/40 ring-2'
+          : 'border-border hover:border-border hover:bg-muted/40'
       )}
     >
       <div className="flex items-center justify-between">
@@ -163,26 +160,23 @@ function ThemeCard({
           style={{ background: swatch }}
         />
         {isActive && (
-          <span className="bg-primary-soft text-primary inline-flex h-5 shrink-0 items-center gap-1 rounded-full px-2 text-2xs font-medium">
+          <span className="bg-primary-soft text-primary text-2xs inline-flex h-5 shrink-0 items-center gap-1 rounded-full px-2 font-medium">
             <Check className="size-3" />
-            {t("active")}
+            {t('active')}
           </span>
         )}
       </div>
       <div>
-        <div className="text-sm font-semibold text-foreground">{name}</div>
-        <div className="mt-1 text-xs leading-relaxed text-muted-foreground">
+        <div className="text-foreground text-sm font-semibold">{name}</div>
+        <div className="text-muted-foreground mt-1 text-xs leading-relaxed">
           {tagline}
         </div>
       </div>
-      <div
-        className="mt-1 flex h-2 overflow-hidden rounded-full"
-        aria-hidden
-      >
+      <div className="mt-1 flex h-2 overflow-hidden rounded-full" aria-hidden>
         <span className="flex-1" style={{ background: swatch }} />
-        <span className="w-3 bg-muted-foreground/60" />
-        <span className="w-3 bg-muted" />
-        <span className="w-3 bg-card" />
+        <span className="bg-muted-foreground/60 w-3" />
+        <span className="bg-muted w-3" />
+        <span className="bg-card w-3" />
       </div>
       <span className="sr-only">Theme id: {id}</span>
     </button>

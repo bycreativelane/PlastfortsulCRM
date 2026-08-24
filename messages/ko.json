@@ -110,7 +110,9 @@
     "blingBody": "Bling에서 결제가 완료되거나 세금계산서가 발행되면 자동화를 실행할 수 있게 됩니다.",
     "next": "다음",
     "goTo": "{total}개 중 {index}번째 소식 보기",
-    "dismiss": "닫기"
+    "dismiss": "닫기",
+    "hermesTitle": "함께 일하는 Hermes",
+    "hermesBody": "대화를 따라가며 미리 처리할 수 있는 일을 처리하는 에이전트입니다. 결정은 여전히 사람의 몫입니다."
   },
   "Header": {
     "dashboard": "대시보드",
@@ -130,7 +132,13 @@
     "menuProfile": "프로필",
     "menuSettings": "설정",
     "menuSignOut": "로그아웃",
-    "unreadNotifications": "읽지 않은 알림 {count}건"
+    "unreadNotifications": "읽지 않은 알림 {count}건",
+    "calendar": {
+      "aria": "일정 — 오늘은 {date}",
+      "prevWeek": "지난 주",
+      "nextWeek": "다음 주",
+      "openFull": "전체 일정 보기"
+    }
   },
   "Search": {
     "placeholder": "고객, 회사 또는 번호 검색…",
@@ -320,8 +328,6 @@
       "groupStage": "단계",
       "filterMine": "내 담당",
       "filterUnread": "읽지 않음",
-      "filterOpen": "열림",
-      "filterClosed": "닫힘",
       "filterAutomated": "AI가 응답함",
       "assigned": "배정됨",
       "unassigned": "담당자 없음",
@@ -336,9 +342,25 @@
       "filterTypeCustomer": "고객",
       "filterTypeInternal": "직원 및 파트너",
       "filterTypeNone": "미분류",
-      "hasOccurrence": "이슈 이력이 있는 고객"
+      "hasOccurrence": "이슈 이력이 있는 고객",
+      "filterUnassigned": "담당자 없음",
+      "filterHidden": "숨김",
+      "mediaImage": "사진",
+      "mediaVideo": "동영상",
+      "mediaAudio": "오디오",
+      "mediaVoice": "음성 메시지",
+      "mediaDocument": "문서",
+      "mediaSticker": "스티커",
+      "mediaLocation": "위치",
+      "mediaContacts": "연락처",
+      "waitingSince": "{duration} 대기 중",
+      "filterClosed": "종료됨"
     },
     "messageThread": {
+      "toastSendFailed": "전송하지 못했습니다: {reason}",
+      "toastTemplateSendFailed": "템플릿을 전송하지 못했습니다: {reason}",
+      "toastReactionFailed": "반응을 남기지 못했습니다: {reason}",
+      "networkError": "네트워크 오류",
       "backToConversations": "대화 목록으로 돌아가기",
       "hideContactPanel": "연락처 패널 숨기기",
       "showContactPanel": "연락처 패널 표시",
@@ -372,7 +394,9 @@
       "logCall": "통화 기록",
       "changeStage": "단계 변경",
       "toastStageChanged": "단계가 변경되었습니다",
-      "toastFailedStage": "단계를 변경하지 못했습니다"
+      "toastFailedStage": "단계를 변경하지 못했습니다",
+      "statusFailed": "상태를 변경하지 못했습니다. 다시 시도하세요.",
+      "moreActions": "추가 작업"
     },
     "sessionTimer": {
       "expired": "만료됨",
@@ -414,6 +438,9 @@
       "assignPanelLabel": "이 대화 배정",
       "assignNoMatch": "일치하는 팀원이 없습니다.",
       "assignHint": "↑↓ 선택 · Enter 배정 · Esc 취소",
+      "toastAiDraftFailed": "답장 초안을 만들지 못했습니다.",
+      "toastFileTooLarge": "파일이 {size} MB입니다 — {kind} 제한은 {limit} MB입니다.",
+      "toastUploadFailed": "파일을 업로드하지 못했습니다.",
       "toastAiNotConfigured": "AI가 아직 설정되지 않았습니다 — 설정 → AI 어시스턴트에서 켜세요.",
       "toastAiNoReply": "어시스턴트가 답변을 반환하지 않았습니다.",
       "toastAiUnreachable": "AI 어시스턴트에 연결하지 못했습니다.",
@@ -427,7 +454,9 @@
       "quickReplyHint": "↑↓ 선택 · Enter 삽입 · Esc 취소",
       "signatureToggle": "서명",
       "signaturePlaceholder": "이름",
-      "signatureNameLabel": "서명에 사용할 이름"
+      "signatureNameLabel": "서명에 사용할 이름",
+      "typeMessagePlaceholderShort": "메시지를 입력하세요...",
+      "quickReplyNeedsMigration": "단축키와 파일 스니텼은 마이그레이션 044를 기다리고 있습니다. 텍스트와 인터랙티브 빠른 답장은 정상 작동합니다."
     },
     "bubble": {
       "photo": "사진",
@@ -542,7 +571,8 @@
       "dealOwner": "담당자",
       "registerOccurrence": "이슈 등록",
       "futurePurchase": "향후 구매",
-      "logCall": "통화 기록"
+      "logCall": "통화 기록",
+      "occurrenceCount": "기록된 이슈 {count}건 — 납기를 약속하기 전에 확인하세요."
     },
     "aiBanner": {
       "pausedTitle": "이 대화에서 AI 어시스턴트가 일시 중지됨",
@@ -553,6 +583,49 @@
       "resumed": "AI가 재개되었습니다.",
       "updateError": "AI 어시스턴트를 업데이트하지 못했습니다.",
       "networkError": "서버에 연결할 수 없습니다."
+    },
+    "conversationMenu": {
+      "untitled": "대화",
+      "moveToInbox": "받은함으로 이동",
+      "moveToWaiting": "대기로 표시",
+      "moveToDone": "대화 종료",
+      "markUnread": "읽지 않음으로 표시",
+      "assign": "담당자 지정…",
+      "assignNobody": "지정 안 함",
+      "hide": "대화 숨기기",
+      "unhide": "다시 표시",
+      "delete": "대화 삭제",
+      "deleteTitle": "이 대화를 삭제할까요?",
+      "deleteBody": "{name}님과 주고받은 모든 메시지가 함께 삭제됩니다. 되돌릴 수 없습니다.",
+      "deleteConfirmHint": "확인하려면 {name}을(를) 입력하세요.",
+      "deleteAlternative": "목록에서만 치우려면 숨기기를 사용하세요 — 고객이 메시지를 보내면 다시 나타납니다.",
+      "deleteConfirm": "영구 삭제",
+      "cancel": "취소",
+      "toastParked": "대기로 표시했습니다.",
+      "toastClosed": "대화를 종료했습니다.",
+      "toastReopened": "대화가 받은함으로 돌아왔습니다.",
+      "toastAssigned": "{name}님에게 대화를 배정했습니다.",
+      "toastUnassigned": "대화의 담당자를 해제했습니다.",
+      "toastMarkedUnread": "읽지 않음으로 표시했습니다.",
+      "toastHidden": "대화를 숨겼습니다.",
+      "toastUnhidden": "대화가 목록으로 돌아왔습니다.",
+      "toastDeleted": "대화를 삭제했습니다.",
+      "toastFailed": "저장하지 못했습니다. 다시 시도하세요.",
+      "toastFailedDelete": "삭제하지 못했습니다. 관리자만 가능합니다.",
+      "toastNeedsMigration": "이 기능은 마이그레이션 045 적용을 기다리고 있습니다."
+    },
+    "team": {
+      "title": "내 팀",
+      "rowHint": "PlastfortSul 내부 대화",
+      "subtitle": "팀원 {count}명",
+      "placeholder": "팀에게 메시지 쓰기...",
+      "readOnlyPlaceholder": "읽기 전용 — 뷰어는 볼 수 있지만 쓸 수 없습니다",
+      "emptyTitle": "아직 아무것도 없습니다.",
+      "emptyBody": "이 대화는 팀 전용입니다. 여기에 쓴 내용은 고객에게 전달되지 않습니다.",
+      "unknownAuthor": "누군가",
+      "pendingTitle": "마이그레이션 046이 적용되지 않았습니다.",
+      "pendingBody": "팀 룸은 준비되어 있으며, 테이블 생성만 기다리고 있습니다.",
+      "cardEmpty": "아직 메시지가 없습니다"
     }
   },
   "Contacts": {
@@ -625,7 +698,7 @@
       "nameLabel": "이름",
       "namePlaceholder": "홍길동",
       "phoneLabel": "전화번호",
-      "phonePlaceholder": "+1234567890",
+      "phonePlaceholder": "+55 (51) 99000-0001",
       "phoneHint": "국가 코드를 포함하세요. 예: 미국은 +1",
       "emailLabel": "이메일",
       "emailPlaceholder": "jane@example.com",
@@ -663,7 +736,11 @@
       "cycleHint": "구매 간격(일). 모르면 비워 두세요 — 자동화가 추측하지 않고 건너뜁니다.",
       "ticketLabel": "평균 구매액",
       "optedOutLabel": "메시지 수신 거부",
-      "optedOutHint": "모든 캠페인과 자동화에서 제외됩니다. 고객이 요청한 경우에만 켜세요."
+      "optedOutHint": "모든 캠페인과 자동화에서 제외됩니다. 고객이 요청한 경우에만 켜세요.",
+      "avatarAdd": "사진 추가",
+      "avatarChange": "사진 변경",
+      "avatarRemove": "사진 삭제",
+      "avatarHint": "PNG, JPG 또는 WebP. 선택 사항."
     },
     "detailView": {
       "tabs": {
@@ -728,6 +805,7 @@
       "toastCustomFieldsSaved": "커스텀 필드가 저장되었습니다",
       "toastCustomFieldsFailed": "커스텀 필드를 저장하지 못했습니다",
       "toastTemplateSent": "\"{name}\" 템플릿을 보냈습니다",
+      "toastNetworkError": "네트워크 오류",
       "toastTemplateFailed": "템플릿을 보내지 못했습니다: {reason}"
     },
     "importModal": {
@@ -1138,6 +1216,7 @@
       "toastNotSignedIn": "로그인되어 있지 않습니다.",
       "toastNotLinked": "프로필이 계정에 연결되어 있지 않습니다.",
       "toastFailedDraft": "초안 저장 실패: {error}",
+      "toastSendFailed": "발송을 보내지 못했습니다.",
       "toastDraftSaved": "초안이 저장되었습니다"
     },
     "wizard": {
@@ -1545,7 +1624,12 @@
     "rowDescriptionPlaceholder": "설명 (선택)",
     "removeRow": "항목 삭제",
     "addRow": "항목 추가",
-    "addSection": "섹션 추가"
+    "addSection": "섹션 추가",
+    "previewPlaceholders": {
+      "bodyPlaceholder": "메시지 본문…",
+      "buttonPlaceholder": "버튼",
+      "menuPlaceholder": "메뉴"
+    }
   },
   "Flows": {
     "list": {
@@ -1612,7 +1696,10 @@
           "topics": {
             "text": "무엇을 도와드릴까요?",
             "button_label": "주제 보기",
-            "sections": ["자주 묻는 질문", "기타"],
+            "sections": [
+              "자주 묻는 질문",
+              "기타"
+            ],
             "options": {
               "hours": "운영 시간",
               "pricing": "가격",
@@ -1765,6 +1852,12 @@
         "pickNextNode": "다음 노드를 선택하세요…",
         "none": "— 없음 —",
         "removeSection": "섹션 삭제",
+        "fieldName": "이름",
+        "fieldEmail": "이메일",
+        "fieldPhone": "전화번호",
+        "fieldCompany": "회사",
+        "toastFileTooLarge": "파일이 {size} MB입니다 — 제한은 {limit} MB입니다.",
+        "toastUploadFailed": "파일을 업로드하지 못했습니다.",
         "toastFileUploaded": "파일을 업로드했습니다."
       },
       "categories": {
@@ -1831,7 +1924,8 @@
       "statusActive": "활성",
       "statusArchived": "보관됨",
       "editorView": "편집 보기",
-      "nodesEmptyTitle": "아직 노드가 없습니다"
+      "nodesEmptyTitle": "아직 노드가 없습니다",
+      "legend": "범례"
     },
     "validation": {
       "noIssues": "문제가 없습니다. 활성화할 준비가 되었습니다.",
@@ -1840,6 +1934,10 @@
     },
     "editorState": {
       "saved": "저장되었습니다.",
+      "saveError": "플로우를 저장하지 못했습니다.",
+      "statusError": "상태를 변경하지 못했습니다.",
+      "deleteError": "플로우를 삭제하지 못했습니다.",
+      "deleteConfirm": "“{name}”을(를) 삭제할까요? 진행 중인 실행이 즉시 종료되며 되돌릴 수 없습니다.",
       "fixIssues": "활성화하기 전에 아래 문제를 해결하세요.",
       "statusActivated": "플로우가 활성화되었습니다.",
       "statusArchived": "보관되었습니다.",
@@ -1896,6 +1994,11 @@
       "unnamed": "이름 없음",
       "joined": "{date} 참여",
       "remove": "제거",
+      "loadMembersError": "구성원을 불러오지 못했습니다.",
+      "loadInvitesError": "초대를 불러오지 못했습니다.",
+      "updateRoleError": "역할을 변경하지 못했습니다.",
+      "removeError": "구성원을 제거하지 못했습니다.",
+      "revokeError": "초대를 취소하지 못했습니다.",
       "removedToast": "{name}을(를) 제거했습니다",
       "updatedToast": "{name}을(를) {role}(으)로 변경했습니다",
       "pendingInvitations": "대기 중인 초대",
@@ -1941,6 +2044,7 @@
       "generateLink": "링크 생성",
       "labelTooLong": "라벨은 {max}자 이하여야 합니다",
       "copied": "초대 링크가 복사되었습니다",
+      "toastCreateFailed": "초대를 만들지 못했습니다.",
       "clipboardBlocked": "클립보드 접근이 차단되었습니다 — 링크를 직접 복사하세요",
       "whatsappMessage": "이 링크(유효 기간 {expiresInDays}일)로 PlastfortSul의 {accountName}에 참여하세요: {url}",
       "toastServerUnreachable": "서버에 연결하지 못했습니다. 다시 시도할까요?"
@@ -1963,23 +2067,13 @@
       "deleteAria": "{name} 삭제",
       "noTags": "아직 태그가 없습니다 — 아래에서 첫 태그를 만들어보세요.",
       "placeholder": "예: 뉴스레터",
-      "useColor": "{color} 사용",
       "addTag": "태그 추가",
       "deleteTag": "태그 삭제",
       "deleteConfirm": "\"{name}\" 태그를 삭제하시겠습니까? 모든 연락처에서 제거되며 되돌릴 수 없습니다.",
       "cancel": "취소",
       "deleting": "삭제 중...",
-      "colors": {
-        "red": "빨강",
-        "orange": "주황",
-        "amber": "호박색",
-        "emerald": "에메랄드",
-        "cyan": "청록",
-        "blue": "파랑",
-        "violet": "보라",
-        "pink": "분홍"
-      },
-      "noTagsTitle": "아직 태그가 없습니다"
+      "noTagsTitle": "아직 태그가 없습니다",
+      "changeColor": "색상 변경"
     },
     "templates": {
       "title": "메시지 템플릿",
@@ -2077,7 +2171,18 @@
       "toastUploadSuccess": "이미지가 업로드되었습니다.",
       "toastUploadFailed": "업로드에 실패했습니다.",
       "qualityScoreTitle": "Meta 품질 점수",
-      "headerTextAria": "헤더 텍스트"
+      "headerTextAria": "헤더 텍스트",
+      "status": {
+        "draft": "초안",
+        "pending": "검토 중",
+        "approved": "승인됨",
+        "rejected": "거부됨",
+        "paused": "일시중지",
+        "disabled": "비활성",
+        "inAppeal": "이의신청 중",
+        "pendingDeletion": "삭제 대기"
+      },
+      "headerSampleAlt": "헤더 예시"
     },
     "roles": {
       "admin": "관리자",
@@ -2172,6 +2277,13 @@
       "toastVerifyUnreachable": "확인 엔드포인트에 연결하지 못했습니다.",
       "toastCleared": "설정을 지웠습니다. 이제 자격 증명을 다시 입력할 수 있습니다.",
       "toastFailedReset": "설정을 초기화하지 못했습니다",
+      "toastRegisterFailed": "저장했지만 Meta가 번호를 등록하지 못했습니다: {reason}",
+      "toastConnectedTo": "{name}에 연결됨",
+      "toastConnectionOk": "API 연결에 성공했습니다.",
+      "toastConnectionFailed": "API 연결에 실패했습니다.",
+      "resetConfirm": "현재 WhatsApp 설정을 삭제하고 다시 입력합니다. 계속할까요?",
+      "phoneNumberIdPlaceholder": "예: 100234567890123",
+      "wabaIdPlaceholder": "예: 100234567890456",
       "toastWebhookCopied": "웹훅 URL을 복사했습니다",
       "toggleTokenVisibility": "액세스 토큰 표시 또는 숨기기",
       "tokenCorruptedTitle": "WhatsApp 다시 연결"
@@ -2188,7 +2300,8 @@
       "fields": "필드 & 태그",
       "deals": "딜 & 통화",
       "members": "팀원",
-      "api": "API 키"
+      "api": "API 키",
+      "whats-new": "새 소식"
     },
     "groups": {
       "account": "계정",
@@ -2254,7 +2367,27 @@
       "active": "사용 중",
       "accentColor": "강조 색상",
       "useTheme": "{name} 테마 사용",
-      "colorModeAria": "색상 모드"
+      "colorModeAria": "색상 모드",
+      "themes": {
+        "plastfortsul": {
+          "tagline": "브랜드 컬러 — 급한 일이 아니라 현재 위치를 표시하는 파랑."
+        },
+        "violet": {
+          "tagline": "기본값 — 자신감 있고 약간 경쾌합니다."
+        },
+        "emerald": {
+          "tagline": "성장을 상징하며 WhatsApp 초록을 따라하지 않습니다."
+        },
+        "cobalt": {
+          "tagline": "깔끔한 B2B SaaS 블루 — 차분하고 제품답습니다."
+        },
+        "amber": {
+          "tagline": "따뜻하고 친근해 소규모 팀에 잘 맞습니다."
+        },
+        "rose": {
+          "tagline": "대담하고 현대적 — D2C, 크리에이터, 라이프스타일."
+        }
+      }
     },
     "security": {
       "title": "로그인 & 보안",
@@ -2296,7 +2429,16 @@
       "newKeyTitle": "새 API 키",
       "newKeyDesc": "이 키를 사용할 연동 서비스의 이름을 붙이고, 필요한 권한 범위만 부여하세요.",
       "done": "완료",
-      "networkError": "서버에 연결할 수 없습니다"
+      "networkError": "서버에 연결할 수 없습니다",
+      "scopes": {
+        "messagesSend": "WhatsApp 메시지 보내기",
+        "messagesRead": "메시지와 전송 상태 읽기",
+        "contactsRead": "연락처 목록 및 읽기",
+        "contactsWrite": "연락처 생성 및 수정",
+        "conversationsRead": "대화 목록 및 읽기",
+        "broadcastsSend": "발송 캠페인 실행",
+        "webhooksManage": "아웃바운드 웹훅 등록 및 관리"
+      }
     },
     "deals": {
       "title": "딜 & 통화",
@@ -2419,7 +2561,9 @@
       "nameRequired": "빠른 답변의 이름을 입력하세요.",
       "created": "빠른 답변을 만들었습니다.",
       "updated": "빠른 답변을 수정했습니다.",
-      "confirmDelete": "이 빠른 답변을 삭제할까요?"
+      "confirmDelete": "이 빠른 답변을 삭제할까요?",
+      "needsMigration": "단축키와 파일 스니텼은 마이그레이션 044를 기다리고 있습니다. 텍스트와 인터랙티브 빠른 답장은 정상 작동합니다.",
+      "uploadError": "파일을 업로드하지 못했습니다."
     },
     "aiPlayground": {
       "emptyState": "메시지를 보내 에이전트가 어떻게 답하는지 확인하세요.",
@@ -2431,16 +2575,42 @@
       "reset": "초기화",
       "emptyHint": "지식 베이스를 사용하며 자동 응답 봇과 완전히 동일하게 — 상담원 연결까지 — 작동합니다.",
       "goToSetup": "아직 설정하지 않으셨나요? 설정으로 이동",
-      "notConfigured": "아직 에이전트가 설정되지 않았습니다 — 설정을 먼저 완료하세요."
+      "notConfigured": "아직 에이전트가 설정되지 않았습니다 — 설정을 먼저 완료하세요.",
+      "wouldHandOff": "여기서 담당자에게 인계합니다"
     },
-    "railAria": "설정 섹션"
+    "railAria": "설정 섹션",
+    "autoAssign": {
+      "title": "자동 배정",
+      "description": "담당자가 없는 새 대화는 온라인 상태인 팀원에게 순서대로 배정됩니다. 이미 담당자가 있는 대화는 옮겨지지 않습니다.",
+      "needsMigration": "이 기능은 마이그레이션 045 적용을 기다리고 있습니다.",
+      "turnedOn": "순환 배정을 켰습니다.",
+      "turnedOff": "순환 배정을 껐습니다.",
+      "saveFailed": "저장하지 못했습니다. 다시 시도하세요."
+    },
+    "aiUsage": {
+      "title": "토큰 사용량",
+      "description": "초안과 자동 응답이 사용한 토큰입니다. 집계만 저장되며 메시지 내용은 보관하지 않습니다.",
+      "loadError": "사용량을 불러오지 못했습니다.",
+      "windowOption": "최근 {days}일",
+      "emptyTitle": "최근 {days}일간 AI 사용이 없습니다.",
+      "emptyBody": "어시스턴트가 초안을 쓰거나 자동 응답하면 채워집니다.",
+      "statTotalTokens": "총 토큰",
+      "statCalls": "LLM 호출",
+      "statAutoReply": "자동 응답",
+      "statDrafts": "초안",
+      "perDay": "일별 토큰",
+      "byModel": "모델별",
+      "seriesTokens": "토큰",
+      "modelSummary": "{tokens} tok · {calls}회 호출",
+      "truncated": "부분 기간만 표시합니다 — 사용량이 많아 최근 기록만 요약됩니다."
+    }
   },
   "Notifications": {
     "title": "알림",
-    "description": "다른 팀원이 나에게 배정한 대화가 여기에 표시됩니다.",
+    "description": "고객의 새 메시지와 팀원이 나에게 배정한 대화가 여기에 표시됩니다.",
     "markAllRead": "모두 읽음으로 표시",
     "emptyTitle": "아직 알림이 없습니다",
-    "emptyDesc": "누군가 대화를 배정하면 여기에 알림이 표시됩니다.",
+    "emptyDesc": "고객이 메시지를 보내거나 누군가 대화를 배정하면 여기에 알림이 표시됩니다.",
     "unreadAria": "읽지 않음",
     "viewAll": "전체 보기",
     "unreadCountAria": "읽지 않은 알림 {count}개",
@@ -2452,7 +2622,8 @@
     "assignedTitle": "새 대화가 배정되었습니다",
     "assignedBody": "{actor}님이 {contact}님과의 대화를 배정했습니다",
     "assignedActorSystem": "시스템",
-    "assignedContactUnknown": "연락처"
+    "assignedContactUnknown": "연락처",
+    "newMessageNoText": "첨부 파일을 보냈습니다"
   },
   "Routes": {
     "loading": "불러오는 중…",
@@ -2511,5 +2682,120 @@
     "toastAcceptFailed": "초대를 수락하지 못했습니다",
     "toastNetwork": "서버에 연결할 수 없습니다",
     "toastSignOutFailed": "로그아웃하지 못했습니다. 페이지를 새로고침해 보세요."
+  },
+  "WhatsNew": {
+    "title": "새 소식",
+    "description": "CRM에서 바뀜 내용입니다.",
+    "versionLabel": "버전 {version}",
+    "latest": "최신",
+    "earlier": "이전 버전",
+    "summary": "변경 {total}건 - 신규 {new}, 개선 {improved}, 수정 {fixed}.",
+    "showAll": "전체 {count}건 보기",
+    "hideAll": "목록 숨기기",
+    "changeCount": "변경 {count}건",
+    "kind": {
+      "new": "신규",
+      "improved": "개선",
+      "fixed": "수정"
+    },
+    "highlights": {
+      "waiting": {
+        "title": "Waiting looks after itself",
+        "body": "The customer writes and the thread moves to Waiting; somebody answers and it returns to Inbox. Nobody has to mark anything, and the tab sorts oldest first so the forgotten one surfaces."
+      },
+      "teamRoom": {
+        "title": "The team has a room",
+        "body": "An internal conversation inside the CRM, so the note about a case sits next to the case. Nothing written there reaches a customer."
+      },
+      "conversationMenu": {
+        "title": "Act without opening the thread",
+        "body": "Right-click any row in the list, or the menu on a phone, to mark as waiting, finish, assign, hide or delete."
+      },
+      "firstRelease": {
+        "title": "The first release",
+        "body": "WhatsApp inbox, contacts, pipelines, campaigns and automations."
+      },
+      "weekStrip": {
+        "title": "화면 상단의 이번 주",
+        "body": "검색창 옆에 7일이 표시되고, 일정이 있는 날에는 점이 붙습니다 — 거래 마감, 재구매, 이슈, 자동화, 캔페인, 생일. 어느 화면에서든 날짜를 누르면 내용을 볼 수 있습니다."
+      },
+      "assignFromList": {
+        "title": "대화를 열지 않고 배정",
+        "body": "대화를 오른쪽 버튼으로 클릭해 담당자를 바로 지정합니다. “지정 안 함”을 고르면 자동 배정으로 돌아갑니다."
+      },
+      "mediaThumb": {
+        "title": "대화 목록이 올바른 미디어를 표시",
+        "body": "캐션이 있는 사진은 둘 다 보이고, 자동 응답이 이전 사진을 그대로 물려받던 문제를 고쳤습니다."
+      },
+      "customColors": {
+        "title": "색상을 직접 선택",
+        "body": "태그와 파이프라인 단계가 목록의 6개색이 아닌 모든 색상을 받습니다 — 시스템 선택기를 쓰거나 코드를 입력하세요. 저장 전에 미리보기로 확인할 수 있습니다."
+      }
+    },
+    "items": {
+      "waitingTab": "Waiting means the customer is waiting for a reply: a thread lands there when they write and leaves when somebody answers.",
+      "messageNotifications": "A new customer message rings the bell. Only assignment did before.",
+      "contactName": "An edited contact name no longer reverts.",
+      "occurrenceWarning": "A registered occurrence shows on the contact, with the count in the panel.",
+      "signupButton": "The create-account button no longer overflows the edge.",
+      "teamRoom": "My team: an internal conversation, inside the CRM.",
+      "conversationMenu": "Right-click a conversation (or the menu on a phone) to mark, finish and assign.",
+      "hideConversation": "Hide a conversation: it leaves the list without deleting, and returns if the customer writes.",
+      "autoAssign": "Automatic round-robin assignment among whoever is online.",
+      "contactPhoto": "Contact profile photos on the contact form.",
+      "pasteImage": "Ctrl+V pastes a screenshot into the message field. Dragging a file works too.",
+      "mediaPreview": "Audio, photos and documents show an icon and a name instead of [audio].",
+      "signature": "A signed message no longer shows the name in asterisks.",
+      "mobileThread": "The conversation on a phone: header and field fit the screen, and the keyboard capitalises again.",
+      "phoneMask": "Phone numbers are masked: +55 (51) 99000-0001 instead of a run of digits.",
+      "inviteScreen": "The invitation screen uses the same design as the sign-in screens.",
+      "agendaEmpty": "Agenda: the \"nothing scheduled\" state is centred beside the calendar.",
+      "inviteOnly": "Sign-up is invite-only.",
+      "editorCanvas": "Flows and automations are drawn on the same grid, edge to edge.",
+      "firstRelease": "First release: shared inbox, contacts, pipelines, campaigns and automations.",
+      "playbook": "The commercial playbook, inside the CRM.",
+      "uxOverhaul": "General interface pass: menus, notifications, the calendar and spacing.",
+      "onlineMembers": "Who is online shows in the header, on every screen.",
+      "teamPreview": "The team's last message shows in the sidebar, from any page.",
+      "presenceLocale": "Presence timestamps in the app language — they were English.",
+      "weekStrip": "검색창 옆에 이번 주가 표시되고, 일정이 있는 날에 점이 붙습니다.",
+      "assignFromList": "대화를 오른쪽 클릭해 담당자를 지정할 수 있습니다.",
+      "onlineFaces": "접속 중인 사람을 프로필 사진과 상태 점으로 보여줍니다.",
+      "mediaThumb": "캐션 있는 사진은 둘 다 표시되며, 플로우·자동화 응답이 이전 미디어를 물려받지 않습니다.",
+      "closedFilter": "종료됨·숨김 필터가 다시 동작합니다.",
+      "contactNameAgain": "연락처 페이지에서 수정한 이름이 되돌려지지 않습니다.",
+      "csvNames": "CSV로 가져온 이름도 덮어쓰이지 않습니다.",
+      "waitingClock": "이미 대기 중인 대화를 다시 대기로 바꿔도 순서가 초기화되지 않습니다.",
+      "phoneMaskSecond": "연락처 페이지의 전화번호에 입력 형식이 적용됩니다.",
+      "foreignPhone": "해외 번호가 올바른 국가 코드로 표시됩니다.",
+      "teamRoomExit": "휴대폰에서 팀 채팅방을 나갈 수 있습니다.",
+      "teamRoomDot": "팀 채팅방의 읽지 않음 표시가 읽은 뒤 사라집니다.",
+      "teamRoomLink": "팀 채팅방 바로가기가 매번 동작합니다.",
+      "notificationRead": "알림 읽음 처리가 실패하면 알려줍니다.",
+      "notificationDeadClick": "이동할 곳이 없는 알림은 더 이상 버튼처럼 보이지 않습니다.",
+      "emptyFlowCanvas": "새 플로우도 기존 플로우와 같은 그리드 위에서 열립니다.",
+      "translations": "영어로 남아 있던 서른 개 이상의 화면과 메시지를 번역했습니다.",
+      "customColors": "태그와 파이프라인 단계에 원하는 색상을 지정하고 미리볼 수 있습니다."
+    },
+    "seeIt": "보러 가기"
+  },
+  "Presence": {
+    "onlineTitle": "지금 접속 중",
+    "onlineCount": "{count}명 접속",
+    "onlineCountAria": "팀원 {count}명 접속 중",
+    "you": " (나)",
+    "labelOnline": "접속 중",
+    "labelAway": "자리 비움",
+    "labelOffline": "오프라인 — 마지막 접속 {lastSeen}"
+  },
+  "Common": {
+    "close": "닫기",
+    "colorPicker": {
+      "hexLabel": "색상 코드",
+      "preview": "미리보기",
+      "sample": "예시",
+      "squareLabel": "채도와 명도",
+      "hueLabel": "색상"
+    }
   }
 }

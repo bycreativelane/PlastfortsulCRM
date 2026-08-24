@@ -10,7 +10,25 @@ import { cn } from '@/lib/utils';
 import { avatarClass, avatarInitials } from '@/lib/avatar-color';
 import { NotificationsMenu } from '@/components/layout/notifications-menu';
 import type { Conversation } from '@/types';
-import { ChevronDown, Filter, Inbox, Search, X, Zap } from 'lucide-react';
+import {
+  ChevronDown,
+  Contact,
+  FileText,
+  Filter,
+  Image as ImageIcon,
+  Inbox,
+  MapPin,
+  Mic,
+  Music,
+  Paperclip,
+  Search,
+  Sticker,
+  Users,
+  Video,
+  X,
+  Zap,
+  type LucideIcon,
+} from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useTranslations } from 'next-intl';
 import { useAuth } from '@/hooks/use-auth';
@@ -35,17 +53,38 @@ import {
   buildFilterOptions,
   groupOptions,
   hasOccurrence,
+  isVisible,
   matchesSearch,
   typeTagOf,
   withCounts,
   type Scope,
 } from './conversation-filters';
+import {
+  conversationPreview,
+  type MediaPlaceholderKind,
+} from '@/lib/inbox/message-preview';
+import {
+  hasUnreadTeamMessages,
+  lastSeenTeamMessage,
+  TEAM_SEEN_EVENT,
+} from '@/lib/team/messages';
+import { ConversationMenu } from './conversation-menu';
 
 interface ConversationListProps {
   activeConversationId: string | null;
   onSelect: (conversation: Conversation) => void;
   conversations: Conversation[];
   onConversationsLoaded: (conversations: Conversation[]) => void;
+  /** Apply a write's own patch to one row — see the inbox page. */
+  onConversationPatch: (
+    conversationId: string,
+    patch: Partial<Conversation>
+  ) => void;
+  /** Drop a row after a real delete. */
+  onConversationRemoved: (conversationId: string) => void;
+  /** The team room is open, so its row is the selected one. */
+  teamOpen: boolean;
+  onOpenTeam: () => void;
   /**
    * Increment to force the fetch effect below to refire. The parent
    * bumps this on realtime reconnect / tab visibility → visible so the
@@ -55,14 +94,83 @@ interface ConversationListProps {
   resyncToken?: number;
 }
 
+/**
+ * The team room's entry point.
+ *
+ * A row, not a tab — see the note at the call site. Styled as a destination
+ * rather than as a conversation: a filled disc instead of an initials
+ * avatar, no time, no preview line, no chips. It has to read as "a different
+ * kind of thing" at a glance, because clicking it replaces the whole thread
+ * pane with something that has no customer in it.
+ */
+function TeamRoomRow({
+  active,
+  unread,
+  onOpen,
+  label,
+  hint,
+}: {
+  active: boolean;
+  unread: boolean;
+  onOpen: () => void;
+  label: string;
+  hint: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      aria-current={active ? 'page' : undefined}
+      className={cn(
+        'flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left transition-colors duration-(--dur-1)',
+        active
+          ? 'bg-primary-soft text-primary'
+          : 'text-secondary-foreground hover:bg-muted hover:text-foreground'
+      )}
+    >
+      <span
+        className={cn(
+          'grid size-7 shrink-0 place-items-center rounded-full',
+          active ? 'bg-primary text-white' : 'bg-muted text-primary'
+        )}
+      >
+        <Users className="size-3.5" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-semibold">{label}</span>
+        <span className="text-muted-foreground text-2xs block truncate">
+          {hint}
+        </span>
+      </span>
+      {/* A dot, not a count. The room is one conversation and the number of
+          unread lines in it is not a number anybody acts on differently —
+          "there is something new" is the whole message. */}
+      {unread && !active && (
+        <span className="bg-primary size-1.5 shrink-0 rounded-full" />
+      )}
+    </button>
+  );
+}
+
+/** Tab → its own name, for the sentence an empty list has to say. */
+const SCOPE_LABEL_KEY: Record<Scope, 'scopeInbox' | 'scopeWaiting'> = {
+  entrada: 'scopeInbox',
+  esperando: 'scopeWaiting',
+};
+
 export function ConversationList({
   activeConversationId,
   onSelect,
   conversations,
   onConversationsLoaded,
+  onConversationPatch,
+  onConversationRemoved,
+  teamOpen,
+  onOpenTeam,
   resyncToken = 0,
 }: ConversationListProps) {
   const t = useTranslations('Inbox.conversationList');
+  const tTeam = useTranslations('Inbox.team');
   const { user } = useAuth();
   const { mode } = useTheme();
 
@@ -79,6 +187,75 @@ export function ConversationList({
   const [agentNames, setAgentNames] = useState<Map<string, string>>(
     () => new Map()
   );
+  const [teamUnread, setTeamUnread] = useState(false);
+  /**
+   * The newest team message this list knows about.
+   *
+   * A ref and not state: it is only ever read to answer "is that newer than
+   * the marker" when something else fires, and holding it in state would
+   * re-run the subscription effect on every message that arrives.
+   */
+  const newestRef = useRef<string | null>(null);
+
+  // Is there anything new in the team room?
+  //
+  // One row, newest first, plus a live subscription. The fetch alone was not
+  // enough and the way it failed was invisible: it re-ran on resync and on
+  // opening the room, so a colleague writing while you were reading a
+  // customer thread lit no dot until something else happened to refresh.
+  // A team room whose only announcement is one you have to go looking for
+  // is a team room nobody uses.
+  useEffect(() => {
+    const supabase = createClient();
+    let cancelled = false;
+
+    const refresh = (newest: string | null) => {
+      if (cancelled) return;
+      setTeamUnread(hasUnreadTeamMessages(newest, lastSeenTeamMessage()));
+    };
+
+    (async () => {
+      const { data, error } = await supabase
+        .from('team_messages')
+        .select('created_at')
+        .order('created_at', { ascending: false })
+        .limit(1);
+      // Pre-046 the table does not exist, which reads as "nothing new" —
+      // the correct answer, and not an error worth logging on every load.
+      if (error) return;
+      newestRef.current = data?.[0]?.created_at ?? null;
+      refresh(newestRef.current);
+    })();
+
+    const channel = supabase
+      .channel('team-room-dot')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'team_messages' },
+        (payload) => {
+          // `markTeamRoomSeen` runs while the room is mounted, so this
+          // compares against a marker that is already current when the
+          // reader is looking at it — and only lights up when they are not.
+          newestRef.current = (
+            payload.new as { created_at: string }
+          ).created_at;
+          refresh(newestRef.current);
+        }
+      )
+      .subscribe();
+
+    // Reading the room moves the marker, and localStorage does not tell
+    // anybody. Without this the dot survives the read that should have
+    // cleared it, until something else remounts this list.
+    const onSeen = () => refresh(newestRef.current);
+    window.addEventListener(TEAM_SEEN_EVENT, onSeen);
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener(TEAM_SEEN_EVENT, onSeen);
+      supabase.removeChannel(channel);
+    };
+  }, [resyncToken, teamOpen]);
 
   // Keep the latest callback in a ref so the fetch effect below can
   // have a stable, empty-dep identity. Previously the fetch useCallback
@@ -176,29 +353,61 @@ export function ConversationList({
     [conversations, search]
   );
 
+  // Hidden conversations are out of all three tabs — pulled here, once,
+  // rather than inside each scope, so a row cannot be counted in one place
+  // and missing from another. The Ocultas filter is the single way back and
+  // it reads `conversations` directly, below.
+  const visible = useMemo(() => searched.filter(isVisible), [searched]);
+
   const segments = useMemo(
     () => [
       {
         value: 'entrada' as const,
         label: t('scopeInbox'),
-        count: searched.filter(SCOPES.entrada).length,
+        count: visible.filter(SCOPES.entrada).length,
       },
       {
         value: 'esperando' as const,
         label: t('scopeWaiting'),
-        count: searched.filter(SCOPES.esperando).length,
-        // Amber: an unclaimed conversation is pending human work, and that is
-        // the one thing in this system allowed to ask for attention.
+        count: visible.filter(SCOPES.esperando).length,
+        // Amber: a parked thread is the one state where time passing is
+        // itself the problem, and the only thing in this system allowed to
+        // ask for attention.
         tone: 'human' as const,
       },
     ],
-    [searched, t]
+    [visible, t]
   );
 
-  const inScope = useMemo(
-    () => searched.filter(SCOPES[scope]),
-    [searched, scope]
-  );
+  const inScope = useMemo(() => {
+    // The two filters that reach outside the current tab. Asking for hidden
+    // or finished conversations inside a tab that excludes them by
+    // definition would always answer zero, so they replace the scope rather
+    // than narrowing it.
+    if (filterId === 'hidden') return searched.filter((c) => !!c.hidden_at);
+    if (filterId === 'closed') {
+      return searched.filter((c) => isVisible(c) && c.status === 'closed');
+    }
+
+    const rows = visible.filter(SCOPES[scope]);
+
+    // Esperando sorts OLDEST FIRST, and it is the only tab that does.
+    //
+    // Everywhere else "newest first" is right because the newest message is
+    // the one somebody has to answer. In a parked queue the newest item is
+    // the one that needs attention LEAST — it was parked a minute ago — and
+    // the thread nobody has looked at since Tuesday is the entire reason the
+    // tab exists. Newest-first buries exactly the row the tab is for.
+    //
+    // Falls back to `last_message_at` for rows parked before migration 045,
+    // which have no `waiting_since` to sort by.
+    if (scope !== 'esperando') return rows;
+    return [...rows].sort((a, b) => {
+      const at = a.waiting_since ?? a.last_message_at ?? '';
+      const bt = b.waiting_since ?? b.last_message_at ?? '';
+      return at.localeCompare(bt);
+    });
+  }, [searched, visible, scope, filterId]);
 
   const options = useMemo(
     () =>
@@ -210,19 +419,24 @@ export function ConversationList({
           groupPipeline: t('groupPipeline'),
           groupStage: t('groupStage'),
           mine: t('filterMine'),
+          unassigned: t('filterUnassigned'),
           unread: t('filterUnread'),
           withAutomation: t('filterAutomated'),
           withOccurrence: t('filterOccurrence'),
-          open: t('filterOpen'),
           closed: t('filterClosed'),
+          hidden: t('filterHidden'),
           typeLead: t('filterTypeLead'),
           typeCustomer: t('filterTypeCustomer'),
           typeInternal: t('filterTypeInternal'),
           typeNone: t('filterTypeNone'),
         }),
-        inScope
+        inScope,
+        // Encerradas and Ocultas are counted against everything the search
+        // matched, not against the current tab — neither can ever appear
+        // inside a tab that excludes them by definition. See `withCounts`.
+        searched
       ),
-    [conversations, pipelines, user?.id, inScope, t]
+    [conversations, pipelines, user?.id, inScope, searched, t]
   );
 
   const activeOption = options.find((o) => o.id === filterId) ?? null;
@@ -261,6 +475,27 @@ export function ConversationList({
       <div className="border-border flex flex-col gap-2 border-b p-3">
         {/* The one split that stays on screen. Everything else is a click
             away, which is what took this bar from five rows to two. */}
+        {/* The team's own room, above the tabs rather than inside them.
+            It is not a third state — Entrada and Esperando answer "where
+            does this conversation stand", and the team room is not a
+            conversation with a customer at all. Putting it in that bar
+            would also have squeezed a third label into 288px.
+            Above the split means it is visible from both tabs, which is
+            what it needs to be: a colleague's message does not stop
+            mattering because you are looking at Esperando.
+
+            (This comment described a three-segment bar with "Finalizados"
+            in it for a while after that tab became a filter. A stale
+            comment about layout is worse than none — it is the map
+            somebody reaches for when the code stops making sense.) */}
+        <TeamRoomRow
+          active={teamOpen}
+          unread={teamUnread}
+          onOpen={onOpenTeam}
+          label={tTeam('title')}
+          hint={tTeam('rowHint')}
+        />
+
         <SegBar
           label={t('scopeLabel')}
           segments={segments}
@@ -388,8 +623,7 @@ export function ConversationList({
             description={
               activeOption
                 ? t('emptyWithFilter', {
-                    scope:
-                      scope === 'entrada' ? t('scopeInbox') : t('scopeWaiting'),
+                    scope: t(SCOPE_LABEL_KEY[scope]),
                     filter: activeOption.label,
                   })
                 : t('emptyScope')
@@ -406,15 +640,27 @@ export function ConversationList({
         ) : (
           <div className="flex flex-col">
             {filtered.map((conv) => (
-              <ConversationItem
+              <ConversationMenu
                 key={conv.id}
                 conversation={conv}
-                isActive={conv.id === activeConversationId}
-                onSelect={handleSelect}
-                surface={surface}
-                agentNames={agentNames}
-                t={t}
-              />
+                onPatch={onConversationPatch}
+                onRemoved={onConversationRemoved}
+                // The same map the row already uses to draw the owner chip,
+                // loaded once for the whole list. The menu takes it as a
+                // prop rather than mounting `useMemberNames` itself, which
+                // at one instance per row would be one `profiles` query per
+                // conversation on screen.
+                members={agentNames}
+              >
+                <ConversationItem
+                  conversation={conv}
+                  isActive={conv.id === activeConversationId}
+                  onSelect={handleSelect}
+                  surface={surface}
+                  agentNames={agentNames}
+                  t={t}
+                />
+              </ConversationMenu>
             ))}
           </div>
         )}
@@ -422,6 +668,36 @@ export function ConversationList({
     </div>
   );
 }
+
+/**
+ * The media kinds, as an icon and a word.
+ *
+ * A row is 320px wide and already carries a name, a time, a badge and two
+ * chips — so the kind gets an icon, and the word beside it is there for the
+ * one case an icon cannot carry alone (a voice note is not a music file, and
+ * an operator triaging a queue treats them very differently).
+ */
+const MEDIA_ICON: Record<MediaPlaceholderKind, LucideIcon> = {
+  image: ImageIcon,
+  video: Video,
+  audio: Music,
+  voice: Mic,
+  document: FileText,
+  sticker: Sticker,
+  location: MapPin,
+  contacts: Contact,
+};
+
+const MEDIA_LABEL_KEY: Record<MediaPlaceholderKind, string> = {
+  image: 'mediaImage',
+  video: 'mediaVideo',
+  audio: 'mediaAudio',
+  voice: 'mediaVoice',
+  document: 'mediaDocument',
+  sticker: 'mediaSticker',
+  location: 'mediaLocation',
+  contacts: 'mediaContacts',
+};
 
 interface ConversationItemProps {
   conversation: Conversation;
@@ -475,6 +751,13 @@ function ConversationItem({
       })
     : '';
 
+  const preview = conversationPreview(
+    conversation.last_message_text,
+    conversation.last_message_kind,
+    conversation.last_message_media_url
+  );
+  const MediaIcon = preview.media ? MEDIA_ICON[preview.media] : Paperclip;
+
   const stage = conversation.deal?.stage;
   const chip = stage ? stageChip(stage.color, surface) : null;
   // ONE tag, and it is the contact's TYPE — never the product or automatic
@@ -527,6 +810,32 @@ function ConversationItem({
           <span className="text-foreground min-w-0 flex-1 truncate text-sm font-semibold">
             {displayName}
           </span>
+          {/* "Já teve problema", beside the name and round.
+              
+              It spent a version down in the chip run, as an 18px square
+              between Cliente and Em Andamento. Two things were wrong with
+              that. It was the only object in the row carrying no word, so
+              in a line of chips it read as debris rather than as a member
+              of the set — and the run is the row's SLOWEST line, scanned
+              after the name and the message, which is the wrong place for
+              the one fact that is supposed to change how you read the
+              message above it.
+              
+              Up here it is attached to the person, which is what it is
+              about: this customer has had a problem, so read the history
+              before you promise anything. Round, because the row already
+              has a round badge of exactly this size — the unread count —
+              and a circle beside a name reads as a state OF that name.
+              A square reads as a control. */}
+          {occurrence ? (
+            <span
+              title={t('hasOccurrence')}
+              aria-label={t('hasOccurrence')}
+              className="bg-danger-soft text-danger-ink grid size-4.5 shrink-0 place-items-center rounded-full"
+            >
+              <AlertTriangle className="size-2.5" aria-hidden />
+            </span>
+          ) : null}
           <span className="text-muted-foreground text-2xs shrink-0 tabular-nums">
             {timeAgo}
           </span>
@@ -547,8 +856,58 @@ function ConversationItem({
               aria-label={t('automatedThread')}
             />
           )}
-          <p className="text-secondary-foreground min-w-0 flex-1 truncate text-xs">
-            {conversation.last_message_text || t('noMessagesYet')}
+          {/* The message, or what KIND of message it was.
+
+              The webhook has no text for a photo, so it stores Meta's own
+              type name — `[audio]`, `[image]` — straight into
+              `last_message_text`. Twenty rows of `[audio]` is a list that
+              looks broken and says nothing; an icon and the word in
+              Portuguese is the same information, read at a glance.
+
+              Resolved here rather than at write time so every row already
+              in the database is fixed too. Same for the `*Nome*` signature
+              prefix, which belongs to the customer's copy of the message
+              and not to ours. See `@/lib/inbox/message-preview`. */}
+          {/* A THUMBNAIL WHEN THERE IS ONE, and the kind beside it otherwise.
+              
+              The row used to print Meta's own `[image]` here. Then it printed
+              an icon and the word, which is readable but still describes the
+              photo rather than showing it — and in a list of ten, the picture
+              IS the identifier: you recognise the bag of silage before you
+              read the name above it.
+              
+              A caption still wins the text slot. Photo plus "segue a foto do
+              lote" is two facts, and before migration 047 the row could only
+              carry one of them: a captioned photo stored the caption and
+              looked exactly like a text message. */}
+          {preview.thumbnailUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={preview.thumbnailUrl}
+              alt=""
+              loading="lazy"
+              // `bg-muted` under it so a slow or dead URL is a grey square
+              // rather than a broken-image glyph in the middle of a row.
+              className="bg-muted size-7 shrink-0 rounded object-cover"
+            />
+          ) : preview.media ? (
+            <MediaIcon
+              className="text-muted-foreground size-3 shrink-0"
+              aria-hidden
+            />
+          ) : null}
+          <p
+            className={cn(
+              'text-secondary-foreground min-w-0 flex-1 truncate text-xs',
+              // The KIND is a label, not something anybody wrote — italic
+              // keeps it from reading as the customer's own words.
+              preview.media && !preview.text && 'italic'
+            )}
+          >
+            {preview.text ||
+              (preview.media
+                ? t(MEDIA_LABEL_KEY[preview.media])
+                : t('noMessagesYet'))}
           </p>
           {conversation.unread_count > 0 && (
             <span className="bg-human-strong text-2xs grid h-4.5 min-w-4.5 shrink-0 place-items-center rounded-full px-1.5 font-bold text-white">
@@ -574,20 +933,6 @@ function ConversationItem({
               >
                 {stage.name}
               </TagChip>
-            ) : null}
-            {occurrence ? (
-              // An icon square, not a chip with words. The row has no width
-              // to spend on "Possui Ocorrência" and this is the one thing on
-              // it that has to be noticed before the message is read: this
-              // customer has had a problem, so read the history before you
-              // promise anything. 16px and 10px are the prototype's.
-              <span
-                title={t('hasOccurrence')}
-                aria-label={t('hasOccurrence')}
-                className="bg-danger-soft text-danger-ink grid size-4 shrink-0 place-items-center rounded-sm"
-              >
-                <AlertTriangle className="size-2.5" aria-hidden />
-              </span>
             ) : null}
           </span>
           {conversation.assigned_agent_id ? (

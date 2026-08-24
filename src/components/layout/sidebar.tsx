@@ -34,6 +34,7 @@ import {
 import type { AccountRole } from '@/lib/auth/roles';
 import { BrandMark } from '@/components/brand-mark';
 import { RoadmapCard } from '@/components/layout/roadmap-card';
+import { TeamRoomCard } from '@/components/layout/team-room-card';
 
 // Per-role chip metadata used in the sidebar's account strip + the
 // Members tab roster. Keeping this near both consumers in a single
@@ -230,6 +231,8 @@ import { avatarInitials } from '@/lib/avatar-color';
 export function Sidebar({ open = false, onClose }: SidebarProps) {
   const t = useTranslations('Sidebar');
   const pathname = usePathname();
+  /** The one screen where the rail's neighbour is content, not padding. */
+  const onInbox = pathname.startsWith('/inbox');
   const { collapsed, toggle } = useNavCollapsed();
   const { profile, profileLoading, account, accountRole, signOut } = useAuth();
   // One call per capability the menu can gate on. Hooks cannot run in a
@@ -302,7 +305,9 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
         className={cn(
           // Mobile: fixed drawer that slides in from the left.
           // `relative` on lg+ anchors the collapse handle to the right edge.
-          'border-border bg-sidebar fixed inset-y-0 left-0 z-40 flex h-full w-64 flex-col border-r lg:relative',
+          // `group/rail` so the collapse handle can hide until the pointer
+          // is over the rail — see the note on that button.
+          'group/rail border-border bg-sidebar fixed inset-y-0 left-0 z-40 flex h-full w-64 flex-col border-r lg:relative',
           'ease-out-soft transition-transform duration-(--dur-2) will-change-transform',
           open ? 'translate-x-0' : '-translate-x-full',
           // Desktop: always visible — reset the mobile framing. The width
@@ -393,33 +398,28 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
 
         {/* Main navigation */}
         <nav id="sidebar-nav" className="flex-1 overflow-y-auto px-3 py-4">
-          {visibleGroups.map((group, groupIndex) => (
-            <div
-              key={group.labelKey ?? 'root'}
-              data-nav-group
-              className={groupIndex ? 'mt-5' : ''}
-            >
-              {group.labelKey ? (
-                // The heading, and nothing under it. The rule that used
-                // to sit here said the same thing twice: a small caps
-                // label in muted grey ALREADY reads as the start of a
-                // group, and the 20px above it (`mt-5`) already reads as
-                // the end of the previous one. Three separators for one
-                // boundary is what turned a nine-row menu into something
-                // that looks like a form.
-                //
-                // Collapsed, the label goes with every other
-                // `data-nav-label` AND the 20px goes with it — see
-                // `[data-nav-group]` in globals.css. Grouping is a thing
-                // you do to labelled sections; nine icons in a 62px
-                // column are a single column, and they are read as one.
-                <div
-                  data-nav-label
-                  className="text-muted-foreground text-3xs px-3 pb-1.5 font-semibold tracking-wider uppercase"
-                >
-                  {t(group.labelKey)}
-                </div>
-              ) : null}
+          {/* NO GROUP HEADINGS.
+              
+              There were three — OPERAÇÃO, AUTOMAÇÃO, ANÁLISE — over nine
+              rows. Nine is a length the eye reads as one list, so the
+              headings were not helping anyone find anything; what they did
+              was break the column into four blocks, each with a label
+              indented differently from the rows under it, so nothing in the
+              rail lined up with anything else vertically.
+              
+              A menu this short is scanned by ICON and by position. The
+              spacing between groups stays — it is a pause, and pauses are
+              free — but the words are gone and every row now starts on the
+              same left edge, which is the alignment that was asked for. The
+              `labelKey` field survives on the model for the day the menu is
+              long enough to need it again. */}
+          {/* No margin between groups either. The pause existed to separate
+              LABELLED sections; with the labels gone it marks nothing, and
+              three different vertical gaps in one nine-row column is what
+              reads as misaligned. One rhythm, every row the same distance
+              from the next. */}
+          {visibleGroups.map((group) => (
+            <div key={group.labelKey ?? 'root'} data-nav-group>
               <ul className="flex flex-col gap-1">
                 {group.items.map((item) => {
                   const isActive = isRowActive(item, pathname);
@@ -452,11 +452,27 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                         <span data-nav-label className="flex-1 truncate">
                           {label}
                         </span>
+                        {/* SMALLER, AND NOT AMBER.
+                            
+                            This was a bordered amber pill — a border, a
+                            fill and an ink, three devices for one word, in
+                            the one colour this system reserves for "a
+                            person has to do something about this". Nobody
+                            has to do anything about a feature being in
+                            beta; it is a fact about the feature, and the
+                            grey every other machine-and-metadata marker in
+                            the app uses is what says that.
+                            
+                            No border and no pill either: the row is 32px
+                            tall and the badge was 20 of them. A lowercase
+                            grey word at 10px sits beside the label instead
+                            of competing with it, and it stops being the
+                            loudest thing in a nine-row menu. */}
                         {item.beta && (
                           <span
                             data-nav-label
                             aria-label={t('beta')}
-                            className="border-human-border bg-human-soft text-human-ink text-3xs rounded-full border px-1.5 py-0.5 font-semibold tracking-wider uppercase"
+                            className="text-muted-foreground text-3xs shrink-0 font-medium tracking-wide"
                           >
                             {t('beta')}
                           </span>
@@ -514,13 +530,14 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
             </div>
           ))}
 
-          {/* Settings keeps its distance from the last group — the same
-              20px every other group gets — but not a rule of its own.
+          {/* Settings sits on the same rhythm as every row above it now.
+              It used to keep 20px of its own — a distance that made sense
+              when the groups above were also spaced apart and labelled.
               It is one more destination in the same list, and the line
               was drawing a border around the idea that it isn't.
               Collapsed, it gives that distance up along with everyone
               else: `data-nav-group`. */}
-          <ul data-nav-group className="mt-5 flex flex-col gap-1">
+          <ul data-nav-group className="flex flex-col gap-1">
             {bottomNavItems.map((item) => {
               const isActive = isRowActive(item, pathname);
               const label = t(item.labelKey);
@@ -570,7 +587,58 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
           aria-controls="sidebar-nav"
           title={collapsed ? t('expandMenu') : t('collapseMenu')}
           aria-label={collapsed ? t('expandMenu') : t('collapseMenu')}
-          className="border-border bg-card text-muted-foreground hover:border-primary hover:text-primary absolute top-1/2 right-0 z-10 hidden size-6 translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border shadow-sm transition-colors lg:grid"
+          // INSIDE THE RAIL, not straddling its edge.
+          //
+          // This was `right-0 translate-x-1/2`, so half the disc hung over
+          // whatever was on the other side of the seam. At `top-1/2` that
+          // other side is the middle of the conversation list — a 24px
+          // circle parked on somebody's avatar and name, which is what the
+          // "elemento bugado" screenshot shows.
+          //
+          // The sibling handle on the thread's right edge hit the same
+          // thing and answered it by moving vertically, to a band where the
+          // facing side is chrome (see the note in inbox/page.tsx). That
+          // works there because that column's chrome is a fixed 56px
+          // header. It does not work here: the conversation list is rows
+          // from top to bottom once there are more than a few, so there is
+          // no height at which the facing side is reliably empty.
+          //
+          // Vertically centred, and INSIDE the rail rather than straddling
+          // its edge. Those are two separate fixes for two separate
+          // complaints, and the second is the one that matters: half the
+          // disc used to hang over the neighbouring pane, which on the
+          // inbox is the conversation list, so it parked on somebody's
+          // avatar. Flush inside, it stays on its own column.
+          //
+          // It spent a moment at `bottom-3` — off the rows entirely — and
+          // that traded one collision for a worse one: the rail's footer is
+          // the account tile, so it landed on the user's own name.
+          //
+          // CENTRED ON THE BORDER, which is where a seam control belongs —
+          // `translate-x-1/2` puts its axis exactly on the line it moves.
+          //
+          // It was pulled inside the rail earlier precisely to stop it
+          // overlapping the conversation list, and this is only safe again
+          // because of the rule below: on the inbox it is invisible until
+          // somebody reaches for it, so there is nothing permanently parked
+          // on anybody's avatar. The hover rule is what bought the position
+          // back.
+          className={cn(
+            'border-border bg-card text-muted-foreground hover:border-primary hover:text-primary absolute top-1/2 right-0 z-10 hidden size-6 translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border shadow-sm transition-[color,border-color,opacity] duration-(--dur-1) lg:grid',
+            // ON THE INBOX, ONLY WHEN REACHED FOR.
+            //
+            // That screen is the one where the rail's neighbour is a dense
+            // list rather than page padding, so a permanent disc on the
+            // seam is a permanent disc over somebody's avatar. Everywhere
+            // else there is nothing behind it and it can stay put.
+            //
+            // Hidden by opacity rather than unmounted: the button keeps its
+            // place in the tab order and `focus-visible` brings it back, so
+            // a keyboard user is not left without a way to collapse the
+            // rail on the one screen where the space matters most.
+            onInbox &&
+              'opacity-0 group-hover/rail:opacity-100 focus-visible:opacity-100'
+          )}
         >
           {collapsed ? (
             <ChevronRight className="size-3.5" strokeWidth={2} />
@@ -589,6 +657,12 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
               pushes the exit off the bottom edge of a short window is
               news nobody asked for. It removes itself once dismissed. */}
           <RoadmapCard />
+          {/* The team room's last line, below the news and above the
+              account tile. See `team-room-card` for why it is in the rail
+              at all — it is the only surface that survives every route,
+              and a room you can only find by navigating to it is a room
+              that gets used twice. Draws nothing before migration 046. */}
+          <TeamRoomCard />
           {/* Account name display — surfaced only when the account
               name differs from the user's own name (see
               `showAccountStrip`). For a default solo account the two

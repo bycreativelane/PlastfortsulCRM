@@ -105,9 +105,21 @@ export interface Contact {
    *  and unique per account. Read-only. */
   phone_normalized?: string;
   name?: string;
+  /**
+   * Who last set `name` (migration 045). `'manual'` means a person typed it
+   * and the inbound webhook must leave it alone — without this the WhatsApp
+   * profile name overwrote every edit on the customer's next message.
+   */
+  name_source?: 'whatsapp' | 'manual';
   email?: string;
   company?: string;
   avatar_url?: string;
+  /**
+   * Rows in `contact_occurrences`, maintained by trigger (migration 042).
+   * The source of truth for the warning triangle — the `Possui Ocorrência`
+   * tag it used to read was never written by anything.
+   */
+  occurrence_count?: number;
 
   /* ---- Commercial relationship (migration 040) ----------------------
    * Everything above is identity; everything here is the relationship.
@@ -192,10 +204,33 @@ export interface Conversation {
   user_id: string;
   contact_id: string;
   status: ConversationStatus;
-  assigned_agent_id?: string;
+  /**
+   * `| null` and not just optional: the column is nullable, PostgREST
+   * returns an explicit `null` for an unowned thread, and "give this back
+   * to the pool" is a write of `null` rather than an omission. Typed as
+   * `?: string` alone, that write did not compile.
+   */
+  assigned_agent_id?: string | null;
   last_message_text?: string;
+  /**
+   * `content_type` of the newest message (migration 047). Lets a row show
+   * that a photo arrived even when it carried a caption — the case parsing
+   * `last_message_text` cannot see.
+   */
+  last_message_kind?: string | null;
+  /** `media_url` of the newest message, for the row's thumbnail (047). */
+  last_message_media_url?: string | null;
   last_message_at?: string;
   unread_count: number;
+  /** When it entered `pending`. Null in every other status (migration 045). */
+  waiting_since?: string | null;
+  /**
+   * Hidden from the inbox lists — not deleted (migration 045). Cleared
+   * automatically when the customer writes again, which is what makes
+   * hiding the safe answer to "get this out of my way".
+   */
+  hidden_at?: string | null;
+  hidden_by?: string | null;
   created_at: string;
   updated_at: string;
   contact?: Contact;
@@ -231,7 +266,12 @@ export interface Conversation {
 // Notifications (migration 027)
 // ============================================================
 
-export type NotificationType = 'conversation_assigned';
+/**
+ * `new_message` arrives with migration 046 — until then the only rows in
+ * the table are assignments (027). See that migration for why a customer
+ * writing never produced a notification at all.
+ */
+export type NotificationType = 'conversation_assigned' | 'new_message';
 
 export interface Notification {
   id: string;
@@ -239,13 +279,23 @@ export interface Notification {
   /** Recipient — the agent this notification is for. */
   user_id: string;
   type: NotificationType;
-  conversation_id?: string;
-  contact_id?: string;
+  /**
+   * The five nullable columns are `| null`, not merely optional.
+   *
+   * `?: string` says "the key may be absent". PostgREST never omits a
+   * column — it sends `"conversation_id": null` — and the writer inserts
+   * explicit nulls, so the type described a shape the data never takes.
+   * Every `if (n.conversation_id)` happened to work anyway, which is why
+   * it went unnoticed; anything reaching for `?? fallback` on one of these
+   * did not.
+   */
+  conversation_id?: string | null;
+  contact_id?: string | null;
   /** Who triggered it. Null when an automation/system assigned it. */
-  actor_user_id?: string;
-  title: string;
-  body?: string;
-  read_at?: string;
+  actor_user_id?: string | null;
+  title: string | null;
+  body?: string | null;
+  read_at?: string | null;
   created_at: string;
 }
 

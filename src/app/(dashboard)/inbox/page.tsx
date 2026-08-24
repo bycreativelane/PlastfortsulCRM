@@ -18,6 +18,7 @@ import type {
 } from '@/types';
 import { useRealtime } from '@/hooks/use-realtime';
 import { ConversationList } from '@/components/inbox/conversation-list';
+import { TeamChannel } from '@/components/inbox/team-channel';
 import { MessageThread } from '@/components/inbox/message-thread';
 import { ContactSidebar } from '@/components/inbox/contact-sidebar';
 import { ContactForm } from '@/components/contacts/contact-form';
@@ -73,8 +74,39 @@ function InboxPageInner() {
    * automatically instead of showing the empty center panel.
    */
   const deepLinkConvId = searchParams.get('c');
+  /**
+   * `?team=1` opens the team room instead of a conversation.
+   *
+   * The room's preview card lives in the sidebar, on every route, so it
+   * needs a URL that lands somebody in it — a link that only got them to
+   * the inbox would put the thing they clicked one more click away, which
+   * is exactly the friction the card exists to remove.
+   */
+  const deepLinkTeam = searchParams.get('team') === '1';
 
   const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [teamOpen, setTeamOpen] = useState(false);
+
+  /**
+   * Drop `team=1` when the room closes, so the next click on the rail's
+   * team card is a real navigation rather than a no-op onto the URL the
+   * page is already showing. `replace` because leaving a room is not a
+   * place in history — the back gesture should go where you were BEFORE
+   * the room, not into it.
+   *
+   * Declared here, above every handler that calls it: a `useCallback`
+   * named in a dependency array is read during render, so a definition
+   * further down the component would be a temporal-dead-zone crash rather
+   * than a late binding.
+   */
+  const leaveTeamUrl = useCallback(() => {
+    if (!deepLinkTeam) return;
+    const next = new URLSearchParams(searchParams.toString());
+    next.delete('team');
+    const query = next.toString();
+    router.replace(query ? `/inbox?${query}` : '/inbox', { scroll: false });
+  }, [deepLinkTeam, searchParams, router]);
+
   const [activeConversation, setActiveConversation] =
     useState<Conversation | null>(null);
   const [activeContact, setActiveContact] = useState<Contact | null>(null);
@@ -251,6 +283,32 @@ function InboxPageInner() {
     // the list has to refetch for a stage change to show up in it.
     setResyncToken((n) => n + 1);
   }, []);
+
+  /**
+   * The panel's MOUNT, which outlives its open state by one animation.
+   *
+   * The column animates its width shut, and a width animation needs
+   * something to animate: unmounting on the click emptied it in one frame
+   * and left a blank strip to do the sliding. So the mount follows `open`
+   * immediately and `closed` only once the transition has finished.
+   *
+   * Not simply always-mounted. `ContactSidebar` fires three queries per
+   * contact, and an agent who collapsed the panel collapsed it to stop
+   * paying for what they are not reading — mounting it anyway would bill
+   * them for it on every conversation they open.
+   */
+  const [panelMounted, setPanelMounted] = useState(true);
+  useEffect(() => {
+    if (contactPanelOpen) {
+      setPanelMounted(true);
+      return;
+    }
+    // `transitionend` cannot report back if the column stops existing.
+    // Switching to a thread-less state mid-close would strand a mounted,
+    // invisible, still-querying panel — and there is nothing to animate
+    // with no conversation on screen anyway, so drop it outright.
+    if (!activeConversation) setPanelMounted(false);
+  }, [contactPanelOpen, activeConversation]);
 
   const handleToggleContactPanel = useCallback(() => {
     setContactPanelOpen((prev) => {
@@ -598,6 +656,9 @@ function InboxPageInner() {
       // when conversationId changes — so messages would stay empty until
       // the user navigated away and back. Bail out early instead.
       if (activeConversation?.id === conv.id) return;
+      // Picking a customer leaves the team room — one pane, one subject.
+      setTeamOpen(false);
+      leaveTeamUrl();
       setActiveConversation(conv);
       setActiveContact(conv.contact ?? null);
       setMessages([]);
@@ -643,7 +704,7 @@ function InboxPageInner() {
         router.push(href, { scroll: false });
       }
     },
-    [activeConversation?.id, router]
+    [activeConversation?.id, router, leaveTeamUrl]
   );
 
   // Mobile "back" — deselect the conversation so the list pane comes
@@ -705,16 +766,69 @@ function InboxPageInner() {
   );
 
   const handleStatusChange = useCallback(
-    (conversationId: string, status: ConversationStatus) => {
+    (conversationId: string, patch: Partial<Conversation>) => {
       setConversations((prev) =>
-        prev.map((c) => (c.id === conversationId ? { ...c, status } : c))
+        prev.map((c) => (c.id === conversationId ? { ...c, ...patch } : c))
       );
       if (activeConversation?.id === conversationId) {
-        setActiveConversation((prev) => (prev ? { ...prev, status } : prev));
+        setActiveConversation((prev) => (prev ? { ...prev, ...patch } : prev));
       }
     },
     [activeConversation]
   );
+
+  /**
+   * Apply the exact patch a conversation write returned.
+   *
+   * The menu's actions each report what they wrote, so the list can move a
+   * row between tabs, drop the unread badge or hide it without going back to
+   * the database for a row we just changed. A refetch here would be a
+   * visible stutter on an action that should feel like the row obeyed.
+   */
+  const handleConversationPatch = useCallback(
+    (conversationId: string, patch: Partial<Conversation>) => {
+      setConversations((prev) =>
+        prev.map((c) => (c.id === conversationId ? { ...c, ...patch } : c))
+      );
+
+      // Marking the OPEN thread unread has to close it, and this is the
+      // only place that knows which thread is open.
+      //
+      // MessageThread resets `unread_count` to 0 whenever a count surfaces
+      // on the conversation it is displaying — that is what makes reading a
+      // thread mark it read, including for messages that arrive while you
+      // are looking at it. So marking the open one unread and staying in it
+      // would fire that effect and undo the write within the same second:
+      // the menu item would appear to do nothing at all.
+      //
+      // Closing the thread is also what the action MEANS. "Marcar como não
+      // lida" in a shared mailbox is how somebody hands a conversation back
+      // to the queue — for a colleague, or for themselves tomorrow — and
+      // staying inside a thread you just handed back is the contradiction,
+      // not the fix.
+      const handingBack =
+        (patch.unread_count ?? 0) > 0 || patch.hidden_at != null;
+
+      setActiveConversation((prev) => {
+        if (!prev || prev.id !== conversationId) return prev;
+        if (handingBack) return null;
+        return { ...prev, ...patch };
+      });
+    },
+    []
+  );
+
+  /**
+   * A conversation was deleted. Drop it, and close the thread if it was the
+   * one on screen — leaving a deleted thread open would let somebody type
+   * into a conversation that no longer exists.
+   */
+  const handleConversationRemoved = useCallback((conversationId: string) => {
+    setConversations((prev) => prev.filter((c) => c.id !== conversationId));
+    setActiveConversation((prev) =>
+      prev?.id === conversationId ? null : prev
+    );
+  }, []);
 
   const handleAssignChange = useCallback(
     (conversationId: string, assignedAgentId: string | null) => {
@@ -742,7 +856,50 @@ function InboxPageInner() {
   // it back to the list. From md up both panes render side-by-side:
   // 768px is an iPad in portrait, where one pane meant a conversation
   // list with 600px of empty gutter to the right of every name.
+  /**
+   * The team room takes the thread's place rather than sitting beside it.
+   *
+   * On a phone the inbox is already a single pane and this is one more
+   * destination in it; on a desktop the room replaces the customer thread,
+   * which is right because it IS the thing being read. Opening it clears
+   * the active conversation so the list has exactly one selected row —
+   * two highlighted rows, one of them not on screen, is the state that
+   * makes people click twice to be sure.
+   */
+  /**
+   * `?team=1` opens the room — every time it ARRIVES, not once per mount.
+   *
+   * This used to latch on a `teamDeepLinkHandled` flag, on the reasoning
+   * that re-asserting the room from the query string would bounce a click
+   * on a customer thread back into it. The reasoning was right and the fix
+   * was the wrong half: with the flag set, the second click on the rail's
+   * team card — or on the What's New link — was a navigation to a URL the
+   * page was ALREADY on, which changed nothing and left you looking at
+   * whatever was open. The feature worked once per page load.
+   *
+   * The real fix is to keep the URL honest. Leaving the room strips
+   * `team=1` (see `leaveTeamUrl`), so the parameter is present exactly
+   * while the room is open, and this effect fires on each false→true
+   * transition — which is what a click on the card now produces.
+   */
+  useEffect(() => {
+    if (deepLinkTeam) setTeamOpen(true);
+  }, [deepLinkTeam]);
+
+  const handleOpenTeam = useCallback(() => {
+    setTeamOpen(true);
+    setActiveConversation(null);
+    setActiveContact(null);
+  }, []);
+
+  /** Phone-only "back" out of the room, mirroring the thread's. */
+  const handleCloseTeam = useCallback(() => {
+    setTeamOpen(false);
+    leaveTeamUrl();
+  }, [leaveTeamUrl]);
+
   const hasActiveConv = !!activeConversation;
+  const showTeam = teamOpen && !hasActiveConv;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -753,7 +910,7 @@ function InboxPageInner() {
         <div
           className={cn(
             'flex h-full flex-1 md:flex-none',
-            hasActiveConv ? 'hidden md:flex' : 'flex'
+            hasActiveConv || showTeam ? 'hidden md:flex' : 'flex'
           )}
         >
           <ConversationList
@@ -761,6 +918,10 @@ function InboxPageInner() {
             onSelect={handleSelectConversation}
             conversations={conversations}
             onConversationsLoaded={handleConversationsLoaded}
+            onConversationPatch={handleConversationPatch}
+            onConversationRemoved={handleConversationRemoved}
+            teamOpen={teamOpen}
+            onOpenTeam={handleOpenTeam}
             resyncToken={resyncToken}
           />
         </div>
@@ -783,24 +944,30 @@ function InboxPageInner() {
             // stylesheet order, and sidebar.tsx records that trap silently
             // anchoring its own handle to the viewport once already.
             'relative flex h-full min-w-0 flex-1',
-            hasActiveConv ? 'flex' : 'hidden md:flex'
+            hasActiveConv || showTeam ? 'flex' : 'hidden md:flex'
           )}
         >
-          <MessageThread
-            conversation={activeConversation}
-            contact={activeContact}
-            messages={messages}
-            onMessagesLoaded={handleMessagesLoaded}
-            onNewMessage={handleNewMessage}
-            onUpdateMessage={handleUpdateMessage}
-            onStatusChange={handleStatusChange}
-            onAssignChange={handleAssignChange}
-            onBack={handleCloseConversation}
-            resyncToken={resyncToken}
-            onRefresh={handleManualRefresh}
-            onOpenContactSheet={handleOpenContactSheet}
-            onLogCall={handleLogCall}
-          />
+          {showTeam ? (
+            <TeamChannel onBack={handleCloseTeam} />
+          ) : (
+            <MessageThread
+              conversation={activeConversation}
+              contact={activeContact}
+              messages={messages}
+              onMessagesLoaded={handleMessagesLoaded}
+              onNewMessage={handleNewMessage}
+              onUpdateMessage={handleUpdateMessage}
+              onStatusChange={handleStatusChange}
+              onConversationPatch={handleConversationPatch}
+              onConversationRemoved={handleConversationRemoved}
+              onAssignChange={handleAssignChange}
+              onBack={handleCloseConversation}
+              resyncToken={resyncToken}
+              onRefresh={handleManualRefresh}
+              onOpenContactSheet={handleOpenContactSheet}
+              onLogCall={handleLogCall}
+            />
+          )}
 
           {/* The contact panel's handle, and it is the nav rail's handle
               with two things changed.
@@ -877,18 +1044,49 @@ function InboxPageInner() {
             as an empty column the layout had forgotten about — and the one
             button that could have closed it lives in the thread header,
             which is not on screen either. */}
-        {contactPanelOpen && hasActiveConv && (
-          <div id="contact-panel" className="hidden xl:block">
-            <ContactSidebar
-              contact={activeContact}
-              onEditContact={handleEditContact}
-              onEditDeal={handleEditDeal}
-              onOpenRecord={handleOpenRecord}
-              onOpenOccurrences={handleOpenOccurrences}
-              onLogCall={handleLogCall}
-              onScheduleFuturePurchase={handleScheduleFuturePurchase}
-              refreshToken={sidebarRefresh}
-            />
+        {hasActiveConv && (
+          <div
+            id="contact-panel"
+            // The close is a RESIZE, so it is `--dur-2` on the house curve
+            // — the same token, and the same transitioned property, as the
+            // nav rail's collapse. The rail's note says why it has to be
+            // width and cannot be a transform: the column must actually
+            // give the space back, not merely look narrower, or the thread
+            // has nothing to grow into.
+            //
+            // `overflow-hidden` is what turns the resize into a movement.
+            // The panel keeps its own 288px, so as the box narrows its left
+            // edge travels right and the clip eats it from the right — it
+            // slides out the way it came in, instead of 288px of content
+            // reflowing into 0.
+            //
+            // Nothing here animates on load. The stored preference lands in
+            // an effect on mount, long before any conversation resolves, so
+            // `hasActiveConv` is still false and this is not mounted yet —
+            // an agent who keeps the panel closed does not watch it slam
+            // shut on every reload.
+            onTransitionEnd={(e) => {
+              if (e.target !== e.currentTarget) return;
+              if (e.propertyName !== 'width') return;
+              if (!contactPanelOpen) setPanelMounted(false);
+            }}
+            className={cn(
+              'ease-out-soft hidden shrink-0 overflow-hidden transition-[width] duration-(--dur-2) xl:block',
+              contactPanelOpen ? 'w-72' : 'w-0'
+            )}
+          >
+            {panelMounted && (
+              <ContactSidebar
+                contact={activeContact}
+                onEditContact={handleEditContact}
+                onEditDeal={handleEditDeal}
+                onOpenRecord={handleOpenRecord}
+                onOpenOccurrences={handleOpenOccurrences}
+                onLogCall={handleLogCall}
+                onScheduleFuturePurchase={handleScheduleFuturePurchase}
+                refreshToken={sidebarRefresh}
+              />
+            )}
           </div>
         )}
       </div>

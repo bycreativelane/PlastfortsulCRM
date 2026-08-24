@@ -297,28 +297,33 @@ function LoginPageInner() {
           this form, start another one — in the same weight as a footnote.
           Behind the rule and in its own control, it reads as the other
           door rather than as a word in a sentence. */}
-      <div className="border-border mt-7 border-t pt-5">
-        <p className="text-muted-foreground mb-2.5 text-sm">
-          {t('noAccount')}
-        </p>
-        <Button
-          variant="outline"
-          className="h-10 w-full"
-          nativeButton={false}
-          render={
-            <Link
-              href={
-                inviteToken
-                  ? `/signup?invite=${encodeURIComponent(inviteToken)}`
-                  : '/signup'
-              }
-            />
-          }
-        >
-          {t('createAccount')}
-          <ArrowRight className="size-4" />
-        </Button>
-      </div>
+      {/* "Criar conta" only when an invitation is actually in hand.
+          Registration is invite-only (see the gate in `proxy.ts`), so
+          offering the link to everybody sent people to a page that would
+          bounce them straight back here — a dead end dressed as a next
+          step. With a token, this is the right button and the only way
+          somebody legitimately lands on the login page holding one is by
+          arriving from `/join/<token>`. */}
+      {inviteToken && (
+        <div className="border-border mt-7 border-t pt-5">
+          <p className="text-muted-foreground mb-2.5 text-sm">
+            {t('noAccount')}
+          </p>
+          <Button
+            variant="outline"
+            className="h-10 w-full"
+            nativeButton={false}
+            render={
+              <Link
+                href={`/signup?invite=${encodeURIComponent(inviteToken)}`}
+              />
+            }
+          >
+            {t('createAccount')}
+            <ArrowRight className="size-4" />
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

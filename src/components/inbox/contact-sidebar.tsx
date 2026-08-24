@@ -18,16 +18,18 @@ import {
   StickyNote,
   Target,
   UserRound,
+  Camera,
 } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { StatePanel } from '@/components/ui/state-panel';
 import { cn } from '@/lib/utils';
+import { formatPhone } from '@/lib/whatsapp/phone-format';
 import { avatarClass, avatarInitials } from '@/lib/avatar-color';
 import { useFormatter, useTranslations } from 'next-intl';
 import { formatCurrency } from '@/lib/currency';
-import { OCCURRENCE_TAG_NAME } from '@/components/inbox/conversation-filters';
+import { contactHasOccurrence } from '@/components/inbox/conversation-filters';
 import { Tag as TagChip } from '@/components/ui/tag';
 import {
   KeyValue,
@@ -209,10 +211,11 @@ export function ContactSidebar({
     !!contact.next_purchase_expected_at ||
     contact.repurchase_cycle_days != null ||
     contact.average_ticket != null;
-  // Tag-driven until migration 042 lands. See the section that reads it.
-  const occurrence = tags.some(
-    (t) => t.name.trim().toLowerCase() === OCCURRENCE_TAG_NAME.toLowerCase()
-  );
+  // `contacts.occurrence_count` (migration 042, maintained by trigger) with
+  // the old tag as a fallback — see `contactHasOccurrence` for why the tag
+  // was never a reliable answer.
+  const occurrenceCount = contact.occurrence_count ?? 0;
+  const occurrence = contactHasOccurrence({ ...contact, tags });
 
   return (
     <div
@@ -244,9 +247,18 @@ export function ContactSidebar({
             either side of the thread, and a 12px gutter facing a 16px one
             is the first thing you see in a three-column layout. */}
         <div className="border-border border-b p-3 text-center">
-          <div
+          {/* The photo is the way to change the photo. It opens the contact
+              form, which is where the upload lives — a second uploader here
+              would be a second code path writing the same column, and the
+              form is one click away either way. */}
+          <button
+            type="button"
+            disabled={!onEditContact}
+            onClick={() => onEditContact?.(contact)}
+            aria-label={tSidebar('editContact')}
+            title={onEditContact ? tSidebar('editContact') : undefined}
             className={cn(
-              'text-avatar-ink mx-auto grid size-13 place-items-center overflow-hidden rounded-lg text-lg font-semibold',
+              'text-avatar-ink focus-visible:ring-ring/50 group/photo relative mx-auto grid size-13 place-items-center overflow-hidden rounded-lg text-lg font-semibold outline-none focus-visible:ring-3 disabled:pointer-events-none',
               avatarClass(displayName)
             )}
           >
@@ -260,7 +272,10 @@ export function ContactSidebar({
             ) : (
               initials
             )}
-          </div>
+            <span className="absolute inset-0 grid place-items-center bg-black/45 opacity-0 transition-opacity duration-(--dur-1) group-hover/photo:opacity-100 group-focus-visible/photo:opacity-100">
+              <Camera className="size-4 text-white" />
+            </span>
+          </button>
           <h3 className="text-foreground mt-2 text-base font-semibold tracking-tight">
             {displayName}
           </h3>
@@ -347,11 +362,12 @@ export function ContactSidebar({
         {/* The customer's history of problems, above the commercial detail
             because it changes how you read everything under it.
 
-            Tag-driven for now: `Possui Ocorrência` is the one automatic tag
-            section 16 allows, and it is the whole of what a boolean can
-            say. The count, the open ones and the list of what went wrong
-            need `contact_occurrences` — migration 042, written and waiting.
-            When it lands, only the condition and the second line change. */}
+            This used to read the `Possui Ocorrência` tag, and the tag was
+            never written by anything — registering an occurrence produced
+            no warning here, no triangle in the list and no filter match.
+            Migration 042 keeps `contacts.occurrence_count` by trigger, so
+            the count is the fact now and the tag is only kept for accounts
+            that applied it by hand before the table existed. */}
         <Section>
           <SidePanelLabel>
             <AlertTriangle />
@@ -375,7 +391,15 @@ export function ContactSidebar({
                   {tSidebar('occurrenceWarning')}
                 </p>
                 <p className="text-2xs leading-relaxed">
-                  {tSidebar('occurrenceHint')}
+                  {/* "2 ocorrências no histórico" beats "já teve um
+                      problema": how MANY is the difference between an
+                      accident and a pattern, and it is the thing an agent
+                      about to promise a delivery date needs. Falls back to
+                      the old sentence for a contact carrying only the
+                      legacy tag, where there is no number to show. */}
+                  {occurrenceCount > 0
+                    ? tSidebar('occurrenceCount', { count: occurrenceCount })
+                    : tSidebar('occurrenceHint')}
                 </p>
               </div>
             </button>
@@ -621,7 +645,9 @@ export function ContactSidebar({
             <Building2 />
             {tSidebar('registration')}
           </SidePanelLabel>
-          <KeyValue label={tSidebar('phone')}>{contact.phone}</KeyValue>
+          <KeyValue label={tSidebar('phone')}>
+            {formatPhone(contact.phone)}
+          </KeyValue>
           {contact.email && (
             <KeyValue label={tSidebar('email')}>
               <span title={contact.email}>{contact.email}</span>

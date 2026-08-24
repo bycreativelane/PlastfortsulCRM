@@ -319,7 +319,12 @@ export function AgendaCalendar() {
         </div>
 
         {/* --------------------------------------------- The day's list */}
-        <div className="min-w-0">
+        {/* `flex flex-col` so the empty state below can take the leftover
+            height. The calendar beside this column is ~300px tall and this
+            one was only as tall as its own content, so "Nada marcado neste
+            dia" sat pinned under the date while the grid ran on for another
+            200px — a centred panel that was not centred in anything. */}
+        <div className="flex min-w-0 flex-col">
           <div className="border-border flex items-center gap-2 border-b px-4 py-2.5">
             <span className="text-foreground min-w-0 flex-1 truncate text-sm font-semibold first-letter:uppercase">
               {longDate}
@@ -334,7 +339,10 @@ export function AgendaCalendar() {
           {items === null ? (
             <DaySkeleton />
           ) : dayItems.length === 0 ? (
+            // `flex-1` is the other half: StatePanel already centres itself
+            // on both axes, it just had no height to centre within.
             <StatePanel
+              className="flex-1"
               icon={CalendarDays}
               title={t('dayEmpty')}
               description={t('dayEmptyHint')}

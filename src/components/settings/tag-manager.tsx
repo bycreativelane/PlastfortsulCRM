@@ -23,20 +23,19 @@ import {
   PanelBody,
 } from '@/components/ui/panel';
 import { StatePanel } from '@/components/ui/state-panel';
-import { cn } from '@/lib/utils';
+import { ColorPicker } from '@/components/ui/color-picker';
 import { useTranslations } from 'next-intl';
 import type { Tag } from '@/types';
 
-const PRESET_COLORS = [
-  { name: 'red', value: '#ef4444' },
-  { name: 'orange', value: '#f97316' },
-  { name: 'amber', value: '#f59e0b' },
-  { name: 'emerald', value: '#10b981' },
-  { name: 'cyan', value: '#06b6d4' },
-  { name: 'blue', value: '#3b82f6' },
-  { name: 'violet', value: '#8b5cf6' },
-  { name: 'pink', value: '#ec4899' },
-];
+/**
+ * The colour a new tag starts on.
+ *
+ * There used to be eight of these and they were the ONLY colours a tag
+ * could have, which made "a etiqueta da cor da marca" unanswerable — the
+ * `tags.color` column has always been a free hex. The picker is now the
+ * shared one; this is just where the field opens.
+ */
+const DEFAULT_TAG_COLOR = '#10b981';
 
 /**
  * Tags card — colour-coded contact labels. Creation is an inline row
@@ -55,7 +54,7 @@ export function TagManager() {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [newTagName, setNewTagName] = useState('');
-  const [selectedColor, setSelectedColor] = useState(PRESET_COLORS[3].value);
+  const [selectedColor, setSelectedColor] = useState(DEFAULT_TAG_COLOR);
 
   useEffect(() => {
     if (authLoading) return;
@@ -112,7 +111,7 @@ export function TagManager() {
 
       toast.success(t('tagCreated'));
       setNewTagName('');
-      setSelectedColor(PRESET_COLORS[3].value);
+      setSelectedColor(DEFAULT_TAG_COLOR);
       await fetchTags(user.id);
     } catch (err) {
       console.error('Create error:', err);
@@ -156,18 +155,16 @@ export function TagManager() {
       <PanelHeader>
         <div className="min-w-0">
           <PanelTitle className="flex items-center gap-2">
-            <TagIcon className="size-4 text-primary" />
+            <TagIcon className="text-primary size-4" />
             {t('tagsTitle')}
           </PanelTitle>
-          <PanelSub>
-            {t('tagsDesc')}
-          </PanelSub>
+          <PanelSub>{t('tagsDesc')}</PanelSub>
         </div>
       </PanelHeader>
       <PanelBody className="space-y-4">
         {loading ? (
           <div className="flex items-center justify-center py-8">
-            <Loader2 className="size-6 animate-spin text-primary" />
+            <Loader2 className="text-primary size-6 animate-spin" />
           </div>
         ) : (
           <>
@@ -188,7 +185,7 @@ export function TagManager() {
                   // shield.
                   <span
                     key={tag.id}
-                    className="bg-muted text-secondary-foreground inline-flex h-5 max-w-full shrink-0 items-center gap-1.5 rounded-sm pr-1 pl-2 text-2xs font-medium whitespace-nowrap"
+                    className="bg-muted text-secondary-foreground text-2xs inline-flex h-5 max-w-full shrink-0 items-center gap-1.5 rounded-sm pr-1 pl-2 font-medium whitespace-nowrap"
                   >
                     <span
                       aria-hidden
@@ -233,29 +230,16 @@ export function TagManager() {
                 maxLength={40}
                 className="min-w-0 flex-1"
               />
-              {/* Raw <button>s get none of the coarse-pointer hit shield
-                  that [data-slot="button"] does, and a 24px swatch is far
-                  under any touch minimum. Growing the swatch itself is the
-                  honest fix here — 36px each still fits eight across at
-                  360px with the wider gap. */}
-              <div className="flex gap-1.5 pointer-coarse:gap-2">
-                {PRESET_COLORS.map((color) => (
-                  <button
-                    key={color.value}
-                    type="button"
-                    onClick={() => setSelectedColor(color.value)}
-                    aria-label={t('useColor', { color: t(`colors.${color.name}` as Parameters<typeof t>[0]) })}
-                    aria-pressed={selectedColor === color.value}
-                    className={cn(
-                      'size-6 rounded-md transition-transform duration-(--dur-2) hover:scale-110 pointer-coarse:size-9',
-                      selectedColor === color.value &&
-                        'outline outline-2 outline-offset-2 outline-primary',
-                    )}
-                    style={{ backgroundColor: color.value }}
-                    title={t(`colors.${color.name}` as Parameters<typeof t>[0])}
-                  />
-                ))}
-              </div>
+              {/* One swatch that opens the picker, not a strip of fixed
+                  colours. Eight buttons in this row was already crowding
+                  the name field at 360px; sixteen plus a hex box could not
+                  live inline at all, and the choice is worth a click. */}
+              <TagColorButton
+                value={selectedColor}
+                onChange={setSelectedColor}
+                previewLabel={newTagName}
+                label={t('changeColor')}
+              />
               <Button
                 variant="outline"
                 size="sm"
@@ -280,7 +264,9 @@ export function TagManager() {
           <DialogHeader>
             <DialogTitle>{t('deleteTag')}</DialogTitle>
             <DialogDescription>
-              {tagToDelete ? t('deleteConfirm', { name: tagToDelete.name }) : null}
+              {tagToDelete
+                ? t('deleteConfirm', { name: tagToDelete.name })
+                : null}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -309,5 +295,58 @@ export function TagManager() {
         </DialogContent>
       </Dialog>
     </Panel>
+  );
+}
+
+/**
+ * The swatch that opens the picker.
+ *
+ * A plain overlay rather than the Popover primitive: this row lives inside
+ * a settings card, not a dialog, and the primitive's positioner would have
+ * to be portalled past a `overflow-hidden` panel to sit where the eye
+ * expects it. The same shape `pipeline-settings.tsx` uses, for the same
+ * reason.
+ */
+function TagColorButton({
+  value,
+  onChange,
+  previewLabel,
+  label,
+}: {
+  value: string;
+  onChange: (hex: string) => void;
+  previewLabel?: string;
+  label: string;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="relative shrink-0">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-label={label}
+        title={label}
+        aria-expanded={open}
+        className="border-border grid size-9 place-items-center rounded-md border"
+      >
+        <span
+          aria-hidden
+          className="size-5 rounded-full"
+          style={{ backgroundColor: value }}
+        />
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div className="border-border bg-popover absolute top-10 right-0 z-20 rounded-lg border p-2.5 shadow-lg">
+            <ColorPicker
+              value={value}
+              onChange={onChange}
+              previewLabel={previewLabel}
+            />
+          </div>
+        </>
+      )}
+    </div>
   );
 }

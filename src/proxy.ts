@@ -107,6 +107,33 @@ export async function proxy(request: NextRequest) {
     return withRefreshedCookies(NextResponse.redirect(url));
   }
 
+  // Sign-up is invite-only. This is an internal tool for one company, and
+  // a public registration form on it is a door with no lock: anybody who
+  // finds the URL gets an account and a look at the shell of the CRM.
+  //
+  // The invite carries a token, and `/join/<token>` is the front door — it
+  // hands the token to `/signup?invite=…` itself, so a signup that has one
+  // came from an invitation and a signup that does not came from somebody
+  // typing the URL.
+  //
+  // WHAT THIS IS NOT. It is not a lock on account creation — Supabase's own
+  // sign-up endpoint is reachable with the anon key whatever this file says.
+  // Closing that means turning off "Allow new users to sign up" in the
+  // Supabase dashboard and minting the user server-side after validating the
+  // token, which is a decision with a cost (do it without the server route
+  // and invited people cannot sign up either). This removes the door from
+  // the building; it does not brick up the wall.
+  if (
+    !user &&
+    request.nextUrl.pathname === '/signup' &&
+    !request.nextUrl.searchParams.get('invite')
+  ) {
+    const url = request.nextUrl.clone();
+    url.pathname = '/login';
+    url.search = '';
+    return withRefreshedCookies(NextResponse.redirect(url));
+  }
+
   // The root, in one hop instead of two.
   //
   // `/` is not protected, so it fell through to `src/app/page.tsx`,

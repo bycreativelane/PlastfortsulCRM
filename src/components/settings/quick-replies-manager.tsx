@@ -15,6 +15,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { MISSING_MIGRATION_CODE } from '@/lib/quick-replies/errors';
 
 import { Button } from '@/components/ui/button';
 import { StatePanel } from '@/components/ui/state-panel';
@@ -201,7 +202,8 @@ export function QuickRepliesManager() {
           : d
       );
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Upload failed.');
+      console.error('Quick reply media upload failed:', err);
+      toast.error(t('uploadError'));
     } finally {
       setUploading(false);
     }
@@ -253,7 +255,12 @@ export function QuickRepliesManager() {
       );
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        toast.error(data.error ?? t('saveError'));
+        console.error('Quick reply save failed:', data.error);
+        toast.error(
+          data.error_code === MISSING_MIGRATION_CODE
+            ? t('needsMigration')
+            : t('saveError')
+        );
         return;
       }
       toast.success(draft.id ? t('updated') : t('created'));

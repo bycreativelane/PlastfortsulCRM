@@ -70,10 +70,7 @@ const STATUS_LABELS = (
 // running: under the colour doctrine `ok` is the scarce "confirmed"
 // tone, and three tinted chips in a card grid would have spent it on
 // nothing. The icon carries the draft/archived distinction.
-const STATUS_VARIANTS: Record<
-  FlowRow['status'],
-  'neutral' | 'ok' | 'auto'
-> = {
+const STATUS_VARIANTS: Record<FlowRow['status'], 'neutral' | 'ok' | 'auto'> = {
   draft: 'neutral',
   active: 'ok',
   archived: 'neutral',
@@ -182,8 +179,11 @@ export default function FlowsPage() {
       setCreateOpen(false);
       router.push(`/flows/${json.flow.id}`);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : t('cloneError');
-      toast.error(msg);
+      // `err.message` always won here, so the `cloneError` key below never
+      // rendered — the user got the route's English HTTP string instead of
+      // the sentence that was written for them.
+      console.error('Flow clone failed:', err);
+      toast.error(t('cloneError'));
     } finally {
       setCreating(false);
     }
@@ -302,7 +302,7 @@ export default function FlowsPage() {
                       <span className="text-muted-foreground text-xs leading-relaxed">
                         {template.description}
                       </span>
-                      <span className="border-border text-muted-foreground mt-auto border-t pt-2 text-2xs">
+                      <span className="border-border text-muted-foreground text-2xs mt-auto border-t pt-2">
                         {t('nodeCount', { count: template.node_count })}
                       </span>
                     </button>
@@ -414,7 +414,7 @@ function FlowCard({
         {flow.description || triggerSummary}
       </p>
 
-      <div className="text-muted-foreground mt-4 flex items-center gap-3 text-2xs">
+      <div className="text-muted-foreground text-2xs mt-4 flex items-center gap-3">
         <span className="inline-flex items-center gap-1">
           <MessageSquare className="h-3 w-3" />
           {t('runCount', { count: flow.execution_count })}

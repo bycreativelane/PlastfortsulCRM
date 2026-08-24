@@ -3,6 +3,7 @@ import { getCurrentAccount, requireRole, toErrorResponse } from '@/lib/auth/acco
 import { supabaseAdmin } from '@/lib/automations/admin-client'
 import { parseQuickReplyBody } from '@/lib/quick-replies/parse'
 import {
+  MISSING_MIGRATION_CODE,
   MISSING_MIGRATION_MESSAGE,
   isMissingQuickReplyColumn,
 } from '@/lib/quick-replies/errors'
@@ -81,7 +82,10 @@ export async function POST(request: Request) {
       )
     }
     if (isMissingQuickReplyColumn(error)) {
-      return NextResponse.json({ error: MISSING_MIGRATION_MESSAGE }, { status: 503 })
+      return NextResponse.json(
+        { error: MISSING_MIGRATION_MESSAGE, error_code: MISSING_MIGRATION_CODE },
+        { status: 503 },
+      )
     }
     return NextResponse.json({ error: error.message }, { status: 500 })
   }

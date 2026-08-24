@@ -28,6 +28,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { FieldLabel } from '@/components/ui/field';
+import { ColorPicker, COLOR_PRESETS } from '@/components/ui/color-picker';
 import { Trash2, Plus, GripVertical, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
@@ -46,14 +47,7 @@ import { useTranslations } from 'next-intl';
  * Existing stages keep whatever colour they were given; this list only
  * governs what can be picked from here.
  */
-const STAGE_COLORS = [
-  '#3b82f6',
-  '#6366f1',
-  '#8b5cf6',
-  '#ec4899',
-  '#14b8a6',
-  '#06b6d4',
-];
+const STAGE_COLORS = COLOR_PRESETS;
 
 interface PipelineSettingsProps {
   open: boolean;
@@ -248,9 +242,7 @@ export function PipelineSettings({
           <>
             <div className="grid gap-4 py-2">
               <div className="grid gap-2">
-                <FieldLabel>
-                  {t('pipelineName')}
-                </FieldLabel>
+                <FieldLabel>{t('pipelineName')}</FieldLabel>
                 <Input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
@@ -285,7 +277,6 @@ export function PipelineSettings({
                             setLocalStages(updated);
                           }}
                           onRemove={() => handleRemoveStage(stage.id)}
-                          colors={STAGE_COLORS}
                           t={t}
                         />
                       ))}
@@ -293,19 +284,19 @@ export function PipelineSettings({
                   </SortableContext>
                 </DndContext>
 
-                {/* Add new stage */}
-                <div className="mt-1 flex flex-wrap">
-                  {STAGE_COLORS.map((color) => (
-                    <ColorDot
-                      key={color}
-                      color={color}
-                      selected={newStageColor === color}
-                      onSelect={() => setNewStageColor(color)}
-                      label={t('pickColor')}
-                    />
-                  ))}
-                </div>
+                {/* Add new stage.
+                    The colour sits BESIDE the name now, the same way every
+                    row above it does. It used to be a loose strip of six
+                    swatches floating over the input with no visible tie to
+                    it — and now that the choice is any colour rather than
+                    one of six, a strip is not a shape it can take. */}
                 <div className="flex items-center gap-2">
+                  <ColorSwatch
+                    value={newStageColor}
+                    onChange={setNewStageColor}
+                    previewLabel={newStageName}
+                    t={t}
+                  />
                   <Input
                     value={newStageName}
                     onChange={(e) => setNewStageName(e.target.value)}
@@ -374,14 +365,12 @@ function SortableStageRow({
   onNameChange,
   onColorChange,
   onRemove,
-  colors,
   t,
 }: {
   stage: PipelineStage;
   onNameChange: (v: string) => void;
   onColorChange: (v: string) => void;
   onRemove: () => void;
-  colors: string[];
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   t: any;
 }) {
@@ -418,7 +407,7 @@ function SortableStageRow({
       <ColorSwatch
         value={stage.color}
         onChange={onColorChange}
-        colors={colors}
+        previewLabel={stage.name}
         t={t}
       />
       <Input
@@ -441,12 +430,12 @@ function SortableStageRow({
 function ColorSwatch({
   value,
   onChange,
-  colors,
+  previewLabel,
   t,
 }: {
   value: string;
   onChange: (v: string) => void;
-  colors: string[];
+  previewLabel?: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   t: any;
 }) {
@@ -471,19 +460,16 @@ function ColorSwatch({
       {open && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="border-border bg-popover absolute top-8 left-0 z-20 flex w-52 flex-wrap rounded-lg border p-1.5 shadow-lg">
-            {colors.map((c) => (
-              <ColorDot
-                key={c}
-                color={c}
-                selected={c === value}
-                onSelect={() => {
-                  onChange(c);
-                  setOpen(false);
-                }}
-                label={t('pickColor')}
-              />
-            ))}
+          <div className="border-border bg-popover absolute top-8 left-0 z-20 rounded-lg border p-2.5 shadow-lg">
+            {/* The whole picker, not a row of swatches. The stored column
+                was always a free hex — the six-colour list was a limit the
+                UI invented, and "a cor da marca do cliente" was outside
+                it. Stays open on a pick so a colour can be nudged. */}
+            <ColorPicker
+              value={value}
+              onChange={onChange}
+              previewLabel={previewLabel}
+            />
           </div>
         </>
       )}
@@ -491,40 +477,3 @@ function ColorSwatch({
   );
 }
 
-/**
- * One pickable colour.
- *
- * The painted circle is 20px and the pressable box is 28 — the gap between
- * swatches IS the hit area, which is why the rows around it carry no `gap`.
- */
-function ColorDot({
-  color,
-  selected,
-  onSelect,
-  label,
-}: {
-  color: string;
-  selected: boolean;
-  onSelect: () => void;
-  label: string;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onSelect}
-      aria-pressed={selected}
-      aria-label={label}
-      title={label}
-      className="group grid size-7 shrink-0 place-items-center rounded-md"
-    >
-      <span
-        aria-hidden
-        className="duration-(--dur-1) size-5 rounded-full border-2 transition-transform group-hover:scale-110"
-        style={{
-          backgroundColor: color,
-          borderColor: selected ? 'var(--foreground)' : 'transparent',
-        }}
-      />
-    </button>
-  );
-}

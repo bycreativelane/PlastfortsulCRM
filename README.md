@@ -149,10 +149,10 @@ webhooks, CSP e limitação de taxa. Relato de vulnerabilidade em
 
 ## Origem e licença
 
-Este sistema começou a partir do projeto open-source
-[wacrm](https://github.com/ArnasDon/wacrm), de Arnas Donauskas,
-licenciado sob MIT, e desde então foi substancialmente modificado e
-estendido pela Creative Lane como o PlastfortSul CRM.
+Este sistema começou a partir do projeto open-source wacrm, de Arnas
+Donauskas, licenciado sob MIT, e desde então foi substancialmente
+modificado e estendido pela Creative Lane como o PlastfortSul CRM.
+Não é um fork no GitHub: o histórico publicado é só desta linha.
 
 Licença [MIT](./LICENSE), com os dois avisos de copyright preservados
 — o do autor original, como a licença exige, e o da Creative Lane

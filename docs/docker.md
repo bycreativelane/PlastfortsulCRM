@@ -48,9 +48,9 @@ is included.
 docker build \
   --build-arg NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co \
   --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key \
-  -t wacrm .
+  -t plastfortsul-crm .
 
-docker run -d --env-file .env.local -e PORT=3000 -p 3000:3000 wacrm
+docker run -d --env-file .env.local -e PORT=3000 -p 3000:3000 plastfortsul-crm
 ```
 
 ## Notes

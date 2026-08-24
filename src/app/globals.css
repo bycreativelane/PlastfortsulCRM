@@ -1,0 +1,1440 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+
+/* The `dark:` variant, pointed at the attribute the app actually sets.
+ *
+ * This read `(&:is(.dark *))` — shadcn's default, which expects a
+ * `.dark` CLASS on the root. This app has never used one: the theme
+ * boot script in layout.tsx and `use-theme.tsx` both write
+ * `data-mode="dark"` on <html>, and `grep -rn "classList" src/` returns
+ * nothing. So the selector matched no element in any state, and all 47
+ * `dark:` utilities in the codebase — `dark:bg-input/30` on the outline
+ * button, `dark:bg-destructive/20`, the six
+ * `dark:aria-invalid:ring-destructive/40`s — compiled correctly,
+ * shipped, and did nothing. Dark mode has been running on the token
+ * layer alone this whole time.
+ *
+ * NOT `:where()`, which is the tempting way to write this: it has zero
+ * specificity, so `dark:bg-input/30` would tie with the base
+ * `bg-background` on the same element and lose on source order — the
+ * utilities would still not apply, and this time it would look like the
+ * fix had been made. `:is()` takes the specificity of its argument,
+ * which is what makes the override land. */
+@custom-variant dark (&:is(html[data-mode="dark"] *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+  --font-heading: var(--font-sans);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  /* Secondary card surface (tile / hover backgrounds) and the accent
+   * extras the Settings redesign leans on. The raw --primary-* vars
+   * already exist per-accent below; these mappings expose them (and
+   * --card-2) as Tailwind utilities: bg-card-2, bg-primary-soft,
+   * bg-primary-soft-2, hover:bg-primary-hover. */
+  --color-card-2: var(--card-2);
+  --color-overlay: var(--overlay);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-soft: var(--primary-soft);
+  --color-primary-soft-2: var(--primary-soft-2);
+  /* ---- PlastfortSul: doctrine tokens ----
+   * The upstream palette has no vocabulary for "a person must act",
+   * "a machine did this", or "the WhatsApp thread". Those are the
+   * three distinctions the product is built on, so they get real
+   * tokens instead of one-off hex in components.
+   *
+   *   human  (amber) — the ONLY "come here" in the system
+   *   auto   (grey)  — automation is information, not attention.
+   *                    Deliberately neutral: painting machine work
+   *                    in colour makes it compete with human work.
+   *                    The lightning icon identifies it, not colour.
+   *   ok     (green) — confirmed, used sparingly
+   *   wa     (—)     — WhatsApp's own palette, only inside the thread
+   *
+   * destructive already covers "failed / lost / broke". */
+  --color-human: var(--human-500);
+  --color-human-soft: var(--human-50);
+  --color-human-border: var(--human-100);
+  --color-human-strong: var(--human-strong);
+  --color-human-ink: var(--human-700);
+  --color-auto: var(--auto-500);
+  --color-auto-soft: var(--auto-50);
+  --color-auto-border: var(--auto-100);
+  --color-auto-ink: var(--auto-700);
+  --color-ok: var(--ok-500);
+  --color-ok-soft: var(--ok-50);
+  --color-ok-ink: var(--ok-700);
+  --color-danger: var(--danger-500);
+  --color-danger-soft: var(--danger-50);
+  --color-danger-ink: var(--danger-700);
+  --color-danger-solid: var(--danger-solid);
+  --color-wa-bg: var(--wa-bg);
+  --color-avatar-1: var(--avatar-1);
+  --color-avatar-2: var(--avatar-2);
+  --color-avatar-3: var(--avatar-3);
+  --color-avatar-4: var(--avatar-4);
+  --color-avatar-5: var(--avatar-5);
+  --color-avatar-6: var(--avatar-6);
+  --color-avatar-7: var(--avatar-7);
+  --color-avatar-8: var(--avatar-8);
+  --color-avatar-ink: var(--avatar-ink);
+  --color-wa-in: var(--wa-in);
+  --color-wa-out: var(--wa-out);
+  --color-wa-tick: var(--wa-tick);
+  --color-wa-doodle: var(--wa-doodle);
+  --color-wa-inset: var(--wa-inset);
+
+  /* ---- Re-pointing Tailwind's raw palette ----
+   *
+   * Upstream was a dark-first app, and ~140 places across 49 files
+   * reach straight for `text-red-400`, `bg-amber-500/10`,
+   * `text-emerald-300` and friends. Every one of those shades was
+   * picked to read on a near-black surface. Flipping the default to
+   * light turns them into contrast failures — `text-amber-400` on
+   * white is about 2:1.
+   *
+   * Rather than rewrite 49 files (and re-break on every upstream
+   * merge that adds another `text-red-400`), the shades themselves
+   * are re-pointed at the doctrine tokens. Because `@theme inline`
+   * inlines the var reference into the utility, `text-red-400`
+   * compiles to `color: var(--danger-700)` and resolves per mode —
+   * so the same class is contrast-correct in light AND dark, and any
+   * future code that reaches for it lands on the right value for
+   * free.
+   *
+   * The rule behind the mapping is the shape these are used in:
+   * `border-X-500/40 bg-X-500/10 text-X-300` — a tinted chip. So the
+   * 100–400 range is the INK, the 500 is the mid tone that gets
+   * diluted for fills and borders, and 600–700 are solid fills that
+   * carry white text.
+   *
+   * Blue is the exception: it is the accent, not a signal, so it maps
+   * to --primary. The one blue that IS a signal — the read receipt —
+   * uses `text-wa-tick` explicitly and is untouched by this. */
+  --color-red-100: var(--danger-50);
+  --color-red-200: var(--danger-700);
+  --color-red-300: var(--danger-700);
+  --color-red-400: var(--danger-700);
+  --color-red-500: var(--danger-500);
+  /* 600+ are SOLID fills that carry white text (`bg-red-600 text-white`
+   * on the destructive button). They cannot share the 200–400 value:
+   * that one is ink meant to sit ON a tint, and in dark mode it is a
+   * light red, which puts white text at 2:1. */
+  --color-red-600: var(--danger-solid);
+  --color-red-700: var(--danger-solid);
+  --color-red-900: var(--danger-solid);
+  --color-amber-100: var(--human-700);
+  --color-amber-200: var(--human-700);
+  --color-amber-300: var(--human-700);
+  --color-amber-400: var(--human-700);
+  --color-amber-500: var(--human-500);
+  --color-amber-600: var(--human-600);
+  --color-amber-700: var(--human-700);
+  --color-yellow-400: var(--human-500);
+  --color-emerald-100: var(--ok-50);
+  --color-emerald-200: var(--ok-700);
+  --color-emerald-300: var(--ok-700);
+  --color-emerald-400: var(--ok-700);
+  --color-emerald-500: var(--ok-500);
+  --color-emerald-600: var(--ok-500);
+  --color-emerald-700: var(--ok-700);
+  --color-green-500: var(--ok-500);
+  --color-orange-400: var(--human-700);
+  --color-blue-300: var(--primary);
+  --color-blue-400: var(--primary);
+  --color-blue-500: var(--primary);
+  /* The measure every reading page is laid out to — `max-w-page` in
+   * Tailwind, because v4 builds `max-w-*` off the `--container-*`
+   * scale. One number, one place. The app-shaped routes (inbox, board,
+   * editors) opt out entirely and take the whole width, which is the
+   * point of them.
+   *
+   * 1440 and not 1600. It was 1600 while `--zoom` was 0.9, where a
+   * 1920px screen laid out at 2133px and the cap left ~146px of gutter
+   * either side. Removing the zoom (see `body` below) took the layout
+   * width down to 1920 and the gutter with it — 40px, which reads as
+   * "the page happens to end here", not as a margin. The complaint that
+   * started this was "pouca margem da distribuição", so a cap that
+   * quietly stops applying on the screen it was chosen for is the wrong
+   * number, not the wrong idea.
+   *
+   * The floor is the widest thing a reading page holds: the contacts
+   * table, eight columns, three of them hidden below lg. At 1440 minus
+   * gutters that is ~170px a column, which is loose. Nothing here wants
+   * more. */
+  --container-page: 1440px;
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/* ============================================================
+ * THE TYPE SCALE — eight steps, and eight is the whole list.
+ *
+ * Counted before this block existed: 20 distinct font sizes in the
+ * running app. Six from Tailwind's own scale (12 · 14 · 16 · 18 · 20 ·
+ * 24) and FOURTEEN more cut by hand into arbitrary values —
+ * `text-[8.5px]`, `[9px]`, `[10px]`, `[10.5px]`, `[11px]`, `[11.5px]`,
+ * `[12px]`, `[12.5px]`, `[13px]`, `[13.5px]`, `[15px]`, `[17px]`,
+ * `[18px]`, `[28px]` — across 170 call sites, plus one `text-[0.8rem]`
+ * inside the Button.
+ *
+ * Half of those are a half-pixel apart from each other. 11 and 11.5,
+ * 12.5 and 13, 13 and 13.5: differences nobody can see in isolation
+ * and everybody feels in aggregate, because the eye reads a page by
+ * grouping things of equal weight (Gestalt similarity) and a scale
+ * with a step every half pixel gives it nothing to group. Two labels
+ * that mean the same thing render at 11 and 11.5 and stop reading as
+ * the same KIND of thing — the hierarchy the sizes exist to express is
+ * exactly what they destroy.
+ *
+ * Two steps are added rather than re-pointing Tailwind's, because
+ * `text-xs` and `text-sm` carry 592 call sites between them and moving
+ * either would reflow the whole product to fix a scale problem:
+ *
+ *   text-3xs   10px / 14   micro-label. Uppercase section headings,
+ *                          the collapsed nav counter, canvas chrome.
+ *   text-2xs   11px / 16   dense metadata. Timestamps, chip text,
+ *                          the second line of a list row.
+ *
+ * Everything else maps onto the six that already exist:
+ *
+ *   8.5 · 9 · 10 · 10.5  →  text-3xs   (62 sites)
+ *   11 · 11.5            →  text-2xs   (82 sites)
+ *   12 · 12.5            →  text-xs    (12px)
+ *   13 · 13.5            →  text-sm    (14px)
+ *   15                   →  text-base  (16px)
+ *   17 · 18              →  text-lg    (18px)
+ *   0.8rem               →  text-xs    (the Button's `sm`)
+ *
+ * No mapped size moves by more than 1.5px. Individually invisible;
+ * together it is the difference between a page that was laid out and
+ * a page that was typed.
+ *
+ * Both new steps declare a line-height, which the `text-[Npx]` form
+ * never could — an arbitrary size utility sets `font-size` and nothing
+ * else, so all 170 of those blocks inherited whatever leading their
+ * ancestor happened to have. That is why two 11px captions in two
+ * different panels sat on different baselines. 14px on the 10 and 16px
+ * on the 11 continue Tailwind's own ramp (12/16 · 14/20 · 16/24), so
+ * the whole scale keeps one rhythm.
+ * ============================================================ */
+@theme {
+  --text-3xs: 0.625rem;
+  --text-3xs--line-height: calc(0.875 / 0.625);
+  --text-2xs: 0.6875rem;
+  --text-2xs--line-height: calc(1 / 0.6875);
+}
+
+/* ============================================================
+ * THEMING — two orthogonal dimensions
+ *
+ *   1. MODE   (light / dark)  → neutral surfaces. Selected with
+ *      `document.documentElement.dataset.mode`. Defaults to dark.
+ *   2. ACCENT (violet / …)    → the primary color only. Selected
+ *      with `document.documentElement.dataset.theme`.
+ *
+ * The two compose: any accent works in either mode. Neutral
+ * tokens (background / card / border / muted / sidebar surfaces /
+ * neutral charts / radius) live in the MODE blocks below; accent
+ * tokens (--primary*, --ring, --chart-1, --sidebar-primary*,
+ * --sidebar-ring) live in the ACCENT blocks. They set disjoint
+ * variables, so cascade order between them doesn't matter.
+ *
+ * `:root` carries the dark-mode + violet defaults so a visitor
+ * renders correctly before JS runs; the boot script in
+ * layout.tsx replays the saved mode + accent before first paint.
+ *
+ * The three `--primary-*` extras (hover / soft / soft-2) feed
+ * hovered primary buttons and tinted-primary surfaces (sidebar
+ * active pill, validation badges).
+ *
+ * Token shapes come straight from the design handoff at
+ * project/Color Themes.html — change one, change the other.
+ * ============================================================ */
+
+/* ---- MODE: neutral surfaces ---- */
+
+html[data-mode='dark'] {
+  --background: oklch(0.13 0.01 260);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.18 0.01 260);
+  --card-2: oklch(0.205 0.01 260);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.18 0.01 260);
+  --popover-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.22 0.01 260);
+  /* THREE tints of ink, not two.
+   *
+   * This was `oklch(0.985 0 0)` — character for character the same
+   * value as `--foreground`. Light mode has a real ramp (17:1 · 8.1:1 ·
+   * 5.2:1 on white) and dark mode had `foreground` twice and then
+   * `muted`, so every place that reaches for the middle tint — a stat
+   * tile's caption, the second line of a conversation row, a field's
+   * help text — rendered at full strength and the hierarchy those
+   * three tokens exist to express collapsed to two steps.
+   *
+   * 0.80 sits between 0.985 and the 0.65 of `--muted-foreground`, at
+   * roughly the 8:1 the light mode's middle tint measures. The chroma
+   * and hue follow the dark neutral ramp so it stays the same grey the
+   * surfaces are cut from. */
+  --secondary-foreground: oklch(0.8 0.01 260);
+  --muted: oklch(0.22 0.01 260);
+  --muted-foreground: oklch(0.65 0.01 260);
+  --accent: oklch(0.22 0.01 260);
+  --accent-foreground: oklch(0.985 0 0);
+  /* Points at the doctrine's own red instead of carrying upstream's.
+   *
+   * `--danger-500/700/solid` were calibrated per mode and are asserted
+   * by theme-contrast.test.ts; `--destructive` was left at the value it
+   * shipped with and appeared in no pair at all, so nothing noticed it
+   * measuring 3.95:1 on `--card` in dark mode. It is not decoration —
+   * it is the INK on the "Excluir" item of every dropdown in the app
+   * and on the destructive button, both of which are the last thing
+   * somebody reads before doing something irreversible.
+   *
+   * `--danger-700` is the ink token: the one tuned to sit on a tinted
+   * or neutral surface at AA. Every use of `--destructive` in the tree
+   * is `text-`, `border-`, `ring-` or `bg-destructive/10` — a tint,
+   * never a solid fill — so the ink value is the right target and
+   * nothing is left carrying white text on it. */
+  --destructive: var(--danger-700);
+  --border: oklch(0.28 0.01 260);
+  --input: oklch(0.28 0.01 260);
+  /* The series ramp, and in dark mode it was never one.
+   *
+   * These four arrived from shadcn's neutral base as `oklch(L 0 0)` —
+   * chroma ZERO, four greys. So the whole light-mode design of the ramp
+   * (a blue that recedes step by step, hue 262 throughout, so a second
+   * series reads as the same family as the accent) simply stopped
+   * existing the moment somebody switched to dark: "Enviadas" on the
+   * conversations chart rendered mid-grey, which in this product's own
+   * vocabulary is the colour reserved for what a MACHINE did.
+   *
+   * Two of them were not visible either. `--chart-4` at L 0.371 and
+   * `--chart-5` at L 0.269 sit against a `--card` of L 0.18 — a fourth
+   * and fifth series drawn a few points off the surface they are on.
+   *
+   * The ramp below is the light one re-derived for a dark ground.
+   * Light recedes UPWARD (0.523 → 0.83, toward the white card); dark
+   * recedes DOWNWARD (0.70 → 0.43) and stops well short of the card, so
+   * every step stays separable from the surface and from its neighbour.
+   * Chroma falls with it in both, because a series that is fifth in
+   * importance should not be the most saturated thing on the panel.
+   *
+   * Hue stays 262 for the same reason it does in light: the accent
+   * themes that want a second HUE for their second series (emerald,
+   * cobalt, amber, rose) override `--chart-2` themselves, further down
+   * and at equal specificity, so they still win here. */
+  --chart-2: oklch(0.63 0.115 262);
+  --chart-3: oklch(0.56 0.09 262);
+  --chart-4: oklch(0.49 0.07 262);
+  --chart-5: oklch(0.43 0.055 262);
+  /* Same 8px as light. It was 0.625rem here and 0.5rem there, which is
+   * upstream drift, not a decision: the identical card had an 8px
+   * corner in one mode and a 10px corner in the other, and every
+   * radius in the app is derived from this one number. Nothing about a
+   * dark surface asks for a rounder corner. */
+  --radius: 0.5rem;
+  --sidebar: oklch(0.16 0.01 260);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.22 0.01 260);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(0.28 0.01 260);
+
+  /* Glass — the surface a floating layer uses instead of a flat fill.
+   *
+   * Menus and popovers are the only things in this app that sit ON TOP
+   * of content rather than in the flow, and an opaque panel hides what
+   * you right-clicked. A translucent one blurred enough to stay legible
+   * keeps the row underneath readable as a shape, so the menu reads as
+   * a layer above the board rather than a hole punched in it.
+   *
+   * Three parts, and each does one job: --glass is the tint (opacity
+   * low enough to see through, high enough that text keeps its
+   * contrast), --glass-ring is the hairline that stops the blurred
+   * edge dissolving into whatever is behind it, and --glass-highlight
+   * is the 1px lit top edge that makes the panel read as raised.
+   *
+   * In dark mode the tint sits ABOVE --popover, not at it: blurring a
+   * near-black surface over a near-black page produces a rectangle you
+   * can only find by its shadow. */
+  --glass: oklch(0.235 0.012 260 / 0.72);
+  --glass-ring: oklch(1 0 0 / 0.12);
+  --glass-highlight: oklch(1 0 0 / 0.07);
+  --glass-shadow:
+    0 16px 36px -12px oklch(0 0 0 / 0.6), 0 3px 10px -3px oklch(0 0 0 / 0.45);
+
+  /* Scrollbars. The thumb is the foreground at low alpha rather than a
+   * fixed grey, so it darkens with the surface it sits on instead of
+   * cutting a light stripe through a dark panel. */
+  --scrollbar-thumb: oklch(1 0 0 / 0.18);
+
+  /* The scrim behind a dialog or a sheet. Its job is to say "the page is
+   * not listening any more", not to hide the page: you keep the board
+   * behind the form as context for the form. Blur does most of that work,
+   * so the darkening only has to be enough to push the page back a step.
+   * Dark mode needs more of it — a 14% black over a near-black page is
+   * invisible, so the layer would read as blur with no dimming at all. */
+  --overlay: oklch(0 0 0 / 0.45);
+
+  /* Doctrine tokens, dark variants. Amber and green are lifted so
+   * they still read as signal on a near-black surface. */
+  --human-50: oklch(0.32 0.06 65);
+  --human-100: oklch(0.42 0.09 65);
+  --human-500: oklch(0.78 0.14 70);
+  --human-600: oklch(0.7 0.14 66);
+  --human-700: oklch(0.86 0.11 75);
+  /* Carries WHITE text (badge fills), so it stays dark even in dark
+   * mode — a bright amber under white is 3.8:1. */
+  --human-strong: oklch(0.52 0.14 58);
+  --auto-50: oklch(0.22 0.01 260);
+  --auto-100: oklch(0.28 0.01 260);
+  --auto-500: oklch(0.65 0.01 260);
+  --auto-600: oklch(0.75 0.01 260);
+  --auto-700: oklch(0.85 0.01 260);
+  --ok-50: oklch(0.28 0.05 153);
+  --ok-500: oklch(0.7 0.13 152);
+  --ok-700: oklch(0.82 0.11 153);
+  --danger-50: oklch(0.28 0.06 23);
+  --danger-500: oklch(0.65 0.18 23);
+  --danger-700: oklch(0.8 0.13 23);
+  --danger-solid: oklch(0.54 0.19 25);
+  /* WhatsApp's own dark palette — not a tint of ours. The outbound
+   * green is darker than WhatsApp ships: at their lightness the
+   * timestamp inside the bubble (--muted-foreground) lands at 3.27:1.
+   * Here it reads 4.7:1, and the body text 14.5:1.
+   *
+   * The wallpaper and the inbound bubble were taken from WhatsApp WEB,
+   * which is blue-black (#0b141a) with blue-grey bubbles. The phone —
+   * the client every user of this CRM actually has open next to it — is
+   * neither: it is a NEUTRAL near-black with neutral grey bubbles. On a
+   * screen showing both at once the blue cast is the thing you notice,
+   * so the reference is now the app, not the browser.
+   *
+   * Chroma 0 and not "almost 0": hue is meaningless at zero chroma, and
+   * writing a hue with no chroma is what produced the accidental beige
+   * in the light neutrals (see the note there). */
+  --wa-bg: oklch(0.17 0 0);
+  --wa-in: oklch(0.27 0 0);
+  --wa-out: oklch(0.26 0.055 168);
+  --wa-tick: oklch(0.755 0.117 229.7);
+  --wa-shadow: 0 1px 0.5px oklch(0 0 0 / 0.35);
+  /* ANY surface inside a message bubble.
+   *
+   * A wash of the bubble's own ink, never a neutral. `--muted` and
+   * `--wa-out` are 0.3% apart in lightness and 88 degrees apart in hue,
+   * so a muted box on the green bubble is a shape defined entirely by a
+   * colour change — the thing the note above the neutrals forbids
+   * between a page and a card, arriving here because that doctrine was
+   * written for the page and nobody extended it inward.
+   *
+   * The prototype uses `rgba(0,0,0,.045)` for the same job, which
+   * darkens the green into a deeper green and white into a grey with
+   * one rule. This is that, inverted for a dark bubble. */
+  --wa-inset: oklch(0.985 0 0 / 0.06);
+  --wa-out-inset: oklch(0.31 0.051 169.4);
+  /* Light ink on a dark wallpaper, and slightly stronger — a dark surface
+   * swallows texture faster than a light one. */
+  --wa-doodle: oklch(1 0 0 / 0.045);
+
+  /* Avatars, dark. Same hue, same chroma, L lifted 0.492-0.522 -> 0.66, and
+   * the ink flipped to the card the way `--primary-foreground` already does.
+   * Ink 5.86-6.22:1; fill 5.39:1 worst case, against a selected row. The
+   * light values here would have measured 2.91-3.41:1. */
+  --avatar-1: oklch(0.66 0.067 257.2);
+  --avatar-2: oklch(0.66 0.056 184.1);
+  --avatar-3: oklch(0.66 0.061 53.9);
+  --avatar-4: oklch(0.66 0.056 292.1);
+  --avatar-5: oklch(0.66 0.066 356);
+  --avatar-6: oklch(0.66 0.055 242.7);
+  --avatar-7: oklch(0.66 0.064 125);
+  --avatar-8: oklch(0.66 0.057 74.9);
+  --avatar-ink: oklch(0.18 0.01 260);
+}
+
+/* Light — the PlastfortSul default.
+ *
+ * These are not upstream's light values: they are the prototype's
+ * neutrals, converted from hex to oklch. White plus a light grey with
+ * NO tint — no blue-grey, no indigo. The doctrine is that the frame of
+ * the interface carries almost no colour, so the three signal colours
+ * above have somewhere to land.
+ *
+ * Contrast on white: foreground 17:1 · secondary 8.1:1 · muted 5.2:1
+ * (4.6:1 on --muted, which is where it actually appears most). The
+ * muted-foreground has deliberate headroom — the upstream value only
+ * passed on white and failed on every tinted surface. */
+:root,
+html[data-mode='light'] {
+  /* Chroma 0 — a true neutral, no hue at all.
+   *
+   * These carried `0.002 0` and `0.001 0` before, which is chroma with hue
+   * ZERO, and hue zero in oklch is red. The result was a page that read as
+   * faintly beige against the white cards sitting on it. The source colours
+   * (#f5f6f7 / #fafbfb) are in fact very slightly BLUE, so the tint was not
+   * merely small, it was backwards.
+   *
+   * Rather than restore the correct cool hue, drop the chroma entirely: the
+   * separation between the page and a card should be a difference in
+   * lightness only, small enough that you feel the card lift rather than see
+   * a colour change. */
+  --background: oklch(0.978 0 0);
+  --foreground: oklch(0.204 0.007 258.4);
+  --card: oklch(1 0 0);
+  --card-2: oklch(0.99 0 0);
+  --card-foreground: oklch(0.204 0.007 258.4);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.204 0.007 258.4);
+  --secondary: oklch(0.954 0.003 228.8);
+  --secondary-foreground: oklch(0.432 0.014 252.2);
+  --muted: oklch(0.954 0.003 228.8);
+  --muted-foreground: oklch(0.532 0.013 252.2);
+  --accent: oklch(0.954 0.003 228.8);
+  --accent-foreground: oklch(0.432 0.014 252.2);
+  /* The doctrine's ink red, not a second red. See the note in the dark
+   * block: this token is only ever text, a border or a 10% tint, and
+   * the 500 it used to carry is the mid tone meant to be diluted —
+   * 4.53:1 on white and below AA the moment it lands on the tinted
+   * surface it usually lands on. */
+  --destructive: var(--danger-700);
+  --border: oklch(0.924 0.003 247.9);
+  --input: oklch(0.853 0.007 247.9);
+
+  /* Doctrine tokens, light — the prototype's audited values. */
+  --human-50: oklch(0.971 0.026 80.3);
+  --human-100: oklch(0.888 0.083 80.6);
+  --human-500: oklch(0.685 0.153 64.5);
+  --human-600: oklch(0.595 0.134 63.4);
+  --human-700: oklch(0.484 0.107 65.3);
+  /* Amber that carries white text at AA — the plain 500 gives 2.9:1. */
+  --human-strong: oklch(0.552 0.129 59);
+  --auto-50: oklch(0.954 0.003 228.8);
+  --auto-100: oklch(0.924 0.003 247.9);
+  --auto-500: oklch(0.532 0.013 252.2);
+  --auto-600: oklch(0.432 0.014 252.2);
+  --auto-700: oklch(0.31 0.011 248.2);
+  --ok-50: oklch(0.954 0.02 154.9);
+  --ok-500: oklch(0.558 0.131 152.4);
+  --ok-700: oklch(0.446 0.104 153);
+  --danger-50: oklch(0.952 0.021 17.5);
+  --danger-500: oklch(0.556 0.175 23.1);
+  /* 6.4:1 — the 500 only reaches 4.5:1, and red text almost always
+   * lands on the tinted --danger-50 rather than on plain white. */
+  --danger-700: oklch(0.47 0.145 22.8);
+  --danger-solid: oklch(0.47 0.145 22.8);
+  /* The app's own page grey, not WhatsApp's cream.
+   *
+   * The wallpaper was #efeae2 (WhatsApp Web), then #f5f1e9 (the phone
+   * app). Both are the right answer to "what colour is WhatsApp" and the
+   * wrong answer to "what colour should the one screen somebody stares
+   * at for eight hours be". At the size WhatsApp uses it — a phone, held
+   * at arm's length, minutes at a time — a warm cream is cosy. Filling
+   * half a 27" monitor with it all day is not: it is the only saturated
+   * field in an interface whose entire doctrine is that colour must earn
+   * its place, and it never earned it. It was fidelity for its own sake.
+   *
+   * So: `--background`, the same neutral the rest of the app sits on.
+   * Chroma 0, so it cannot read as a tint at any size. The white inbound
+   * bubble separates by ~2% of lightness plus `--wa-shadow`, which is
+   * exactly how a light-mode chat is supposed to read — the bubble lifts,
+   * the ground stays quiet. If the bubbles ever feel too flat the next
+   * step down is `--muted`, not a colour. */
+  --wa-bg: var(--background);
+  --wa-in: oklch(1 0 0);
+  --wa-out: oklch(0.957 0.067 141.1);
+  /* Deliberately darker than WhatsApp's own #53bdeb. That blue on the
+   * light-green outbound bubble measures 1.92:1 — it fails WCAG 1.4.11
+   * (3:1 for meaningful graphics) in WhatsApp itself. The read receipt
+   * is a state people actively scan for, so it has to survive a bright
+   * screen and imperfect eyes. This reads 4.2:1 on the bubble and
+   * 4.66:1 on white, and still reads unmistakably as "the blue tick". */
+  --wa-tick: oklch(0.55 0.15 240);
+  --wa-shadow: 0 1px 0.5px oklch(0.22 0.02 240 / 0.13);
+  --wa-inset: oklch(0.204 0.007 258.4 / 0.06);
+  /* The same wash, pre-composited over `--wa-out`, purely so
+   * `theme-contrast.test.ts` has something solid to measure: its parser
+   * stops at the alpha, so a translucent token would be read as the
+   * opaque ink it is derived from and the assertion would pass on a
+   * colour nobody renders. */
+  --wa-out-inset: oklch(0.917 0.064 141.3);
+  /* Neutral black at 2.8%, down from the prototype's 4%. Half of what
+   * made the old chat area shout was the cream and half was the pattern
+   * on it: at 4% the doodles are legible as pictures, and a legible
+   * picture invites reading. The wallpaper is texture, not decoration —
+   * you should register that the surface is not flat and never once read
+   * an individual icon while looking at a message.
+   *
+   * Black and not a grey: the beige is warm (R-B 13), so a neutral slate
+   * stroke lands COOLER than what surrounds it and reads as blue-grey lines.
+   * Black tints toward the wallpaper's own hue and stays texture. */
+  --wa-doodle: oklch(0 0 0 / 0.028);
+  /* The series ramp: one hue, five steps receding from the accent.
+   *
+   * The tail is pulled in from where it was. `--chart-4` at L 0.8 and
+   * `--chart-5` at L 0.87 were a pale blue and a near-white on a `--card`
+   * of L 1.0 — the fifth series was roughly the colour of the panel it
+   * was drawn on, and the fourth was not far behind. A ramp is meant to
+   * rank five series, not to fade two of them out of the chart.
+   *
+   * 0.523 · 0.60 · 0.68 · 0.76 · 0.83 keeps the same descending
+   * intention with every step still readable against white. The dark
+   * block above is this ramp re-derived downward. */
+  --chart-2: oklch(0.6 0.115 262);
+  --chart-3: oklch(0.68 0.085 262);
+  --chart-4: oklch(0.76 0.06 262);
+  --chart-5: oklch(0.83 0.045 262);
+  --radius: 0.5rem;
+  --sidebar: oklch(1 0 0);
+  --sidebar-foreground: oklch(0.204 0.007 258.4);
+  --sidebar-accent: oklch(0.954 0.003 228.8);
+  --sidebar-accent-foreground: oklch(0.204 0.007 258.4);
+  --sidebar-border: oklch(0.924 0.003 247.9);
+
+  /* Glass, light. The tint is plain white — a light-mode panel that
+   * picks up a hue reads as dirty, and `saturate()` in the utility
+   * already pulls whatever colour is behind it through the blur.
+   * The highlight is near-white rather than white-at-7%: on a light
+   * surface the lit edge has to be BRIGHTER than the panel to register
+   * at all. */
+  --glass: oklch(1 0 0 / 0.72);
+  --glass-ring: oklch(0.204 0.007 258.4 / 0.1);
+  --glass-highlight: oklch(1 0 0 / 0.8);
+  --glass-shadow:
+    0 16px 36px -12px oklch(0.204 0.007 258.4 / 0.18),
+    0 3px 10px -3px oklch(0.204 0.007 258.4 / 0.08);
+  --scrollbar-thumb: oklch(0.204 0.007 258.4 / 0.2);
+  --overlay: oklch(0.204 0.007 258.4 / 0.16);
+
+  /* ---- AVATAR: who, when there is no photo ----
+   *
+   * Eight fills, ported from the prototype (`.av-1`…`.av-8`,
+   * assets/css/app.css:392-394) with its reasoning intact:
+   *
+   *   "Dessaturados e de luminosidade parecida: ajudam a reconhecer
+   *    pessoas sem virar sinal. Avatar é textura, não alerta."
+   *
+   * One lightness band and one chroma band, eight hues. That is what keeps
+   * a wall of them from competing with the things that ARE signals — the
+   * amber unread badge, a stage chip — while still letting you find the
+   * same person twice by the shape of their disc.
+   *
+   * They replace `bg-muted`, which every avatar in the app was using: 1.14:1
+   * against a card, and exactly 1.00:1 against a SELECTED conversation row,
+   * whose fill is also `--muted`. The disc did not have poor contrast there,
+   * it had none — it disappeared.
+   *
+   * Chroma and hue are the prototype's; only L moves between modes. Shipping
+   * the light values into dark would put five of the eight below 3:1 against
+   * `--card`.
+   *
+   * LIGHT — white ink. Ink 5.50-6.45:1; fill 4.81:1 worst case, against a
+   * selected row. */
+  --avatar-1: oklch(0.498 0.067 257.2);
+  --avatar-2: oklch(0.504 0.056 184.1);
+  --avatar-3: oklch(0.504 0.061 53.9);
+  --avatar-4: oklch(0.498 0.056 292.1);
+  --avatar-5: oklch(0.492 0.066 356);
+  --avatar-6: oklch(0.499 0.055 242.7);
+  --avatar-7: oklch(0.504 0.064 125);
+  --avatar-8: oklch(0.522 0.057 74.9);
+  --avatar-ink: oklch(1 0 0);
+}
+
+/* ---- ACCENT: primary color ---- */
+
+/* PlastfortSul — the brand blue, #2f63c9.
+ *
+ * Blue is not information here: it marks WHERE YOU ARE and WHAT YOU
+ * CAN PRESS. It never means "important" — amber does. That is why the
+ * accent is a mid-weight blue rather than the upstream violet, which
+ * was loud enough to compete with the amber it sat next to.
+ *
+ * --chart-1 follows --primary so the first data series matches the
+ * accent, as in every other theme here. */
+:root,
+html[data-theme='plastfortsul'] {
+  --primary: oklch(0.523 0.169 262);
+  --primary-foreground: oklch(0.985 0 0);
+  --primary-hover: oklch(0.468 0.161 262.4);
+  --primary-soft: oklch(0.523 0.169 262 / 0.1);
+  --primary-soft-2: oklch(0.523 0.169 262 / 0.18);
+  --ring: oklch(0.523 0.169 262);
+  --chart-1: oklch(0.523 0.169 262);
+  --sidebar-primary: oklch(0.523 0.169 262);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-ring: oklch(0.523 0.169 262);
+}
+
+/* The brand blue, lifted for dark mode.
+ *
+ * The two axes compose freely for upstream's accents, but this one is a
+ * fixed brand colour rather than a designed-for-both ramp: #2f63c9 on
+ * the dark card is 3.36:1, so a link in it fails AA. Lifting the
+ * lightness fixes the link and flips the button to dark-ink-on-light-
+ * accent — the same shape the emerald and amber themes already use.
+ * Specificity (two attributes) beats the single-attribute accent block
+ * above, so only this pairing is affected. */
+html[data-mode='dark'][data-theme='plastfortsul'] {
+  --primary: oklch(0.7 0.14 262);
+  --primary-foreground: oklch(0.18 0.01 260);
+  --primary-hover: oklch(0.76 0.13 262);
+  --primary-soft: oklch(0.7 0.14 262 / 0.14);
+  --primary-soft-2: oklch(0.7 0.14 262 / 0.24);
+  --ring: oklch(0.7 0.14 262);
+  --chart-1: oklch(0.7 0.14 262);
+  --sidebar-primary: oklch(0.7 0.14 262);
+  --sidebar-primary-foreground: oklch(0.18 0.01 260);
+  --sidebar-ring: oklch(0.7 0.14 262);
+}
+
+html[data-theme='violet'] {
+  --primary: oklch(0.526 0.247 293);
+  --primary-foreground: oklch(0.985 0 0);
+  --primary-hover: oklch(0.6 0.22 293);
+  --primary-soft: oklch(0.526 0.247 293 / 0.12);
+  --primary-soft-2: oklch(0.526 0.247 293 / 0.2);
+  --ring: oklch(0.526 0.247 293);
+  --chart-1: oklch(0.526 0.247 293);
+  --sidebar-primary: oklch(0.526 0.247 293);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-ring: oklch(0.526 0.247 293);
+}
+
+html[data-theme='emerald'] {
+  --primary: oklch(0.62 0.16 162);
+  --primary-foreground: oklch(0.16 0.02 162);
+  --primary-hover: oklch(0.68 0.15 162);
+  --primary-soft: oklch(0.62 0.16 162 / 0.12);
+  --primary-soft-2: oklch(0.62 0.16 162 / 0.22);
+  --ring: oklch(0.62 0.16 162);
+  --chart-1: oklch(0.62 0.16 162);
+  --chart-2: oklch(0.7 0.14 195);
+  --sidebar-primary: oklch(0.62 0.16 162);
+  --sidebar-primary-foreground: oklch(0.16 0.02 162);
+  --sidebar-ring: oklch(0.62 0.16 162);
+}
+
+html[data-theme='cobalt'] {
+  --primary: oklch(0.585 0.2 254);
+  --primary-foreground: oklch(0.985 0 0);
+  --primary-hover: oklch(0.66 0.18 254);
+  --primary-soft: oklch(0.585 0.2 254 / 0.12);
+  --primary-soft-2: oklch(0.585 0.2 254 / 0.22);
+  --ring: oklch(0.585 0.2 254);
+  --chart-1: oklch(0.585 0.2 254);
+  --chart-2: oklch(0.7 0.15 220);
+  --sidebar-primary: oklch(0.585 0.2 254);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-ring: oklch(0.585 0.2 254);
+}
+
+html[data-theme='amber'] {
+  --primary: oklch(0.745 0.16 65);
+  --primary-foreground: oklch(0.18 0.03 65);
+  --primary-hover: oklch(0.8 0.15 65);
+  --primary-soft: oklch(0.745 0.16 65 / 0.12);
+  --primary-soft-2: oklch(0.745 0.16 65 / 0.22);
+  --ring: oklch(0.745 0.16 65);
+  --chart-1: oklch(0.745 0.16 65);
+  --chart-2: oklch(0.7 0.15 35);
+  --sidebar-primary: oklch(0.745 0.16 65);
+  --sidebar-primary-foreground: oklch(0.18 0.03 65);
+  --sidebar-ring: oklch(0.745 0.16 65);
+}
+
+html[data-theme='rose'] {
+  --primary: oklch(0.645 0.22 16);
+  --primary-foreground: oklch(0.985 0 0);
+  --primary-hover: oklch(0.71 0.2 16);
+  --primary-soft: oklch(0.645 0.22 16 / 0.12);
+  --primary-soft-2: oklch(0.645 0.22 16 / 0.22);
+  --ring: oklch(0.645 0.22 16);
+  --chart-1: oklch(0.645 0.22 16);
+  --chart-2: oklch(0.7 0.18 340);
+  --sidebar-primary: oklch(0.645 0.22 16);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-ring: oklch(0.645 0.22 16);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+
+    /* THE GLOBAL ZOOM, AND WHY IT IS 1.
+     *
+     * This was 0.90, then 0.95: `zoom` on the body, bought because it
+     * scales EVERYTHING — the 154 hard-coded pixel font sizes as well as
+     * the rem-based utilities — for one declaration. It is now off, and
+     * it should stay off. Two reasons, one of them a bug that could not
+     * be fixed any other way.
+     *
+     * 1. It broke every floating panel in the app.
+     *
+     *    A zoomed subtree is laid out in its OWN pixels and painted at
+     *    `local x zoom`. `getBoundingClientRect()` reports the PAINTED
+     *    box. Floating UI — which positions every menu, dropdown,
+     *    select, tooltip and popover here, through Base UI — reads the
+     *    trigger with `getBoundingClientRect` and writes the result as a
+     *    `transform` on an element inside the zoomed subtree. It only
+     *    converts between the two spaces when the floating element's
+     *    offset parent is an Element; for a portalled popup the offset
+     *    parent resolves to `window`, so no conversion happens and the
+     *    painted coordinates are used verbatim as local ones.
+     *
+     *    The panel therefore landed at `position x zoom` — pulled toward
+     *    the top-left corner by 5% of its distance from it. Perfect in
+     *    the corner, 22px adrift halfway down the page, and about 75px
+     *    adrift for the notification bell in the top right. Measured in
+     *    the running app: a dropdown whose trigger sat at y=433 opened
+     *    with its top at y=407, and `--anchor-width` reported 111px for
+     *    a trigger that is 117 local pixels wide.
+     *
+     *    There is no CSS fix. The library would have to be handed a
+     *    rewritten anchor rect AND a rewritten collision boundary, at
+     *    every one of those five components, forever.
+     *
+     * 2. Nobody wanted the density it bought. The request that started
+     *    this pass was for LARGER type and LESS on screen at once.
+     *
+     * The variable stays because `h-vh-*` / `min-h-vh-*` divide by it,
+     * and because turning it back on is a one-line experiment. Before
+     * anyone does: read point 1 again. It is not a settings knob, it is
+     * a load-bearing 1. */
+    zoom: var(--zoom);
+
+    /* Inter reads loose at its defaults; cv05 gives the tailed `l` and
+     * cv11 the single-storey `a`. */
+    letter-spacing: -0.006em;
+    font-feature-settings:
+      'cv05' 1,
+      'cv11' 1;
+    font-optical-sizing: auto;
+  }
+  html {
+    @apply font-sans;
+
+    --zoom: 1;
+  }
+
+  /* ------------------------------------------------------------
+   * Scrollbars, everywhere.
+   *
+   * Windows paints the classic scrollbar: 17px wide, a grey trough and
+   * a black arrow button at each end. It is the loudest thing on a
+   * settings page and it belongs to the OS, not to this interface —
+   * and every place that noticed had been hiding it one component at a
+   * time (`[&::-webkit-scrollbar]:hidden` on the settings rail, the
+   * bar chart, the board).
+   *
+   * The standard properties, not `::-webkit-scrollbar`: Chrome 121+
+   * ignores the -webkit pseudo-elements entirely once `scrollbar-width`
+   * or `scrollbar-color` is set on the same element, so declaring both
+   * is a coin toss on which one the browser honours. `thin` also drops
+   * the stepper arrows, which is the specific thing that was breaking
+   * the design.
+   *
+   * Components that hide their scrollbar completely already set
+   * `scrollbar-width: none` next to the -webkit rule, and `none` beats
+   * this because it is the more specific declaration on that element.
+   * ------------------------------------------------------------ */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
+  }
+
+  /* Safari has no `scrollbar-color`, so it keeps its overlay scrollbar —
+   * which is already thin, rounded and unobtrusive. Nothing to do. */
+
+  /* ------------------------------------------------------------
+   * Number fields keep their keyboard, lose their stepper.
+   *
+   * `type="number"` paints a pair of black arrows inside the field on
+   * Windows Chrome — the only place in the interface with a native
+   * control chrome, sitting right on top of a themed input. Nothing in
+   * this app is a value you nudge one at a time either: they are deal
+   * amounts, reply limits and delays, all typed.
+   *
+   * `type="number"` stays for the numeric keypad on mobile and the
+   * browser's own digit filtering; only the arrows go.
+   * ------------------------------------------------------------ */
+  input[type='number'] {
+    appearance: textfield;
+    -moz-appearance: textfield;
+  }
+
+  input[type='number']::-webkit-outer-spin-button,
+  input[type='number']::-webkit-inner-spin-button {
+    margin: 0;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  /* ------------------------------------------------------------
+   * Native pickers follow the app's mode.
+   *
+   * `color-scheme` is what tells the browser which palette to paint
+   * its own widgets in — the date picker panel, the calendar glyph
+   * inside a date field, the autofill highlight, the default
+   * scrollbar. Without it Chrome assumes light, which is why the date
+   * field's calendar icon was a dark glyph on the light theme and an
+   * invisible dark-on-dark one after the theme flip.
+   * ------------------------------------------------------------ */
+  html[data-mode='dark'] {
+    color-scheme: dark;
+  }
+
+  :root,
+  html[data-mode='light'] {
+    color-scheme: light;
+  }
+}
+
+/* ============================================================
+ * Viewport height under the global zoom.
+ *
+ * `zoom` scales layout but NOT viewport units, so a raw `100vh` box
+ * fills only 90% of the window and leaves a dead band under it. Every
+ * full-height shell must divide by --zoom. These utilities are the
+ * single place that maths lives — grep for `vh]` before adding a new
+ * one — `max-h-vh-75` instead of `max-h-[75vh]`.
+ * ============================================================ */
+/* Each utility declares the value TWICE: `vh` first, then `dvh`. A
+ * browser that does not know `dvh` drops the second declaration and
+ * keeps the first, so the fallback is the cascade rather than an
+ * `@supports` block.
+ *
+ * `dvh` and not `vh` is the whole point on a phone. `100vh` is the
+ * viewport with the browser's URL bar HIDDEN — a size the page does
+ * not have while the bar is on screen — so the app shell, which is
+ * `overflow: hidden` and hands its height to children that scroll
+ * inside it, pushed the message composer and the board's bottom edge
+ * under the chrome. The keyboard opening made it worse: on Android
+ * the visual viewport shrinks by ~40% and `vh` does not move at all.
+ *
+ * The jitter argument against `dvh` (it re-measures as the URL bar
+ * slides) does not apply here: nothing in this app scrolls the
+ * DOCUMENT — every scroll happens inside a child — so the bar never
+ * hides and the value never changes mid-gesture. */
+@utility h-vh-* {
+  height: calc(--value(integer) * 1vh / var(--zoom));
+  height: calc(--value(integer) * 1dvh / var(--zoom));
+}
+
+@utility min-h-vh-* {
+  min-height: calc(--value(integer) * 1vh / var(--zoom));
+  min-height: calc(--value(integer) * 1dvh / var(--zoom));
+}
+
+@utility max-h-vh-* {
+  max-height: calc(--value(integer) * 1vh / var(--zoom));
+  max-height: calc(--value(integer) * 1dvh / var(--zoom));
+}
+
+/* ============================================================
+ * Glass — the floating-layer surface.
+ *
+ * Applied to menus, context menus and popovers: the layers that
+ * appear OVER content and disappear again. Not to dialogs, sheets or
+ * cards. A dialog is a place you go to read and type, and text on a
+ * moving translucent ground is harder to read for no gain; a card is
+ * part of the page, and blurring the page against itself buys nothing.
+ * The rule is "does something meaningful sit behind it, and is it
+ * temporary" — menus are the only yes.
+ *
+ * The background-color is declared TWICE on purpose. The first is the
+ * opaque `--popover` every other surface uses; the second only lands
+ * where `backdrop-filter` is actually supported. Without that split, a
+ * browser that ignores the filter renders a 72%-transparent panel with
+ * the page showing straight through the text.
+ *
+ * The ring and the highlight ride in `box-shadow` rather than
+ * `border` + `ring` utilities so the whole surface is one property to
+ * override and nothing has to reason about the border-box adding a
+ * pixel to a popup that is being measured for collision detection.
+ * ============================================================ */
+@utility glass {
+  background-color: var(--popover);
+  box-shadow:
+    inset 0 0 0 1px var(--glass-ring),
+    inset 0 1px 0 0 var(--glass-highlight),
+    var(--glass-shadow);
+
+  @supports (
+    (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))
+  ) {
+    background-color: var(--glass);
+    -webkit-backdrop-filter: blur(16px) saturate(180%);
+    backdrop-filter: blur(16px) saturate(180%);
+  }
+}
+
+/* ============================================================
+ * Collapsed sidebar — icons only, 240px → 62px.
+ *
+ * Driven by `data-nav` on <html>, NOT by React state, for the same
+ * reason the theme is: the boot script in layout.tsx can stamp the
+ * attribute before first paint, so a user who collapsed the menu
+ * doesn't watch it snap shut on every navigation. React state drives
+ * only the toggle button's own affordance, which can settle a frame
+ * late without anyone seeing it.
+ *
+ * Labels stay in the DOM and are hidden with `display:none` rather
+ * than removed, so the markup — and screen-reader output when the
+ * row is focused — is identical in both states.
+ *
+ * Desktop only: on mobile the sidebar is a drawer that is either
+ * open at full width or off-canvas, and a 62px drawer is useless.
+ * ============================================================ */
+@media (width >= 64rem) {
+  html[data-nav='collapsed'] [data-sidebar] {
+    width: 3.875rem;
+  }
+
+  html[data-nav='collapsed'] [data-nav-label] {
+    display: none;
+  }
+
+  /* Centre what's left: the icon, the avatar, the brand mark. */
+  html[data-nav='collapsed'] [data-nav-row] {
+    justify-content: center;
+    padding-inline: 0;
+  }
+
+  /* The brand strip gives up its gutters as well, so the mark centres in
+   * the 62px rail rather than in the 38px left over after them. Expanded,
+   * the strip keeps its px-3 and the lockup takes the navigation's own
+   * left edge (see the note in sidebar.tsx); collapsed, there is no left
+   * edge to take — there is one icon-width column and everything sits on
+   * its centre line. */
+  html[data-nav='collapsed'] [data-nav-strip] {
+    padding-inline: 0;
+  }
+
+  /* A tile with nothing left in it is not a tile.
+   *
+   * The account button is a bordered, filled surface because it holds a
+   * name, an e-mail and a chevron. Collapsed, all three leave with
+   * `[data-nav-label]` and what remains is one 32px avatar — at which
+   * point the border sits 3px off the artwork on every side and reads as
+   * a square drawn around a circle. So the chrome goes and the avatar
+   * stands on its own; it is round, it is the only thing there, and it
+   * has never needed a box to say it can be clicked.
+   *
+   * Specificity, not `!important`: this is (0,2,1) — one element plus two
+   * attributes — which outranks the `data-popup-open:` and `:hover`
+   * utilities at (0,2,0) that would otherwise repaint the fill and the
+   * border while the menu is open. The focus ring is deliberately NOT in
+   * this list: it is a `box-shadow`, and blanking it here would outrank
+   * `focus-visible:` too and leave a keyboard user with no target. */
+  html[data-nav='collapsed'] [data-nav-tile] {
+    padding: 0;
+    border-color: transparent;
+    background-color: transparent;
+  }
+
+  /* The 1px lift belongs to a card. Nothing lifts a bare avatar. */
+  html[data-nav='collapsed'] [data-nav-tile]:hover {
+    box-shadow: none;
+    transform: none;
+  }
+
+  /* One rhythm, top to bottom.
+   *
+   * The rail draws no horizontal rules any more: a group is a heading
+   * plus the 20px above it. Collapsed, the heading is gone — and 20px
+   * of silence where a word used to be is not a group, it is a hole.
+   * The column read as 4 · 20 · 4 · 4 · 20 · 4 · 4 · 20 · 4, which is
+   * what the eye picks up as "these icons are misaligned" even though
+   * every one of them is on the same centre line.
+   *
+   * So the groups give up their margin here and every gap in the column
+   * is the `gap-1` between rows — nine icons, eight identical spaces.
+   * `:not(:first-child)` because the first group has no margin to
+   * collapse; the nav's own `py-4` is what sets the top. */
+  html[data-nav='collapsed'] [data-nav-group]:not(:first-child) {
+    margin-top: 0.25rem;
+  }
+
+  /* Counters have no room for a number — they become a corner dot. */
+  html[data-nav='collapsed'] [data-nav-badge] {
+    position: absolute;
+    top: 0.25rem;
+    right: 0.25rem;
+    min-width: 0.5rem;
+    height: 0.5rem;
+    padding: 0;
+    font-size: 0;
+    line-height: 0;
+  }
+}
+
+/* ============================================================
+ * Chat wallpaper.
+ *
+ * The tile at /inbox-doodle.svg is applied as a MASK rather than as a
+ * background image, so the colour comes from `--wa-doodle` and can differ
+ * per mode. As a background image the stroke colour is baked into the file:
+ * one tile cannot be a dark pattern on the light beige AND a light pattern
+ * on the dark surface, and the previous fixed slate stroke ended up reading
+ * as blue-grey lines on the beige — visible colour in the one region of the
+ * app that is supposed to be pure texture.
+ *
+ * `isolation: isolate` plus `z-index: -1` puts the layer behind the messages
+ * but in front of the element's own background, without depending on where
+ * the children happen to sit in DOM order.
+ * ============================================================ */
+.wa-doodle {
+  position: relative;
+  isolation: isolate;
+}
+
+.wa-doodle::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-color: var(--wa-doodle);
+  -webkit-mask-image: url('/inbox-doodle.svg');
+  mask-image: url('/inbox-doodle.svg');
+  -webkit-mask-repeat: repeat;
+  mask-repeat: repeat;
+}
+
+/* ============================================================
+ * MOTION — the fourth axis of the system
+ *
+ * Colour says what a thing IS; motion says what just HAPPENED. The
+ * doctrine above spends its whole budget keeping colour quiet, and
+ * motion inherits the same rule: it is feedback, never decoration. A
+ * CRM is a tool somebody has open for eight hours — anything that
+ * announces itself twice becomes noise by 10am.
+ *
+ * Three durations, and only three. Naming them here is what stops the
+ * next component from inventing a fourth: before this, the app had
+ * `duration-100`, `-150`, `-200`, `-300` and `-500` scattered across
+ * 24 call sites with no rule behind which was which, and 70 more
+ * `transition-colors` running on Tailwind's bare default.
+ *
+ *   --dur-1  110ms  something changed under the pointer.
+ *                   Colour, background, border, opacity. Fast enough
+ *                   that it reads as "the surface is live" rather
+ *                   than as an animation.
+ *   --dur-2  180ms  something MOVED or RESIZED. Lift on hover, the
+ *                   sidebar collapsing, a switch throwing, a row
+ *                   opening. Slow enough to see the path.
+ *   --dur-3  240ms  something ENTERED or LEFT the screen. Page
+ *                   bodies, panels, overlays, toasts.
+ *
+ * One easing for almost everything: --ease-out, a decelerate curve
+ * that leaves fast and lands soft. Things arriving on screen should
+ * feel like they were already moving; things leaving should not be
+ * watched, so exits stay at --dur-1 and use the same curve.
+ *
+ * Distance budget: 8px, ever. Content that travels further reads as
+ * a layout jump, and on route change anything that slides sideways
+ * reads as "you went back" — which is a lie unless you did.
+ * ============================================================ */
+
+@theme {
+  /* Exposed as the `ease-out-soft` utility so a one-off transition in a
+   * component can reach the house curve without hard-coding it. */
+  --ease-out-soft: cubic-bezier(0.2, 0, 0, 1);
+
+  /* Re-points Tailwind's bare `transition-*` utilities — the ~70
+   * `transition-colors` already in the codebase pick these up with no
+   * edit, so the house feel arrives everywhere at once instead of one
+   * component at a time. */
+  --default-transition-duration: 110ms;
+  --default-transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}
+
+:root {
+  --dur-1: 110ms;
+  --dur-2: 180ms;
+  --dur-3: 240ms;
+  --ease-out: cubic-bezier(0.2, 0, 0, 1);
+
+  /* The lift a card takes when the pointer is on it. Small on purpose:
+   * a raised card in a grid of thirty is a card that broke the grid. */
+  --lift-shadow: 0 1px 2px oklch(0 0 0 / 0.04), 0 4px 12px oklch(0 0 0 / 0.06);
+}
+
+html[data-mode='dark'] {
+  /* A dark surface cannot be lifted with a shadow — there is nothing
+   * darker to cast onto. The lift becomes light instead: a hairline
+   * of the card's own colour, brighter than the border around it. */
+  --lift-shadow: 0 0 0 1px oklch(1 0 0 / 0.06), 0 6px 16px oklch(0 0 0 / 0.35);
+}
+
+/* Both end on `transform: none` rather than `translateY(0)`, and both
+ * fill BACKWARDS rather than `both`. Two halves of one rule, and the
+ * second half is the one that actually enforces it.
+ *
+ * A resting transform of any value — zero included — makes the element
+ * a containing block for `position: fixed` descendants, which is the
+ * same trap that made `zoom` the right choice over `transform: scale()`
+ * at the top of this file. Writing `transform: none` in the `to` frame
+ * does NOT avoid it: a keyframe's `none` resolves to the identity
+ * matrix so it has something to interpolate towards, and a `forwards`
+ * fill then holds that matrix on the element for the rest of its life.
+ * `getComputedStyle` reads back `matrix(1, 0, 0, 1, 0, 0)`, not `none`,
+ * and every page in the app stayed a containing block forever.
+ *
+ * That is not theoretical: the automation editor renders `fixed inset-0`
+ * and was resolving it against this wrapper, whose only child is that
+ * same fixed element — so the wrapper measured 0px tall, the editor
+ * inherited 0px, and the canvas under the toolbar vanished. See
+ * `automation-builder.tsx`, which no longer relies on `fixed` either.
+ *
+ * `backwards` applies the `from` frame during `--enter-delay` (which is
+ * the whole reason the fill was not `none`) and drops everything the
+ * moment the animation ends. Nothing is retained, so nothing is a
+ * containing block a frame later. */
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Whoever asked the OS for less movement gets none of it.
+ *
+ * Deliberately a blunt global override rather than per-component
+ * `motion-safe:` variants: those only cover the classes somebody
+ * remembered to write them on, and this file is the only place that
+ * can speak for the third-party animations too (tw-animate-css,
+ * base-ui's open/close states, sonner's toasts).
+ *
+ * `.01ms` and not `0` — a zero-duration animation never fires
+ * `animationend`, and anything waiting on that event to unmount would
+ * hang forever. Near-zero completes instantly AND resolves. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ============================================================
+ * The one hover recipe for a surface you can click.
+ *
+ * Cards, list rows, tiles, template pickers — the app had eleven
+ * different answers for "what does this look like under the pointer":
+ * `hover:bg-muted`, `hover:bg-muted/50`, `hover:border-primary`,
+ * `hover:shadow-sm`, and eight rows that had no answer at all. A grid
+ * where three of the cards respond differently to the same gesture
+ * reads as three different kinds of thing.
+ *
+ * This is the answer: the border warms toward the accent and the
+ * surface lifts 1px. No background change — the fill is what tells
+ * you a row is SELECTED, and hover must not be able to impersonate
+ * that.
+ * ============================================================ */
+@utility surface-interactive {
+  transition:
+    border-color var(--dur-1) var(--ease-out),
+    box-shadow var(--dur-2) var(--ease-out),
+    transform var(--dur-2) var(--ease-out);
+
+  &:hover {
+    border-color: var(--primary-soft-2);
+    box-shadow: var(--lift-shadow);
+    transform: translateY(-1px);
+  }
+
+  /* Press cancels the lift. Without this the card stays up while you
+   * click it and the gesture has no bottom. */
+  &:active {
+    transform: none;
+    box-shadow: none;
+    transition-duration: var(--dur-1);
+  }
+}
+
+/* ============================================================
+ * EYEBROW — the uppercase micro-label.
+ *
+ * A column header, a group heading in the settings rail, a section
+ * label in the sidebar, the "ETIQUETAS" over a list of tags. Same
+ * object every time, and the app had it in three sizes (10 · 11 · 12),
+ * four weights (medium · semibold · bold · extrabold) and five
+ * trackings (`wide` · `wider` · `[0.09em]` · `[0.1em]` · none) across
+ * twenty call sites.
+ *
+ * Uppercase text has no ascenders or descenders to give a word its
+ * outline, so it is read letter by letter rather than by shape. That
+ * is exactly why it works as a label — it is slow to read and easy to
+ * skip, which is what you want from something that names a group
+ * instead of belonging to it — and exactly why the letter-spacing is
+ * not optional: set solid, the letters of an uppercase word collide
+ * and the shape-less word becomes shapeless AND tight. 0.05em is the
+ * house value.
+ *
+ * 10px, and bold to survive it. `SectionTitle` is the one deliberate
+ * exception at 12px: it heads a whole page section and carries the
+ * amber/grey tone that says which half of the dashboard is asking
+ * something of you. Two roles, two sizes, and no third.
+ * ============================================================ */
+@utility eyebrow {
+  font-size: var(--text-3xs);
+  line-height: var(--text-3xs--line-height);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* ============================================================
+ * Touch targets, without a second set of components.
+ *
+ * The button scale tops out at 36px and defaults to 32. That is the
+ * right density for a CRM someone drives with a mouse for eight hours,
+ * and it is under every touch minimum there is — 44px (Apple HIG),
+ * 48dp (Material), 44 CSS px (WCAG 2.5.5 AAA). The inbox is used on a
+ * phone, in a warehouse, one-handed.
+ *
+ * Rather than a parallel set of larger components for coarse pointers,
+ * the hit area is grown without moving a single pixel of the drawing.
+ * `min(0px, …)` is what makes it self-sizing: for a 32px control the
+ * expression is -6px and the shield reaches 44; for a 48px one it is
+ * 0px and nothing changes. Height and width are computed separately
+ * because a percentage in `top`/`bottom` resolves against the
+ * containing block's height and in `left`/`right` against its width —
+ * so a 28×120 button gets vertical growth only, which is the correct
+ * answer.
+ *
+ * `pointer: coarse` and not a breakpoint: a 1024px tablet is a touch
+ * device and a 1024px laptop is not, and screen width cannot tell them
+ * apart.
+ *
+ * One caveat, written down because it will surprise somebody: an
+ * ancestor with `overflow: hidden` clips hit-testing along with
+ * painting, so the shield is trimmed inside one. It degrades to the
+ * old behaviour there rather than breaking anything.
+ * ============================================================ */
+@media (pointer: coarse) {
+  /* The list is `button` PLUS the things that are buttons without being
+   * one. A `DropdownMenuTrigger` renders its own element with its own
+   * data-slot, so the shield reached none of them — which meant every
+   * row menu, every filter dropdown and the account switcher were 32px
+   * targets on a phone while the buttons beside them were 44. The
+   * `select-trigger` and `popover-trigger` are the same shape of thing.
+   *
+   * Not a blanket `button, [role="button"]`: that would also grab the
+   * cells of the date-field calendar and the segmented control, which
+   * sit in tight grids where a 44px shield would overlap its
+   * neighbours and steal their taps. Those own their sizing. */
+  [data-slot='button'],
+  [data-slot='dropdown-menu-trigger'],
+  [data-slot='popover-trigger'],
+  [data-slot='select-trigger'] {
+    position: relative;
+  }
+
+  [data-slot='button']::before,
+  [data-slot='dropdown-menu-trigger']::before,
+  [data-slot='popover-trigger']::before,
+  [data-slot='select-trigger']::before {
+    content: '';
+    position: absolute;
+    top: min(0px, calc((100% - 2.75rem) / 2));
+    bottom: min(0px, calc((100% - 2.75rem) / 2));
+    left: min(0px, calc((100% - 2.75rem) / 2));
+    right: min(0px, calc((100% - 2.75rem) / 2));
+  }
+}
+
+/* Same idea for a row inside a list, where a lift would break the
+ * rhythm of the stack. The surface tints instead, and only that. */
+@utility row-interactive {
+  transition:
+    background-color var(--dur-1) var(--ease-out),
+    color var(--dur-1) var(--ease-out);
+
+  &:hover {
+    background-color: var(--muted);
+  }
+}
+
+/* ============================================================
+ * Page and section entrances.
+ *
+ * `.page-enter` is stamped on the body of every dashboard route by
+ * PageTransition, keyed on the pathname so the animation replays on
+ * navigation. `.section-enter` is for a block that appears later than
+ * the page it is on — a panel whose data just resolved.
+ *
+ * `--enter-delay` lets a stack stagger itself without every child
+ * needing its own class. Two rules on the stagger:
+ *   · nothing waits longer than 120ms, because the fourth card in a
+ *     row is not more important than the first, and
+ *   · it is set inline per child, so a list of thirty does not
+ *     generate thirty utilities.
+ * ============================================================ */
+@utility page-enter {
+  animation: page-in var(--dur-3) var(--ease-out) backwards;
+  animation-delay: var(--enter-delay, 0ms);
+}
+
+@utility section-enter {
+  animation: rise-in var(--dur-3) var(--ease-out) backwards;
+  animation-delay: var(--enter-delay, 0ms);
+}

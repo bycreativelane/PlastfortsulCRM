@@ -1,0 +1,12 @@
+node_modules
+.next
+out
+build
+coverage
+next-env.d.ts
+package-lock.json
+# Generated / vendored
+supabase/migrations
+public/opus
+# Design source — the static prototype has its own formatting.
+plastfortsul-crm

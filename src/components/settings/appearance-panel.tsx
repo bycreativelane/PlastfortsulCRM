@@ -1,0 +1,190 @@
+"use client";
+
+import { Check, Moon, Palette, SunMoon, Sun } from "lucide-react";
+
+import { useTheme } from "@/hooks/use-theme";
+import { MODES, THEMES, type Mode, type ThemeId } from "@/lib/themes";
+import { cn } from "@/lib/utils";
+import { useTranslations } from "next-intl";
+import { SettingsPanelHead } from "./settings-panel-head";
+
+/**
+ * Appearance panel — light/dark mode + accent-color picker.
+ *
+ * Two independent controls: a mode toggle (light / dark) and the
+ * accent grid. Either applies + persists immediately. No save button:
+ * each change is a single attribute swap on <html>, there's nothing
+ * to roll back.
+ *
+ * Persistence: localStorage only (device-scoped). The boot script in
+ * layout.tsx replays both choices before first paint on subsequent
+ * loads.
+ */
+export function AppearancePanel() {
+  const { theme, setTheme, mode, setMode } = useTheme();
+  const t = useTranslations("Settings.appearance");
+
+  return (
+    <section className="max-w-3xl animate-in fade-in-50 duration-(--dur-3)">
+      <SettingsPanelHead
+        title={t("title")}
+        description={t("description")}
+      />
+
+      <div className="space-y-4">
+        <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+          <SunMoon className="size-4 text-muted-foreground" />
+          {t("mode")}
+        </h3>
+
+        <div
+          role="radiogroup"
+          aria-label={t("colorModeAria")}
+          className="grid max-w-md grid-cols-1 gap-3 @xs:grid-cols-2"
+        >
+          {MODES.map((m) => (
+            <ModeCard
+              key={m}
+              mode={m}
+              isActive={m === mode}
+              onPick={() => setMode(m)}
+            />
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-8 space-y-4">
+        <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+          <Palette className="size-4 text-muted-foreground" />
+          {t("accentColor")}
+        </h3>
+
+        {/* Container queries, not `lg:`. The settings rail turns into a
+            236px column at the same 1024px `lg:` breakpoint, so a viewport
+            ladder went from two ~490px cards to three ~137px ones the
+            instant the window got WIDER. Measuring the panel keeps the
+            step monotonic. */}
+        <div className="grid grid-cols-1 gap-3 @md:grid-cols-2 @2xl:grid-cols-3">
+          {THEMES.map((tObj) => (
+            <ThemeCard
+              key={tObj.id}
+              id={tObj.id}
+              name={tObj.name}
+              tagline={tObj.tagline}
+              swatch={tObj.swatch}
+              isActive={tObj.id === theme}
+              onPick={() => setTheme(tObj.id)}
+            />
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ModeCard({
+  mode,
+  isActive,
+  onPick,
+}: {
+  mode: Mode;
+  isActive: boolean;
+  onPick: () => void;
+}) {
+  const t = useTranslations("Settings.appearance");
+  const isLight = mode === "light";
+  const Icon = isLight ? Sun : Moon;
+  return (
+    <button
+      type="button"
+      role="radio"
+      onClick={onPick}
+      aria-checked={isActive}
+      aria-label={t("useMode", { mode })}
+      className={cn(
+        "flex items-center gap-3 rounded-lg border bg-card p-4 text-left transition-colors duration-(--dur-1)",
+        isActive
+          ? "border-primary/60 ring-2 ring-primary/40"
+          : "border-border hover:border-border hover:bg-muted/40",
+      )}
+    >
+      <span
+        aria-hidden
+        className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-foreground"
+      >
+        <Icon className="size-4" />
+      </span>
+      <span className="flex-1 text-sm font-semibold capitalize text-foreground">
+        {mode}
+      </span>
+      {isActive && (
+        <span className="bg-primary-soft text-primary inline-flex h-5 shrink-0 items-center gap-1 rounded-full px-2 text-2xs font-medium">
+          <Check className="size-3" />
+          {t("active")}
+        </span>
+      )}
+    </button>
+  );
+}
+
+function ThemeCard({
+  id,
+  name,
+  tagline,
+  swatch,
+  isActive,
+  onPick,
+}: {
+  id: ThemeId;
+  name: string;
+  tagline: string;
+  swatch: string;
+  isActive: boolean;
+  onPick: () => void;
+}) {
+  const t = useTranslations("Settings.appearance");
+  return (
+    <button
+      type="button"
+      onClick={onPick}
+      aria-pressed={isActive}
+      aria-label={t("useTheme", { name })}
+      className={cn(
+        "flex flex-col gap-3 rounded-lg border bg-card p-4 text-left transition-colors duration-(--dur-1)",
+        isActive
+          ? "border-primary/60 ring-2 ring-primary/40"
+          : "border-border hover:border-border hover:bg-muted/40",
+      )}
+    >
+      <div className="flex items-center justify-between">
+        <span
+          aria-hidden
+          className="ring-border size-8 shrink-0 rounded-full ring-1 ring-inset"
+          style={{ background: swatch }}
+        />
+        {isActive && (
+          <span className="bg-primary-soft text-primary inline-flex h-5 shrink-0 items-center gap-1 rounded-full px-2 text-2xs font-medium">
+            <Check className="size-3" />
+            {t("active")}
+          </span>
+        )}
+      </div>
+      <div>
+        <div className="text-sm font-semibold text-foreground">{name}</div>
+        <div className="mt-1 text-xs leading-relaxed text-muted-foreground">
+          {tagline}
+        </div>
+      </div>
+      <div
+        className="mt-1 flex h-2 overflow-hidden rounded-full"
+        aria-hidden
+      >
+        <span className="flex-1" style={{ background: swatch }} />
+        <span className="w-3 bg-muted-foreground/60" />
+        <span className="w-3 bg-muted" />
+        <span className="w-3 bg-card" />
+      </div>
+      <span className="sr-only">Theme id: {id}</span>
+    </button>
+  );
+}

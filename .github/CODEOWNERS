@@ -1,0 +1,14 @@
+# Every pull request against this repository gets Gabriel as a required
+# reviewer. Paired with a branch-protection rule on `main` that requires
+# Code Owner approval, this ensures every change is reviewed before it
+# merges.
+#
+# This file previously read `* @ArnasDon` — the author of the upstream
+# open-source project this codebase started from. Left in place on a
+# repository he has no access to, enabling Code Owner approval would
+# have blocked every pull request forever, waiting on a review that
+# could never arrive.
+#
+# Syntax: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-security/customizing-your-repository/about-code-owners
+
+* @gabrielspencerf

@@ -4,7 +4,7 @@ O GitHub guarda o **código**. A aplicação em si precisa de um host (Vercel, V
 
 **Packages** (aba do repositório) fica **vazio**. Não preencha. É um registry para publicar bibliotecas npm ou imagens Docker (`ghcr.io/...`). Este projeto é um **aplicativo privado da empresa**, não um pacote para `npm install`. Publicar no Packages só faria sentido se vocês passassem a empurrar uma imagem Docker daí — e mesmo assim a imagem teria de ser reconstruída **por ambiente**, porque as `NEXT_PUBLIC_*` entram no bundle no **build**.
 
-**Releases** é o lugar certo para a versão: zip do código + notas. A tag `v*` dispara isso automaticamente (atual: `v0.8.3`).
+**Releases** é o lugar certo para a versão: zip do código + notas. A tag `v*` dispara isso automaticamente (atual: `v0.8.4`).
 
 ---
 
@@ -54,7 +54,7 @@ No servidor:
 ```bash
 git clone https://github.com/bycreativelane/PlastfortsulCRM.git
 cd PlastfortsulCRM
-git checkout v0.8.3   # ou main
+git checkout v0.8.4   # ou main
 cp .env.local.example .env.local
 # edite .env.local — SITE_URL com o domínio público (https)
 docker compose --env-file .env.local up --build -d
@@ -70,7 +70,7 @@ Detalhes: [docker.md](./docker.md).
 
 ## Caminho C — só o zip do Release (sem git no servidor)
 
-1. GitHub → Releases → `v0.8.3` → Source code (zip)
+1. GitHub → Releases → `v0.8.4` → Source code (zip)
 2. Extraia, copie `.env.local.example` → `.env.local`, preencha
 3. `npm ci && npm run build && npm start`  
    ou o Compose como no caminho B
@@ -79,7 +79,7 @@ Detalhes: [docker.md](./docker.md).
 
 ## Checklist antes de apontar o WhatsApp para produção
 
-- [ ] Migrações 001–048 aplicadas no Supabase de produção
+- [ ] Migrações 001–061 aplicadas no Supabase de produção
 - [ ] `ENCRYPTION_KEY` gerada e **guardada** (trocar depois apaga tokens já gravados)
 - [ ] `SUPABASE_SERVICE_ROLE_KEY` só no servidor, nunca `NEXT_PUBLIC_*`
 - [ ] `WHATSAPP_TEMPLATES_DRY_RUN` **não** definido (ou `false`)

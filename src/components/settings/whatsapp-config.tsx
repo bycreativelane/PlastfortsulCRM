@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import { toast } from 'sonner';
 import {
   Eye,
@@ -46,6 +47,7 @@ type ResetReason = 'token_corrupted' | 'meta_api_error' | null;
 
 export function WhatsAppConfig() {
   const t = useTranslations('Settings.whatsapp');
+  const { confirm } = useConfirm();
   const supabase = createClient();
   // After multi-user, whatsapp_config is one-row-per-account, not
   // one-row-per-user. We pull `accountId` straight off the auth
@@ -400,7 +402,7 @@ export function WhatsAppConfig() {
   }
 
   async function handleReset() {
-    if (!confirm(t('resetConfirm'))) {
+    if (!(await confirm({ title: t('resetConfirm'), destructive: true }))) {
       return;
     }
 

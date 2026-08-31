@@ -15,10 +15,16 @@ export interface CustomFieldFilter {
 }
 
 export interface AudienceConfig {
-  type: 'all' | 'tags' | 'custom_field' | 'csv';
+  type: 'all' | 'tags' | 'custom_field' | 'csv' | 'products';
   tagIds?: string[];
   customField?: CustomFieldFilter;
   csvContacts?: { phone: string; name?: string }[];
+  /**
+   * Catalogue products (migration 054). Spec §44 — "campanha por
+   * produto" — which was a tag naming convention everybody had to
+   * remember and is now a query against `contacts.product_interest`.
+   */
+  productIds?: string[];
   /** Contacts carrying any of these tags are subtracted from the result. */
   excludeTagIds?: string[];
 }
@@ -192,6 +198,27 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
           throw new Error(`Failed to fetch contacts: ${error.message}`);
         contacts = data ?? [];
       }
+    } else if (
+      audience.type === 'products' &&
+      audience.productIds &&
+      audience.productIds.length > 0
+    ) {
+      // `overlaps` is the array containment the GIN index in 054 was
+      // built for: "any of these products", not "all of them". A
+      // customer who buys one of the three being promoted is in the
+      // audience for that campaign.
+      const { data, error } = await supabase
+        .from('contacts')
+        .select('*')
+        .overlaps('product_interest', audience.productIds);
+      if (error) {
+        // Pre-054 the column does not exist. An empty recipient list is
+        // the only safe answer — the alternative would be falling back
+        // to "everybody", which is the single worst bug a broadcast
+        // feature can have.
+        throw new Error(`Failed to fetch contacts by product: ${error.message}`);
+      }
+      contacts = data ?? [];
     } else if (audience.type === 'custom_field' && audience.customField) {
       contacts = await resolveCustomFieldAudience(
         supabase,

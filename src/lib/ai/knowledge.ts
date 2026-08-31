@@ -15,6 +15,16 @@ interface MatchRow {
 }
 
 /**
+ * Ceiling on pinned chunks.
+ *
+ * Pinned documents skip the relevance contest, so the only thing
+ * stopping an account from pinning its entire base is this number. Six
+ * chunks is a page or two of prose — enough for a price list and a
+ * delivery policy, not enough to evict the conversation.
+ */
+const MAX_PINNED_CHUNKS = 6
+
+/**
  * (Re)build the chunks for one document. Deletes the document's
  * existing chunks, re-chunks the content, and — when the account has an
  * embeddings key — embeds each chunk. Runs under whatever client the
@@ -106,6 +116,32 @@ export async function retrieveKnowledge(
   }
 
   const picked = new Map<string, string>() // id → content, preserves order
+
+  // PINNED DOCUMENTS FIRST, and outside the top-k budget (migration 053).
+  //
+  // Retrieval finds what is RELEVANT to the question. That is the right
+  // default and the wrong answer for the two or three documents that are
+  // relevant to EVERY question — the price list, the delivery rules, the
+  // paragraph saying what the company sells. Those lose to a
+  // semantically closer chunk about something else, at precisely the
+  // moment they were needed.
+  //
+  // Capped, because "everything is pinned" is a context window rather
+  // than a knowledge base. A pre-053 database has no such column, so the
+  // query 42703s and the catch below leaves retrieval exactly as it was.
+  try {
+    const { data: pinnedRows } = await db
+      .from('ai_knowledge_chunks')
+      .select('id, content, document:ai_knowledge_documents!inner(pinned)')
+      .eq('account_id', accountId)
+      .eq('ai_knowledge_documents.pinned', true)
+      .limit(MAX_PINNED_CHUNKS)
+    for (const row of (pinnedRows ?? []) as MatchRow[]) {
+      picked.set(row.id, row.content)
+    }
+  } catch {
+    /* pre-053, or no pinned documents. Retrieval carries on. */
+  }
 
   // Semantic path.
   if (config.embeddingsApiKey) {

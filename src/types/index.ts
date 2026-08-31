@@ -75,6 +75,25 @@ export interface AccountMember {
   avatar_url: string | null;
   role: AccountRole;
   joined_at: string;
+  /**
+   * The later of "last authenticated" (`profiles.last_sign_in_at`, 050)
+   * and "last doing something" (`member_presence.last_seen_at`, 024).
+   * Null for a member who has never opened the app — and null for
+   * everybody when the caller is not an admin, because session times are
+   * not roster information.
+   */
+  last_access_at?: string | null;
+  /**
+   * Per-person exceptions over the role (050). Empty for non-admins and
+   * on a pre-050 database. Read through `@/lib/auth/capabilities`.
+   */
+  permission_overrides?: Partial<Record<string, boolean>>;
+  /**
+   * This member takes no automatic assignments (migration 051).
+   * `undefined` on a pre-051 database, which reads as "in the rotation" —
+   * the behaviour that database has.
+   */
+  auto_assign_opt_out?: boolean;
 }
 
 /**
@@ -135,6 +154,12 @@ export interface Contact {
    *  recompra automation skips those rather than inventing a cadence. */
   repurchase_cycle_days?: number | null;
   average_ticket?: number | null;
+  /**
+   * Catalogue products this customer buys or asked about (spec §11,
+   * migration 054). Powers the `products` broadcast audience (§44).
+   * Absent on a pre-054 database — every reader treats that as `[]`.
+   */
+  product_interest?: string[] | null;
 
   job_title?: string | null;
   /** CNPJ, or a CPF when the contact is a person. */
@@ -221,6 +246,21 @@ export interface Conversation {
   /** `media_url` of the newest message, for the row's thumbnail (047). */
   last_message_media_url?: string | null;
   last_message_at?: string;
+  /**
+   * Who wrote the last message, and whether it arrived — migration 056.
+   *
+   * The WhatsApp model for a list row: what went OUT carries ticks and a
+   * name, what came IN carries neither. `sender_type` is the direction
+   * (`customer` = inbound) and still separates a colleague from the
+   * assistant; `sender_id` is null for a customer, for the bot, and for
+   * everything written before 056.
+   *
+   * All three are `undefined` on a database without the migration, which
+   * is why the row degrades to plain text rather than to an error.
+   */
+  last_message_sender_type?: 'customer' | 'agent' | 'bot' | null;
+  last_message_sender_id?: string | null;
+  last_message_status?: Message['status'] | null;
   unread_count: number;
   /** When it entered `pending`. Null in every other status (migration 045). */
   waiting_since?: string | null;
@@ -327,6 +367,22 @@ export interface Message {
    * Null on every row written before migration 039.
    */
   media_type?: string | null;
+  /**
+   * What the attachment says, in words — the spoken text of a voice
+   * note, or a description of a photo (migration 049). Written by the
+   * inbound webhook when the account has AI on and media understanding
+   * enabled; null everywhere else, including on every row that predates
+   * the migration.
+   */
+  media_transcript?: string | null;
+  /** none | done | failed | unsupported — see migration 049. */
+  media_transcript_status?:
+    | 'none'
+    | 'done'
+    | 'failed'
+    | 'unsupported'
+    | null;
+  media_transcript_at?: string | null;
   template_name?: string;
   message_id?: string;
   status: MessageStatus;
@@ -624,7 +680,16 @@ export type AutomationTriggerType =
   | 'time_based'
   /** Customer tapped a reply button / list row whose id matches; lets
    *  multi-step menus be chained across automations. */
-  | 'interactive_reply';
+  | 'interactive_reply'
+  /**
+   * Something outside the product POSTed to `/api/hooks/<token>` —
+   * Typebot, n8n, a landing page, a form.
+   *
+   * The payload arrives as `{{vars.*}}`, so an automation can write a
+   * gclid into a custom field, tag the contact, open a deal. What it can
+   * do is bounded by the hook's scopes, enforced in the engine.
+   */
+  | 'webhook_received';
 
 export type AutomationStepType =
   | 'send_message'

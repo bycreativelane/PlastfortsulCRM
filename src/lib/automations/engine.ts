@@ -19,6 +19,7 @@ import type {
   AssignConversationStepConfig,
 } from '@/types';
 import { supabaseAdmin } from './admin-client';
+import { stepNeedsMessagesScope } from '@/lib/hooks/inbound';
 import { addContactTagIfAbsent } from '@/lib/contacts/tag-write';
 import {
   MAX_TAG_CHAIN_DEPTH,
@@ -50,6 +51,31 @@ export interface AutomationContext {
   agent_id?: string;
   /** Button / list-row id the customer tapped, for interactive_reply. */
   interactive_reply_id?: string;
+  /**
+   * What the INBOUND HOOK that fired this run is allowed to do.
+   *
+   * Present only when the trigger came from `/api/hooks/<token>`;
+   * `undefined` means the run started from something already inside the
+   * product (a customer message, a tag, the scheduler) and no extra
+   * limit applies.
+   *
+   * See `runStep`: a hook without `messages` cannot make the account's
+   * WhatsApp number send anything. That is the difference between a
+   * leaked token — or an n8n loop — being data pollution and being a
+   * ban from Meta.
+   */
+  hook_scopes?: string[];
+  /** Which hook, for the log line when a step is refused. */
+  hook_name?: string;
+  /**
+   * The `webhook_deliveries` row that caused this run.
+   *
+   * Written onto every `automation_logs` row the dispatch creates, so
+   * the deliveries screen can answer "and then what happened" without
+   * matching on timestamps — which breaks the moment two deliveries
+   * land in the same second.
+   */
+  delivery_id?: string;
 }
 
 export interface DispatchInput {
@@ -205,6 +231,8 @@ async function executeAutomation(automation: Automation, input: DispatchInput) {
       user_id: automation.user_id,
       contact_id: input.contactId ?? null,
       trigger_event: input.triggerType,
+      // Null for everything that started inside the product. See 059.
+      delivery_id: input.context?.delivery_id ?? null,
       steps_executed: [],
       // Seeded pessimistically. The row is written BEFORE any step runs,
       // and every terminal path below overwrites it (`appendResults` at
@@ -382,6 +410,28 @@ async function runStep(
   args: ExecuteArgs
 ): Promise<string> {
   const db = supabaseAdmin();
+
+  /**
+   * THE SCOPE GATE, and it lives HERE rather than in the route on
+   * purpose.
+   *
+   * The route knows which hook called; only this function knows which
+   * step is about to run. Checking at the door would mean the door
+   * predicting every automation an admin might ever wire to the trigger
+   * — and being wrong the first time somebody adds a step.
+   *
+   * Refused rather than thrown: a run whose third step is out of scope
+   * should still have done the first two, and the log should say what
+   * was skipped and why. A throw would roll the whole thing into
+   * "failed" and hide the reason.
+   */
+  if (
+    args.context.hook_scopes &&
+    stepNeedsMessagesScope(step.step_type) &&
+    !args.context.hook_scopes.includes('messages')
+  ) {
+    return `skipped: hook "${args.context.hook_name ?? '?'}" is not allowed to send messages`;
+  }
 
   switch (step.step_type) {
     case 'send_message': {

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { usePathname } from 'next/navigation';
-import { Menu, Search } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { ModeToggle } from '@/components/layout/mode-toggle';
 import { GlobalSearch } from '@/components/layout/global-search';
 import { NotificationsMenu } from '@/components/layout/notifications-menu';
@@ -36,6 +36,7 @@ const pageTitles: Record<string, string> = {
   '/inbox': 'inbox',
   '/notifications': 'notifications',
   '/contacts': 'contacts',
+  '/products': 'products',
   '/pipelines': 'pipelines',
   '/broadcasts': 'broadcasts',
   '/automations': 'automations',
@@ -66,15 +67,9 @@ function getPageTitleKey(pathname: string): string | null {
   return match ? match[1] : null;
 }
 
-interface HeaderProps {
-  /** Wired to the shell's drawer state. Used only on mobile — the
-   *  hamburger button is hidden on lg+. */
-  onOpenSidebar?: () => void;
-}
-
 import { useTranslations } from 'next-intl';
 
-export function Header({ onOpenSidebar }: HeaderProps) {
+export function Header() {
   const t = useTranslations('Header');
   const tSearch = useTranslations('Search');
   const pathname = usePathname();
@@ -86,23 +81,42 @@ export function Header({ onOpenSidebar }: HeaderProps) {
   // on any desktop the search field in this bar started 8px to the left
   // of the page title directly beneath it — two horizontal rules of the
   // interface disagreeing about where the left edge of the app is.
+  // `min-h-14 pt-safe-0` and not `h-14`, and the difference only shows
+  // up once this is an INSTALLED app.
+  //
+  // In a browser tab the top inset is always 0 — the address bar is
+  // holding the notch out of the way — and `max(0rem, env(...))`
+  // resolves to nothing, so this bar is the same 56px it always was.
+  // Launched from the home screen there is no address bar, the web view
+  // starts at the physical top of the display, and on a notched iPhone
+  // the clock lands on the page title. WebKit's reported inset varies
+  // with the status-bar style and the hardware, so the bar is written
+  // to ABSORB whatever it is rather than to assume a number: the
+  // min-height keeps today's geometry, the padding pushes the row clear
+  // when there is something to clear.
   return (
-    <header className="border-border bg-card flex h-14 shrink-0 items-center gap-3 border-b px-4 sm:px-6 lg:px-8">
+    <header className="border-border bg-card pt-safe-0 flex min-h-14 shrink-0 items-center gap-3 border-b px-4 select-none sm:px-6 lg:px-8">
       <div className="flex min-w-0 flex-1 basis-0 items-center gap-2">
-        {/* Hamburger — mobile only. 44×44, which is what the comment
-            here always claimed and what `size-10` (40px) never was.
-            It is the ONLY way back to the navigation on a phone — on
-            /inbox this bar exists for no other reason — and it sits in
-            the top-left corner, the furthest point from the thumb of a
-            right-handed one-handed grip. Four pixels matter there. */}
-        <button
-          type="button"
-          onClick={onOpenSidebar}
-          aria-label={t('openMenu')}
-          className="text-muted-foreground hover:bg-muted hover:text-foreground flex size-11 items-center justify-center rounded-md transition-colors lg:hidden"
-        >
-          <Menu className="size-5" />
-        </button>
+        {/* NO HAMBURGER HERE, AND THAT IS THE POINT.
+
+            There was one, and it opened the same drawer as the "Mais"
+            cell in the tab bar — same `setSidebarOpen(true)`, same
+            lucide `Menu` glyph, same `lg:hidden`. Not "redundant most
+            of the time": ALWAYS. The two hide under the identical
+            condition (`insideThread`), so there is no route anywhere in
+            the app where this button was the only way back to the
+            navigation.
+
+            The comment that used to sit here said it was "the ONLY way
+            back to the navigation on a phone". That was true until the
+            tab bar landed in 0.8.4 and nobody came back to delete the
+            sentence — a comment describing an app that no longer exists.
+
+            The 44px it held were the worst 44px on the device to put a
+            control in (top-left corner, a re-grip on a 6.7" phone held
+            one-handed) and among the best to put a LABEL in. They go to
+            the page title below, which now starts on the bar's own left
+            edge like every native app's does. */}
         {/* Not an `<h1>`: the page's own `<PageHeader>` already carries
             one, and two headings of the same rank with the same words
             is a duplicate the screen reader reads twice. This is a
@@ -186,7 +200,15 @@ export function Header({ onOpenSidebar }: HeaderProps) {
             not by being here. */}
         <NotificationsMenu />
 
-        <ModeToggle />
+        {/* Light/dark, on the devices with room for a control you use
+            once. This bar has four permanent slots on a phone and this
+            was spending one of them on a decision somebody makes when
+            they first open the app and then never again — while the
+            same switch already sits in Configurações → Aparência.
+
+            `hidden lg:inline-flex` and not a smaller button: shrinking
+            it would keep the slot and lose the target. */}
+        <ModeToggle className="hidden lg:inline-flex" />
       </div>
     </header>
   );

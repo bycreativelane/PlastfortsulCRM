@@ -13,6 +13,12 @@ import { useAuth } from '@/hooks/use-auth';
 import { addContactTag, deleteContactTag } from '@/lib/contacts/tag-api';
 import { toast } from 'sonner';
 import type { Contact, Tag, ContactTag } from '@/types';
+import { loadProducts, type Product } from '@/lib/products/catalog';
+import {
+  formatTaxId,
+  isValidTaxId,
+  normalizeTaxId,
+} from '@/lib/contacts/tax-id';
 import {
   findExistingContact,
   isExactMatch,
@@ -79,6 +85,20 @@ export function ContactForm({
   const [showCommercial, setShowCommercial] = useState(false);
   const [jobTitle, setJobTitle] = useState('');
   const [taxId, setTaxId] = useState('');
+  /**
+   * Somebody else already has this CNPJ.
+   *
+   * The direct answer to a documented complaint about another CRM:
+   * "cadastro de empresa por CNPJ gerando duplicação de informações; a
+   * plataforma permite duplicar registros sem restrições". From then on
+   * half the history is on each row and neither one is the customer.
+   *
+   * A WARNING, not a block. Two branches of one group legitimately share
+   * a CNPJ, and a CRM that refuses a record people need is a CRM they
+   * keep in a spreadsheet — so this says who the twin is and lets them
+   * decide.
+   */
+  const [taxIdTwin, setTaxIdTwin] = useState<string | null>(null);
   const [city, setCity] = useState('');
   const [state, setState] = useState('');
   const [source, setSource] = useState('');
@@ -103,6 +123,16 @@ export function ContactForm({
 
   const [tags, setTags] = useState<Tag[]>([]);
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  /**
+   * "Produtos de interesse" (spec §11), as a reference to the catalogue
+   * rather than as a tag naming convention (migration 054).
+   *
+   * This is what makes "campanha por produto" (§44) a query — see the
+   * `products` audience in the broadcast wizard. Empty and invisible on
+   * a database without 054.
+   */
+  const [catalog, setCatalog] = useState<Product[]>([]);
+  const [productInterest, setProductInterest] = useState<string[]>([]);
   const [loadingTags, setLoadingTags] = useState(false);
 
   useEffect(() => {
@@ -148,8 +178,12 @@ export function ContactForm({
         )
       );
       setSelectedTagIds(contactTags.map((ct) => ct.tag_id));
+      setProductInterest(
+        Array.isArray(contact?.product_interest) ? contact.product_interest : []
+      );
       setDupMatch(null);
       fetchTags();
+      void fetchCatalog();
     }
   }, [open, contact]);
 
@@ -173,6 +207,12 @@ export function ContactForm({
     } finally {
       setCheckingDup(false);
     }
+  }
+
+  async function fetchCatalog() {
+    if (!accountId) return;
+    const result = await loadProducts(supabase, accountId);
+    if (result !== 'missing-table') setCatalog(result);
   }
 
   async function fetchTags() {
@@ -257,7 +297,9 @@ export function ContactForm({
               email: email.trim() || null,
               company: company.trim() || null,
               job_title: jobTitle.trim() || null,
-              tax_id: taxId.trim() || null,
+              // Digits only, so the same company punctuated two
+              // different ways is one value the next lookup can find.
+              tax_id: normalizeTaxId(taxId) || null,
               city: city.trim() || null,
               // The CHECK only accepts two uppercase letters, so normalise
               // rather than handing the database something it will reject.
@@ -268,6 +310,12 @@ export function ContactForm({
               next_purchase_expected_at: nextPurchaseAt || null,
               repurchase_cycle_days: cycleDays ? Number(cycleDays) : null,
               average_ticket: averageTicket ? Number(averageTicket) : null,
+              // Left out entirely when the catalogue does not exist:
+              // naming a column the database has not got would fail the
+              // whole save over an optional field.
+              ...(catalog.length > 0
+                ? { product_interest: productInterest }
+                : {}),
               opted_out: optedOut,
               // Stamped only on the transition, so the date reflects when they
               // actually asked and not the last time anyone saved the form.
@@ -295,7 +343,9 @@ export function ContactForm({
               email: email.trim() || null,
               company: company.trim() || null,
               job_title: jobTitle.trim() || null,
-              tax_id: taxId.trim() || null,
+              // Digits only, so the same company punctuated two
+              // different ways is one value the next lookup can find.
+              tax_id: normalizeTaxId(taxId) || null,
               city: city.trim() || null,
               // The CHECK only accepts two uppercase letters, so normalise
               // rather than handing the database something it will reject.
@@ -306,6 +356,12 @@ export function ContactForm({
               next_purchase_expected_at: nextPurchaseAt || null,
               repurchase_cycle_days: cycleDays ? Number(cycleDays) : null,
               average_ticket: averageTicket ? Number(averageTicket) : null,
+              // Left out entirely when the catalogue does not exist:
+              // naming a column the database has not got would fail the
+              // whole save over an optional field.
+              ...(catalog.length > 0
+                ? { product_interest: productInterest }
+                : {}),
               opted_out: optedOut,
               // Stamped only on the transition, so the date reflects when they
               // actually asked and not the last time anyone saved the form.
@@ -540,9 +596,51 @@ export function ContactForm({
                     <Input
                       id="cf-taxid"
                       value={taxId}
-                      onChange={(e) => setTaxId(e.target.value)}
+                      inputMode="numeric"
+                      onChange={(e) => {
+                        setTaxId(e.target.value);
+                        setTaxIdTwin(null);
+                      }}
+                      // Punctuated and checked on the way OUT of the
+                      // field, never under the caret: reformatting while
+                      // somebody is typing is how a field fights the
+                      // person using it.
+                      onBlur={async (e) => {
+                        const digits = normalizeTaxId(e.target.value);
+                        if (!digits) return;
+                        setTaxId(formatTaxId(digits));
+                        if (!accountId || digits.length < 11) return;
+                        // Both spellings reduce to the same digits, which
+                        // is what makes the twin findable at all.
+                        const { data } = await supabase
+                          .from('contacts')
+                          .select('id, name')
+                          .eq('account_id', accountId)
+                          .not('tax_id', 'is', null)
+                          .limit(200);
+                        const twin = (
+                          (data ?? []) as { id: string; name: string | null; tax_id?: string }[]
+                        ).find(
+                          (row) =>
+                            row.id !== contact?.id &&
+                            normalizeTaxId(
+                              (row as { tax_id?: string }).tax_id
+                            ) === digits
+                        );
+                        setTaxIdTwin(twin ? (twin.name ?? '—') : null);
+                      }}
                       className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
                     />
+                    {isValidTaxId(taxId) === false ? (
+                      <p className="text-danger-ink text-2xs">
+                        {t('taxIdInvalid')}
+                      </p>
+                    ) : null}
+                    {taxIdTwin ? (
+                      <p className="text-human-ink text-2xs">
+                        {t('taxIdDuplicate', { name: taxIdTwin })}
+                      </p>
+                    ) : null}
                   </div>
                 </div>
 
@@ -724,6 +822,47 @@ export function ContactForm({
               </div>
             )}
           </div>
+
+          {/* "Produtos de interesse" (spec §11). Only drawn when there is
+              a catalogue to pick from — on a database without migration
+              054 this is an empty list, and an empty picker is a control
+              that asks a question with no answers. */}
+          {catalog.length > 0 && (
+            <div className="grid gap-2">
+              <FieldLabel>{t('productInterest')}</FieldLabel>
+              <p className="text-muted-foreground text-xs">
+                {t('productInterestDesc')}
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {catalog.map((product) => {
+                  const selected = productInterest.includes(product.id);
+                  return (
+                    <Button
+                      key={product.id}
+                      type="button"
+                      variant="outline"
+                      size="xs"
+                      aria-pressed={selected}
+                      onClick={() =>
+                        setProductInterest((prev) =>
+                          selected
+                            ? prev.filter((id) => id !== product.id)
+                            : [...prev, product.id]
+                        )
+                      }
+                      className={
+                        selected
+                          ? 'border-primary bg-primary/10 text-primary hover:bg-primary/15'
+                          : 'text-muted-foreground'
+                      }
+                    >
+                      {product.name}
+                    </Button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           <DialogFooter className="bg-popover border-border">
             <Button

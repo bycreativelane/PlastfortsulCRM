@@ -378,14 +378,16 @@ function AutomationCard({
           />
 
           <DropdownMenu>
-            {/* The coarse-pointer shield in globals.css keys off
-                [data-slot="button"], and a menu trigger is not one — so
-                this 32px target stayed 32px on a phone. The pseudo-element
-                is the same trick globals.css uses: 6px of hit area on each
-                side takes it to 44 without moving a pixel. */}
+            {/* The hand-rolled coarse-pointer shield that used to be
+                here is gone. Its comment said globals.css "keys off
+                [data-slot='button'], and a menu trigger is not one" —
+                true when it was written, and the list there has since
+                grown to include `dropdown-menu-trigger`, which
+                `DropdownMenuTrigger` sets on itself. This was the same
+                44px, computed twice. */}
             <DropdownMenuTrigger
               aria-label={t('openMenu')}
-              className="text-muted-foreground hover:bg-muted hover:text-foreground data-[popup-open]:bg-muted relative inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors duration-(--dur-1) pointer-coarse:before:absolute pointer-coarse:before:-inset-1.5 pointer-coarse:before:content-['']"
+              className="text-muted-foreground hover:bg-muted hover:text-foreground data-[popup-open]:bg-muted inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors duration-(--dur-1)"
             >
               <MoreVertical className="h-4 w-4" />
             </DropdownMenuTrigger>

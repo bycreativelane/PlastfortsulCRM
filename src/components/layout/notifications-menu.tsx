@@ -35,6 +35,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import { sectionHref } from '@/components/settings/settings-sections';
 
 /** One icon per type. New ones are a line each. */
 const TYPE_ICON: Record<Notification['type'], typeof Bell> = {
@@ -254,7 +255,7 @@ export function NotificationsMenu({ className }: { className?: string }) {
             scroll area, above the feed, and never ages out of it. */}
         {needsWhatsApp && (
           <Link
-            href="/settings?tab=whatsapp"
+            href={sectionHref('whatsapp')}
             onClick={() => setOpen(false)}
             // No fill at rest. It sat on `bg-human-soft` inside a panel where
             // every other row is `--popover`, so the one standing state read

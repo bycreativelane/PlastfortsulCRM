@@ -8,6 +8,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AiPlayground } from '@/components/agents/ai-playground';
 import { AiUsageCard } from '@/components/agents/ai-usage';
 import { AiConfig } from '@/components/settings/ai-config';
+import { SettingsPanelHead } from '@/components/settings/settings-panel-head';
+import { AiSetupWizard } from '@/components/settings/ai-setup-wizard';
 import { useAuth } from '@/hooks/use-auth';
 import { canEditSettings } from '@/lib/auth/roles';
 
@@ -34,6 +36,16 @@ export function AiAgentPanel() {
   const canViewUsage = accountRole ? canEditSettings(accountRole) : false;
   const [tab, setTab] = useState<Tab>('playground');
   const [decided, setDecided] = useState(false);
+  /**
+   * The classic all-fields form, behind a link.
+   *
+   * The guided steps are the default because they are the version
+   * somebody can follow the first time. The form stays because it is the
+   * version somebody who already knows what they are doing wants on the
+   * sixth visit, and deleting it would have made this an upgrade for one
+   * of those two people and a downgrade for the other.
+   */
+  const [advanced, setAdvanced] = useState(false);
 
   // Land first-time users on Setup, returning users on the Playground.
   // Until that resolves the tabs stay unmounted rather than rendering
@@ -59,9 +71,11 @@ export function AiAgentPanel() {
 
   return (
     <div>
-      <p className="max-w-2xl text-sm text-muted-foreground">
-        {t('description')}
-      </p>
+      {/* The same head every other section opens with. This one had a
+          bare paragraph — which is a small thing and exactly the kind of
+          small thing that makes moving between two settings sections
+          feel like moving between two products. */}
+      <SettingsPanelHead title={t('title')} description={t('description')} />
 
       {decided && (
         <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)} className="mt-4">
@@ -84,7 +98,20 @@ export function AiAgentPanel() {
           </TabsContent>
 
           <TabsContent value="setup" className="mt-4">
-            <AiConfig />
+            {advanced ? (
+              <div className="space-y-3">
+                <button
+                  type="button"
+                  onClick={() => setAdvanced(false)}
+                  className="text-muted-foreground hover:text-foreground text-xs font-medium underline underline-offset-2"
+                >
+                  {t('backToGuided')}
+                </button>
+                <AiConfig />
+              </div>
+            ) : (
+              <AiSetupWizard onOpenAdvanced={() => setAdvanced(true)} />
+            )}
           </TabsContent>
 
           {canViewUsage && (

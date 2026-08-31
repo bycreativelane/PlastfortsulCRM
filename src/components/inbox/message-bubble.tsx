@@ -1,16 +1,14 @@
 'use client';
 
 import { cn } from '@/lib/utils';
+import { MessageTicks } from './message-ticks';
 import type { Message, MessageReaction } from '@/types';
 import {
-  Clock,
-  Check,
-  CheckCheck,
-  XCircle,
   MapPin,
   LayoutTemplate,
   CornerDownLeft,
   Sparkles,
+  Captions,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ReplyQuote } from './reply-quote';
@@ -46,26 +44,69 @@ interface MessageBubbleProps {
    * four. Defaults to true so a lone bubble still gets its tail.
    */
   firstOfRun?: boolean;
+  /**
+   * The colleague who wrote this, when we know — `profiles.full_name`
+   * resolved from `messages.sender_id`.
+   *
+   * NOT the same thing as the `*Nome*` signature below. That prefix is
+   * addressed to the CUSTOMER, is off by default, and carries whatever
+   * nickname one browser's localStorage holds. This is who actually
+   * pressed send, and it is drawn for the team.
+   *
+   * Null until migration 056 — before it, no send path wrote `sender_id`.
+   */
+  senderName?: string | null;
 }
 
-function StatusIcon({ status }: { status: Message['status'] }) {
-  switch (status) {
-    case 'sending':
-      return <Clock className="text-muted-foreground h-3 w-3" />;
-    case 'sent':
-      return <Check className="text-muted-foreground h-3 w-3" />;
-    case 'delivered':
-      return <CheckCheck className="text-muted-foreground h-3 w-3" />;
-    case 'read':
-      // The one blue in the thread. Universal convention, and it's a
-      // state people actively look for — worth the exception to the
-      // rule that colour means "act on this".
-      return <CheckCheck className="text-wa-tick h-3 w-3" />;
-    case 'failed':
-      return <XCircle className="text-destructive h-3 w-3" />;
-    default:
-      return null;
-  }
+
+/**
+ * The words inside an attachment, when the account has them.
+ *
+ * `media_transcript` arrives with migration 049 and is written by the
+ * inbound webhook — the spoken text of a voice note, or a description of
+ * a photograph. See `@/lib/ai/media-understanding` for why: everything
+ * downstream of a message reads `content_text`, and for these two kinds
+ * it is empty.
+ *
+ * COLLAPSED, and that is the whole design of it. An agent scanning a
+ * thread wants to see that a voice note has a transcript, not to read a
+ * paragraph of it in every bubble on the way past — a wall of transcribed
+ * speech would make the audio player harder to find, not easier. So the
+ * summary line is one row at metadata weight and the text is one click
+ * behind it, which is also what keeps the bubble the same height it was
+ * before this feature existed.
+ *
+ * Nothing renders for `failed` or `unsupported`. A bubble saying "we
+ * could not transcribe this" is an apology in a place where the customer
+ * is waiting, and the person who can act on it is not looking at this
+ * screen — the failure is in the server log and, once 049 is applied, on
+ * the row itself.
+ */
+function MediaTranscript({
+  message,
+  t,
+}: {
+  message: Message;
+  t: ReturnType<typeof useTranslations>;
+}) {
+  const text = message.media_transcript?.trim();
+  if (!text || message.media_transcript_status !== 'done') return null;
+
+  return (
+    <details className="group/transcript mt-1.5">
+      <summary className="text-muted-foreground hover:text-foreground text-2xs flex cursor-pointer list-none items-center gap-1 font-medium transition-colors [&::-webkit-details-marker]:hidden">
+        <Captions className="size-3 shrink-0" />
+        {message.content_type === 'image' ? t('imageRead') : t('transcript')}
+      </summary>
+      {/* The rule is the tell: an indented block with a left border reads
+          as a quotation of the attachment rather than as something
+          somebody typed, which matters in a thread where every other
+          paragraph IS something somebody typed. */}
+      <p className="border-border/70 text-muted-foreground mt-1 border-l-2 pl-2 text-xs break-words whitespace-pre-wrap italic">
+        {text}
+      </p>
+    </details>
+  );
 }
 
 function MessageContent({
@@ -105,6 +146,7 @@ function MessageContent({
               {message.content_text}
             </p>
           )}
+          <MediaTranscript message={message} t={t} />
         </div>
       );
 
@@ -132,6 +174,7 @@ function MessageContent({
           ) : (
             <MediaUnavailable label={t('audio')} t={t} />
           )}
+          <MediaTranscript message={message} t={t} />
         </div>
       );
 
@@ -243,6 +286,7 @@ export function MessageBubble({
   onToggleReaction,
   onOpenMedia,
   firstOfRun = true,
+  senderName,
 }: MessageBubbleProps) {
   const t = useTranslations('Inbox.bubble');
 
@@ -297,13 +341,25 @@ export function MessageBubble({
             onPrimary={false}
           />
         )}
-        {signed.signature && (
-          // The same grey every machine-and-metadata marker in this thread
-          // uses. It is attribution, not emphasis: the person reading it
-          // works here and needs to know which colleague replied, which is
-          // one glance, not a headline.
+        {/* Who wrote it, once per run.
+        
+            Two sources, one line. `senderName` is the recorded author and
+            wins; `signed.signature` is the `*Nome*` the customer sees, and
+            it stays as the fallback for every message sent before 056 — of
+            which there is a whole history.
+        
+            Only on the FIRST bubble of a run, which is what WhatsApp does
+            in a group and for the reason it does it: a burst of four
+            messages from one person is one turn, and labelling each line
+            turns a conversation into a transcript.
+        
+            The same grey every machine-and-metadata marker in this thread
+            uses. It is attribution, not emphasis: the person reading it
+            works here and needs to know which colleague replied, which is
+            one glance, not a headline. */}
+        {firstOfRun && (senderName || signed.signature) && (
           <span className="text-muted-foreground eyebrow block leading-tight">
-            {signed.signature}
+            {senderName || signed.signature}
           </span>
         )}
         <MessageContent
@@ -338,7 +394,7 @@ export function MessageBubble({
               a metadata line underneath it. Both fills are light, so
               one colour serves both directions. */}
           <span className="text-muted-foreground text-3xs">{time}</span>
-          {isAgent && <StatusIcon status={message.status} />}
+          {isAgent && <MessageTicks status={message.status} />}
         </div>
       </div>
       {reactions && reactions.length > 0 && onToggleReaction && (

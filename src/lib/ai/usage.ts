@@ -6,7 +6,10 @@ export interface LogAiUsageArgs {
   /** Null for a draft not tied to one thread, or when the row was
    *  deleted between generation and logging. */
   conversationId: string | null
-  mode: 'auto_reply' | 'draft'
+  /** Which surface spent the tokens. The last two arrive with 049 and
+   *  are written by the inbound webhook, not by somebody pressing a
+   *  button — see `@/lib/ai/media-understanding`. */
+  mode: 'auto_reply' | 'draft' | 'transcription' | 'vision'
   provider: AiProvider
   model: string
   /** Provider usage; a no-op when null (nothing worth recording). */

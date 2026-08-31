@@ -90,6 +90,19 @@ export interface SendMessageParams {
   /** Structured payload for `messageType === 'interactive'`. */
   interactivePayload?: InteractiveMessagePayload | null;
   replyToMessageId?: string | null;
+  /**
+   * WHO is sending this — `profiles.user_id`, not a display name.
+   *
+   * `messages.sender_id` has existed since migration 001 and no send path
+   * ever wrote it, so until now the CRM did not record which colleague
+   * replied to a customer. The only trace of authorship was the `*Nome*`
+   * signature inside the text, which is off by default, lives in
+   * localStorage, and is addressed to the customer rather than the team.
+   *
+   * Null for the public API: an API key is not a person, and inventing an
+   * author for it would be worse than admitting there isn't one.
+   */
+  senderId?: string | null;
 }
 
 export interface SendMessageResult {
@@ -208,6 +221,7 @@ export async function sendMessageToConversation(
     templateMessageParams,
     interactivePayload,
     replyToMessageId,
+    senderId,
   } = params;
 
   if (!conversationId) {
@@ -480,6 +494,7 @@ export async function sendMessageToConversation(
     .insert({
       conversation_id: conversationId,
       sender_type: 'agent',
+      sender_id: senderId ?? null,
       content_type: messageType,
       content_text: persistedText,
       media_url: mediaUrl || null,

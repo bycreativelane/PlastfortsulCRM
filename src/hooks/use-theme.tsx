@@ -13,6 +13,7 @@ import {
   DEFAULT_MODE,
   DEFAULT_THEME,
   MODE_STORAGE_KEY,
+  MODE_THEME_COLOR,
   STORAGE_KEY,
   isMode,
   isThemeId,
@@ -76,6 +77,26 @@ function readInitialMode(): Mode {
   return DEFAULT_MODE;
 }
 
+/**
+ * Keep the browser's own chrome the same colour as the app.
+ *
+ * The tag is created by the boot script in `layout.tsx` (see the note
+ * on `viewport` there for why it is not declared as static metadata),
+ * so in practice this only ever updates. It still handles the missing
+ * case: a tab that hydrated before the script ran, or a test renderer
+ * mounting the provider against a bare document, must not throw.
+ */
+function paintBrowserChrome(next: Mode) {
+  if (typeof document === "undefined") return;
+  let meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+  if (!meta) {
+    meta = document.createElement("meta");
+    meta.name = "theme-color";
+    document.head.appendChild(meta);
+  }
+  meta.content = MODE_THEME_COLOR[next] ?? MODE_THEME_COLOR[DEFAULT_MODE];
+}
+
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<ThemeId>(readInitialTheme);
   const [mode, setModeState] = useState<Mode>(readInitialMode);
@@ -97,6 +118,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     setModeState(next);
     if (typeof document !== "undefined") {
       document.documentElement.dataset.mode = next;
+      paintBrowserChrome(next);
     }
     try {
       localStorage.setItem(MODE_STORAGE_KEY, next);
@@ -124,6 +146,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
         if (isMode(e.newValue) && e.newValue !== mode) {
           setModeState(e.newValue);
           document.documentElement.dataset.mode = e.newValue;
+          paintBrowserChrome(e.newValue);
         }
       }
     }

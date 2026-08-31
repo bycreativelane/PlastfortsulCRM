@@ -28,6 +28,7 @@ import { StatePanel } from '@/components/ui/state-panel';
 import { dateLocale } from '@/lib/i18n/dates';
 import { useMemberNames } from '@/hooks/use-member-names';
 import { notificationText } from '@/lib/notifications/text';
+import { sectionHref } from '@/components/settings/settings-sections';
 
 /** The row plus the one embed this page asks for. */
 type NotificationRow = Notification & {
@@ -238,7 +239,7 @@ export default function NotificationsPage() {
           number, and it cannot be marked read. */}
       {needsWhatsApp && (
         <Link
-          href="/settings?tab=whatsapp"
+          href={sectionHref('whatsapp')}
           // A card like the rows below it, with amber only in the ink — see
           // the twin in layout/notifications-menu.tsx. `surface-interactive`
           // owns the hover and the transition.

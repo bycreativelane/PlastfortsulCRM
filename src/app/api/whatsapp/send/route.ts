@@ -165,6 +165,9 @@ export async function POST(request: Request) {
         templateMessageParams: template_message_params,
         interactivePayload: interactive_payload,
         replyToMessageId: reply_to_message_id,
+        // The dashboard always knows who is typing. This is what puts a
+        // colleague's name on the row instead of "Você" — see 056.
+        senderId: userId,
       })
 
       return NextResponse.json({

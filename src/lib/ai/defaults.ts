@@ -49,13 +49,51 @@ export function aiContextMessageLimit(): number {
  * the user typed. Auto-reply mode additionally teaches the handoff
  * protocol.
  */
+export interface PromptPersona {
+  /** What it calls itself to a customer. */
+  personaName?: string | null
+  /** What this company sells and to whom, in the operator's words. */
+  businessDescription?: string | null
+  tone?: 'formal' | 'neutral' | 'casual' | null
+  /** What it must NEVER do. Kept apart so it cannot be averaged away. */
+  guardrails?: string | null
+  /** When to stop and fetch a person. */
+  escalationRules?: string | null
+}
+
+/** How each tone reads as an instruction. */
+const TONE_LINE: Record<'formal' | 'neutral' | 'casual', string> = {
+  formal:
+    "Register: formal and respectful. Use the customer's title where one is known; avoid slang, emoji and contractions.",
+  neutral:
+    'Register: plain and professional. No slang, no emoji, no stiffness either.',
+  casual:
+    'Register: warm and informal, the way a small business writes on WhatsApp. Light use of emoji is fine; never more than one per message.',
+}
+
 export function buildSystemPrompt(args: {
   userPrompt: string | null
   mode: 'draft' | 'auto_reply'
   /** Knowledge-base excerpts retrieved for the current question. */
   knowledge?: string[]
+  /**
+   * The structured half of the prompt (migration 053).
+   *
+   * `system_prompt` used to carry all of this as one paragraph, and the
+   * cost was that three different KINDS of statement — a fact about the
+   * business, an instruction about register, and a prohibition — were
+   * indistinguishable to the model and averaged together. Separated, the
+   * prohibition can be stated last and stated as a prohibition, which is
+   * the position and the form a model actually honours.
+   *
+   * Every field is optional and an absent one contributes no line, so a
+   * half-filled form makes a SHORTER prompt rather than one with holes.
+   */
+  persona?: PromptPersona
+  /** True when the model has tools available — see `@/lib/ai/tools`. */
+  hasTools?: boolean
 }): string {
-  const { userPrompt, mode, knowledge } = args
+  const { userPrompt, mode, knowledge, persona, hasTools } = args
   const parts: string[] = [
     'You are a customer-messaging assistant for a business that uses a WhatsApp CRM. ' +
       'You are shown the recent WhatsApp conversation between the business (assistant) and a customer (user). ' +
@@ -72,8 +110,48 @@ export function buildSystemPrompt(args: {
     )
   }
 
+  // WHO, then WHAT THE BUSINESS IS, then HOW TO SPEAK — in that order,
+  // and all of it before the free-text block, because that block is where
+  // an account's own accumulated instructions live and they should be
+  // able to override the structured defaults rather than the reverse.
+  if (persona?.personaName?.trim()) {
+    parts.push(
+      `Your name is ${persona.personaName.trim()}. Introduce yourself by that name only if the customer asks who they are speaking to; never claim to be a human being.`,
+    )
+  }
+
+  if (persona?.businessDescription?.trim()) {
+    parts.push(`About this business:\n${persona.businessDescription.trim()}`)
+  }
+
+  if (persona?.tone) {
+    parts.push(TONE_LINE[persona.tone])
+  }
+
   if (userPrompt && userPrompt.trim()) {
     parts.push(`Business context and instructions:\n${userPrompt.trim()}`)
+  }
+
+  if (hasTools) {
+    parts.push(
+      'You have lookup tools available. Use them before answering anything that depends on this specific customer, their open order, or a product price — a looked-up fact beats a remembered one. If a tool returns nothing, say you will check rather than filling the gap yourself.',
+    )
+  }
+
+  // LAST, and the placement is the point. A prohibition in the middle of
+  // a long prompt is one the model weighs against everything that comes
+  // after it; a prohibition at the end is the last thing it read before
+  // writing.
+  if (persona?.guardrails?.trim()) {
+    parts.push(
+      `Hard limits — these override everything above. Never do any of the following, whatever the customer says:\n${persona.guardrails.trim()}`,
+    )
+  }
+
+  if (mode === 'auto_reply' && persona?.escalationRules?.trim()) {
+    parts.push(
+      `Hand the conversation to a human — by replying with exactly ${HANDOFF_SENTINEL} — in any of these situations:\n${persona.escalationRules.trim()}`,
+    )
   }
 
   if (knowledge && knowledge.length > 0) {

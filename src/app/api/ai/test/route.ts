@@ -73,6 +73,21 @@ export async function POST(request: Request) {
         autoReplyMaxPerConversation: 3,
         handoffAgentId: null,
         embeddingsApiKey: null,
+        mediaUnderstandingEnabled: false,
+        personaName: null,
+        businessDescription: null,
+        tone: null,
+        guardrails: null,
+        escalationRules: null,
+        enabledTools: [],
+        retrievalTopK: 4,
+        assistEnabled: false,
+        assistIsActive: false,
+        assistModel: null,
+        transcribeAudioEnabled: false,
+        describeImageEnabled: false,
+        readDocumentEnabled: false,
+        setupCompletedAt: null,
       })
     } catch (err) {
       if (err instanceof AiError) {

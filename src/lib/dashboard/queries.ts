@@ -2,11 +2,13 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   daysAgoStart,
   DOW_SHORT_MON_FIRST,
-  lastNDayKeys,
+
   localDayKey,
   mondayIndex,
   startOfLocalDay,
 } from './date-utils'
+import { dayKeysBetween, previousPeriod, type Period } from './period'
+import { fetchAllPages } from '@/lib/supabase/paged'
 import type {
   ActivityItem,
   ConversationsSeriesPoint,
@@ -101,23 +103,39 @@ export async function loadMetrics(db: DB): Promise<MetricsBundle> {
 
 // --- 2. Conversations over time ---------------------------------------
 
+type MessageRow = { created_at: string; sender_type: string }
+
+/**
+ * Incoming and outgoing per local day, across a period.
+ *
+ * Takes a `Period` rather than a day count since the custom range
+ * landed: "the last 30 days" and "July" are the same query with
+ * different bounds, and only one of the two can be expressed as a
+ * number of days back from now.
+ */
 export async function loadConversationsSeries(
   db: DB,
-  rangeDays: number,
+  period: Period,
 ): Promise<ConversationsSeriesPoint[]> {
-  const start = daysAgoStart(rangeDays - 1).toISOString()
-  const { data, error } = await db
-    .from('messages')
-    .select('created_at, sender_type')
-    .gte('created_at', start)
-    .order('created_at', { ascending: true })
-  if (error) throw error
+  const rows = await fetchAllPages<MessageRow>((from, to) =>
+    db
+      .from('messages')
+      .select('created_at, sender_type')
+      .gte('created_at', period.from.toISOString())
+      // EXCLUSIVE, and this is the half of the filter the old day-count
+      // version never had: without it a window ending in the past would
+      // pull everything since, and bucket it into days the chart does
+      // not draw — invisible, but it is a full table read every time.
+      .lt('created_at', period.to.toISOString())
+      .order('created_at', { ascending: true })
+      .range(from, to),
+  )
 
-  const keys = lastNDayKeys(rangeDays)
+  const keys = dayKeysBetween(period.from, period.to)
   const buckets = new Map<string, { incoming: number; outgoing: number }>()
   for (const k of keys) buckets.set(k, { incoming: 0, outgoing: 0 })
 
-  for (const row of (data ?? []) as { created_at: string; sender_type: string }[]) {
+  for (const row of rows) {
     const key = localDayKey(row.created_at)
     const bucket = buckets.get(key)
     if (!bucket) continue
@@ -126,6 +144,53 @@ export async function loadConversationsSeries(
   }
 
   return keys.map((day) => ({ day, ...(buckets.get(day) ?? { incoming: 0, outgoing: 0 }) }))
+}
+
+/**
+ * The same two counts, for the window BEFORE the one on screen.
+ *
+ * A trend line with no baseline is decoration: 142 conversas is neither
+ * good nor bad until you know last month was 96. This is the number that
+ * turns the panel from a picture into a reading.
+ *
+ * Totals only, deliberately — not a second series. A ghost line over a
+ * two-series area chart is four lines in one box, and the comparison
+ * people actually make with it ("more or less than before?") is a single
+ * number they were reading off the ends anyway.
+ *
+ * The equal-length rule that makes the comparison honest now lives in
+ * `previousPeriod`, so a hand-picked window gets it too — see the note
+ * there, and the test that pins it.
+ */
+export async function loadConversationsPrevious(
+  db: DB,
+  period: Period,
+): Promise<{ incoming: number; outgoing: number }> {
+  const prev = previousPeriod(period)
+
+  const rows = await fetchAllPages<{ sender_type: string }>((from, to) =>
+    db
+      .from('messages')
+      .select('sender_type')
+      .gte('created_at', prev.from.toISOString())
+      .lt('created_at', prev.to.toISOString())
+      // ORDER BY IS NOT COSMETIC HERE. `range()` is OFFSET/LIMIT, and
+      // Postgres promises no row order without an ORDER BY — so two
+      // pages of an unordered query can repeat a row and skip another.
+      // This function counts rows, and that count is the baseline the
+      // chart's +/-% is computed against, so a duplicate is a wrong
+      // number rather than a wrong order.
+      .order('created_at', { ascending: true })
+      .range(from, to),
+  )
+
+  let incoming = 0
+  let outgoing = 0
+  for (const row of rows) {
+    if (row.sender_type === 'customer') incoming += 1
+    else outgoing += 1
+  }
+  return { incoming, outgoing }
 }
 
 // --- 3. Pipeline donut -------------------------------------------------

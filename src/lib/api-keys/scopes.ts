@@ -21,6 +21,12 @@ export const API_SCOPES = [
   'conversations:read',
   'broadcasts:send',
   'webhooks:manage',
+  // Added with the deals + custom-fields routes. `fields` is read-only
+  // by design — defining a field is an account decision made once on a
+  // screen, not something an integration should do on the fly.
+  'fields:read',
+  'deals:read',
+  'deals:write',
 ] as const;
 
 export type ApiScope = (typeof API_SCOPES)[number];
@@ -40,6 +46,9 @@ export const SCOPE_DESCRIPTION_KEYS: Record<ApiScope, string> = {
   'conversations:read': 'conversationsRead',
   'broadcasts:send': 'broadcastsSend',
   'webhooks:manage': 'webhooksManage',
+  'fields:read': 'fieldsRead',
+  'deals:read': 'dealsRead',
+  'deals:write': 'dealsWrite',
 };
 
 /** Type-narrow an unknown value into a valid `ApiScope`. */

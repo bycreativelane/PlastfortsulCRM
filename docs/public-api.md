@@ -50,6 +50,9 @@ it. Grant the minimum.
 | `conversations:read` | List and read conversations              |
 | `broadcasts:send`    | Launch broadcast campaigns               |
 | `webhooks:manage`    | Register and manage outbound webhooks    |
+| `fields:read`        | Read custom field definitions            |
+| `deals:read`         | Read pipelines, stages and deals         |
+| `deals:write`        | Create a deal                            |
 
 A key with **no scopes** still authenticates and can call
 `GET /api/v1/me` — useful for verifying a key works.
@@ -381,3 +384,124 @@ broadcasts, and outbound webhooks — the full scope of
 the upstream project this codebase started from. Future ideas
 (deals/pipelines, templates, flows, a delivery queue for webhooks) are
 not yet scheduled.
+
+---
+
+## Custom fields
+
+Writing a custom value needs the field's UUID, and there was no way to
+learn one from outside — it had to be copied out of a browser URL, which
+is the kind of step that makes an integration impossible to document.
+
+### `GET /api/v1/custom-fields`
+
+Scope: `fields:read`. Every definition on the account.
+
+```json
+{
+  "custom_fields": [
+    {
+      "id": "8c1f…",
+      "name": "gclid",
+      "type": "text",
+      "options": null,
+      "automation_field_key": "custom:8c1f…"
+    }
+  ]
+}
+```
+
+`automation_field_key` is the exact string an automation's *update
+contact field* step wants. It is published so nobody has to know the
+encoding — and so changing it later is one change here rather than one
+in everybody's n8n flow.
+
+Read-only on purpose. Defining a field is an account decision made once,
+on a screen where somebody can see what already exists — not something
+an integration should do on the fly, and certainly not twice under two
+spellings.
+
+### `GET` / `PUT /api/v1/contacts/{id}/custom-fields`
+
+Scopes: `contacts:read` / `contacts:write`. The values.
+
+```bash
+curl -X PUT https://seu-crm/api/v1/contacts/<id>/custom-fields \
+  -H "Authorization: Bearer $KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"8c1f…": "Cj0KCQjw…"}'
+```
+
+**Fields the body does not name are left alone.** So a call updating
+`gclid` cannot blank `utm_campaign` by omission — the mistake a literal
+PUT would invite.
+
+An unknown field id is a **400 naming it**, not a silent skip: a caller
+whose value never appears has no way to tell "wrong id" from "wrote fine
+but the screen does not show it", and would look in the wrong place for
+an hour.
+
+---
+
+## Deals
+
+### `GET /api/v1/pipelines`
+
+Scope: `deals:read`. Funnels and their stages, in position order —
+this is where a `stage_id` comes from.
+
+Each stage carries `kind_hint`: `"won"`, `"lost"` or `"open"`. It is
+**inferred from the stage name**, which is how the whole product decides
+today, and it is named `kind_hint` rather than `kind` for that reason: a
+stage called *Faturado* is not on the list and will report `open`. Treat
+it as a hint, confirm it against your own funnel once.
+
+### `GET /api/v1/deals`
+
+Scope: `deals:read`. Keyset-paginated like the other lists. Filters:
+`contact_id`, `status`, `pipeline_id`.
+
+### `POST /api/v1/deals`
+
+Scope: `deals:write`.
+
+```json
+{
+  "contact_id": "…",
+  "stage_id": "…",
+  "title": "Orçamento saco 40x60",
+  "value": 4820.00,
+  "currency": "BRL"
+}
+```
+
+**`value` is a stand-in, not the truth.** `deals.value` is maintained by
+a trigger from the deal's items: line totals are generated columns and
+their sum lands on the deal. A value posted here holds only until
+somebody adds a line — after that the arithmetic wins, which is what
+makes revenue reporting traceable to a product instead of to whoever
+last typed a number.
+
+Both `contact_id` and `stage_id` are verified against the key's account.
+A foreign UUID is a `404`, not a row filed somewhere it does not belong.
+
+---
+
+## Inbound webhooks — the other direction
+
+There is a second door, and it is not part of this API.
+
+`POST /api/hooks/<token>` takes arbitrary JSON from Typebot, n8n or a
+landing page and hands it to the **automation engine**, where the payload
+becomes `{{vars.field}}`. It reaches every automation action — write a
+custom field, tag, open a deal, reply on WhatsApp — without an endpoint
+per resource.
+
+Use this API when you want **CRUD with an explicit contract**. Use a hook
+when you want the account's own automation rules to decide what happens.
+Both at once is a normal arrangement: n8n as the brain, the hook as the
+door.
+
+Hooks are created in **Configurações › Webhooks**, carry their own
+scopes (`messages` is off by default), and log every delivery with the
+automation runs it caused.

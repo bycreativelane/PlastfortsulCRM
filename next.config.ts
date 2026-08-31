@@ -135,20 +135,33 @@ const nextConfig: NextConfig = {
    * matched.
    */
   /**
-   * The AI agent stopped being a place you go and became something you
-   * configure, so `/agents` moved to `/settings?tab=ai`.
+   * Paths that used to be places.
    *
-   * A config redirect and not a page that calls `redirect()`: Next
-   * checks these BEFORE the filesystem, so an old bookmark never boots
-   * the dashboard shell only to throw it away a frame later. Temporary
-   * (307) rather than permanent — a 308 is cached by the browser
-   * forever, and `/agents` is a path this product may well want back.
+   * Config redirects and not pages that call `redirect()`: Next checks
+   * these BEFORE the filesystem, so an old bookmark never boots the
+   * dashboard shell only to throw it away a frame later. Temporary (307)
+   * rather than permanent throughout — a 308 is cached by the browser
+   * forever, and both of these are paths this product may want back.
+   *
+   *   · `/agents` — the AI agent stopped being a place you go and became
+   *     something you configure.
+   *
+   *   · `/admin` — Configurações was split in two for one release, and
+   *     merged back: two doors meant knowing which door a setting was
+   *     behind before you could look for it. The query string carries
+   *     over on its own (the destination has none of its own), so
+   *     `/admin?tab=whatsapp` lands on that exact section.
    */
   async redirects() {
     return [
       {
         source: "/agents",
         destination: "/settings?tab=ai",
+        permanent: false,
+      },
+      {
+        source: "/admin",
+        destination: "/settings",
         permanent: false,
       },
     ];

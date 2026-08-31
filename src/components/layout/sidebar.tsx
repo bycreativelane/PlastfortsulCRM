@@ -7,7 +7,8 @@ import { useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/use-auth';
 import { useNavCollapsed } from '@/hooks/use-nav-collapsed';
-import { useCan, type CanAction } from '@/hooks/use-can';
+import { useCapability } from '@/hooks/use-can';
+import type { Capability } from '@/lib/auth/capabilities';
 import { useTotalUnread } from '@/hooks/use-total-unread';
 import {
   BarChart3,
@@ -20,6 +21,7 @@ import {
   Loader2,
   LogOut,
   MessageSquare,
+  Package,
   Radio,
   Settings,
   Shield,
@@ -97,8 +99,15 @@ interface NavItem {
    * and never works teaches people to distrust the whole menu, not just
    * that row. The dashboard already gets this right, wrapping its own
    * "Ver relatórios" link in the same check.
+   *
+   * A CAPABILITY rather than a `CanAction` since migration 050: the
+   * question a menu row asks is "may THIS PERSON go here", and the role
+   * is only the default answer to it. This is what makes the exceptions
+   * in Configurações › Acesso visible where somebody would look for
+   * them — hiding Relatórios from one agent now takes the row away
+   * rather than leaving it there to fail on arrival.
    */
-  can?: CanAction;
+  capability?: Capability;
 }
 
 interface NavGroup {
@@ -135,17 +144,58 @@ const navGroups: NavGroup[] = [
   {
     labelKey: 'groupOperation',
     items: [
-      { href: '/inbox', labelKey: 'inbox', icon: MessageSquare },
-      { href: '/pipelines', labelKey: 'pipelines', icon: KanbanSquare },
-      { href: '/contacts', labelKey: 'contacts', icon: Users },
+      {
+        href: '/inbox',
+        labelKey: 'inbox',
+        icon: MessageSquare,
+        capability: 'inbox.view',
+      },
+      {
+        href: '/pipelines',
+        labelKey: 'pipelines',
+        icon: KanbanSquare,
+        capability: 'pipelines.view',
+      },
+      {
+        href: '/contacts',
+        labelKey: 'contacts',
+        icon: Users,
+        capability: 'contacts.view',
+      },
+      // Below Contatos, which is where the products plan put it: the
+      // agent opens a product in the middle of a conversation to check a
+      // measurement and a price, so it belongs with the things you do
+      // all day and not with the things you configure once.
+      {
+        href: '/products',
+        labelKey: 'products',
+        icon: Package,
+        capability: 'products.view',
+      },
     ],
   },
   {
     labelKey: 'groupAutomation',
     items: [
-      { href: '/automations', labelKey: 'automations', icon: Zap },
-      { href: '/broadcasts', labelKey: 'broadcasts', icon: Radio },
-      { href: '/flows', labelKey: 'flows', icon: Workflow, beta: true },
+      {
+        href: '/automations',
+        labelKey: 'automations',
+        icon: Zap,
+        capability: 'automations.manage',
+      },
+      {
+        href: '/broadcasts',
+        labelKey: 'broadcasts',
+        icon: Radio,
+        capability: 'broadcasts.send',
+      },
+      {
+        href: '/flows',
+        labelKey: 'flows',
+        icon: Workflow,
+        beta: true,
+        capability: 'flows.manage',
+      },
     ],
   },
   {
@@ -155,7 +205,7 @@ const navGroups: NavGroup[] = [
         href: '/reports',
         labelKey: 'reports',
         icon: BarChart3,
-        can: 'edit-settings',
+        capability: 'reports.view',
       },
     ],
   },
@@ -236,14 +286,24 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
   const { collapsed, toggle } = useNavCollapsed();
   const { profile, profileLoading, account, accountRole, signOut } = useAuth();
   // One call per capability the menu can gate on. Hooks cannot run in a
-  // loop, so the list is written out; it is also one item long. `useCan`
-  // returns false while the profile is still loading, which is the right
-  // direction here — a row that appears a beat late is invisible, and a
-  // row that appears and then vanishes is a glitch.
-  const can: Partial<Record<CanAction, boolean>> = {
-    'edit-settings': useCan('edit-settings'),
+  // loop, so the list is written out. Each one reads the same context,
+  // so seven calls cost what one does.
+  //
+  // `useCapability` returns false while the profile is still loading,
+  // which is the right direction here — a row that appears a beat late
+  // is invisible, and a row that appears and then vanishes is a glitch.
+  const can: Partial<Record<Capability, boolean>> = {
+    'inbox.view': useCapability('inbox.view'),
+    'pipelines.view': useCapability('pipelines.view'),
+    'contacts.view': useCapability('contacts.view'),
+    'products.view': useCapability('products.view'),
+    'automations.manage': useCapability('automations.manage'),
+    'broadcasts.send': useCapability('broadcasts.send'),
+    'flows.manage': useCapability('flows.manage'),
+    'reports.view': useCapability('reports.view'),
   };
-  const isVisible = (item: NavItem) => !item.can || can[item.can] === true;
+  const isVisible = (item: NavItem) =>
+    !item.capability || can[item.capability] === true;
   const visibleGroups = navGroups
     .map((group) => ({ ...group, items: group.items.filter(isVisible) }))
     .filter((group) => group.items.length > 0);
@@ -364,9 +424,15 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
             move gives away. `truncate` and `min-w-0` still hold: this is
             the one string in the app an installer can replace with
             anything. */}
+        {/* `min-h-14 pt-safe-0` for the same reason the app bar carries
+            it — see `header.tsx`. This drawer is `fixed inset-y-0`, so
+            once the app is installed and the address bar is gone, its
+            top edge IS the top of the display and the wordmark sits
+            under the clock. Zero inset resolves to the 56px this always
+            was. */}
         <div
           data-nav-strip
-          className="border-border flex h-14 shrink-0 items-center justify-between gap-2 border-b px-3"
+          className="border-border pt-safe-0 flex min-h-14 shrink-0 items-center justify-between gap-2 border-b px-3"
         >
           <Link
             href="/dashboard"
@@ -397,7 +463,10 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
         </div>
 
         {/* Main navigation */}
-        <nav id="sidebar-nav" className="flex-1 overflow-y-auto px-3 py-4">
+        <nav
+          id="sidebar-nav"
+          className="flex-1 overflow-y-auto px-3 py-4 select-none"
+        >
           {/* NO GROUP HEADINGS.
               
               There were three — OPERAÇÃO, AUTOMAÇÃO, ANÁLISE — over nine
@@ -649,14 +718,33 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
 
         {/* User section. No rule above it either: both things in here
             are bordered tiles sitting on the rail's own surface, so the
-            footer already has an edge — its children draw it. */}
-        <div className="shrink-0 p-3">
-          {/* What's coming next. Sits above the account tile rather than
-              below it because the tile is the rail's floor — it holds
-              "Sair" and it is where the eye goes to leave. News that
-              pushes the exit off the bottom edge of a short window is
-              news nobody asked for. It removes itself once dismissed. */}
-          <RoadmapCard />
+            footer already has an edge — its children draw it.
+
+            `pb-safe-3` and not `p-3`: on the desk this element is a
+            column in a flex row and its bottom edge is the window's.
+            On a phone it is the floor of a `fixed inset-y-0` drawer,
+            and the last 34px of a modern iPhone belong to the home
+            gesture — so a plain 12px put "Sair" underneath it. The app
+            is `overflow: hidden` with children scrolling inside, so the
+            browser never scrolls the inset out of the way the way it
+            would in an ordinary document. The utility resolves to the
+            same 12px on every device without an inset. */}
+        <div className="pb-safe-3 shrink-0 px-3 pt-3">
+          {/* What's coming next — DESK ONLY.
+
+              On the desk this rail is always on screen and its footer is
+              periphery: something you read in the gaps, next to the
+              account tile you are not looking at either. On a phone the
+              same rail is a MODAL drawer you opened with an intention,
+              and answering that intention with a product announcement —
+              90px of card, carousel and pager — puts news between a
+              person and the thing they came for. Same component, and the
+              context is what changed.
+
+              It removes itself once dismissed, on both. */}
+          <div className="hidden lg:block">
+            <RoadmapCard />
+          </div>
           {/* The team room's last line, below the news and above the
               account tile. See `team-room-card` for why it is in the rail
               at all — it is the only surface that survives every route,
@@ -790,7 +878,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
               <DropdownMenuItem
                 render={
                   <Link
-                    href="/settings?tab=whatsapp"
+                    href="/settings"
                     onClick={onClose}
                     className="text-popover-foreground focus:bg-accent focus:text-accent-foreground"
                   />

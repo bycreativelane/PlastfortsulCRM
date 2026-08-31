@@ -9,6 +9,7 @@ import {
 import { cn } from '@/lib/utils';
 import { avatarClass, avatarInitials } from '@/lib/avatar-color';
 import { NotificationsMenu } from '@/components/layout/notifications-menu';
+import { MessageTicks } from './message-ticks';
 import type { Conversation } from '@/types';
 import {
   ChevronDown,
@@ -23,10 +24,10 @@ import {
   Paperclip,
   Search,
   Sticker,
+  Sparkles,
   Users,
   Video,
   X,
-  Zap,
   type LucideIcon,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
@@ -69,6 +70,7 @@ import {
   TEAM_SEEN_EVENT,
 } from '@/lib/team/messages';
 import { ConversationMenu } from './conversation-menu';
+import { SwipeRow } from './swipe-row';
 
 interface ConversationListProps {
   activeConversationId: string | null;
@@ -503,87 +505,107 @@ export function ConversationList({
           onValueChange={setScope}
         />
 
-        <div className="relative">
-          <Search className="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
-          <Input
-            value={search}
-            onChange={handleSearchChange}
-            placeholder={t('searchPlaceholder')}
-            // Below md this list IS the inbox screen, and search plus the
-            // filter under it are the only way to reach a conversation that
-            // is not near the top. 32px is right for a mouse and wrong for
-            // a thumb, so the height follows the pointer, not the width —
-            // a 1024px tablet is touch and a 1024px laptop is not.
-            className="border-border bg-card-2 h-8 pl-9 text-sm [@media(pointer:coarse)]:h-11"
-          />
-        </div>
+        {/* SEARCH AND FILTER SHARE A LINE ON A PHONE.
 
-        <div className="flex items-center gap-1.5">
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              className={cn(
-                'inline-flex h-7 items-center gap-1.5 rounded-md border px-2 text-xs font-semibold transition-colors duration-(--dur-1) [@media(pointer:coarse)]:h-10',
-                activeOption
-                  ? 'border-primary bg-primary-soft text-primary'
-                  : 'border-border bg-card text-secondary-foreground hover:bg-muted hover:text-foreground'
-              )}
-            >
-              <Filter className="size-3.5" />
-              {activeOption?.label ?? t('filterButton')}
-              <ChevronDown className="size-3" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align="start"
-              className="max-h-vh-62 w-60 overflow-y-auto"
-            >
-              {groupOptions(options).map(([group, items]) => (
-                <div key={group}>
-                  <div className="text-muted-foreground eyebrow px-2 pt-2 pb-1">
-                    {group}
+            This bar had four stacked bands — team room, Entrada/Esperando,
+            search, filter+count — about 195px before the first
+            conversation, on the screen this product is most used on. Two
+            of them were a text field and a chip that between them never
+            filled half a line.
+
+            `lg:flex-col lg:items-stretch` puts the desk layout back
+            exactly as it was: at that width the list is a 320px column
+            where the two genuinely do not fit side by side. */}
+        <div className="flex items-center gap-1.5 lg:flex-col lg:items-stretch lg:gap-2">
+          <div className="relative min-w-0 flex-1 lg:w-full lg:flex-none">
+            <Search className="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
+            <Input
+              value={search}
+              onChange={handleSearchChange}
+              placeholder={t('searchPlaceholder')}
+              // Below md this list IS the inbox screen, and search plus the
+              // filter under it are the only way to reach a conversation that
+              // is not near the top. 32px is right for a mouse and wrong for
+              // a thumb, so the height follows the pointer, not the width —
+              // a 1024px tablet is touch and a 1024px laptop is not.
+              // No `[@media(pointer:coarse)]:h-11` any more: this was the
+              // single Input in the app that remembered to grow itself on a
+              // phone, and globals.css now gives every one of them the same
+              // 44px floor.
+              className="border-border bg-card-2 h-8 pl-9 text-sm"
+            />
+          </div>
+
+          <div className="flex shrink-0 items-center gap-1.5 lg:w-full">
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                className={cn(
+                  'inline-flex h-7 items-center gap-1.5 rounded-md border px-2 text-xs font-semibold transition-colors duration-(--dur-1) [@media(pointer:coarse)]:h-11',
+                  activeOption
+                    ? 'border-primary bg-primary-soft text-primary'
+                    : 'border-border bg-card text-secondary-foreground hover:bg-muted hover:text-foreground'
+                )}
+              >
+                <Filter className="size-3.5" />
+                {activeOption?.label ?? t('filterButton')}
+                <ChevronDown className="size-3" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="start"
+                className="max-h-vh-62 w-60 overflow-y-auto"
+              >
+                {groupOptions(options).map(([group, items]) => (
+                  <div key={group}>
+                    <div className="text-muted-foreground eyebrow px-2 pt-2 pb-1">
+                      {group}
+                    </div>
+                    {items.map((option) => (
+                      <DropdownMenuItem
+                        key={option.id}
+                        // Zero-result options are disabled, never hidden. A menu
+                        // whose entries come and go teaches you to distrust it,
+                        // and "there are none right now" is itself an answer.
+                        disabled={option.count === 0}
+                        onClick={() => setFilterId(option.id)}
+                        className={cn(
+                          'text-sm',
+                          option.id === filterId
+                            ? 'text-foreground font-semibold'
+                            : 'text-popover-foreground'
+                        )}
+                      >
+                        <span className="min-w-0 flex-1 truncate">
+                          {option.label}
+                        </span>
+                        <span className="bg-muted text-secondary-foreground text-2xs ml-auto grid h-4.5 min-w-4.5 place-items-center rounded-full px-1.5 font-bold">
+                          {option.count}
+                        </span>
+                      </DropdownMenuItem>
+                    ))}
                   </div>
-                  {items.map((option) => (
-                    <DropdownMenuItem
-                      key={option.id}
-                      // Zero-result options are disabled, never hidden. A menu
-                      // whose entries come and go teaches you to distrust it,
-                      // and "there are none right now" is itself an answer.
-                      disabled={option.count === 0}
-                      onClick={() => setFilterId(option.id)}
-                      className={cn(
-                        'text-sm',
-                        option.id === filterId
-                          ? 'text-foreground font-semibold'
-                          : 'text-popover-foreground'
-                      )}
-                    >
-                      <span className="min-w-0 flex-1 truncate">
-                        {option.label}
-                      </span>
-                      <span className="bg-muted text-secondary-foreground text-2xs ml-auto grid h-4.5 min-w-4.5 place-items-center rounded-full px-1.5 font-bold">
-                        {option.count}
-                      </span>
-                    </DropdownMenuItem>
-                  ))}
-                </div>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
 
-          {activeOption && (
-            <button
-              onClick={clearFilter}
-              className="text-muted-foreground hover:bg-muted hover:text-foreground inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-semibold transition-colors duration-(--dur-1) [@media(pointer:coarse)]:h-10"
-            >
-              <X className="size-3" />
-              {t('clearFilter')}
-            </button>
-          )}
+            {activeOption && (
+              <button
+                onClick={clearFilter}
+                className="text-muted-foreground hover:bg-muted hover:text-foreground inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-semibold transition-colors duration-(--dur-1) [@media(pointer:coarse)]:h-11"
+              >
+                <X className="size-3" />
+                {t('clearFilter')}
+              </button>
+            )}
 
-          <span className="text-muted-foreground ml-auto text-xs tabular-nums">
-            {t('resultCount', { count: filtered.length })}
-          </span>
+            {/* `hidden lg:inline` — not information lost, information
+              already given: the Entrada/Esperando bar directly above
+              carries a count per tab, and on one shared line this was
+              the item with the least to say. */}
+            <span className="text-muted-foreground ml-auto hidden text-xs tabular-nums lg:inline">
+              {t('resultCount', { count: filtered.length })}
+            </span>
 
-          {/* The bell, and it is here because on `lg` and up it exists
+            {/* The bell, and it is here because on `lg` and up it exists
               nowhere else: `dashboard-shell.tsx` hides the whole app header
               on `/inbox` so the thread keeps its 56px, which takes the
               notifications with it. An agent who lives in this screen all
@@ -598,7 +620,8 @@ export function ConversationList({
               36px it takes in the header. Last in the row, after the count,
               because it is the one control here that is not about the
               list. */}
-          <NotificationsMenu className="hidden size-7 shrink-0 lg:inline-flex" />
+            <NotificationsMenu className="hidden size-7 shrink-0 lg:inline-flex" />
+          </div>
         </div>
       </div>
 
@@ -652,14 +675,27 @@ export function ConversationList({
                 // conversation on screen.
                 members={agentNames}
               >
-                <ConversationItem
-                  conversation={conv}
-                  isActive={conv.id === activeConversationId}
-                  onSelect={handleSelect}
-                  surface={surface}
-                  agentNames={agentNames}
-                  t={t}
-                />
+                {/* INSIDE the context menu, not around it.
+                    `ContextMenuTrigger` renders its child as the thing you
+                    long-press; wrapping the menu instead would put the
+                    swipe layer outside the trigger and the long-press
+                    would stop reaching the row. Nested this way the two
+                    gestures share one element and never contend — a press
+                    that MOVES is a swipe, a press that does not is a
+                    long-press.
+
+                    On a desk `SwipeRow` returns its child untouched, with
+                    no wrapper element and no listeners. */}
+                <SwipeRow conversation={conv} onPatch={onConversationPatch}>
+                  <ConversationItem
+                    conversation={conv}
+                    isActive={conv.id === activeConversationId}
+                    onSelect={handleSelect}
+                    surface={surface}
+                    agentNames={agentNames}
+                    t={t}
+                  />
+                </SwipeRow>
               </ConversationMenu>
             ))}
           </div>
@@ -758,6 +794,32 @@ function ConversationItem({
   );
   const MediaIcon = preview.media ? MEDIA_ICON[preview.media] : Paperclip;
 
+  /**
+   * The WhatsApp model for a row, which is a rule about DIRECTION.
+   *
+   *   what went out → ticks, and the name of whoever wrote it
+   *   what came in  → neither
+   *
+   * WhatsApp itself writes "Você:" because the phone belongs to one person.
+   * Here the number belongs to the whole team, so "Você" is a lie on every
+   * colleague's screen — the attendant's name is the same idea told
+   * truthfully. That is the point of the request: reading the list should
+   * answer "did anyone reply, and who" without opening anything.
+   *
+   * All three fields arrive with migration 056 and are `undefined` before
+   * it, which collapses this to `outbound === false` — the row then draws
+   * exactly what it drew yesterday instead of an error.
+   */
+  const outbound =
+    conversation.last_message_sender_type === 'agent' ||
+    conversation.last_message_sender_type === 'bot';
+  // No name for the assistant. The lightning already says a machine wrote
+  // it, and "Agente IA: bom dia" reads as a colleague with an odd name.
+  const senderName =
+    outbound && conversation.last_message_sender_type === 'agent'
+      ? (agentNames.get(conversation.last_message_sender_id ?? '') ?? '')
+      : '';
+
   const stage = conversation.deal?.stage;
   const chip = stage ? stageChip(stage.color, surface) : null;
   // ONE tag, and it is the contact's TYPE — never the product or automatic
@@ -848,10 +910,20 @@ function ConversationItem({
         ) : null}
 
         <div className="mt-0.5 flex items-center gap-1.5">
-          {/* Grey lightning, never a colour: the machine reports, it does not
+          {/* THE SPARKLE, not the lightning.
+
+              This row said "a IA respondeu aqui" with the same mark the
+              left nav uses for Automações and the composer used for
+              Respostas rápidas — three unrelated meanings on one glyph,
+              on the busiest screen in the product. The sparkle is the
+              house mark for "a machine wrote this" (see the bubble's AI
+              badge and the note in `settings-sections.ts`), so it is the
+              one that belongs here.
+
+              Still grey, never a colour: the machine reports, it does not
               ask for anything. */}
           {automated && (
-            <Zap
+            <Sparkles
               className="text-muted-foreground size-3 shrink-0"
               aria-label={t('automatedThread')}
             />
@@ -895,6 +967,21 @@ function ConversationItem({
               className="text-muted-foreground size-3 shrink-0"
               aria-hidden
             />
+          ) : null}
+          {/* Ticks, then the name, then what was said — the order the eye
+              reads and the order WhatsApp uses. Both sit OUTSIDE the
+              truncating paragraph: inside it, a long message would push the
+              answer to "who replied" off the end of the line, which is the
+              one thing this row exists to show. */}
+          {outbound && conversation.last_message_status ? (
+            <MessageTicks status={conversation.last_message_status} />
+          ) : null}
+          {senderName ? (
+            // Medium, not bold. It is a label on the message, and a row
+            // whose loudest word is a colleague's name buries the customer.
+            <span className="text-muted-foreground max-w-[7rem] shrink-0 truncate text-xs font-medium">
+              {t('senderPrefix', { name: senderName })}
+            </span>
           ) : null}
           <p
             className={cn(

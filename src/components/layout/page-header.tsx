@@ -55,7 +55,19 @@ export function PageHeader({
         className
       )}
     >
-      <div className="min-w-0 flex-1">
+      {/* `max-sm:basis-full` is what stops the actions from eating the
+          title on a phone.
+          The row is `flex-wrap`, but the title block was `min-w-0
+          flex-1` and the actions `shrink-0`, so the title shrank to
+          nothing instead of the actions wrapping. Measured at 390px with
+          the Relatórios period control in the slot: the title block came
+          out 53px wide, its description became seven lines of one word,
+          and the header stood 208px tall before a single number. At
+          360px it was 23px and 248px.
+          Full basis below `sm` gives the title its own line and pushes
+          the actions under it, right-aligned. Above `sm` nothing
+          changes — the two share the row exactly as before. */}
+      <div className="min-w-0 flex-1 max-sm:basis-full">
         <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1">
           {icon ? (
             <span className="text-primary grid shrink-0 place-items-center [&>svg]:size-6">

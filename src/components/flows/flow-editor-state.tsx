@@ -43,6 +43,7 @@ import {
   type ReactNode,
 } from 'react';
 import { useRouter } from 'next/navigation';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import { toast } from 'sonner';
 
 import {
@@ -233,6 +234,7 @@ export function FlowEditorProvider({
 }: ProviderProps) {
   const router = useRouter();
   const t = useTranslations('Flows.editorState');
+  const { confirm } = useConfirm();
 
   const [state, setStateRaw] = useState<BuilderState>(() => ({
     name: initialFlow.name,
@@ -398,7 +400,10 @@ export function FlowEditorProvider({
 
   // ---- Delete ----
   const deleteFlow = useCallback(async () => {
-    const yes = window.confirm(t('deleteConfirm', { name: state.name }));
+    const yes = await confirm({
+      title: t('deleteConfirm', { name: state.name }),
+      destructive: true,
+    });
     if (!yes) return;
     try {
       const res = await fetch(`/api/flows/${initialFlow.id}`, {
@@ -410,7 +415,7 @@ export function FlowEditorProvider({
       console.error('Flow delete failed:', err);
       toast.error(t('deleteError'));
     }
-  }, [initialFlow.id, router, state.name, t]);
+  }, [confirm, initialFlow.id, router, state.name, t]);
 
   // ---- Node mutations ----
   const updateNode = useCallback(

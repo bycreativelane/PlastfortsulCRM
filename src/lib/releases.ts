@@ -61,11 +61,40 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: '0.8.4',
+    date: '2026-08-31',
+    highlights: [
+      { key: 'audioToText', href: '/inbox' },
+      { key: 'products', href: '/products' },
+      { key: 'aiAssist', href: '/inbox' },
+    ],
+    changes: [
+      { kind: 'new', key: 'audioToText' },
+      { kind: 'new', key: 'products' },
+      { kind: 'new', key: 'aiAssist' },
+      { kind: 'new', key: 'accountAudit' },
+      { kind: 'new', key: 'memberPermissions' },
+      { kind: 'new', key: 'assignScore' },
+      { kind: 'new', key: 'teamRoomNames' },
+      { kind: 'new', key: 'inboundHooks' },
+      { kind: 'new', key: 'installApp' },
+      { kind: 'new', key: 'cnpjCheck' },
+      { kind: 'improved', key: 'aiAgentDepth' },
+      { kind: 'improved', key: 'reportsRedesign' },
+      { kind: 'improved', key: 'settingsOneArea' },
+      { kind: 'improved', key: 'profilePhotos' },
+      { kind: 'improved', key: 'mobileNav' },
+      { kind: 'improved', key: 'messageAuthor' },
+      { kind: 'fixed', key: 'productDialogs' },
+      { kind: 'fixed', key: 'periodCompare' },
+    ],
+  },
+  {
     version: '0.8.3',
     date: '2026-08-24',
     highlights: [
       { key: 'weekStrip', href: '/dashboard' },
-      { key: 'customColors', href: '/settings?tab=tags' },
+      { key: 'customColors', href: '/settings?tab=fields' },
       { key: 'assignFromList', href: '/inbox' },
     ],
     changes: [

@@ -5,17 +5,13 @@ import { useTranslations } from 'next-intl';
 
 import { cn } from '@/lib/utils';
 import { hasUnreadRelease, lastSeenRelease } from '@/lib/releases';
+import { useCapabilityCheck } from '@/hooks/use-can';
 import {
   RAIL_GROUPS,
   SECTION_META,
-  SETTINGS_SECTIONS,
+  visibleSections,
   type SettingsSection,
 } from './settings-sections';
-
-// Width at/above which the rail is a vertical column (already in view, so
-// no auto-scroll needed). Mirrors the Tailwind `lg:` breakpoint that
-// drives the row→column switch in the markup below — keep the two in sync.
-const RAIL_DESKTOP_MIN_PX = 1024;
 
 /**
  * The settings left rail — grouped, vertical on desktop and a
@@ -27,11 +23,31 @@ export function SettingsRail({
   active,
   onSelect,
   hints,
+  className,
 }: {
   active: SettingsSection;
   onSelect: (section: SettingsSection) => void;
   hints?: Partial<Record<SettingsSection, ReactNode>>;
+  /** The page uses this to stand the rail down on the phone's landing —
+   *  see the note at its call site in `settings/page.tsx`. */
+  className?: string;
 }) {
+  /**
+   * The rows this person can actually use.
+   *
+   * This used to be an `area` prop — one component, two doors. There is
+   * one door now and the filter is what they can do, so an agent's rail
+   * is seven rows that all work rather than eighteen where eleven refuse.
+   * The panels and the policies still refuse on their own; see the note
+   * in `settings-sections.ts` about this being the courtesy.
+   */
+  const { can, ready } = useCapabilityCheck();
+  // HELD UNTIL THE PROFILE LANDS. Every gate answers false while it is in
+  // flight, so drawing now would paint an admin the seven ungated rows
+  // and then pop the other eleven in a moment later — a rail that
+  // changes length under the cursor. `ready` is on the hook for exactly
+  // this; not using it here was the bug.
+  const allowed = ready ? visibleSections(can) : [];
   /**
    * Whether this browser has seen the latest release notes.
    *
@@ -49,12 +65,22 @@ export function SettingsRail({
   const t = useTranslations('Settings');
   const activeRef = useRef<HTMLButtonElement>(null);
 
-  // When horizontal (mobile), keep the active chip in view. On desktop
-  // the rail is a static column, so skip.
+  /**
+   * Keep the active row in view, on BOTH layouts.
+   *
+   * It used to skip desktop, on the grounds that the column was static
+   * and everything in it was already on screen. That stopped being true
+   * when the two destinations merged: eighteen rows do not fit an 800px
+   * viewport, so the column scrolls now, and a deep link to a section
+   * near the bottom — `?tab=whats-new`, the last one — would open with
+   * its own row out of sight.
+   *
+   * `block: 'nearest'` does nothing when the row is already visible, so
+   * the common case still costs no movement, and `inline: 'center'` only
+   * bites on the horizontal layout.
+   */
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    if (window.matchMedia(`(min-width: ${RAIL_DESKTOP_MIN_PX}px)`).matches)
-      return;
     activeRef.current?.scrollIntoView({
       inline: 'center',
       block: 'nearest',
@@ -66,26 +92,51 @@ export function SettingsRail({
     <nav
       aria-label={t('railAria')}
       className={cn(
-        'flex snap-x [scrollbar-width:none] gap-1 overflow-x-auto pb-2 [&::-webkit-scrollbar]:hidden',
-        // Twelve sections, no scrollbar in either engine, chips sized to
-        // their content: the last visible one could end flush with the
-        // edge and read as the end of the list. The edge fade says "there
-        // is more this way" without spending a row on arrows. Dropped at
-        // `lg`, where the rail is a full column and nothing is cut off.
-        '[mask-image:linear-gradient(to_right,transparent,black_12px,black_calc(100%-12px),transparent)] lg:[mask-image:none]',
+        'flex snap-x gap-1 overflow-x-auto pb-2',
+        // Chips sized to their content, no scrollbar in either engine:
+        // the last visible one could end flush with the edge and read as
+        // the end of the list. The edge fade says "there is more this
+        // way" without spending a row on arrows. Both the hidden
+        // scrollbar and the fade are scoped BELOW `lg` now — see the
+        // height note under it, where the desktop column wants a real
+        // scrollbar rather than a hidden one.
+        'max-lg:[scrollbar-width:none] max-lg:[&::-webkit-scrollbar]:hidden',
+        'max-lg:[mask-image:linear-gradient(to_right,transparent,black_12px,black_calc(100%-12px),transparent)]',
         'border-border border-b',
         // `top-0` parked the rail flush against the bottom edge of the
         // app bar the moment you scrolled — two stacked navigations
         // touching, with no seam between them. The offset matches the
         // page's own top gutter, so the rail comes to rest exactly where
         // it started rather than sliding under the bar.
-        'lg:sticky lg:top-6 lg:flex-col lg:overflow-visible lg:border-b-0 lg:pb-0'
+        //
+        // AND IT HAS TO BE ABLE TO SCROLL ON ITS OWN.
+        //
+        // Merging the two settings destinations back into one rail took
+        // it from twelve rows to eighteen in four groups. Measured: 796px
+        // at 36px a row plus three group headings — on an 800px viewport
+        // that is four pixels of slack before the 24px top gutter, so on
+        // any laptop it does not fit. A `sticky` element taller than the
+        // viewport silently stops being sticky (it just scrolls with the
+        // page), which means the rail's top disappears while you are deep
+        // in a panel and there is no way back to it without scrolling the
+        // whole page up.
+        //
+        // Capped and scrollable, it stays put and the scrollbar says
+        // there is more. `overflow-x-hidden` alongside is deliberate:
+        // `visible` on one axis with a non-visible other computes to
+        // `auto`, which would put a phantom horizontal scrollbar on a
+        // column that has nothing to scroll sideways.
+        'lg:sticky lg:top-6 lg:max-h-[calc(100vh-4rem)] lg:flex-col lg:overflow-x-hidden lg:overflow-y-auto lg:border-b-0 lg:pb-0',
+        className
       )}
     >
       {RAIL_GROUPS.map(({ label, group }) => {
-        const items = SETTINGS_SECTIONS.filter(
-          (s) => SECTION_META[s].group === group
-        );
+        const items = allowed.filter((s) => SECTION_META[s].group === group);
+        // A group with nothing in it draws its own heading over empty
+        // space. Reachable now that permissions decide the rows: an agent
+        // has nothing under "Espaço de trabalho" except Novidades, and a
+        // narrowing override can empty a group outright.
+        if (items.length === 0) return null;
         return (
           <div
             key={group}

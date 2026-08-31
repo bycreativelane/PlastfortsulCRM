@@ -71,6 +71,12 @@ export function AiConfig() {
   const [systemPrompt, setSystemPrompt] = useState('');
   const [isActive, setIsActive] = useState(false);
   const [autoReplyEnabled, setAutoReplyEnabled] = useState(false);
+  // Migration 049 defaults the column to TRUE, so the form's own default
+  // matches what a fresh account will read back. On a database without
+  // 049 the GET falls back to a SELECT that omits the column and this
+  // stays at its default — the toggle draws, and saving it is a no-op the
+  // route swallows rather than a 500 across the whole page.
+  const [mediaUnderstanding, setMediaUnderstanding] = useState(true);
   const [maxPerConversation, setMaxPerConversation] = useState(3);
   // Empty string = leave unassigned (shared queue).
   const [handoffAgentId, setHandoffAgentId] = useState('');
@@ -98,6 +104,7 @@ export function AiConfig() {
         setSystemPrompt(data.system_prompt ?? '');
         setIsActive(data.is_active);
         setAutoReplyEnabled(data.auto_reply_enabled);
+        setMediaUnderstanding(data.media_understanding_enabled ?? true);
         setMaxPerConversation(data.auto_reply_max_per_conversation ?? 3);
         setHandoffAgentId(data.handoff_agent_id ?? '');
         setHasStoredKey(Boolean(data.has_key));
@@ -149,6 +156,7 @@ export function AiConfig() {
     system_prompt: systemPrompt.trim() || null,
     is_active: isActive,
     auto_reply_enabled: autoReplyEnabled,
+    media_understanding_enabled: mediaUnderstanding,
     auto_reply_max_per_conversation: maxPerConversation,
     handoff_agent_id: handoffAgentId || null,
   });
@@ -442,6 +450,27 @@ export function AiConfig() {
               <Switch
                 checked={autoReplyEnabled}
                 onCheckedChange={setAutoReplyEnabled}
+                disabled={disabled || !isActive}
+              />
+            </div>
+
+            {/* Under the assistant's own switch and above auto-reply's
+                settings, because it belongs to `is_active` rather than to
+                the reply bot: transcription runs whether or not anything
+                answers the customer, and an agent reading the transcript
+                is the point. */}
+            <div className="border-border flex items-center justify-between gap-4 rounded-md border p-3">
+              <div>
+                <p className="text-foreground text-sm font-medium">
+                  {t('mediaUnderstanding')}
+                </p>
+                <p className="text-muted-foreground text-xs">
+                  {t('mediaUnderstandingDesc')}
+                </p>
+              </div>
+              <Switch
+                checked={mediaUnderstanding}
+                onCheckedChange={setMediaUnderstanding}
                 disabled={disabled || !isActive}
               />
             </div>

@@ -13,6 +13,7 @@ import { verifyMetaWebhookSignature } from '@/lib/whatsapp/webhook-signature';
 import { runAutomationsForTrigger } from '@/lib/automations/engine';
 import { dispatchInboundToFlows } from '@/lib/flows/engine';
 import { dispatchInboundToAiReply } from '@/lib/ai/auto-reply';
+import { dispatchInboundMediaUnderstanding } from '@/lib/ai/media-understanding';
 import { dispatchWebhookEvent } from '@/lib/webhooks/deliver';
 import { isOptOutIntent } from '@/lib/whatsapp/opt-out-intent';
 import {
@@ -653,7 +654,14 @@ async function processMessage(
   }
 
   // Parse message content based on type
-  const { contentText, mediaUrl, mediaType, interactiveReplyId } =
+  const {
+    contentText,
+    mediaUrl,
+    mediaType,
+    mediaId,
+    mediaFilename,
+    interactiveReplyId,
+  } =
     await parseMessageContent(
       message,
       accessToken,
@@ -749,7 +757,7 @@ async function processMessage(
       },
       { onConflict: 'conversation_id,message_id', ignoreDuplicates: true }
     )
-    .select('id');
+    .select('id, created_at');
 
   if (msgError) {
     console.error('Error inserting message:', msgError);
@@ -767,6 +775,15 @@ async function processMessage(
     );
     return;
   }
+
+  // The row this delivery created, kept for the media-understanding pass
+  // at the bottom of this function. Taken here rather than re-queried
+  // because this is the one point where "we inserted it" is proven — a
+  // lookup by `message_id` later would also match a replay.
+  const insertedMessageId = insertedRows[0].id as string;
+  // Its arrival time, so the transcript pass at the bottom can check
+  // nothing newer landed before it overwrites the list preview.
+  const insertedMessageAt = insertedRows[0].created_at as string | null;
 
   // Update conversation. The unread bump is done DB-side (migration 037's
   // bump_conversation_on_inbound) rather than as a read-modify-write of the
@@ -1019,6 +1036,88 @@ async function processMessage(
     content_type: contentType,
     text: contentText,
   });
+
+  // Words for the attachment, if there is one and the account pays for
+  // them. See `@/lib/ai/media-understanding` — a voice note or a photo
+  // arrives with `content_text` empty, which is the field the preview
+  // line, the search, every keyword automation and the auto-reply gate
+  // all read.
+  //
+  // LAST, deliberately. This is the slowest thing in the whole handler —
+  // a media download plus a provider round trip — and everything above
+  // it either has somebody waiting on it (the notification, the
+  // assignment) or is a machine that must not be held up (flows,
+  // automations). Nothing downstream consumes the transcript yet, so it
+  // costs nothing to be at the back of the queue and it would cost
+  // several seconds of everyone else's latency to be anywhere else.
+  //
+  // Owns its own gates and never throws.
+  if (mediaId) {
+    const transcript = await dispatchInboundMediaUnderstanding({
+      accountId,
+      conversationId: conversation.id,
+      messageId: insertedMessageId,
+      createdAt: insertedMessageAt,
+      mediaId,
+      mimeType: mediaType,
+      filename: mediaFilename,
+      accessToken,
+    });
+
+    /**
+     * THE SECOND PASS — the half of migration 049 that was missing.
+     *
+     * 049 said out loud what the problem was: "a mensagem chega, é
+     * guardada, e todo o resto do sistema — a busca, cada gatilho de
+     * automação por palavra, a própria porteira da resposta automática —
+     * lê `content_text`, que num áudio está vazio. O cliente falou; o CRM
+     * registrou silêncio."
+     *
+     * It then stored the transcript and stopped. Everything above ran
+     * against an empty string minutes ago and concluded, correctly for
+     * what it could see, that there was nothing to react to. A customer
+     * recording "quero cancelar o pedido" triggered no keyword
+     * automation and got no assistant reply — the same silence, now with
+     * a transcript sitting one column away.
+     *
+     * So the words get one narrow re-run of EXACTLY what was skipped for
+     * lack of text, and nothing else:
+     *
+     *   keyword_match       — could not have matched an empty string
+     *   AI auto-reply       — its gate is `inboundText.trim()`, so it
+     *                         never ran at all
+     *
+     * NOT `new_message_received`: it does not read the text, it already
+     * fired, and firing it twice would run somebody's automation twice
+     * for one message. That asymmetry is the whole design — re-dispatch
+     * what was starved, never what was merely early.
+     *
+     * `flowConsumed` still wins, same as the first pass: a flow that
+     * swallowed this message owns the turn.
+     */
+    if (transcript?.trim() && !flowConsumed && !optedOutThisMessage) {
+      await runAutomationsForTrigger({
+        accountId,
+        triggerType: 'keyword_match',
+        contactId: contactRecord.id,
+        context: {
+          message_text: transcript,
+          conversation_id: conversation.id,
+        },
+      }).catch((err) =>
+        console.error('[automations] transcript dispatch failed:', err)
+      );
+
+      if (!interactiveReplyId) {
+        await dispatchInboundToAiReply({
+          accountId,
+          conversationId: conversation.id,
+          contactId: contactRecord.id,
+          configOwnerUserId,
+        });
+      }
+    }
+  }
 }
 
 async function parseMessageContent(
@@ -1031,6 +1130,22 @@ async function parseMessageContent(
   contentText: string | null;
   mediaUrl: string | null;
   mediaType: string | null;
+  /**
+   * Meta's own id for the attachment, kept so the bytes can be fetched
+   * a second time without going through `media_url`. That column holds
+   * either a bucket URL or the relative proxy path, and only one of the
+   * two can be read from a server — see
+   * `dispatchInboundMediaUnderstanding`. Null for anything with no
+   * attachment.
+   */
+  mediaId: string | null;
+  /**
+   * The sender's own filename for a document. Carried through to the
+   * PDF reader (057) because on a pedido or a boleto it is routinely the
+   * only place the document number appears — `PED-4471.pdf` says more
+   * than the first page sometimes does.
+   */
+  mediaFilename: string | null;
   /**
    * For interactive button / list replies: the stable id of the tapped
    * option (whatever we put on the button when sending). Used by the
@@ -1095,6 +1210,8 @@ async function parseMessageContent(
     contentText: null,
     mediaUrl: null,
     mediaType: null,
+    mediaFilename: null,
+    mediaId: null,
     interactiveReplyId: null,
   };
 
@@ -1109,6 +1226,7 @@ async function parseMessageContent(
           contentText: message.image.caption || null,
           mediaUrl: await verifyAndBuildUrl(message.image.id),
           mediaType: message.image.mime_type,
+          mediaId: message.image.id,
         };
       }
       return empty;
@@ -1120,6 +1238,7 @@ async function parseMessageContent(
           contentText: message.video.caption || null,
           mediaUrl: await verifyAndBuildUrl(message.video.id),
           mediaType: message.video.mime_type,
+          mediaId: message.video.id,
         };
       }
       return empty;
@@ -1137,7 +1256,9 @@ async function parseMessageContent(
             message.document.id,
             message.document.filename
           ),
+          mediaId: message.document.id,
           mediaType: message.document.mime_type,
+          mediaFilename: message.document.filename ?? null,
         };
       }
       return empty;
@@ -1148,6 +1269,7 @@ async function parseMessageContent(
           ...empty,
           mediaUrl: await verifyAndBuildUrl(message.audio.id),
           mediaType: message.audio.mime_type,
+          mediaId: message.audio.id,
         };
       }
       return empty;
@@ -1161,6 +1283,7 @@ async function parseMessageContent(
           ...empty,
           mediaUrl: await verifyAndBuildUrl(message.sticker.id),
           mediaType: message.sticker.mime_type,
+          mediaId: message.sticker.id,
         };
       }
       return empty;

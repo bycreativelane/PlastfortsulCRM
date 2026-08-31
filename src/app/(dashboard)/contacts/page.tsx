@@ -12,6 +12,7 @@ import {
   EMPTY_SEGMENTATION,
   IDLE_OPTIONS,
   applySegmentation,
+  countSegmentationFilters,
   isSegmentationActive,
   type Segmentation,
 } from '@/components/contacts/segmentation';
@@ -55,9 +56,11 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import {
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Filter,
+  ListFilter,
   Loader2,
   Megaphone,
   MoreHorizontal,
@@ -85,6 +88,7 @@ import { useTranslations } from 'next-intl';
 import { PageHeader } from '@/components/layout/page-header';
 import { OptionSelect } from '@/components/ui/option-select';
 import { APP_LOCALE } from '@/lib/i18n/locale';
+import { cn } from '@/lib/utils';
 
 const PAGE_SIZE = 25;
 
@@ -120,6 +124,19 @@ function ContactsPageInner() {
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [segmentation, setSegmentation] =
     useState<Segmentation>(EMPTY_SEGMENTATION);
+  /**
+   * Whether the segmentation panel is open — a PHONE-ONLY concern. From
+   * `lg` up the panel is always visible and this is ignored (see the
+   * note above the panel).
+   *
+   * Starts shut, and stays shut across a re-render even with filters
+   * set: the counter on the toggle is what reports them, and a panel
+   * that re-opens itself because state exists would undo the whole
+   * point on the one screen with the least room.
+   */
+  const [segOpen, setSegOpen] = useState(false);
+  /** Drives the counter chip on the phone's toggle. */
+  const segFilterCount = countSegmentationFilters(segmentation);
   // The tag path runs through filter_contacts_by_tags (migration 025),
   // whose signature has no room for these. Rather than apply half of
   // what the card shows, it stands down and says why.
@@ -484,13 +501,200 @@ function ContactsPageInner() {
         }
       />
 
+      {/* Search + tag filter */}
+      <div className="space-y-2">
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <div className="relative w-full max-w-sm">
+            <Search className="text-muted-foreground absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
+            <Input
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                // Reset pagination when the query changes — the result
+                // set shrinks/grows, page N may no longer be valid.
+                setPage(0);
+              }}
+              placeholder={t('searchPlaceholder')}
+              className="bg-card border-border text-foreground placeholder:text-muted-foreground pl-8"
+            />
+          </div>
+
+          <Popover>
+            <PopoverTrigger
+              render={
+                <Button
+                  variant="outline"
+                  className="border-border text-muted-foreground hover:bg-muted shrink-0"
+                />
+              }
+            >
+              <Filter className="size-4" />
+              {t('filterByTags')}
+              {selectedTagIds.length > 0 && (
+                // 18px, the dense chip height. It had no height at all, so
+                // the counter sat a pixel or two off every other chip in the
+                // app and changed size with the button's line-height.
+                <span className="bg-primary text-primary-foreground text-3xs ml-1 inline-flex h-4.5 min-w-4.5 items-center justify-center rounded-full px-1.5 font-semibold">
+                  {selectedTagIds.length}
+                </span>
+              )}
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-64 p-0">
+              <div className="border-border flex items-center justify-between border-b px-3 py-2">
+                <span className="text-popover-foreground text-sm font-medium">
+                  {t('filterByTags')}
+                </span>
+                {selectedTagIds.length > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="xs"
+                    onClick={clearTagFilters}
+                    className="text-muted-foreground hover:text-foreground -mr-1"
+                  >
+                    {t('clearAll')}
+                  </Button>
+                )}
+              </div>
+              {allTags.length === 0 ? (
+                <StatePanel icon={TagIcon} title={t('noTagsYet')} />
+              ) : (
+                <div className="max-h-64 overflow-y-auto py-1">
+                  {allTags.map((tag) => (
+                    <label
+                      key={tag.id}
+                      className="hover:bg-muted/50 flex cursor-pointer items-center gap-2.5 px-3 py-1.5"
+                    >
+                      <Checkbox
+                        checked={selectedTagIds.includes(tag.id)}
+                        onCheckedChange={() => toggleTagFilter(tag.id)}
+                        aria-label={`Filter by ${tag.name}`}
+                      />
+                      <span
+                        className="size-2.5 shrink-0 rounded-full"
+                        style={{ backgroundColor: tag.color }}
+                      />
+                      <span className="text-popover-foreground truncate text-sm">
+                        {tag.name}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </PopoverContent>
+          </Popover>
+        </div>
+
+        {/* Active tag-filter chips */}
+        {selectedTagIds.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5">
+            {selectedTagIds.map((id) => {
+              const tag = tagsMap[id];
+              if (!tag) return null;
+              return (
+                // The dismiss control sits OUTSIDE the chip rather than in
+                // its children: `Tag` truncates whatever it is given, and a
+                // truncated close button is a close button that disappears
+                // exactly when the label is long enough to want removing.
+                <span key={id} className="inline-flex items-center gap-0.5">
+                  <TagChip color={tag.color}>{tag.name}</TagChip>
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
+                    onClick={() => toggleTagFilter(id)}
+                    aria-label={`Remove ${tag.name} filter`}
+                    className="text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="size-3" />
+                  </Button>
+                </span>
+              );
+            })}
+            <Button
+              variant="ghost"
+              size="xs"
+              onClick={clearTagFilters}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              {t('clearAll')}
+            </Button>
+          </div>
+        )}
+      </div>
+
       {/* Segmentation.
           Every filter here lives on `contacts`, which is what lets them
           compose into the same paginated query the list already runs. The
           tag filter cannot join them — it goes through an RPC with a fixed
           signature — so the card says so instead of quietly computing a
-          number from half the conditions. */}
-      <Panel>
+          number from half the conditions.
+
+          ------------------------------------------------------------
+          AND ON A PHONE IT STARTS CLOSED, UNDER THE SEARCH FIELD.
+          ------------------------------------------------------------
+
+          Open, this panel is five labelled controls in a single column —
+          about 350px — plus "Criar campanha com este público". It used
+          to sit between the page title and everything else, so on a
+          375×812 screen the first row of the CONTACTS TABLE landed at
+          the very bottom edge: a page called Contatos that showed no
+          contacts until you scrolled.
+
+          Segmentation is desk work. You build an audience here to hand
+          it to a broadcast, and that is a thing you do sitting down. The
+          question a phone asks on this page is always the other one —
+          "what is Marcos's number" — which is why the search field now
+          comes first and this comes second, shut, behind a button that
+          says how many conditions are set.
+
+          `lg` and not `sm`: at 640–1024px the panel is already two
+          columns and costs ~180px, which a tablet can afford.
+
+          Nothing here is conditional in JS. The panel renders at every
+          width and the controls keep their state; only its VISIBILITY
+          below `lg` is toggled, so opening it costs no re-query and
+          collapsing it never silently drops a filter somebody set. */}
+      <div className="lg:hidden">
+        <button
+          type="button"
+          data-slot="button"
+          onClick={() => setSegOpen((v) => !v)}
+          aria-expanded={segOpen}
+          aria-controls="segmentation-panel"
+          className="border-border bg-card text-secondary-foreground hover:bg-muted hover:text-foreground flex w-full items-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-semibold transition-colors"
+        >
+          {/* `ListFilter`, not the `SlidersHorizontal` in the toolbar
+              above — that one already means "campos personalizados" on
+              this very page, and two controls with one glyph is a
+              question the reader has to answer every time. */}
+          <ListFilter className="size-4 shrink-0" />
+          <span className="min-w-0 flex-1 text-left">
+            {t('segmentation.title')}
+          </span>
+          {segFilterCount > 0 && (
+            // Same 18px counter chip the tag filter above uses. It is the
+            // whole reason a collapsed filter is safe: a list narrowed by
+            // conditions you cannot see is a list that looks broken.
+            <span className="bg-primary text-primary-foreground text-3xs inline-flex h-4.5 min-w-4.5 shrink-0 items-center justify-center rounded-full px-1.5 font-semibold">
+              {segFilterCount}
+            </span>
+          )}
+          <ChevronDown
+            aria-hidden
+            className={cn(
+              'text-muted-foreground size-4 shrink-0 transition-transform duration-(--dur-1)',
+              segOpen && 'rotate-180'
+            )}
+          />
+        </button>
+      </div>
+
+      <Panel
+        id="segmentation-panel"
+        // `hidden lg:block` and not `lg:block` alone: without the
+        // breakpoint half, opening it on a phone and then widening the
+        // window would leave the desk layout hiding its own panel.
+        className={cn(!segOpen && 'hidden lg:block')}
+      >
         <PanelHeader>
           <div className="min-w-0">
             <PanelTitle>{t('segmentation.title')}</PanelTitle>
@@ -651,126 +855,6 @@ function ContactsPageInner() {
           </div>
         </PanelBody>
       </Panel>
-
-      {/* Search + tag filter */}
-      <div className="space-y-2">
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <div className="relative w-full max-w-sm">
-            <Search className="text-muted-foreground absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
-            <Input
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                // Reset pagination when the query changes — the result
-                // set shrinks/grows, page N may no longer be valid.
-                setPage(0);
-              }}
-              placeholder={t('searchPlaceholder')}
-              className="bg-card border-border text-foreground placeholder:text-muted-foreground pl-8"
-            />
-          </div>
-
-          <Popover>
-            <PopoverTrigger
-              render={
-                <Button
-                  variant="outline"
-                  className="border-border text-muted-foreground hover:bg-muted shrink-0"
-                />
-              }
-            >
-              <Filter className="size-4" />
-              {t('filterByTags')}
-              {selectedTagIds.length > 0 && (
-                // 18px, the dense chip height. It had no height at all, so
-                // the counter sat a pixel or two off every other chip in the
-                // app and changed size with the button's line-height.
-                <span className="bg-primary text-primary-foreground text-3xs ml-1 inline-flex h-4.5 min-w-4.5 items-center justify-center rounded-full px-1.5 font-semibold">
-                  {selectedTagIds.length}
-                </span>
-              )}
-            </PopoverTrigger>
-            <PopoverContent align="start" className="w-64 p-0">
-              <div className="border-border flex items-center justify-between border-b px-3 py-2">
-                <span className="text-popover-foreground text-sm font-medium">
-                  {t('filterByTags')}
-                </span>
-                {selectedTagIds.length > 0 && (
-                  <Button
-                    variant="ghost"
-                    size="xs"
-                    onClick={clearTagFilters}
-                    className="text-muted-foreground hover:text-foreground -mr-1"
-                  >
-                    {t('clearAll')}
-                  </Button>
-                )}
-              </div>
-              {allTags.length === 0 ? (
-                <StatePanel icon={TagIcon} title={t('noTagsYet')} />
-              ) : (
-                <div className="max-h-64 overflow-y-auto py-1">
-                  {allTags.map((tag) => (
-                    <label
-                      key={tag.id}
-                      className="hover:bg-muted/50 flex cursor-pointer items-center gap-2.5 px-3 py-1.5"
-                    >
-                      <Checkbox
-                        checked={selectedTagIds.includes(tag.id)}
-                        onCheckedChange={() => toggleTagFilter(tag.id)}
-                        aria-label={`Filter by ${tag.name}`}
-                      />
-                      <span
-                        className="size-2.5 shrink-0 rounded-full"
-                        style={{ backgroundColor: tag.color }}
-                      />
-                      <span className="text-popover-foreground truncate text-sm">
-                        {tag.name}
-                      </span>
-                    </label>
-                  ))}
-                </div>
-              )}
-            </PopoverContent>
-          </Popover>
-        </div>
-
-        {/* Active tag-filter chips */}
-        {selectedTagIds.length > 0 && (
-          <div className="flex flex-wrap items-center gap-1.5">
-            {selectedTagIds.map((id) => {
-              const tag = tagsMap[id];
-              if (!tag) return null;
-              return (
-                // The dismiss control sits OUTSIDE the chip rather than in
-                // its children: `Tag` truncates whatever it is given, and a
-                // truncated close button is a close button that disappears
-                // exactly when the label is long enough to want removing.
-                <span key={id} className="inline-flex items-center gap-0.5">
-                  <TagChip color={tag.color}>{tag.name}</TagChip>
-                  <Button
-                    variant="ghost"
-                    size="icon-xs"
-                    onClick={() => toggleTagFilter(id)}
-                    aria-label={`Remove ${tag.name} filter`}
-                    className="text-muted-foreground hover:text-foreground"
-                  >
-                    <X className="size-3" />
-                  </Button>
-                </span>
-              );
-            })}
-            <Button
-              variant="ghost"
-              size="xs"
-              onClick={clearTagFilters}
-              className="text-muted-foreground hover:text-foreground"
-            >
-              {t('clearAll')}
-            </Button>
-          </div>
-        )}
-      </div>
 
       {/* Bulk action bar.
           Wraps: at 360px "25 selecionados" plus two buttons does not fit

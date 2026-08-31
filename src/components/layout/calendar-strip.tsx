@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useLocale, useTranslations } from 'next-intl';
 import {
@@ -38,7 +38,6 @@ import { cn } from '@/lib/utils';
 import {
   Popover,
   PopoverContent,
-  PopoverTrigger,
 } from '@/components/ui/popover';
 
 /**
@@ -163,6 +162,9 @@ export function CalendarStrip({ className }: { className?: string }) {
     setOpen(true);
   }, []);
 
+  /** The strip the popup hangs off — see the note at the markup. */
+  const stripRef = useRef<HTMLDivElement>(null);
+
   const shiftWeek = useCallback((by: number, event: React.MouseEvent) => {
     event.stopPropagation();
     setCursor((c) => addDays(c, by));
@@ -170,8 +172,24 @@ export function CalendarStrip({ className }: { className?: string }) {
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger
-        render={<div />}
+      {/* AN ANCHOR, NOT A TRIGGER.
+
+          This was `<PopoverTrigger render={<div />}>`, and Base UI was
+          right to complain: a trigger is a button, and this element
+          contains nine of them — the two week arrows and the seven days.
+          A `<button>` inside a `<button>` is invalid HTML, and the
+          escape hatch (`nativeButton={false}`) would have been worse
+          than the warning: it makes the wrapper announce itself as a
+          button to a screen reader, so the strip would be read as one
+          control containing nine controls.
+
+          The wrapper never needed to be a trigger. Every button inside
+          already sets `open` for itself — `pick()` opens, `shiftWeek()`
+          stops propagation and does not. What the wrapper is FOR is
+          position: the popup lines up under the whole strip rather than
+          under whichever day was clicked. That is what an anchor is. */}
+      <div
+        ref={stripRef}
         className={cn('flex items-center gap-0.5', className)}
       >
         <button
@@ -262,9 +280,9 @@ export function CalendarStrip({ className }: { className?: string }) {
             {t('today')}
           </button>
         )}
-      </PopoverTrigger>
+      </div>
 
-      <PopoverContent align="start" className="w-80 p-0">
+      <PopoverContent anchor={stripRef} align="start" className="w-80 p-0">
         <div className="border-border flex items-center gap-2 border-b px-3 py-2">
           <span className="text-foreground flex-1 truncate text-sm font-semibold">
             {formatMonthDay(selected)}

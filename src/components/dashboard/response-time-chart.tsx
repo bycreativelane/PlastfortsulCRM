@@ -1,5 +1,6 @@
 'use client';
 
+import { useId } from 'react';
 import { useTranslations } from 'next-intl';
 import { Clock } from 'lucide-react';
 import {
@@ -25,12 +26,16 @@ import {
 import { StatePanel } from '@/components/ui/state-panel';
 import {
   CHART_HEIGHT,
+  CHART_MARGIN,
+  ChartGradient,
   ChartGrid,
   ChartSurface,
   ChartTooltipCard,
   CURSOR_FILL,
+  Y_AXIS_WIDTH,
   axisProps,
   axisTick,
+  gradientFill,
 } from '@/components/charts/chart-primitives';
 import { Skeleton } from './skeleton';
 
@@ -103,6 +108,7 @@ export function ResponseTimeChart({
   thresholdMinutes = 5,
 }: ResponseTimeChartProps) {
   const t = useTranslations('Dashboard.responseTimeChart');
+  const gradientId = useId();
   const hasData = data?.buckets.some((b) => b.avgMinutes != null) ?? false;
 
   const rows: Row[] =
@@ -153,12 +159,29 @@ export function ResponseTimeChart({
           <ChartSurface>
             <BarChart
               data={rows}
-              margin={{ top: 4, right: 8, bottom: 0, left: 0 }}
+              margin={CHART_MARGIN}
               barCategoryGap="28%"
               accessibilityLayer
               role="img"
               aria-label={t('ariaLabel')}
             >
+              <defs>
+                {/* The bars are made of the same material as the areas on
+                    the chart above — see `ChartGradient`. They were a flat
+                    `var(--chart-1)`, which on the same page as two
+                    dissolving areas read as a block of paint rather than a
+                    quantity. The ramp stops at 55% rather than 0: an area
+                    has a stroke along its top edge holding the shape
+                    together, and a bar does not, so a bar that faded all
+                    the way out would lose its own footing on the axis. */}
+                <ChartGradient
+                  id={`${gradientId}-bar`}
+                  color="var(--chart-1)"
+                  from={0.95}
+                  to={0.55}
+                />
+              </defs>
+
               <ChartGrid />
 
               <XAxis
@@ -168,7 +191,7 @@ export function ResponseTimeChart({
               />
               <YAxis
                 {...axisProps}
-                width={40}
+                width={Y_AXIS_WIDTH}
                 tickFormatter={(v: number) => `${v}m`}
                 tick={axisTick('translate(-3, 0)')}
               />
@@ -228,7 +251,7 @@ export function ResponseTimeChart({
 
               <Bar
                 dataKey="minutes"
-                fill="var(--chart-1)"
+                fill={gradientFill(`${gradientId}-bar`)}
                 radius={[4, 4, 0, 0]}
                 maxBarSize={44}
                 isAnimationActive={false}
@@ -237,7 +260,10 @@ export function ResponseTimeChart({
                     day without reshaping the series. Today they are all
                     the accent — see the note above on why. */}
                 {rows.map((row) => (
-                  <Cell key={row.day} fill="var(--chart-1)" />
+                  <Cell
+                    key={row.day}
+                    fill={gradientFill(`${gradientId}-bar`)}
+                  />
                 ))}
               </Bar>
             </BarChart>

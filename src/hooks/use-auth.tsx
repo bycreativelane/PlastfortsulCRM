@@ -11,6 +11,7 @@ import {
   type ReactNode,
 } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { isUnknownColumn } from "@/lib/supabase/pg-errors";
 import type { User } from "@supabase/supabase-js";
 import { DEFAULT_CURRENCY } from "@/lib/currency";
 import {
@@ -20,6 +21,10 @@ import {
   isAccountRole,
   type AccountRole,
 } from "@/lib/auth/roles";
+import {
+  parseOverrides,
+  type PermissionOverrides,
+} from "@/lib/auth/capabilities";
 
 interface Profile {
   id: string;
@@ -35,6 +40,12 @@ interface Profile {
   beta_features: string[];
   account_id: string | null;
   account_role: AccountRole | null;
+  /**
+   * Per-person exceptions over the role (migration 050). `{}` on an
+   * account nobody has configured, and on any database without the
+   * column — see the fallback in `fetchProfile`.
+   */
+  permission_overrides: PermissionOverrides;
 }
 
 interface AccountSummary {
@@ -110,6 +121,13 @@ interface AuthContextValue {
   accountId: string | null;
   /** Role within that account. Null while loading. */
   accountRole: AccountRole | null;
+  /**
+   * Per-person exceptions over that role (migration 050). Read it
+   * through `useCan`, which applies it — a consumer indexing this map
+   * directly would miss the rule that a grant the database refuses is
+   * not a grant.
+   */
+  permissionOverrides: PermissionOverrides;
   /** Lightweight account meta — id + name + default_currency. Null while loading. */
   account: AccountSummary | null;
   /** Account default deal currency. Falls back to DEFAULT_CURRENCY
@@ -142,6 +160,15 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/**
+ * The columns that have always been there.
+ *
+ * Split out because the select below asks for one more and has to be
+ * able to ask again without it — see the note at the retry.
+ */
+const PROFILE_COLUMNS =
+  "id, full_name, email, avatar_url, role, beta_features, account_id, account_role";
+
 /** Shape of the `profiles` select below. */
 interface ProfileRow {
   id: string;
@@ -152,6 +179,7 @@ interface ProfileRow {
   beta_features: string[] | null;
   account_id: string | null;
   account_role: string | null;
+  permission_overrides?: unknown;
 }
 
 /**
@@ -189,13 +217,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       let data: ProfileRow | null = null;
       for (let attempt = 1; ; attempt++) {
-        const result = await supabase
+        let result = await supabase
           .from("profiles")
-          .select(
-            "id, full_name, email, avatar_url, role, beta_features, account_id, account_role",
-          )
+          .select(`${PROFILE_COLUMNS}, permission_overrides`)
           .eq("user_id", userId)
           .maybeSingle();
+
+        // `permission_overrides` arrives with migration 050, which is
+        // applied by hand. Naming a column the database does not have is
+        // a 42703 for the WHOLE row — and this row is the one that
+        // establishes the account and the role, so the failure would not
+        // be "no overrides", it would be every gate in the app answering
+        // false and the session going silently read-only. Retry without
+        // it; the parse below defaults to `{}`, which is exactly
+        // "whatever the role says".
+        if (result.error && isUnknownColumn(result.error)) {
+          result = await supabase
+            .from("profiles")
+            .select(PROFILE_COLUMNS)
+            .eq("user_id", userId)
+            .maybeSingle();
+        }
 
         if (!result.error) {
           data = result.data;
@@ -280,8 +322,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           beta_features: data.beta_features ?? [],
           account_id: data.account_id ?? null,
           account_role: accountRole,
+          permission_overrides: parseOverrides(data.permission_overrides),
         });
         setAccount(accountRow);
+
+        // "Último acesso", and one line in the audit log.
+        //
+        // Fire-and-forget on purpose: nothing on screen depends on it,
+        // and a session that failed to announce itself is still a
+        // session. `fetchProfile` runs once per user id (see
+        // `lastFetchedUserIdRef`), and `record_sign_in()` itself only
+        // appends a row when the last one is over an hour old — so a
+        // morning of navigation is one line, not a dozen. The stamp on
+        // `profiles.last_sign_in_at` still moves every time, which is
+        // what the roster reads.
+        //
+        // The `.catch` swallows the pre-050 case, where the function
+        // does not exist yet.
+        //
+        // supabase-js turns Postgrest failures into `{ error }` rather
+        // than a rejection, but a dead network can still reject the
+        // underlying fetch — and an unhandled rejection in an auth
+        // provider is a console error on every load of the app. The
+        // builder is a `PromiseLike` with no `.catch`, so the second
+        // handler on `.then` is where that goes.
+        void supabase.rpc("record_sign_in").then(
+          ({ error }) => {
+            if (error && error.code !== "PGRST202") {
+              console.error("[AuthProvider] record_sign_in:", error.message);
+            }
+          },
+          () => {}
+        );
+
         if (!data.account_id || !accountRole) {
           // The row exists but carries no tenancy. Migration 017 made
           // both columns NOT NULL for new signups, so this is a user
@@ -403,6 +476,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return {
       accountRole: role,
       accountId: profile?.account_id ?? null,
+      permissionOverrides: profile?.permission_overrides ?? {},
       isOwner: role === "owner",
       isAdmin: role === "admin",
       isAgent: role === "agent",
@@ -411,7 +485,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       canEditSettings: role ? canEditSettingsFor(role) : false,
       canSendMessages: role ? canSendMessagesFor(role) : false,
     };
-  }, [profile?.account_role, profile?.account_id]);
+  }, [
+    profile?.account_role,
+    profile?.account_id,
+    profile?.permission_overrides,
+  ]);
 
   // Signed out is not a broken account — the shell redirects to /login
   // before anything reads this.
@@ -474,6 +552,7 @@ export function useAuth(): AuthContextValue {
       accountStatusDetail: null,
       accountId: null,
       accountRole: null,
+      permissionOverrides: {},
       isOwner: false,
       isAdmin: false,
       isAgent: false,

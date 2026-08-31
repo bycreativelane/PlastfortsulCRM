@@ -36,7 +36,23 @@ export function WindowClosedNotice({
   const t = useTranslations('Inbox.sessionTimer');
 
   return (
-    <div className="flex items-center justify-center pt-2">
+    // `hidden sm:flex` — THE PHONE ALREADY HEARD IT, TWICE.
+    //
+    // With a closed window, a 375px screen was carrying three statements
+    // of the same fact: the padlock chip in the header, this strip, and
+    // the composer's own placeholder ("Janela fechada — use um
+    // template") with its send button disabled. Three, on the device
+    // with the least room, for a condition that lasts until the customer
+    // writes again.
+    //
+    // The composer is the one that survives, and not by seniority: it is
+    // where the person is about to hit the wall, it is already explaining
+    // itself at the moment of the attempt, and its `+` menu reaches the
+    // templates. This strip costs ~60px to repeat that a screen earlier.
+    //
+    // It stays from `sm` up, where the argument for it still holds — it
+    // scrolls with the conversation and it can be dismissed.
+    <div className="hidden items-center justify-center pt-2 sm:flex">
       <div className="bg-danger-soft text-danger-ink flex max-w-md items-center gap-2 rounded-lg px-3 py-1.5 text-xs shadow-[var(--wa-shadow)]">
         <Lock className="size-3.5 shrink-0" />
         <span className="min-w-0 flex-1">{t('closedNotice')}</span>

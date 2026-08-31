@@ -1,7 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Loader2, MessageSquare, Paperclip, Zap } from 'lucide-react';
+import {
+  Loader2,
+  MessageSquare,
+  MessageSquareText,
+  Paperclip,
+} from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
 import {
@@ -82,7 +87,7 @@ export function QuickReplyPicker({
                         two kinds; colouring one of them made a list of saved
                         snippets look like half of it needed attention. */}
                     {qr.kind === 'interactive' ? (
-                      <Zap className="text-muted-foreground mt-0.5 size-4 shrink-0" />
+                      <MessageSquareText className="text-muted-foreground mt-0.5 size-4 shrink-0" />
                     ) : qr.kind === 'media' ? (
                       <Paperclip className="text-muted-foreground mt-0.5 size-4 shrink-0" />
                     ) : (

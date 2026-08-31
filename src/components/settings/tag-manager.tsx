@@ -23,7 +23,7 @@ import {
   PanelBody,
 } from '@/components/ui/panel';
 import { StatePanel } from '@/components/ui/state-panel';
-import { ColorPicker } from '@/components/ui/color-picker';
+import { ColorSwatch } from '@/components/ui/color-swatch';
 import { useTranslations } from 'next-intl';
 import type { Tag } from '@/types';
 
@@ -234,7 +234,7 @@ export function TagManager() {
                   colours. Eight buttons in this row was already crowding
                   the name field at 360px; sixteen plus a hex box could not
                   live inline at all, and the choice is worth a click. */}
-              <TagColorButton
+              <ColorSwatch
                 value={selectedColor}
                 onChange={setSelectedColor}
                 previewLabel={newTagName}
@@ -298,55 +298,3 @@ export function TagManager() {
   );
 }
 
-/**
- * The swatch that opens the picker.
- *
- * A plain overlay rather than the Popover primitive: this row lives inside
- * a settings card, not a dialog, and the primitive's positioner would have
- * to be portalled past a `overflow-hidden` panel to sit where the eye
- * expects it. The same shape `pipeline-settings.tsx` uses, for the same
- * reason.
- */
-function TagColorButton({
-  value,
-  onChange,
-  previewLabel,
-  label,
-}: {
-  value: string;
-  onChange: (hex: string) => void;
-  previewLabel?: string;
-  label: string;
-}) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="relative shrink-0">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-label={label}
-        title={label}
-        aria-expanded={open}
-        className="border-border grid size-9 place-items-center rounded-md border"
-      >
-        <span
-          aria-hidden
-          className="size-5 rounded-full"
-          style={{ backgroundColor: value }}
-        />
-      </button>
-      {open && (
-        <>
-          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="border-border bg-popover absolute top-10 right-0 z-20 rounded-lg border p-2.5 shadow-lg">
-            <ColorPicker
-              value={value}
-              onChange={onChange}
-              previewLabel={previewLabel}
-            />
-          </div>
-        </>
-      )}
-    </div>
-  );
-}

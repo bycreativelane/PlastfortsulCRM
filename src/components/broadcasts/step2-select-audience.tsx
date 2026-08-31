@@ -2,10 +2,14 @@
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { useAuth } from '@/hooks/use-auth';
+import { loadProducts, type Product } from '@/lib/products/catalog';
 import { CustomField, Tag } from '@/types';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
   Users,
+  Package,
   Tags,
   Filter,
   Upload,
@@ -19,7 +23,7 @@ import { Input } from '@/components/ui/input';
 import { OptionSelect } from '@/components/ui/option-select';
 import { APP_LOCALE } from '@/lib/i18n/locale';
 
-type AudienceType = 'all' | 'tags' | 'custom_field' | 'csv';
+type AudienceType = 'all' | 'tags' | 'custom_field' | 'csv' | 'products';
 type CustomFieldOperator = 'is' | 'is_not' | 'contains';
 
 interface CustomFieldFilter {
@@ -31,6 +35,8 @@ interface CustomFieldFilter {
 interface AudienceConfig {
   type: AudienceType;
   tagIds?: string[];
+  /** Spec §44 — "campanha por produto" (migration 054). */
+  productIds?: string[];
   customField?: CustomFieldFilter;
   csvContacts?: { phone: string; name?: string }[];
   excludeTagIds?: string[];
@@ -50,6 +56,7 @@ export function Step2SelectAudience({
   onBack,
 }: Step2Props) {
   const t = useTranslations('Broadcasts.wizard');
+  const { accountId } = useAuth();
 
   const OPERATOR_OPTIONS = useMemo<
     { value: CustomFieldOperator; label: string }[]
@@ -83,6 +90,15 @@ export function Step2SelectAudience({
         description: t('selectAudience.tagDesc'),
         icon: Tags,
       },
+      // Right after tags, because it is the same shape of question —
+      // "who is this campaign about" — answered from the catalogue
+      // instead of from a naming convention. Spec §44.
+      {
+        type: 'products',
+        label: t('selectAudience.method.products'),
+        description: t('selectAudience.productsDesc'),
+        icon: Package,
+      },
       {
         type: 'custom_field',
         label: t('selectAudience.method.customField'),
@@ -99,6 +115,12 @@ export function Step2SelectAudience({
     [t]
   );
   const [tags, setTags] = useState<Tag[]>([]);
+  /**
+   * The catalogue, or null while it is still loading — and an empty
+   * array on a database without migration 054, which draws "no products
+   * yet" rather than a spinner that never resolves.
+   */
+  const [products, setProducts] = useState<Product[] | null>(null);
   const [customFields, setCustomFields] = useState<CustomField[]>([]);
   const [loadingTags, setLoadingTags] = useState(false);
   const [loadingFields, setLoadingFields] = useState(false);
@@ -122,6 +144,23 @@ export function Step2SelectAudience({
   }, []);
 
   // Lazy-load custom fields only when that audience type is active.
+  // The catalogue, once. Loaded whether or not the products option is
+  // picked, because the option's own description says how many there
+  // are — and an option that has to be selected before it can say
+  // whether it is usable is an option people select and then back out
+  // of.
+  useEffect(() => {
+    if (!accountId) return;
+    let cancelled = false;
+    void loadProducts(createClient(), accountId).then((result) => {
+      if (cancelled) return;
+      setProducts(result === 'missing-table' ? [] : result);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [accountId]);
+
   useEffect(() => {
     if (audience.type !== 'custom_field') return;
     async function fetchFields() {
@@ -160,6 +199,23 @@ export function Step2SelectAudience({
           .select('contact_id')
           .in('tag_id', audience.tagIds);
         baseIds = new Set((data ?? []).map((r) => r.contact_id));
+      } else if (
+        audience.type === 'products' &&
+        audience.productIds &&
+        audience.productIds.length > 0
+      ) {
+        const { data, error } = await supabase
+          .from('contacts')
+          .select('id')
+          .overlaps('product_interest', audience.productIds);
+        // Pre-054 there is no column to overlap. Showing no estimate is
+        // the honest answer; showing zero would read as "nobody buys
+        // this", which is a different and wrong statement.
+        if (error) {
+          setEstimatedCount(null);
+          return;
+        }
+        baseIds = new Set((data ?? []).map((r) => r.id));
       } else if (
         audience.type === 'custom_field' &&
         audience.customField?.fieldId &&
@@ -338,6 +394,51 @@ export function Step2SelectAudience({
           }
         )}
       </div>
+
+      {audience.type === 'products' && (
+        <div className="border-border bg-card/50 rounded-lg border p-4">
+          <p className="text-foreground mb-3 text-sm font-medium">
+            {t('selectAudience.selectProducts')}
+          </p>
+          {products === null ? (
+            <Loader2 className="text-muted-foreground size-4 animate-spin" />
+          ) : products.length === 0 ? (
+            <p className="text-muted-foreground text-xs">
+              {t('selectAudience.noProductsFound')}
+            </p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {products.map((product) => {
+                const isSelected = audience.productIds?.includes(product.id);
+                return (
+                  <button
+                    key={product.id}
+                    type="button"
+                    onClick={() => {
+                      const current = audience.productIds ?? [];
+                      onUpdate({
+                        ...audience,
+                        productIds: isSelected
+                          ? current.filter((id) => id !== product.id)
+                          : [...current, product.id],
+                      });
+                    }}
+                    aria-pressed={isSelected}
+                    className={cn(
+                      'inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-medium transition-colors [@media(pointer:coarse)]:min-h-11',
+                      isSelected
+                        ? 'border-primary bg-primary-soft text-primary'
+                        : 'border-border bg-card text-secondary-foreground hover:bg-muted'
+                    )}
+                  >
+                    {product.sku ? `${product.sku} — ${product.name}` : product.name}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {audience.type === 'tags' && (
         <div className="border-border bg-card/50 rounded-lg border p-4">

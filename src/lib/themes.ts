@@ -52,6 +52,31 @@ export const DEFAULT_MODE: Mode = 'light';
 export const MODE_STORAGE_KEY = 'wacrm.mode';
 
 /**
+ * The colour the BROWSER paints its own chrome with, per mode.
+ *
+ * These two used to sit inline in `layout.tsx` behind
+ * `prefers-color-scheme` media queries — that is, keyed to the
+ * OPERATING SYSTEM's preference. But this app's mode is not the
+ * system's: it is `data-mode`, read from localStorage, defaulting to
+ * light, with no "follow the system" option at all. So the common case
+ * — a phone set to dark, the app in its default light — painted the
+ * status bar `#0f1115` above a white interface. In a browser tab that
+ * is a mismatched strip. Installed to the home screen, with no address
+ * bar between them, it is the app's own top edge in the wrong colour.
+ *
+ * They live here, next to `MODES`, because two places need them and
+ * one of them is the no-flash boot script — which cannot import, so it
+ * interpolates this object as JSON. Same contract as `THEME_IDS`.
+ *
+ * The values match `--background` for each mode in `globals.css`. If
+ * that token moves, move these.
+ */
+export const MODE_THEME_COLOR: Record<Mode, string> = {
+  light: '#f5f6f7',
+  dark: '#0f1115',
+};
+
+/**
  * NAV — sidebar collapsed / expanded.
  *
  * Not a theme, but it lives here for the same reason the other two do:

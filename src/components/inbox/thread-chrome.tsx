@@ -55,10 +55,22 @@ export function WindowPill({
   return (
     <span
       title={title}
+      // `aria-label` and not the visible text: below `sm` the label is
+      // hidden (see the span), so a screen reader would otherwise get a
+      // lock glyph and nothing else.
+      aria-label={label}
       className={cn(windowPillVariants({ state }), className)}
     >
       <Icon />
-      {label}
+      {/* The words go, the colour and the glyph stay — PHONE ONLY.
+          `sm:inline` and not a second component: this is the same chip
+          in a narrower room. At 375px the header's fixed furniture
+          (back + avatar + this + the owner chip + the overflow) added up
+          to 344px against a 390px bar, and the contact's own name — the
+          one thing the header exists to say — was left with 46px and
+          rendered as "Marcos Al…". A clock or a padlock in the right
+          colour carries the same fact in 20px. */}
+      <span className="hidden sm:inline">{label}</span>
     </span>
   );
 }
@@ -82,9 +94,31 @@ export function WindowPill({
  * 11rem it was ~176px of unyielding width that pushed the contact's own
  * name to zero at 360px and then overflowed a header clipped by
  * `overflow-hidden`. `OwnerChipContent` already truncates inside.
+ *
+ * ------------------------------------------------------------------
+ * AND ON A PHONE IT IS A DISC, NOT A CHIP
+ * ------------------------------------------------------------------
+ *
+ * Truncating was not enough. At 375px `max-w-28` still spent 112px
+ * stating the name of the person who ALREADY has the thread — a fact
+ * the reader is not looking for — while the name of the person they are
+ * TALKING TO, three inches to the left, was cut to "Marcos Al…". The
+ * header was answering the wrong question with the better half of its
+ * width.
+ *
+ * So below `sm` the chip collapses to a 28px round target: the
+ * assignee's initials when somebody owns it, the amber `UserPlus` when
+ * nobody does. The amber is what actually carries the meaning here —
+ * "this thread has no owner, decide" reads from the colour alone at
+ * arm's length, and always did. The name is one tap away in the menu
+ * this chip already opens, and it is also on every row of the list
+ * behind it. Above `sm` nothing changes.
  */
 export const ownerChipVariants = cva(
-  'inline-flex h-7 max-w-28 min-w-0 shrink items-center gap-1.5 rounded-full border px-2.5 text-xs font-semibold whitespace-nowrap transition-colors duration-(--dur-1) sm:max-w-44 [&>svg]:size-3.5 [&>svg]:shrink-0',
+  // `size-7 justify-center rounded-full` on the phone and a pill from
+  // `sm` up. `px-0 sm:px-2.5` is the pair that matters: padding on a
+  // fixed-width disc would push the initials off centre.
+  'inline-flex size-7 shrink-0 items-center justify-center gap-1.5 rounded-full border px-0 text-xs font-semibold whitespace-nowrap transition-colors duration-(--dur-1) sm:size-auto sm:h-7 sm:max-w-44 sm:min-w-0 sm:shrink sm:px-2.5 [&>svg]:size-3.5 [&>svg]:shrink-0',
   {
     variants: {
       owned: {
@@ -97,11 +131,31 @@ export const ownerChipVariants = cva(
   }
 );
 
-export function OwnerChipContent({ label }: { label: string }) {
+/**
+ * `initials` is what the phone shows in place of the name; pass null
+ * when the thread is unassigned and the `UserPlus` glyph carries it.
+ */
+export function OwnerChipContent({
+  label,
+  initials,
+}: {
+  label: string;
+  initials?: string | null;
+}) {
   return (
     <>
-      <UserPlus />
-      <span className="min-w-0 truncate">{label}</span>
+      {initials ? (
+        <span aria-hidden className="text-2xs sm:hidden">
+          {initials}
+        </span>
+      ) : null}
+      <UserPlus className={cn(initials && 'hidden sm:block')} />
+      <span className="hidden min-w-0 truncate sm:inline">{label}</span>
+      {/* The full label survives for assistive tech at every width — the
+          visible text above is `sm:inline` and the initials are
+          `aria-hidden`, so without this the control announces as an
+          unlabelled button on a phone. */}
+      <span className="sr-only sm:hidden">{label}</span>
     </>
   );
 }

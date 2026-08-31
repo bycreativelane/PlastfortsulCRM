@@ -10,6 +10,7 @@ import {
   CalendarClock,
   Building2,
   ChevronRight,
+  Package,
   Pencil,
   Phone,
   Plus,
@@ -104,6 +105,19 @@ export function ContactSidebar({
   const [deals, setDeals] = useState<Deal[]>([]);
   const [notes, setNotes] = useState<ContactNote[]>([]);
   const [tags, setTags] = useState<(Tag & { contact_tag_id: string })[]>([]);
+  /**
+   * What this customer buys, resolved to names.
+   *
+   * `contacts.product_interest` (054) is an array of uuids, and a uuid on
+   * screen is worse than nothing. Fetched separately rather than embedded
+   * because PostgREST cannot join through an array column - the array was
+   * chosen precisely because nothing ever joins FROM it, and this is the
+   * one place that pays the price: one extra query, when the contact has
+   * any.
+   */
+  const [interest, setInterest] = useState<
+    { id: string; name: string; size_label: string | null }[]
+  >([]);
   const [newNote, setNewNote] = useState('');
   const [addingNote, setAddingNote] = useState(false);
 
@@ -148,6 +162,48 @@ export function ContactSidebar({
   }, [contact]);
 
   // Load on contact change, and again whenever the page says something was
+  /**
+   * Derived, not synced. `interest` holds whatever was last resolved; a
+   * contact with no products shows nothing without anybody having to
+   * remember to clear it, and switching between two contacts cannot flash
+   * the previous one's catalogue.
+   */
+  const shownInterest = (contact?.product_interest?.length ?? 0) > 0 ? interest : [];
+
+  // The names behind `product_interest`. Skipped entirely when the
+  // contact has none, which is most of them - and silent on a pre-054
+  // database, where the column comes back undefined and this never runs.
+  useEffect(() => {
+    const ids = contact?.product_interest ?? [];
+    // No reset here. Clearing stale names would be a synchronous
+    // setState inside an effect (cascading renders, and the lint rule
+    // that names it); the render below derives the empty case from the
+    // contact instead, which cannot go stale by construction.
+    if (!ids.length) return;
+    let cancelled = false;
+    void (async () => {
+      const db = createClient();
+      const wide = await db
+        .from('products')
+        .select('id, name, size_label')
+        .in('id', ids);
+      // Pre-055 there is no `size_label`, and naming it is a 42703 for the
+      // whole row - the names would vanish rather than the measurement.
+      const res = wide.error
+        ? await db.from('products').select('id, name').in('id', ids)
+        : wide;
+      if (cancelled || res.error) return;
+      setInterest(
+        (res.data as { id: string; name: string; size_label?: string | null }[]).map(
+          (r) => ({ id: r.id, name: r.name, size_label: r.size_label ?? null })
+        )
+      );
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [contact?.product_interest]);
+
   // saved. setContactData/setTags run inside async Supabase callbacks, not
   // synchronously in the effect body.
   useEffect(() => {
@@ -528,6 +584,39 @@ export function ContactSidebar({
                 </span>
               </KeyValue>
             )}
+          </Section>
+        )}
+
+        {/* WHAT THEY BUY, in the panel that is open while somebody types.
+
+            This is the whole argument for the catalogue living at
+            /products rather than in Configuracoes: the question "o que
+            esse cliente compra" is asked mid-conversation, and until now
+            the answer was only on the contact form, two screens away.
+
+            Rendered only when there is something - an empty card headed
+            "Produtos" on every conversation would be another row of
+            nothing in the densest panel in the app, same rule the
+            commercial block follows above. */}
+        {shownInterest.length > 0 && (
+          <Section>
+            <SidePanelLabel>
+              <Package />
+              {tSidebar('products')}
+            </SidePanelLabel>
+            <div className="flex flex-wrap gap-1">
+              {shownInterest.map((p) => (
+                // A link, not a chip: the next thing wanted after seeing
+                // the name is almost always the price.
+                <Link
+                  key={p.id}
+                  href={`/products?q=${encodeURIComponent(p.name)}`}
+                  className="border-border bg-card-2 text-secondary-foreground hover:border-primary/50 hover:text-foreground max-w-full truncate rounded-md border px-2 py-1 text-2xs transition-colors"
+                >
+                  {[p.name, p.size_label].filter(Boolean).join(' · ')}
+                </Link>
+              ))}
+            </div>
           </Section>
         )}
 

@@ -16,6 +16,8 @@
 import { NextResponse } from "next/server";
 
 import { requireRole, toErrorResponse } from "@/lib/auth/account";
+import { auditAdmin } from "@/lib/audit/admin-client";
+import { auditActorLabel, logAuditEvent } from "@/lib/audit/log";
 import {
   checkRateLimit,
   rateLimitResponse,
@@ -65,6 +67,15 @@ export async function DELETE(
         { status: 404 },
       );
     }
+
+    await logAuditEvent(auditAdmin(), {
+      accountId: ctx.accountId,
+      actorUserId: ctx.userId,
+      actorLabel: await auditActorLabel(ctx.supabase, ctx.userId),
+      action: "member.invite_revoked",
+      targetType: "invitation",
+      targetId: id,
+    });
 
     return NextResponse.json({ ok: true });
   } catch (err) {

@@ -28,7 +28,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { FieldLabel } from '@/components/ui/field';
-import { ColorPicker, COLOR_PRESETS } from '@/components/ui/color-picker';
+import { COLOR_PRESETS } from '@/components/ui/color-picker';
+import { ColorSwatch } from '@/components/ui/color-swatch';
 import { Trash2, Plus, GripVertical, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
@@ -295,7 +296,7 @@ export function PipelineSettings({
                     value={newStageColor}
                     onChange={setNewStageColor}
                     previewLabel={newStageName}
-                    t={t}
+                    label={t('changeColor')}
                   />
                   <Input
                     value={newStageName}
@@ -408,7 +409,7 @@ function SortableStageRow({
         value={stage.color}
         onChange={onColorChange}
         previewLabel={stage.name}
-        t={t}
+        label={t('changeColor')}
       />
       <Input
         value={stage.name}
@@ -426,54 +427,3 @@ function SortableStageRow({
     </div>
   );
 }
-
-function ColorSwatch({
-  value,
-  onChange,
-  previewLabel,
-  t,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  previewLabel?: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  t: any;
-}) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="relative">
-      {/* The dot stays 16px; the button around it is 28. A colour swatch is
-          the smallest thing anyone is asked to hit in this dialog, and the
-          dialog is opened on a phone like everything else here. */}
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="grid size-7 shrink-0 place-items-center rounded-md"
-        aria-label={t('changeColor')}
-      >
-        <span
-          aria-hidden
-          className="border-border size-4 rounded-full border"
-          style={{ backgroundColor: value }}
-        />
-      </button>
-      {open && (
-        <>
-          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="border-border bg-popover absolute top-8 left-0 z-20 rounded-lg border p-2.5 shadow-lg">
-            {/* The whole picker, not a row of swatches. The stored column
-                was always a free hex — the six-colour list was a limit the
-                UI invented, and "a cor da marca do cliente" was outside
-                it. Stays open on a pick so a colour can be nudged. */}
-            <ColorPicker
-              value={value}
-              onChange={onChange}
-              previewLabel={previewLabel}
-            />
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-

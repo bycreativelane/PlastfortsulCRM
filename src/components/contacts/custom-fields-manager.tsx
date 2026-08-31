@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import { toast } from 'sonner';
 import type { CustomField } from '@/types';
 import {
@@ -59,6 +60,7 @@ export function CustomFieldsManager({
  */
 export function CustomFieldsPanel() {
   const t = useTranslations('Contacts.customFields');
+  const { confirm } = useConfirm();
   const supabase = createClient();
   const { user, accountId } = useAuth();
 
@@ -154,7 +156,12 @@ export function CustomFieldsPanel() {
   }
 
   async function handleDelete(field: CustomField) {
-    if (!window.confirm(t('deleteConfirm', { name: field.field_name }))) {
+    if (
+      !(await confirm({
+        title: t('deleteConfirm', { name: field.field_name }),
+        destructive: true,
+      }))
+    ) {
       return;
     }
     setBusyId(field.id);

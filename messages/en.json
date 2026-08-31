@@ -98,7 +98,9 @@
     "menuProfile": "Profile",
     "menuSettings": "Settings",
     "menuSignOut": "Sign out",
-    "primaryNav": "Primary navigation"
+    "primaryNav": "Primary navigation",
+    "products": "Products",
+    "more": "More"
   },
   "Roadmap": {
     "regionLabel": "Coming next",
@@ -125,7 +127,6 @@
     "flows": "Flows",
     "reports": "Reports",
     "settings": "Settings",
-    "openMenu": "Open menu",
     "openAccountMenu": "Open account menu",
     "defaultUser": "User",
     "defaultAvatar": "Avatar",
@@ -138,7 +139,8 @@
       "prevWeek": "Previous week",
       "nextWeek": "Next week",
       "openFull": "Open the full agenda"
-    }
+    },
+    "products": "Products"
   },
   "Search": {
     "placeholder": "Search a customer, company or number…",
@@ -207,7 +209,9 @@
       "noOpenDealsHint": "Create deals in Pipelines to see stage breakdowns here.",
       "dealCount": "{count} {count, plural, =1 {deal} other {deals}}",
       "total": "Total",
-      "ariaLabel": "Pipeline value by stage"
+      "ariaLabel": "Pipeline value by stage",
+      "funnelSub": "First contact to close, in order. The percentage is how many are lost between steps.",
+      "dropOff": "{percent}% did not advance"
     },
     "responseTimeChart": {
       "title": "Average First Response Time",
@@ -310,7 +314,36 @@
       "lossReasons": "Loss reasons — deals have no field for one.",
       "calls": "Logged calls — notes have no call fields."
     },
-    "sectionPipeline": "Pipeline"
+    "sectionPipeline": "Pipeline",
+    "performance": {
+      "title": "Team performance",
+      "description": "The time is the MEDIAN, not the mean — one conversation answered on Monday after sitting all weekend would wreck an average and barely moves a median.",
+      "windowDays": "Last {days} days.",
+      "windowRange": "From {from} to {to}.",
+      "empty": "No data yet",
+      "emptyHint": "As soon as conversations are assigned and answered, the numbers show up here.",
+      "unnamed": "Unnamed",
+      "medianReply": "replies in {minutes} min",
+      "noReplies": "no replies in the period",
+      "resolvedOf": "closed {resolved} of {handled}",
+      "fromReplies": "from {count} replies",
+      "noSample": "no sample",
+      "howItWorks": "The number is 60% how much gets closed and 40% how fast it gets answered — resolution outweighs speed on purpose: routing on speed alone would reward saying something over finishing something. Under 5 minutes scores full marks."
+    },
+    "period": {
+      "custom": "Custom",
+      "from": "From",
+      "to": "To",
+      "cancel": "Cancel",
+      "apply": "Apply",
+      "willCover": "{days, plural, =1 {1 day} other {# days}} in the period",
+      "errorReversed": "The end date is before the start date.",
+      "errorFuture": "The start date has not arrived yet.",
+      "errorTooLong": "At most {days} days per analysis.",
+      "errorInvalid": "Pick both dates."
+    },
+    "loadFailed": "Could not load the data for this period.",
+    "periodTooBig": "That period is too big to add up here. Pick a smaller window."
   },
   "Inbox": {
     "conversationList": {
@@ -335,6 +368,7 @@
       "noConversations": "No conversations found",
       "emptyScope": "Nothing in this tab right now.",
       "emptyWithFilter": "Nothing in {scope} matches {filter}.",
+      "senderPrefix": "{name}:",
       "noMessagesYet": "No messages yet",
       "unknown": "Unknown",
       "filterOccurrence": "With an occurrence",
@@ -399,7 +433,7 @@
       "moreActions": "More actions"
     },
     "sessionTimer": {
-      "expired": "Expired",
+      "expired": "Window closed",
       "xhRemaining": "{hours}h remaining",
       "xmRemaining": "{minutes}m remaining",
       "noCustomerMessages": "No customer messages",
@@ -456,7 +490,8 @@
       "signaturePlaceholder": "your name",
       "signatureNameLabel": "Name used in the signature",
       "typeMessagePlaceholderShort": "Write a message...",
-      "quickReplyNeedsMigration": "Shortcuts and file snippets are waiting on migration 044. Text and interactive quick replies still work."
+      "quickReplyNeedsMigration": "Shortcuts and file snippets are waiting on migration 044. Text and interactive quick replies still work.",
+      "dropHint": "Drop to attach"
     },
     "bubble": {
       "photo": "Photo",
@@ -475,7 +510,9 @@
       "downloadFailed": "Couldn't download the attachment",
       "viewImage": "View image",
       "expandVideo": "Expand video",
-      "imageAlt": "Shared image"
+      "imageAlt": "Shared image",
+      "transcript": "Transcript",
+      "imageRead": "What is in the image"
     },
     "mediaViewer": {
       "counter": "{index} of {total}",
@@ -572,7 +609,8 @@
       "registerOccurrence": "Record occurrence",
       "futurePurchase": "Future purchase",
       "logCall": "Log a call",
-      "occurrenceCount": "{count} {count, plural, =1 {occurrence} other {occurrences}} on record — read them before promising a date."
+      "occurrenceCount": "{count} {count, plural, =1 {occurrence} other {occurrences}} on record — read them before promising a date.",
+      "products": "Products"
     },
     "aiBanner": {
       "pausedTitle": "AI assistant is paused here",
@@ -612,7 +650,9 @@
       "toastDeleted": "Conversation deleted.",
       "toastFailed": "Could not save. Try again.",
       "toastFailedDelete": "Could not delete. Admins only.",
-      "toastNeedsMigration": "This feature is waiting on migration 045."
+      "toastNeedsMigration": "This feature is waiting on migration 045.",
+      "swipeHide": "Hide",
+      "swipeUnread": "Unread"
     },
     "team": {
       "title": "My team",
@@ -625,7 +665,42 @@
       "unknownAuthor": "Someone",
       "pendingTitle": "Migration 046 has not been applied.",
       "pendingBody": "The team room is ready in the app — it is only waiting on the table being created.",
-      "cardEmpty": "No messages yet"
+      "cardEmpty": "No messages yet",
+      "send": "Send",
+      "messageActions": "Message actions",
+      "editAction": "Edit",
+      "editSave": "Save edit",
+      "editCancel": "Cancel edit",
+      "deleteAction": "Delete",
+      "deleteConfirm": "Delete this message for the whole team?",
+      "edited": "edited",
+      "cardYou": "You"
+    },
+    "assist": {
+      "suggest": "Suggest a reply",
+      "title": "Suggested reply",
+      "thinking": "Reading the thread and your documents…",
+      "again": "Try again",
+      "empty": "It had nothing useful to suggest for this message.",
+      "failed": "Could not get a suggestion",
+      "notConfigured": "Set the assistant up first in Settings › AI agent.",
+      "sources": "{count, plural, one {# passage used} other {# passages used}}",
+      "lookedUp": "{count, plural, one {looked up # thing} other {looked up # things}}",
+      "use": "Use it",
+      "discard": "Discard"
+    },
+    "aiMenu": {
+      "open": "AI help",
+      "title": "What AI can do here",
+      "suggest": "Suggest a reply",
+      "transcribe": "Transcribe this audio",
+      "describe": "Describe this image",
+      "readDocument": "Read this document",
+      "done": "Done — the text is on the message.",
+      "errorGone": "The file is no longer available. Meta keeps media for a limited time and this one has expired.",
+      "errorDisabled": "AI tools are turned off. Turn them on under Settings › AI tools.",
+      "errorUnsupported": "No configured provider reads this kind of file.",
+      "errorFailed": "Could not read the attachment."
     }
   },
   "Contacts": {
@@ -740,7 +815,11 @@
       "avatarAdd": "Add photo",
       "avatarChange": "Change photo",
       "avatarRemove": "Remove photo",
-      "avatarHint": "PNG, JPG or WebP. Optional."
+      "avatarHint": "PNG, JPG or WebP. Optional.",
+      "productInterest": "Products of interest",
+      "productInterestDesc": "What this customer buys or asked about. This is what a campaign by product filters on.",
+      "taxIdInvalid": "The check digits do not agree — worth a second look.",
+      "taxIdDuplicate": "“{name}” already has this number. Two records for one company means half the history is on each."
     },
     "detailView": {
       "tabs": {
@@ -1051,7 +1130,9 @@
       "toastMarkedLost": "Marked as lost",
       "toastReopened": "Deal reopened",
       "toastFailedDelete": "Failed to delete deal",
-      "toastDeleted": "Deal deleted"
+      "toastDeleted": "Deal deleted",
+      "valueFromItems": "Added up from the lines below.",
+      "toastItemsFailed": "The opportunity was saved, but its lines were not."
     },
     "settings": {
       "managePipeline": "Manage Pipeline",
@@ -1119,6 +1200,20 @@
         "productMismatch": "Wrong product fit",
         "other": "Other"
       }
+    },
+    "items": {
+      "title": "What is in this opportunity",
+      "addLine": "Add line",
+      "empty": "No lines. The value above is whatever somebody typed.",
+      "product": "Product",
+      "freeText": "Free text (freight, assembly…)",
+      "lineName": "What this line is",
+      "namePlaceholder": "Description on the quote",
+      "quantity": "Qty",
+      "unitPrice": "Unit price",
+      "discount": "Disc. %",
+      "removeLine": "Remove this line",
+      "total": "Total"
     }
   },
   "Broadcasts": {
@@ -1237,7 +1332,8 @@
           "all": "All Contacts",
           "tags": "Filter by Tags",
           "customField": "Custom Field",
-          "csv": "Upload CSV"
+          "csv": "Upload CSV",
+          "products": "By product"
         },
         "allDesc": "Send to all {count} contacts in your database.",
         "allDescLoading": "Send to all contacts in your database.",
@@ -1267,7 +1363,10 @@
         "summaryTitle": "Audience summary",
         "summaryEmpty": "Finish setting up the audience to see the estimate.",
         "calculating": "Calculating…",
-        "estimatedRecipients": "estimated recipients"
+        "estimatedRecipients": "estimated recipients",
+        "productsDesc": "Everybody who buys or asked about one of these. Reads the catalogue, not a tag naming convention.",
+        "selectProducts": "Which products",
+        "noProductsFound": "No products in the catalogue yet. Add them in Settings › Products."
       },
       "personalize": {
         "title": "Personalize Variables",
@@ -1475,6 +1574,10 @@
         "time_based": {
           "label": "Time-Based",
           "hint": "On a recurring schedule"
+        },
+        "webhook_received": {
+          "label": "Webhook received",
+          "hint": "Something outside the product — Typebot, n8n, a landing page — posted to one of this account’s webhooks"
         }
       },
       "trigger": "Trigger",
@@ -1696,10 +1799,7 @@
           "topics": {
             "text": "What can I help you with?",
             "button_label": "View topics",
-            "sections": [
-              "Common questions",
-              "Other"
-            ],
+            "sections": ["Common questions", "Other"],
             "options": {
               "hours": "Opening hours",
               "pricing": "Pricing",
@@ -2017,7 +2117,9 @@
       "cancel": "Cancel",
       "removing": "Removing...",
       "removeBtn": "Remove member",
-      "toastServerUnreachable": "Could not reach the server"
+      "toastServerUnreachable": "Could not reach the server",
+      "lastAccess": "Last access {when}",
+      "neverAccessed": "Has never signed in"
     },
     "invite": {
       "inviteCreated": "Invite created",
@@ -2301,10 +2403,16 @@
       "deals": "Deals & currency",
       "members": "Team members",
       "api": "API keys",
-      "whats-new": "What's new"
+      "whats-new": "What's new",
+      "access": "Access & audit",
+      "assignment": "Assignment",
+      "rooms": "Team rooms",
+      "ai-tools": "AI tools",
+      "hooks": "Webhooks"
     },
     "groups": {
       "account": "Account",
+      "channel": "Channel",
       "workspace": "Workspace"
     },
     "profile": {
@@ -2387,6 +2495,16 @@
         "rose": {
           "tagline": "Bold and modern — D2C, creator-economy, lifestyle."
         }
+      },
+      "install": {
+        "title": "Install on this device",
+        "promptBody": "Install the CRM as an app: it opens full screen, with no browser bar, and gets its own icon on your home screen.",
+        "action": "Install app",
+        "iosBody": "On iPhone, Safari does this itself. Once added, the CRM opens full screen with no browser bar.",
+        "iosStep1": "Share",
+        "iosStep2": "Add to Home Screen",
+        "installedTitle": "Installed on this device",
+        "installedBody": "You are already running the CRM as an app — that is why there is no browser bar here."
       }
     },
     "security": {
@@ -2437,7 +2555,10 @@
         "contactsWrite": "Create and update contacts",
         "conversationsRead": "List and read conversations",
         "broadcastsSend": "Launch broadcast campaigns",
-        "webhooksManage": "Register and manage outbound event webhooks"
+        "webhooksManage": "Register and manage outbound event webhooks",
+        "fieldsRead": "Read custom field definitions (name, type and the id automations use)",
+        "dealsRead": "Read pipelines, stages and deals",
+        "dealsWrite": "Create a deal and move it between stages"
       }
     },
     "deals": {
@@ -2492,7 +2613,9 @@
       "removeSuccess": "AI configuration removed.",
       "removeFailed": "Failed to remove.",
       "loading": "Loading…",
-      "toggleKeyVisibility": "Show or hide the API key"
+      "toggleKeyVisibility": "Show or hide the API key",
+      "mediaUnderstanding": "Transcribe audio and read images",
+      "mediaUnderstandingDesc": "Every voice note and photo a customer sends is turned into text on arrival, on your own key. Without it those messages reach the inbox with no words in them — nothing to search, no keyword to trigger on."
     },
     "aiKnowledge": {
       "loadFailed": "Failed to load knowledge base",
@@ -2527,7 +2650,9 @@
       "description": "Your bring-your-own-key AI agent — set it up, then test it in the playground before it replies to customers in the inbox.",
       "tabPlayground": "Playground",
       "tabSetup": "Setup",
-      "tabUsage": "Usage"
+      "tabUsage": "Usage",
+      "backToGuided": "Back to guided setup",
+      "title": "AI agent"
     },
     "quickReplies": {
       "title": "Quick replies",
@@ -2579,14 +2704,6 @@
       "wouldHandOff": "Would hand off to a human here"
     },
     "railAria": "Settings sections",
-    "autoAssign": {
-      "title": "Automatic assignment",
-      "description": "Each new unassigned conversation goes to the next teammate who is online, in rotation. A conversation that already has an owner never changes hands.",
-      "needsMigration": "This feature is waiting on migration 045.",
-      "turnedOn": "Rotation on.",
-      "turnedOff": "Rotation off.",
-      "saveFailed": "Could not save. Try again."
-    },
     "aiUsage": {
       "title": "Token usage",
       "description": "Tokens spent on your provider key by drafts and the auto-reply bot. Counts only — no message content is stored here.",
@@ -2603,6 +2720,291 @@
       "seriesTokens": "Tokens",
       "modelSummary": "{tokens} tok · {calls, plural, one {# call} other {# calls}}",
       "truncated": "Showing a partial window — usage is high enough that only the most recent records are summarized here."
+    },
+    "access": {
+      "title": "Access & audit",
+      "description": "What each person may do, and a record of what has already been done to this account.",
+      "restrictedTitle": "Admins only",
+      "restrictedBody": "This page shows every member's sign-in times and every change made to the account.",
+      "permissionsTitle": "Permissions per person",
+      "permissionsSub": "The role is the base. Here you write the exceptions for one person.",
+      "scopeNote": "These exceptions are applied by the interface and by this app. They change what a person sees and can do here — they are not a database-level lock. Where that difference matters, change the role instead.",
+      "noEditableTitle": "Nobody to configure yet",
+      "noEditableBody": "Exceptions are written for other people — not for the owner, and not for yourself. Invite a colleague first.",
+      "pickMember": "Pick somebody above to see what they can do.",
+      "save": "Save permissions",
+      "saved": "Permissions saved",
+      "saveFailed": "Could not save the permissions",
+      "fromRole": "From the {role} role · {roleAnswer}",
+      "overridden": "Exception for this person · the {role} role says {roleAnswer}",
+      "yes": "yes",
+      "no": "no",
+      "denyOnly": "can only be taken away, never granted above the role",
+      "resetToRole": "Back to what the role says",
+      "auditTitle": "Account audit",
+      "auditSub": "Who did what, and when. Nobody can edit or delete a line here.",
+      "auditFailed": "Could not load the audit log",
+      "auditMore": "Show older",
+      "auditPendingTitle": "Waiting on migration 050",
+      "auditPendingBody": "The audit log is ready in the app — it is waiting for the table to be created in the database.",
+      "auditEmptyTitle": "Nothing recorded yet",
+      "auditEmptyBody": "Sign-ins, role changes, keys and integration settings all land here as they happen.",
+      "areaAll": "Everything",
+      "areaSession": "Sign-ins",
+      "areaMember": "Team",
+      "areaAccount": "Account",
+      "areaKey": "API keys",
+      "areaIntegration": "Integrations",
+      "unknownActor": "Someone",
+      "actionSignedIn": "signed in",
+      "actionInvited": "created an invite",
+      "actionInviteRevoked": "revoked an invite",
+      "actionJoined": "joined the account",
+      "actionRoleChanged": "changed the role of",
+      "actionPermissionsChanged": "changed the permissions of",
+      "actionRemoved": "removed",
+      "actionOwnershipTransferred": "handed the account over to",
+      "actionKeyCreated": "created the API key",
+      "actionKeyRevoked": "revoked an API key",
+      "actionAiUpdated": "changed the AI settings",
+      "actionWhatsappUpdated": "changed the WhatsApp settings",
+      "caps": {
+        "inboxView": "Open the shared inbox",
+        "contactsView": "See contacts",
+        "contactsExport": "Export the contact list",
+        "pipelinesView": "See the pipeline board",
+        "broadcastsSend": "Send broadcasts",
+        "automationsManage": "Manage automations",
+        "flowsManage": "Manage flows",
+        "reportsView": "See reports",
+        "settingsManage": "Change account settings",
+        "teamRoomWrite": "Write in the team room",
+        "auditView": "See this page",
+        "productsView": "See the product catalogue",
+        "productsViewDesc": "A price somebody cannot look up is a price they ask a colleague for."
+      }
+    },
+    "assignment": {
+      "title": "Automatic assignment",
+      "description": "Who gets the next conversation, and by what rule. Nothing here ever takes a thread away from somebody already handling it.",
+      "pendingTitle": "Waiting on migration 051",
+      "pendingBody": "The rules below are ready in the app. Until the migration runs, only the strategy can be saved — the rest keeps the behaviour it has today.",
+      "strategyTitle": "How the next one is picked",
+      "strategySub": "Applies only to conversations that have no owner yet.",
+      "modeOff": "Off",
+      "modeOffBody": "New conversations stay unassigned until somebody picks them up.",
+      "modeRoundRobin": "Take turns",
+      "modeRoundRobinBody": "Round the team in order, resuming after whoever got the last one. Fair by turn — it does not look at how much work anybody already has.",
+      "modeLeastBusy": "Lightest load",
+      "modeLeastBusyBody": "Whoever holds the fewest open conversations right now. Ties fall back to taking turns, so a quiet morning still spreads out.",
+      "rulesTitle": "The rules",
+      "rulesSub": "Who is eligible, and what happens at the edges.",
+      "rulesOff": "Turn a strategy on above to use these.",
+      "minRole": "Lowest role that can receive",
+      "minRoleDesc": "A reader cannot reply, so assigning to one hides a waiting customer behind an owner who is unable to act. Agent and up is the sensible floor.",
+      "fallback": "When nobody is online",
+      "fallbackDesc": "Out of hours the choice is an owner who sees it in the morning, or no owner at all. Which is better depends on whether your team watches the unassigned tab.",
+      "fallbackRotate": "Assign anyway",
+      "fallbackQueue": "Leave it in the queue",
+      "maxOpen": "Ceiling per person",
+      "maxOpenDesc": "Skip somebody already holding this many open conversations. 0 means no ceiling. Ignored when everybody is at it — a cap that can jam the queue is worse than no cap.",
+      "save": "Save rules",
+      "saved": "Assignment rules saved",
+      "saveFailed": "Could not save the rules",
+      "needsMigration": "Migration 051 has not been applied yet.",
+      "rosterTitle": "Who is in the rotation",
+      "rosterSub": "Anybody can take themselves out. Admins can take anybody out — for the owner who does sales and not support.",
+      "rosterEmptyTitle": "Nobody to route to yet",
+      "rosterEmptyBody": "Invite a colleague and they show up here.",
+      "belowFloor": "Below the {role} floor — never receives",
+      "modeBestScore": "Best performance",
+      "modeBestScoreBody": "Sends to whoever replies fastest and resolves most, computed over the last 30 days. Ties go into the rotation, and somebody with no history yet counts as mid-table — otherwise they would never get the conversation that would give them one.",
+      "reassignTitle": "Hand over when the owner is away",
+      "reassignDesc": "If a customer has been waiting longer than this AND whoever holds the conversation has not been seen in the same period, it passes to somebody available. Never to another absent person.",
+      "reassignOff": "off",
+      "reassignMinutes": "minutes",
+      "reassignWarning": "On: a conversation waiting {minutes} min with an absent owner changes hands on its own. Who had it, who received it and how long the customer waited are all recorded."
+    },
+    "rooms": {
+      "title": "Team rooms",
+      "description": "Name the room you already have, say what it is for, and make another one when the team needs to keep two conversations apart.",
+      "pendingTitle": "Waiting on migration 052",
+      "pendingBody": "Rooms are ready in the app — they are waiting for the table to be created in the database. Until then there is the one room, and it works.",
+      "newRoom": "New room",
+      "newRoomSub": "Everybody in the account can read and write every room. These are folders, not private channels.",
+      "name": "Name",
+      "namePlaceholder": "Operations, Sales, Warehouse…",
+      "descriptionLabel": "What it is for",
+      "descriptionHint": "A room with no description is a room three people will each use for something different.",
+      "descriptionPlaceholder": "Deliveries, stock and drivers",
+      "cancel": "Cancel",
+      "create": "Create room",
+      "created": "Room created",
+      "save": "Save",
+      "saved": "Room saved",
+      "nameRequired": "A room needs a name",
+      "listTitle": "Rooms",
+      "listSub": "The first one is the room this account started with. It can be renamed, and it cannot be removed.",
+      "archivedTitle": "Archived",
+      "archivedSub": "Out of the switcher, not deleted. Everything said in them is still there and comes back with the room.",
+      "restore": "Restore",
+      "rename": "Rename",
+      "archive": "Archive",
+      "archiveConfirm": "Archive this room? It leaves the switcher; nothing said in it is deleted.",
+      "defaultNameHint": "Leave it empty and this room goes back to being called \"{name}\"."
+    },
+    "aiWizard": {
+      "progress": "{done} of {total} steps done",
+      "openAdvanced": "Show all fields",
+      "saved": "Saved",
+      "saveFailed": "Could not save",
+      "saveAndNext": "Save and continue",
+      "finish": "Save and finish",
+      "test": "Test the key",
+      "testOk": "The provider accepted the key",
+      "testFailed": "The provider refused the key",
+      "notSet": "not set",
+      "filled": "written",
+      "empty": "empty",
+      "on": "on",
+      "off": "off",
+      "showKey": "Show the key",
+      "hideKey": "Hide the key",
+      "stepKeyTitle": "Provider and key",
+      "stepKeySummary": "The assistant runs on your own provider account. Nothing is billed through this CRM.",
+      "provider": "Provider",
+      "model": "Model",
+      "apiKey": "API key",
+      "apiKeyDesc": "Stored encrypted. Nobody in this CRM can read it back — replace it if you lose it.",
+      "stepPersonaTitle": "Who it is",
+      "stepPersonaSummary": "The name it answers by, what this business does, and how it should sound. This is where most wrong answers get fixed.",
+      "personaName": "Name",
+      "personaPlaceholder": "e.g. Ana, from the front desk",
+      "tone": "How it should sound",
+      "tone_formal": "Formal",
+      "tone_neutral": "Plain",
+      "tone_casual": "Warm",
+      "business": "What this business does",
+      "businessDesc": "The single most valuable line on this page. Most wrong answers are a model that does not know what business it is in.",
+      "businessPlaceholder": "We are a packaging distributor in Caxias do Sul. We sell bin bags, stretch film and boxes to condominiums, shops and small factories.",
+      "extraPrompt": "Anything else it should always know",
+      "extraPromptDesc": "Free text, appended to everything above. Opening hours, delivery areas, the way you refer to your own products.",
+      "stepKnowledgeTitle": "What it knows",
+      "stepKnowledgeSummary": "Your own documents. The assistant reads the passages relevant to each question instead of being told everything at once.",
+      "embeddingsKey": "Key for semantic search (optional)",
+      "embeddingsKeyDesc": "An OpenAI key. With it, the assistant finds a passage that answers the question even when it uses different words. Without it, search falls back to matching words.",
+      "retrievalTopK": "Passages per answer",
+      "retrievalTopKDesc": "0 turns retrieval off, which is useful while tuning a prompt. Pinned documents are always included and do not count here.",
+      "topK": "{count} passages",
+      "stepToolsTitle": "What it may look up",
+      "stepToolsSummary": "Lookups the assistant can run mid-sentence, in this account only, about this customer only.",
+      "toolsNote": "Every lookup here is read-only. The assistant cannot tag, move, create or send anything — those stay with people.",
+      "toolCount": "{count} on",
+      "stepLimitsTitle": "Where it stops",
+      "stepLimitsSummary": "What it must never do, and when it should fetch a person instead of answering.",
+      "guardrails": "Never do this",
+      "guardrailsDesc": "One per line. These are read last, which is what makes a model honour them.",
+      "guardrailsPlaceholder": "Never quote a delivery date.\nNever offer a discount.\nNever say a product is in stock.",
+      "escalation": "Fetch a person when",
+      "escalationDesc": "Only used while replying automatically. One per line.",
+      "escalationPlaceholder": "The customer is complaining.\nThe customer asks for a quote above R$ 5,000.\nThe customer asks to speak to somebody.",
+      "autoReply": "Reply on its own",
+      "autoReplyDesc": "With nobody watching. Off means it only ever suggests, and a person sends.",
+      "maxPerConversation": "Replies per conversation",
+      "handoff": "Hand the thread to",
+      "handoffQueue": "Nobody — leave it in the queue",
+      "stepLiveTitle": "Where it runs",
+      "stepLiveSummary": "The master switch, and the two places the assistant helps without answering a customer.",
+      "isActive": "Assistant on",
+      "isActiveDesc": "Nothing below works while this is off.",
+      "assist": "Suggest replies to agents",
+      "assistDesc": "A button on a customer message that drafts an answer for a person to edit. Nothing is sent by itself.",
+      "media": "Transcribe audio and read images",
+      "mediaDesc": "Every voice note and photo becomes text on arrival, so it can be searched and matched.",
+      "toolsMoved": "Suggested replies, audio transcription and image/document reading moved out of here. They never talk to a customer, and they now live under <link>AI tools</link> — so turning the agent off no longer turns them off with it."
+    },
+    "agentLookups": {
+      "getContact": "Read the customer record",
+      "getContactDesc": "Name, company, city, last purchase, average ticket.",
+      "getOpenDeal": "Read the open opportunity",
+      "getOpenDealDesc": "Title, stage, value and expected close date, when there is one.",
+      "searchProducts": "Search the product catalogue",
+      "searchProductsDesc": "Name, code, price and unit. Needs the catalogue to exist.",
+      "searchKnowledge": "Search the knowledge base",
+      "searchKnowledgeDesc": "For things the passages already in front of it do not cover."
+    },
+    "aiTools": {
+      "title": "AI tools",
+      "description": "The AI a PERSON operates: suggest a reply, transcribe an audio, read an image or a PDF. None of them talks to a customer — which is why they are configured apart from the AI agent.",
+      "noKey": "These functions use the same provider key as the agent. <link>Add the key under AI agent</link> to turn them on.",
+      "masterTitle": "Turn AI tools on",
+      "masterDesc": "Independent of the AI agent. You can keep the bot off and still have audio transcribed and replies suggested.",
+      "functionsTitle": "What becomes available",
+      "functionsDesc": "One switch per function, because what each one costs is very different.",
+      "suggest": "Suggested reply",
+      "suggestDesc": "An agent asks for a suggestion on a customer message. The text lands in the composer to be edited — nothing is sent on its own.",
+      "audio": "Transcribe audio",
+      "audioDesc": "Writes down what was said in an inbound voice note. It is what lets search, keyword triggers and the conversation preview see something where they see nothing today.",
+      "image": "Read images",
+      "imageDesc": "Describes an inbound photo and transcribes any invoice number, amount or plate visible in it, word for word.",
+      "document": "Read documents (PDF)",
+      "documentDesc": "Summarises orders, invoices and price tables sent as PDFs. Off by default: the most expensive of the three, and a file can arrive twenty pages long unannounced.",
+      "modelTitle": "Model",
+      "modelDesc": "Optional. The agent answers everybody all day and wants something cheap; this runs when somebody asks, and can be worth something better.",
+      "modelLabel": "Model for the tools",
+      "modelPlaceholder": "Same as the agent",
+      "save": "Save",
+      "saved": "AI tools saved.",
+      "saveFailed": "Could not save the AI tools.",
+      "audioNeedsOpenAi": "Anthropic cannot hear. On this account transcription uses the OpenAI embeddings key — <link>add it under AI agent</link>, or audio will arrive and nothing will happen."
+    },
+    "hooks": {
+      "title": "Inbound webhooks",
+      "description": "A URL Typebot, n8n or a landing page can call to hand data to the CRM. What arrives becomes {{vars.field}} inside automations.",
+      "pending": "Migration 058 is not applied yet.",
+      "pendingHint": "The screen is ready in the app — it is waiting for the tables to be created in the database.",
+      "newTitle": "New webhook",
+      "newDesc": "The URL is generated now and shown exactly once.",
+      "nameLabel": "Name",
+      "namePlaceholder": "typebot-quote",
+      "ipsLabel": "Allowed IPs (optional)",
+      "ipsHint": "Comma separated. Empty accepts from anywhere. If your n8n and Typebot run on your own server this is the cheapest lock there is — it changes nothing at the sending end. It does not protect against a loop in your own flow; the 60-per-minute ceiling does.",
+      "messagesTitle": "May send WhatsApp messages",
+      "messagesDesc": "Without this, the webhook only writes to the CRM: fields, tags and deals.",
+      "messagesWarning": "Turn this on only if you need it. With it on, anybody holding the URL — or a loop in your flow — can make the company's number send WhatsApp messages, and that is how a number gets banned by Meta.",
+      "create": "Create webhook",
+      "createFailed": "Could not create the webhook.",
+      "tokenTitle": "The webhook URL",
+      "tokenOnce": "Copy it now. It is not stored in plaintext and cannot be shown again — if you lose it, create another.",
+      "tokenDone": "Copied it",
+      "copy": "Copy",
+      "listTitle": "Active webhooks",
+      "lastUsed": "used {when}",
+      "neverUsed": "never used",
+      "anyIp": "any IP",
+      "ipCount": "{count} allowed IP",
+      "ipCount_plural": "{count} allowed IPs",
+      "canSend": "sends messages",
+      "enabled": "Enabled",
+      "revoke": "Revoke",
+      "revokeConfirm": "Revoke \"{name}\"?",
+      "revokeConfirmDesc": "The URL stops working immediately and cannot be recovered. This webhook's delivery history is deleted too.",
+      "revoked": "Webhook revoked.",
+      "saveFailed": "Could not save.",
+      "showDeliveries": "See deliveries",
+      "hideDeliveries": "Hide deliveries",
+      "refresh": "Refresh",
+      "noDeliveries": "No calls yet",
+      "noDeliveriesHint": "As soon as Typebot or n8n call this URL, what arrived shows up here — with the automation that ran and where it stopped.",
+      "rejected": "Rejected",
+      "duplicate": "Repeat — this had already arrived",
+      "nothingRan": "Arrived, but no automation ran",
+      "nothingRanHint": "The data arrived fine. What is missing is an automation with the \"Webhook received\" trigger — or the ones that exist did not pass their conditions.",
+      "ranCount": "{count} automation ran",
+      "ranCount_plural": "{count} automations ran",
+      "unnamedAutomation": "Unnamed automation",
+      "payload": "What arrived",
+      "varsHint": "In automations each field above is a variable; a nested field becomes name.of.field."
     }
   },
   "Notifications": {
@@ -2730,6 +3132,18 @@
       "customColors": {
         "title": "The colour is yours",
         "body": "Tags and pipeline stages take any colour, not the six on a list — pick it in the system picker or type the code. The preview shows how the chip will read before you save."
+      },
+      "audioToText": {
+        "title": "Audio becomes text",
+        "body": "Every voice note and image a customer sends gets a written description — it shows in the conversation preview, joins the search, and makes keyword automations work. It can be switched off in the AI settings."
+      },
+      "products": {
+        "title": "Products, and a deal that adds itself up",
+        "body": "A catalogue with prices and codes. Pick the items inside a deal and the value calculates itself; what a customer is interested in stays on their record and becomes a campaign audience."
+      },
+      "aiAssist": {
+        "title": "AI helps you answer",
+        "body": "Right-click a customer message: summarise, translate, suggest a reply, or adjust the tone of what you wrote. Without leaving the conversation."
       }
     },
     "items": {
@@ -2775,13 +3189,29 @@
       "notificationDeadClick": "A notification with nowhere to go no longer looks like a broken button.",
       "emptyFlowCanvas": "A brand-new flow opens on the same grid as one that has nodes.",
       "translations": "Over thirty screens and messages that were still in English were translated.",
-      "customColors": "Tags and pipeline stages take any colour, with a preview of how the chip will read."
+      "customColors": "Tags and pipeline stages take any colour, with a preview of how the chip will read.",
+      "audioToText": "Customer audio and images become text — in the preview, in search, and in keyword automations.",
+      "products": "A product catalogue, with deal items that add the value up on their own.",
+      "aiAssist": "AI help on the customer message: summarise, translate, suggest a reply, adjust the tone.",
+      "accountAudit": "Account audit: who changed what, and each person last sign-in.",
+      "memberPermissions": "Permissions per person, on top of the role. The owner never loses access.",
+      "assignScore": "Assignment by best performance, and automatic handover when an agent does not reply.",
+      "teamRoomNames": "Team rooms with a name and description, and messages you can edit and delete.",
+      "inboundHooks": "An inbound webhook for Typebot and n8n, with a token, scopes and a deliveries screen.",
+      "installApp": "The CRM can be installed on a phone as an app.",
+      "cnpjCheck": "CNPJ checked on the form, with a warning when the customer already exists.",
+      "aiAgentDepth": "AI agent with a persona, tone, escalation rules, tools and a knowledge base.",
+      "reportsRedesign": "Reports redesigned: funnel, free date range, and a comparison with the previous period.",
+      "settingsOneArea": "Admin and Settings became one area, showing the sections your role opens.",
+      "profilePhotos": "Your profile photo shows in the team, in the conversation and in the sidebar.",
+      "mobileNav": "On a phone the navigation moved down to the thumb, and the conversation list responds to a swipe.",
+      "messageAuthor": "A reply shows who answered, and the delivery tick like WhatsApp.",
+      "productDialogs": "The browser grey boxes became product dialogs.",
+      "periodCompare": "The comparison with the previous period miscounted above a thousand conversations."
     },
     "seeIt": "See it"
   },
   "Presence": {
-    "onlineTitle": "Here right now",
-    "onlineCount": "{count} online",
     "onlineCountAria": "{count} teammates online",
     "you": " (you)",
     "labelOnline": "Online",
@@ -2796,6 +3226,58 @@
       "sample": "Sample",
       "squareLabel": "Saturation and brightness",
       "hueLabel": "Hue"
-    }
+    },
+    "cancel": "Cancel",
+    "confirm": "Confirm"
+  },
+  "Products": {
+    "title": "Products",
+    "description": "What you sell, with a code and a price. Line items on an opportunity come from here, and so do the answers the assistant gives about price.",
+    "pendingTitle": "Waiting on migration 054",
+    "pendingBody": "The catalogue is ready in the app — it is waiting for the table to be created in the database. Until then an opportunity keeps its typed value.",
+    "newProduct": "New product",
+    "editProduct": "Edit product",
+    "formSub": "Only the name is required. Everything else can be filled in later.",
+    "name": "Name",
+    "sku": "Code",
+    "skuPlaceholder": "the one already printed on the box",
+    "price": "Price",
+    "pricePlaceholder": "leave empty for “on request”",
+    "currency": "Currency",
+    "unit": "Unit",
+    "unitPlaceholder": "un, box, kg",
+    "category": "Group",
+    "categoryDesc": "What this belongs with. It is what makes “campaign by product” a filter rather than a naming convention everybody has to remember.",
+    "categoryPlaceholder": "Bin bags, Film, Boxes",
+    "descriptionLabel": "Description",
+    "descriptionHint": "Measurements, thickness, how many per box. The assistant reads this when the catalogue lookup is on — it is the difference between “yes, we have it” and an answer with the numbers in it.",
+    "cancel": "Cancel",
+    "save": "Save product",
+    "saved": "Product saved",
+    "nameRequired": "A product needs a name",
+    "duplicateSku": "That code is already on another product. Two rows with one code means the price you quote depends on which one the query found.",
+    "listTitle": "Catalogue",
+    "listSub": "{count, plural, one {# product} other {# products}}",
+    "searchPlaceholder": "Name, code or group",
+    "emptyTitle": "Nothing in the catalogue yet",
+    "emptyBody": "Add the ten things you sell most. That is enough for quotes to start adding themselves up.",
+    "noMatchTitle": "Nothing matches",
+    "noMatchBody": "Try part of the name, or the code.",
+    "noCode": "no code",
+    "onRequest": "on request",
+    "edit": "Edit",
+    "retire": "Retire",
+    "restore": "Bring back",
+    "showRetired": "Show retired products",
+    "dimensions": "Measurements",
+    "dimensionsHint": "Typed, not written into the description — it is what makes “all the 40x60” a search instead of a paragraph somebody has to read.",
+    "width": "Width (cm)",
+    "height": "Length (cm)",
+    "thickness": "Thickness (micron)",
+    "material": "Material",
+    "materialPlaceholder": "PEBD, PEAD, kraft",
+    "color": "Colour",
+    "colorPlaceholder": "black, natural, white",
+    "adminOnly": "Only an admin can create or retire a product. Correcting one is yours."
   }
 }

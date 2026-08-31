@@ -178,3 +178,40 @@ describe('proxy — every dashboard route is guarded', () => {
     expect(PROTECTED_PATHS).toContain(destination.pathname);
   });
 });
+
+/**
+ * The inbound hook is the ONE write path that must stay open.
+ *
+ * `/api/hooks/<token>` is how Typebot, n8n and a landing page reach the
+ * automation engine. It authenticates itself — a hashed token, an IP
+ * allowlist, a rate cap and a scope limit enforced in the engine — and
+ * it must NOT be behind the session guard, because the callers have no
+ * session and never will.
+ *
+ * Protecting it would not fail loudly. Every request would get a 307 to
+ * /login, Typebot would read that as success (it is a 3xx, not a 4xx or
+ * 5xx), and the integration would go quiet with nothing in the CRM and
+ * nothing in the sender's error log. This test is the tripwire for a
+ * well-meaning "let's guard the API surface" change.
+ */
+describe('proxy — the inbound hook stays public', () => {
+  it('is not listed in PROTECTED_PATHS', () => {
+    const guarded = PROTECTED_PATHS.filter((path) =>
+      '/api/hooks'.startsWith(path)
+    );
+    expect(guarded).toEqual([]);
+  });
+
+  it('lets an unauthenticated POST through', async () => {
+    // `mockUser` is reset to null in beforeEach — this is the
+    // signed-out case by default.
+    const response = await proxy(
+      new NextRequest('https://app.test/api/hooks/whk_abc123', {
+        method: 'POST',
+      })
+    );
+    // `next()` — no redirect. The route itself decides.
+    expect(response.status).toBe(200);
+    expect(response.headers.get('location')).toBeNull();
+  });
+});

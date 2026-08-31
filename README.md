@@ -18,7 +18,7 @@ Desenvolvido e mantido pela **Creative Lane**.
 - **Atendimento compartilhado** na API oficial do WhatsApp Business —
   vários atendentes num número só, com atribuição, status e notas por
   conversa.
-- **Clientes** com etiquetas, campos personalizados, ocorrências,
+- **Contatos** com etiquetas, campos personalizados, ocorrências,
   registro de ligações, importação por CSV e deduplicação.
 - **Funis de venda** em quadro Kanban, com oportunidades ligadas à
   conversa que as originou, motivo de perda e playbook comercial.
@@ -36,9 +36,13 @@ Desenvolvido e mantido pela **Creative Lane**.
   quando há chave de embeddings).
 - **Visão geral e relatórios** — a fila do dia, o que a automação fez
   sozinha, agenda do que está por vir, tempo de resposta, volume
-  diário e valor em funil.
+  diário, valor em funil e desempenho por atendente. O período é livre:
+  7, 30 ou 90 dias, ou qualquer janela de até um ano — "como foi julho"
+  é uma pergunta que um contador de dias para trás não responde.
 - **Contas de equipe** — convite por link e papéis (dono, admin,
-  atendente, leitor), com todo dado isolado por conta.
+  atendente, leitor), com todo dado isolado por conta. Configurações é
+  uma área só: cada seção aparece para quem pode usá-la, então o trilho
+  de um atendente tem sete linhas e todas funcionam.
 - **API REST** (`/api/v1`) com chaves revogáveis e escopo — ver
   [docs/public-api.md](./docs/public-api.md).
 - **Servidor MCP** para operar o CRM a partir de assistentes de IA —
@@ -103,7 +107,7 @@ Detalhes e resolução de problemas em [docs/docker.md](./docs/docker.md).
 
 Passo a passo: [docs/deploy.md](./docs/deploy.md). Resumo:
 
-- **Releases** — zip da versão (hoje `v0.8.3`). É isto que se baixa para subir em outro lugar.
+- **Releases** — zip da versão (hoje `v0.8.4`). É isto que se baixa para subir em outro lugar.
 - **Packages** — deixe vazio. Não é um pacote npm; não precisa preencher nada.
 - Caminho mais curto: importe o repositório na **Vercel** e cole as variáveis do [guia de env](./docs/configuracao-env.md). Alternativa: `git clone` + Docker no VPS.
 

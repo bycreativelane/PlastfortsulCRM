@@ -550,6 +550,10 @@ export function MessageThread({
         id: tempId,
         conversation_id: conversation.id,
         sender_type: 'agent',
+        // So the optimistic bubble carries the same name the saved row
+        // will — otherwise it appears unattributed and gets a name a
+        // second later, which reads as somebody else answering.
+        sender_id: user?.id,
         content_type: 'text',
         content_text: text,
         status: 'sending',
@@ -620,6 +624,10 @@ export function MessageThread({
         id: tempId,
         conversation_id: conversation.id,
         sender_type: 'agent',
+        // So the optimistic bubble carries the same name the saved row
+        // will — otherwise it appears unattributed and gets a name a
+        // second later, which reads as somebody else answering.
+        sender_id: user?.id,
         content_type: payload.kind,
         content_text: contentText,
         media_url: payload.mediaUrl,
@@ -685,6 +693,10 @@ export function MessageThread({
         id: tempId,
         conversation_id: conversation.id,
         sender_type: 'agent',
+        // So the optimistic bubble carries the same name the saved row
+        // will — otherwise it appears unattributed and gets a name a
+        // second later, which reads as somebody else answering.
+        sender_id: user?.id,
         content_type: 'interactive',
         content_text: payload.body,
         interactive_payload: payload,
@@ -780,6 +792,10 @@ export function MessageThread({
         id: tempId,
         conversation_id: conversation.id,
         sender_type: 'agent',
+        // So the optimistic bubble carries the same name the saved row
+        // will — otherwise it appears unattributed and gets a name a
+        // second later, which reads as somebody else answering.
+        sender_id: user?.id,
         content_type: 'template',
         content_text: renderedBody,
         template_name: template.name,
@@ -1098,7 +1114,14 @@ export function MessageThread({
     // clipped and the hover toolbar overlaps the Tags panel. Letting the
     // root shrink lets the bubbles' break-words / max-w caps apply.
     // Issue #257.
-    <div className={cn('flex min-w-0 flex-1 flex-col', DOODLE_BG_CLASSES)}>
+    <div
+      // The whole conversation is the drop zone, not just the composer.
+      // `MessageComposer` finds this element with `closest()` and binds
+      // the drag listeners to it — see the note there for why the old
+      // arrangement lost every file dropped above the text box.
+      data-thread-root
+      className={cn('flex min-w-0 flex-1 flex-col', DOODLE_BG_CLASSES)}
+    >
       {/* Header — solid card surface sits on top of the doodle so the
           name/avatar/dropdowns stay legible.
 
@@ -1347,7 +1370,17 @@ export function MessageThread({
               data-slot="button"
               className={ownerChipVariants({ owned: !!assignedAgentId })}
             >
-              <OwnerChipContent label={assignLabel} />
+              <OwnerChipContent
+                label={assignLabel}
+                // Only when somebody actually owns it. Unassigned, the
+                // amber `UserPlus` is the whole message and initials of
+                // a person who does not exist would be a lie.
+                initials={
+                  assignedAgentId && currentAssignee?.full_name
+                    ? avatarInitials(currentAssignee.full_name)
+                    : null
+                }
+              />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               {profiles.length === 0 ? (
@@ -1510,11 +1543,26 @@ export function MessageThread({
                     // continuing an agent's run is still our side of
                     // the conversation, and drawing a new tail for it
                     // would imply a third party.
+                    //
+                    // AND it breaks when a different colleague takes over,
+                    // which is the case the report was about: Matheus
+                    // answers twice, then Thales answers. One run would
+                    // draw that as one turn by one person. Only possible
+                    // since 056 — `sender_id` was never written before it,
+                    // so on old rows both sides are null and this reads
+                    // false, which is the old behaviour exactly.
                     const side = (m: Message) =>
                       m.sender_type === 'agent' || m.sender_type === 'bot';
                     const previous = group.messages[msgIndex - 1];
+                    const authorChanged =
+                      !!previous &&
+                      side(previous) &&
+                      side(msg) &&
+                      (previous.sender_id ?? null) !== (msg.sender_id ?? null);
                     const firstOfRun =
-                      !previous || side(previous) !== side(msg);
+                      !previous ||
+                      side(previous) !== side(msg) ||
+                      authorChanged;
                     const parent = msg.reply_to_message_id
                       ? messagesById.get(msg.reply_to_message_id)
                       : null;
@@ -1543,6 +1591,7 @@ export function MessageThread({
                       <div key={msg.id} className={firstOfRun ? 'pt-2' : ''}>
                         <MessageActions
                           message={msg}
+                          conversationId={conversationId}
                           onReply={() => handleStartReply(msg)}
                           onReact={(emoji) => {
                             if (emoji) void postReaction(msg.id, emoji);
@@ -1556,6 +1605,19 @@ export function MessageThread({
                             onToggleReaction={handlePillToggle}
                             onOpenMedia={handleMediaChange}
                             firstOfRun={firstOfRun}
+                            // "Puxando sempre o nome do atendente que está
+                            // mandando a mensagem." Resolved from the id the
+                            // send path now records, so it survives the
+                            // signature being off — which it is by default —
+                            // and it is an identity rather than a nickname
+                            // somebody typed into this browser.
+                            senderName={
+                              msg.sender_type === 'agent' && msg.sender_id
+                                ? (profiles.find(
+                                    (p) => p.user_id === msg.sender_id
+                                  )?.full_name ?? null)
+                                : null
+                            }
                           />
                         </MessageActions>
                       </div>

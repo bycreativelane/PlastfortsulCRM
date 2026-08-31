@@ -13,6 +13,8 @@
 // ============================================================
 
 import { NextResponse } from 'next/server';
+import { auditAdmin } from '@/lib/audit/admin-client';
+import { auditActorLabel, logAuditEvent } from '@/lib/audit/log';
 
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import {
@@ -63,6 +65,15 @@ export async function DELETE(
         { status: 404 }
       );
     }
+
+    await logAuditEvent(auditAdmin(), {
+      accountId: ctx.accountId,
+      actorUserId: ctx.userId,
+      actorLabel: await auditActorLabel(ctx.supabase, ctx.userId),
+      action: 'api_key.revoked',
+      targetType: 'api_key',
+      targetId: id,
+    });
 
     return NextResponse.json({ success: true });
   } catch (err) {

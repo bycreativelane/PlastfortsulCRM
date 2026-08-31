@@ -183,6 +183,30 @@ function InboxPageInner() {
   /** Bumped after a save so the contact panel refetches what it shows. */
   const [sidebarRefresh, setSidebarRefresh] = useState(0);
 
+  /**
+   * Refresh the PANEL and the LIST together.
+   *
+   * Reported as "etiquetas, oportunidades e ocorrências só aparecem após
+   * atualizar a página". The panel was already refetching — every dialog
+   * bumps `sidebarRefresh` and `ContactSidebar` listens to it. What was
+   * not refetching is the conversation LIST, and that is where those
+   * three things are most visible: the row draws the type tag chip, the
+   * deal's stage chip and the occurrence triangle, all of them read from
+   * the `conversations` query that `ConversationList` runs once.
+   *
+   * So half the screen updated and the other half did not, which reads
+   * as "it did not save" — and F5 was the only thing that fixed it,
+   * because F5 is what refetches the list.
+   *
+   * One function instead of two calls at each of the six call sites: the
+   * seventh dialog somebody adds would have bumped one and forgotten the
+   * other, which is exactly how this happened.
+   */
+  const refreshContactViews = useCallback(() => {
+    setSidebarRefresh((n) => n + 1);
+    setResyncToken((n) => n + 1);
+  }, []);
+
   const handleEditContact = useCallback(async (c: Contact) => {
     // The form wants the contact's current tags so its picker opens with
     // them selected; one small query beats threading them through the panel.
@@ -253,8 +277,12 @@ function InboxPageInner() {
         )
       );
     }
-    setSidebarRefresh((n) => n + 1);
-  }, [activeContact]);
+    // The optimistic patch above carries the contact's own FIELDS, and
+    // the row also draws things that hang off it — the type tag chip and
+    // the occurrence triangle — which the save response does not return.
+    // Only a refetch has those.
+    refreshContactViews();
+  }, [activeContact, refreshContactViews]);
 
   const [recordOpen, setRecordOpen] = useState(false);
   const handleOpenRecord = useCallback(() => {
@@ -278,11 +306,10 @@ function InboxPageInner() {
   }, []);
 
   const handleDealSaved = useCallback(() => {
-    setSidebarRefresh((n) => n + 1);
     // The row's stage chip comes from the conversation's `deal` embed, so
     // the list has to refetch for a stage change to show up in it.
-    setResyncToken((n) => n + 1);
-  }, []);
+    refreshContactViews();
+  }, [refreshContactViews]);
 
   /**
    * The panel's MOUNT, which outlives its open state by one animation.
@@ -1141,13 +1168,13 @@ function InboxPageInner() {
         open={callLogOpen}
         onOpenChange={setCallLogOpen}
         contact={activeContact}
-        onSaved={() => setSidebarRefresh((n) => n + 1)}
+        onSaved={refreshContactViews}
       />
       <OccurrenceDialog
         open={occurrencesOpen}
         onOpenChange={setOccurrencesOpen}
         contact={activeContact}
-        onChanged={() => setSidebarRefresh((n) => n + 1)}
+        onChanged={refreshContactViews}
       />
       <FuturePurchaseDialog
         open={futurePurchaseOpen}

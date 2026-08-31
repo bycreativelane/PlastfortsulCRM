@@ -1,10 +1,12 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { AuthProvider, useAuth } from '@/hooks/use-auth';
+import { ConfirmProvider } from '@/components/ui/confirm-dialog';
 import { Sidebar } from '@/components/layout/sidebar';
+import { AppHeaderSlot, AppTabBarSlot } from '@/components/layout/app-chrome';
 import { Header } from '@/components/layout/header';
 import { AccountAccessAlert } from '@/components/layout/account-access-alert';
 import { PresenceHeartbeat } from '@/components/presence/presence-heartbeat';
@@ -94,13 +96,23 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
       <PresenceHeartbeat />
       <Sidebar open={sidebarOpen} onClose={closeSidebar} />
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        {/* The inbox is already a full-height three-pane application with its
-            own header per conversation; a second bar above it only takes
-            56px from the thread. Hidden on lg+ ONLY — on mobile the
-            hamburger in this bar is the sole way back to the navigation. */}
-        <div className={cn(pathname.startsWith('/inbox') && 'lg:hidden')}>
-          <Header onOpenSidebar={() => setSidebarOpen(true)} />
-        </div>
+        {/* Both bars read `?c=` to know whether a conversation is open,
+            which opts them out of prerendering — so they sit behind a
+            Suspense boundary of their own rather than dragging the whole
+            shell out of the initial HTML. See `app-chrome.tsx`.
+
+            The fallback is the header itself: on every page except an
+            open thread that is the right answer, so the prerendered HTML
+            is already correct and hydration changes nothing. */}
+        <Suspense
+          fallback={
+            <div className={cn(pathname.startsWith('/inbox') && 'lg:hidden')}>
+              <Header />
+            </div>
+          }
+        >
+          <AppHeaderSlot />
+        </Suspense>
         {/* `min-h-0` is what makes an app-shaped page possible at all: a
             flex item's floor is its content, so without it this grows to
             fit a full-height child instead of clipping it, and the whole
@@ -155,6 +167,17 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
             {children}
           </PageTransition>
         </main>
+
+        {/* The phone's navigation. Below `main` in the DOM so the tab
+            order ends on it rather than starting there — a screen reader
+            user should reach the page before the way off it.
+
+            `fallback={null}` and not a skeleton bar: 57px appearing a
+            frame after paint would push the page down under the reader's
+            eye, and this is chrome, not content. */}
+        <Suspense fallback={null}>
+          <AppTabBarSlot onOpenMenu={() => setSidebarOpen(true)} />
+        </Suspense>
       </div>
     </div>
   );
@@ -163,7 +186,13 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   return (
     <AuthProvider>
-      <DashboardShellInner>{children}</DashboardShellInner>
+      {/* One confirm dialog for the whole app, so nothing has to reach
+          for `window.confirm` — which looks like the browser, blocks the
+          main thread, and returns false with no dialog at all when a
+          user or a webview has suppressed them. See `confirm-dialog`. */}
+      <ConfirmProvider>
+        <DashboardShellInner>{children}</DashboardShellInner>
+      </ConfirmProvider>
     </AuthProvider>
   );
 }

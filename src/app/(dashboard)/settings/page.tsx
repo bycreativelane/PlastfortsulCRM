@@ -7,33 +7,24 @@ import { useTranslations } from 'next-intl';
 import { useAuth } from '@/hooks/use-auth';
 import { useTheme } from '@/hooks/use-theme';
 import { SettingsRail } from '@/components/settings/settings-rail';
-import { SettingsOverview } from '@/components/settings/settings-overview';
-import { WhatsNewPanel } from '@/components/settings/whats-new-panel';
-import { ProfileForm } from '@/components/settings/profile-form';
-import { SecurityPanel } from '@/components/settings/security-panel';
-import { AppearancePanel } from '@/components/settings/appearance-panel';
-import { WhatsAppConfig } from '@/components/settings/whatsapp-config';
-import { TemplateManager } from '@/components/settings/template-manager';
-import { QuickRepliesManager } from '@/components/settings/quick-replies-manager';
-import { FieldsAndTagsPanel } from '@/components/settings/fields-and-tags-panel';
-import { DealsSettings } from '@/components/settings/deals-settings';
-import { MembersTab } from '@/components/settings/members-tab';
-import { ApiKeysSettings } from '@/components/settings/api-keys-settings';
-import { AiAgentPanel } from '@/components/settings/ai-agent-panel';
+import { panelFor } from '@/components/settings/settings-panels';
 import {
+  DEFAULT_SECTION,
+  canSeeSection,
   resolveSection,
   type SettingsSection,
 } from '@/components/settings/settings-sections';
+import { useCapabilityCheck } from '@/hooks/use-can';
 import { PageHeader } from '@/components/layout/page-header';
 import { SectionTransition } from '@/components/layout/section-transition';
+import { cn } from '@/lib/utils';
 
 // `useSearchParams` opts this page out of static prerendering unless it
 // sits under a Suspense boundary. Without one, the production build hits
 // the "missing Suspense with CSR bailout" error and the whole page bails
 // to client-side rendering — shipping a settings screen whose rail never
 // wires up its click handlers. You land on the section the URL carried
-// (the account-menu Settings link points at `?tab=whatsapp`) and can't
-// navigate away. Mirror the login/signup split: a thin wrapper supplies
+// and can't navigate away. Mirror the login/signup split: a thin wrapper supplies
 // the boundary; the inner component reads the query string.
 export default function SettingsPage() {
   return (
@@ -49,12 +40,30 @@ function SettingsPageInner() {
   const { defaultCurrency } = useAuth();
   const { mode } = useTheme();
   const t = useTranslations('Settings');
+  const { can, ready } = useCapabilityCheck();
 
   // The URL (`?tab=`) is the single source of truth for the active
   // section — deep-linkable, and it keeps the existing links in the
   // app sidebar/header working. Legacy tab values (tags, custom-fields)
   // resolve onto their new home; unknown/empty → the Overview landing.
-  const section = resolveSection(searchParams.get('tab'));
+  const requested = resolveSection(searchParams.get('tab'));
+
+  /**
+   * A section this person cannot use falls back to the landing.
+   *
+   * Not a redirect and not a "restricted" panel. A redirect would strip
+   * the address somebody was sent, and a refusal panel would tell an
+   * agent that a screen exists which is none of their business — the
+   * rail already decided not to mention it, and the page saying it out
+   * loud undoes that.
+   *
+   * Held until `ready`, so the fallback is never taken against a profile
+   * that has not arrived: every gate reads false while it loads, and
+   * without the wait an admin landing on `?tab=whatsapp` would be
+   * bounced to Overview on the first frame.
+   */
+  const section =
+    ready && !canSeeSection(requested, can) ? DEFAULT_SECTION : requested;
 
   const go = (next: SettingsSection) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -78,28 +87,41 @@ function SettingsPageInner() {
     [mode, defaultCurrency]
   );
 
-  const panel: Record<SettingsSection, ReactNode> = {
-    overview: <SettingsOverview onSelect={go} />,
-    'whats-new': <WhatsNewPanel />,
-    profile: <ProfileForm />,
-    security: <SecurityPanel />,
-    appearance: <AppearancePanel />,
-    whatsapp: <WhatsAppConfig />,
-    templates: <TemplateManager />,
-    'quick-replies': <QuickRepliesManager />,
-    ai: <AiAgentPanel />,
-    fields: <FieldsAndTagsPanel />,
-    deals: <DealsSettings />,
-    members: <MembersTab />,
-    api: <ApiKeysSettings />,
-  };
-
   return (
     <div>
       <PageHeader title={t('pageTitle')} description={t('pageDesc')} />
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[236px_minmax(0,1fr)] lg:items-start">
-        <SettingsRail active={section} onSelect={go} hints={hints} />
+        {/* ONE INDEX AT A TIME ON A PHONE.
+
+            Both of these are complete navigations over the same eighteen
+            sections: the rail is the chip strip, and `overview` — the
+            landing panel below it — is a list of cards for every one of
+            them, with a description and a live status each. Side by side
+            on a desk they divide the labour (the rail is a persistent
+            column, the landing is the room you arrive in). Stacked on a
+            375px screen they are the same question asked twice, one
+            above the other, filling everything you can see.
+
+            So below `lg` the rail stands down while you are ON the
+            landing, and comes back the moment a section opens — where it
+            stops being a duplicate and becomes the way between sections
+            without a round trip through the landing. The cards win the
+            tie for the landing itself: they carry the description and
+            the status, and the chips carry neither.
+
+            `lg:flex` and not `lg:block` — the rail's own base class is
+            `flex`, and restoring it with the wrong display would turn
+            its chip row into a stack. Above the breakpoint it comes
+            back unconditionally, so the desk layout never loses its
+            column. Getting BACK to the landing from a section is the
+            rail's own "Visão geral" row, which is on screen there. */}
+        <SettingsRail
+          active={section}
+          onSelect={go}
+          hints={hints}
+          className={cn(section === DEFAULT_SECTION && 'hidden lg:flex')}
+        />
         {/* The panel is the only thing that changed — the title above and
             the rail beside it did not, so only the panel animates.
             `@container` because the panels inside must size themselves
@@ -107,7 +129,7 @@ function SettingsPageInner() {
             236px of the row, so the panel gets narrower at exactly the
             breakpoint a viewport query would read as "more room". */}
         <SectionTransition token={section} className="@container min-w-0">
-          {panel[section]}
+          {panelFor(section, go)}
         </SectionTransition>
       </div>
     </div>

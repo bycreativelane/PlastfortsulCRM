@@ -104,18 +104,39 @@ export async function dispatchInboundToAiReply(
       accountId,
       config,
       latestUserMessage(messages),
+      config.retrievalTopK,
     )
 
     const systemPrompt = buildSystemPrompt({
       userPrompt: config.systemPrompt,
       mode: 'auto_reply',
       knowledge,
+      // The structured half (migration 053). All five are null on an
+      // account that never opened the wizard, and a null contributes no
+      // line — so the prompt is the pre-053 one, character for
+      // character.
+      persona: {
+        personaName: config.personaName,
+        businessDescription: config.businessDescription,
+        tone: config.tone,
+        guardrails: config.guardrails,
+        escalationRules: config.escalationRules,
+      },
+      hasTools: config.enabledTools.length > 0,
     })
 
     const { text, handoff, usage } = await generateReply({
       config,
       systemPrompt,
       messages,
+      // Scoped to this account and this contact, and to nothing else —
+      // no tool takes an id from the model.
+      toolContext: {
+        db,
+        accountId,
+        contactId,
+        conversationId,
+      },
     })
 
     // Record token spend on the account's BYO key. Fire-and-forget so it

@@ -1,5 +1,5 @@
 /**
- * The Clientes segmentation filters.
+ * The Contatos segmentation filters.
  *
  * These all live on `contacts` itself, which is what lets them compose into
  * the page's existing paginated query instead of needing their own RPC. The
@@ -40,15 +40,29 @@ export const EMPTY_SEGMENTATION: Segmentation = {
 export const IDLE_OPTIONS = [0, 30, 60, 90] as const;
 
 export function isSegmentationActive(s: Segmentation): boolean {
-  return (
-    s.purchase !== 'any' ||
-    s.idleDays > 0 ||
-    !!s.city ||
-    !!s.state ||
-    // Excluding opt-outs is the default, so it does not count as "the user
-    // narrowed something" — otherwise the Clear button would always be lit.
-    s.excludeOptedOut !== EMPTY_SEGMENTATION.excludeOptedOut
-  );
+  return countSegmentationFilters(s) > 0;
+}
+
+/**
+ * How many conditions the operator actually set.
+ *
+ * Exists because a phone cannot afford to show the panel. Below `lg` the
+ * five controls collapse behind one button, and a collapsed filter that
+ * does not say how much it is filtering is how somebody ends up looking
+ * at 9 of 400 contacts and calling the list broken. The button carries
+ * this number.
+ *
+ * Same rule as the boolean it now backs: excluding opt-outs is the
+ * default, so leaving it on is not something the user narrowed.
+ */
+export function countSegmentationFilters(s: Segmentation): number {
+  let n = 0;
+  if (s.purchase !== 'any') n += 1;
+  if (s.idleDays > 0) n += 1;
+  if (s.city) n += 1;
+  if (s.state) n += 1;
+  if (s.excludeOptedOut !== EMPTY_SEGMENTATION.excludeOptedOut) n += 1;
+  return n;
 }
 
 /** ISO date `days` before today, for a `last_purchase_at <` comparison. */

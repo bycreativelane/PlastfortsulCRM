@@ -1,4 +1,5 @@
 import { AiError, type AiUsage, type ChatMessage } from '../types'
+import type { AiTool } from '../tools'
 
 // ============================================================
 // Bits shared by the OpenAI + Anthropic adapters.
@@ -10,6 +11,20 @@ export interface ProviderArgs {
   systemPrompt: string
   messages: ChatMessage[]
   timeoutMs: number
+  /**
+   * What the model may look up mid-sentence (migration 053). Absent or
+   * empty keeps the single-shot request the adapters made before tools
+   * existed — byte-identical body, no loop.
+   */
+  tools?: AiTool[]
+  /**
+   * Runs one tool call and returns what to hand back to the model.
+   * Never throws: see `runTool` in `@/lib/ai/tools`.
+   */
+  onToolCall?: (
+    name: string,
+    args: Record<string, unknown>,
+  ) => Promise<string>
 }
 
 /**
@@ -106,4 +121,25 @@ export function mergeConsecutive(messages: ChatMessage[]): ChatMessage[] {
     }
   }
   return out
+}
+
+/**
+ * Add up usage across the rounds of one generation.
+ *
+ * A tool-using answer is two, three or four billed requests, and
+ * reporting only the last would under-report exactly the conversations
+ * that cost the most. `null + null` stays null, so "the provider told us
+ * nothing" survives being summed.
+ */
+export function sumUsage(
+  a: AiUsage | null,
+  b: AiUsage | null,
+): AiUsage | null {
+  if (!a) return b
+  if (!b) return a
+  return {
+    promptTokens: a.promptTokens + b.promptTokens,
+    completionTokens: a.completionTokens + b.completionTokens,
+    totalTokens: a.totalTokens + b.totalTokens,
+  }
 }

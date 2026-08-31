@@ -12,6 +12,7 @@ import {
   Send,
   LayoutTemplate,
   Image as ImageIcon,
+  ImageUp,
   Video,
   FileText,
   Mic,
@@ -24,8 +25,9 @@ import {
   Paperclip,
   UserMinus,
   UserPlus,
-  Zap,
+  MessageSquareText,
 } from 'lucide-react';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import { Button } from '@/components/ui/button';
 import { GatedButton } from '@/components/ui/gated-button';
 import {
@@ -140,6 +142,25 @@ interface MediaDraft {
   caption: string;
 }
 
+/**
+ * "Put this text in the composer of that conversation."
+ *
+ * A window event rather than a prop, because the sender — the AI
+ * suggestion panel on a message bubble — sits in a different subtree
+ * with no useful common parent. Carries the conversation id so a stale
+ * panel from a thread you have since left cannot type into the one you
+ * are in now.
+ */
+export const COMPOSER_INSERT_EVENT = 'wacrm:composer-insert';
+
+export function insertIntoComposer(conversationId: string, text: string): void {
+  window.dispatchEvent(
+    new CustomEvent(COMPOSER_INSERT_EVENT, {
+      detail: { conversationId, text },
+    })
+  );
+}
+
 interface MessageComposerProps {
   conversationId: string;
   sessionExpired: boolean;
@@ -187,6 +208,7 @@ export function MessageComposer({
   onClearReply,
 }: MessageComposerProps) {
   const t = useTranslations('Inbox.composer');
+  const { prompt } = useConfirm();
 
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
@@ -454,6 +476,52 @@ export function MessageComposer({
     [adjustHeight]
   );
 
+  /**
+   * Put text in the box, focused, caret at the end.
+   *
+   * Shared by the composer's own AI button and by the suggestion panel
+   * that hangs off a customer message — see `COMPOSER_INSERT_EVENT`.
+   */
+  const insertDraft = useCallback(
+    (draftText: string) => {
+      setText(draftText);
+      // Let the textarea grow to fit and drop the cursor at the end so
+      // the agent can tweak immediately.
+      requestAnimationFrame(() => {
+        adjustHeight();
+        const el = textareaRef.current;
+        if (el) {
+          el.focus();
+          el.setSelectionRange(el.value.length, el.value.length);
+        }
+      });
+    },
+    [adjustHeight]
+  );
+
+  /**
+   * The suggestion panel is not in this component's tree.
+   *
+   * It hangs off a message bubble, several hundred lines up inside
+   * `MessageThread`, and the composer owns the text state. Threading a
+   * setter down through the thread would have meant a prop on
+   * `MessageActions` and another on `MessageBubble`, both of which are
+   * presenters — so this uses the same window event the team room's
+   * seen-marker uses, for the same reason: two components in different
+   * subtrees with no useful common parent.
+   */
+  useEffect(() => {
+    const onInsert = (event: Event) => {
+      const detail = (event as CustomEvent<{ conversationId: string; text: string }>)
+        .detail;
+      if (!detail || detail.conversationId !== conversationId) return;
+      if (!detail.text.trim()) return;
+      insertDraft(detail.text);
+    };
+    window.addEventListener(COMPOSER_INSERT_EVENT, onInsert);
+    return () => window.removeEventListener(COMPOSER_INSERT_EVENT, onInsert);
+  }, [conversationId, insertDraft]);
+
   // Ask the AI assistant for a suggested reply and drop it into the
   // composer for the agent to edit + send. Read-only server-side —
   // nothing is sent until the agent hits Send.
@@ -481,23 +549,13 @@ export function MessageComposer({
         toast.error(t('toastAiNoReply'));
         return;
       }
-      setText(draftText);
-      // Let the textarea grow to fit and drop the cursor at the end so
-      // the agent can tweak immediately.
-      requestAnimationFrame(() => {
-        adjustHeight();
-        const el = textareaRef.current;
-        if (el) {
-          el.focus();
-          el.setSelectionRange(el.value.length, el.value.length);
-        }
-      });
+      insertDraft(draftText);
     } catch {
       toast.error(t('toastAiUnreachable'));
     } finally {
       setDrafting(false);
     }
-  }, [drafting, conversationId, adjustHeight]);
+  }, [drafting, conversationId, insertDraft, t]);
 
   // ---- Interactive message + quick replies --------------------------
 
@@ -527,7 +585,7 @@ export function MessageComposer({
       toast.error(result.error);
       return;
     }
-    const title = window.prompt(t('quickReplyNamePrompt'))?.trim();
+    const title = await prompt({ title: t('quickReplyNamePrompt') });
     if (!title) return;
     setSavingQuickReply(true);
     try {
@@ -559,7 +617,7 @@ export function MessageComposer({
     } finally {
       setSavingQuickReply(false);
     }
-  }, [interactivePayload, t]);
+  }, [interactivePayload, prompt, t]);
 
   // A picked quick reply: text fills the composer; interactive opens the
   // builder pre-filled so the agent can tweak before sending.
@@ -735,13 +793,32 @@ export function MessageComposer({
    * first one exists. Images and video are staged by kind; anything else is
    * a document, which is what the clip menu would have called it too.
    */
-  const handleDrop = useCallback(
-    (event: React.DragEvent<HTMLDivElement>) => {
-      if (inputsDisabled || busy) return;
-      const file = event.dataTransfer?.files?.[0];
-      if (!file) return;
-      event.preventDefault();
+  /**
+   * A FILE DROPPED ANYWHERE ON THE CONVERSATION, not just on the text box.
+   *
+   * Reported as "ao arrastar o arquivo ou foto para a conversa, ele abre
+   * o arquivo no PC e não anexa". Exactly right, and the cause is the
+   * browser's default: an element that does not `preventDefault()` its
+   * `dragover` is not a drop target, so the document gets the drop and
+   * navigates to the file. The listeners were on the composer — maybe
+   * 15% of the thread's height — and everything dropped on the message
+   * list above it went to the browser.
+   *
+   * Bound to the thread root (`[data-thread-root]`) rather than to this
+   * element, and imperatively rather than through JSX, because the
+   * element belongs to the parent component. `closest()` finds it
+   * without a prop being threaded through, and the listener lives
+   * exactly as long as this composer does.
+   *
+   * `dragover` must preventDefault on EVERY event, not only on the drop:
+   * that is what marks the region as a target in the first place.
+   */
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [dragging, setDragging] = useState(false);
 
+  const acceptDroppedFile = useCallback(
+    (file: File | undefined) => {
+      if (!file) return;
       const kind: ComposerMediaKind = file.type.startsWith('image/')
         ? 'image'
         : file.type.startsWith('video/')
@@ -749,8 +826,56 @@ export function MessageComposer({
           : 'document';
       void stageUpload(kind, file);
     },
-    [inputsDisabled, busy, stageUpload]
+    [stageUpload]
   );
+
+  useEffect(() => {
+    const zone = rootRef.current?.closest('[data-thread-root]');
+    if (!zone) return;
+
+    // A counter, not a boolean. `dragenter`/`dragleave` fire for every
+    // child the pointer crosses, so a boolean flickers off the moment
+    // the cursor moves from one bubble to the next and the overlay
+    // strobes across the screen.
+    let depth = 0;
+    const active = () => !inputsDisabled && !busy;
+
+    const onOver = (e: Event) => {
+      if (!active()) return;
+      e.preventDefault();
+    };
+    const onEnter = (e: Event) => {
+      if (!active()) return;
+      const dt = (e as DragEvent).dataTransfer;
+      // Only for files. Dragging selected text across the thread is not
+      // an attachment, and lighting the overlay for it would be a lie.
+      if (!dt?.types?.includes('Files')) return;
+      depth += 1;
+      setDragging(true);
+    };
+    const onLeave = () => {
+      depth = Math.max(0, depth - 1);
+      if (depth === 0) setDragging(false);
+    };
+    const onDrop = (e: Event) => {
+      depth = 0;
+      setDragging(false);
+      if (!active()) return;
+      e.preventDefault();
+      acceptDroppedFile((e as DragEvent).dataTransfer?.files?.[0]);
+    };
+
+    zone.addEventListener('dragover', onOver);
+    zone.addEventListener('dragenter', onEnter);
+    zone.addEventListener('dragleave', onLeave);
+    zone.addEventListener('drop', onDrop);
+    return () => {
+      zone.removeEventListener('dragover', onOver);
+      zone.removeEventListener('dragenter', onEnter);
+      zone.removeEventListener('dragleave', onLeave);
+      zone.removeEventListener('drop', onDrop);
+    };
+  }, [inputsDisabled, busy, acceptDroppedFile]);
 
   // ---- Voice recording (client-side Ogg/Opus, no server transcode) ---
 
@@ -900,16 +1025,34 @@ export function MessageComposer({
     // message list (`px-4`) already use. The composer was the only edge in
     // this column sitting 4px outside that line.
     <div
-      className="px-3 py-3 sm:px-4"
-      // Drop anywhere over the composer, not on a target you have to aim
-      // for. `onDragOver` has to preventDefault or the browser navigates to
-      // the file instead of handing it over — the default that turns a
-      // dropped PDF into a lost draft.
-      onDragOver={(e) => {
-        if (!inputsDisabled && !busy) e.preventDefault();
-      }}
-      onDrop={handleDrop}
+      // `pb-safe-3` is the same 12px on every device that has no inset,
+      // and the home indicator's height on the ones that do. Without it
+      // the send button — the one control this whole screen exists to
+      // reach — sits under the indicator on an iPhone, where a tap near
+      // it is a swipe-up gesture instead. The app is `overflow: hidden`
+      // with children scrolling inside, so the browser never scrolls the
+      // inset out of the way the way a normal document does.
+      className="px-3 pt-3 pb-safe-3 sm:px-4"
+      ref={rootRef}
+      // The drag listeners are NOT here any more — they are bound to the
+      // whole thread in the effect above. Dropping a file onto the
+      // message list, which is most of the screen, used to reach the
+      // browser instead of the app and open the file in a new tab.
     >
+      {/* WHILE A FILE IS OVER THE THREAD.
+      
+          A drop target that gives no sign it is one is only half fixed:
+          the file lands, but until it does nobody knows it will. This
+          strip sits at the top of the composer — the one place already in
+          the eye's path on the way down to the text box — rather than as
+          a full-screen overlay, which would cover the conversation
+          somebody is dropping a file INTO. */}
+      {dragging && (
+        <div className="border-primary bg-primary-soft text-primary mb-2 flex items-center justify-center gap-2 rounded-lg border border-dashed px-3 py-2 text-xs font-medium">
+          <ImageUp className="size-4" aria-hidden />
+          {t('dropHint')}
+        </div>
+      )}
       {replyTo && (
         <div className="mb-2">
           <ReplyQuote
@@ -1233,7 +1376,7 @@ export function MessageComposer({
                 disabled={inputsDisabled}
                 onClick={() => setQuickReplyOpen(true)}
               >
-                <Zap className="mr-2 size-4" />
+                <MessageSquareText className="mr-2 size-4" />
                 {t('quickReplies')}
               </DropdownMenuItem>
               <DropdownMenuItem
@@ -1361,7 +1504,7 @@ export function MessageComposer({
               {savingQuickReply ? (
                 <Loader2 className="mr-1 h-4 w-4 animate-spin" />
               ) : (
-                <Zap className="mr-1 h-4 w-4" />
+                <MessageSquareText className="mr-1 h-4 w-4" />
               )}
               {t('saveAsQuickReply')}
             </Button>

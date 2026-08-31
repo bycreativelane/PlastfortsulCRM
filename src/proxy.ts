@@ -16,9 +16,10 @@ import { NextResponse, type NextRequest } from 'next/server';
  * `middleware.test.ts` walks the (dashboard) directory and fails when a
  * route is missing here — and when an entry outlives the route it named,
  * which is how `/agents` left this list after the AI agent moved into
- * Settings. That path is now a `redirects()` entry in next.config.ts,
- * and config redirects resolve at step 2 of Next's routing order, ahead
- * of middleware at step 3: the request becomes `/settings?tab=ai` before
+ * Settings, and `/admin` after Configurações merged back into one door.
+ * Both are `redirects()` entries in next.config.ts now, and config
+ * redirects resolve at step 2 of Next's routing order, ahead of
+ * middleware at step 3: the request becomes `/settings?tab=…` before
  * this file ever sees it, and `/settings` is guarded below.
  */
 export const PROTECTED_PATHS = [
@@ -30,6 +31,7 @@ export const PROTECTED_PATHS = [
   '/inbox',
   '/notifications',
   '/pipelines',
+  '/products',
   '/reports',
   '/settings',
 ];
@@ -101,8 +103,43 @@ export async function proxy(request: NextRequest) {
       url.pathname = `/join/${encodeURIComponent(inviteToken)}`;
       url.search = '';
     } else {
-      url.pathname = '/dashboard';
-      url.search = '';
+      /**
+       * `?next=` WINS OVER `/dashboard`, and that is a bug fix, not a
+       * refinement.
+       *
+       * Reported as "se está numa página e dá atualizar, vai
+       * aleatoriamente para outra". It is not random — it is a race, and
+       * this branch was the second half of it:
+       *
+       *   1. F5 on /reports. The access token happens to be expiring, so
+       *      `getUser()` below returns null for this one request.
+       *   2. The protected-path branch redirects to
+       *      `/login?next=/reports`, carefully preserving where you were.
+       *   3. The refreshed cookie lands. The very next request hits THIS
+       *      branch — signed in, on /login — and sent you to /dashboard
+       *      with `url.search = ''`, throwing away the `next` that step 2
+       *      had just written.
+       *
+       * So the destination existed the whole time and this line deleted
+       * it. Whether it happened depended on token timing, which is what
+       * made it look random.
+       *
+       * Only a relative path is honoured. `next` arrives in a URL a user
+       * can edit, and following an absolute one would make the login
+       * screen an open redirect — somebody's phishing link with
+       * `?next=https://…` would bounce off a domain the team trusts.
+       */
+      const next = request.nextUrl.searchParams.get('next');
+      const safeNext =
+        next && next.startsWith('/') && !next.startsWith('//') ? next : null;
+      if (safeNext) {
+        const target = new URL(safeNext, request.nextUrl.origin);
+        url.pathname = target.pathname;
+        url.search = target.search;
+      } else {
+        url.pathname = '/dashboard';
+        url.search = '';
+      }
     }
     return withRefreshedCookies(NextResponse.redirect(url));
   }

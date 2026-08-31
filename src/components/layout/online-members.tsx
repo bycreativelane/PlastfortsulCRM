@@ -1,23 +1,14 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useTranslations } from 'next-intl';
 
-import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
+import { useMemberDirectory } from '@/hooks/use-member-directory';
 import { usePresence } from '@/hooks/use-presence';
-import { avatarClass, avatarInitials } from '@/lib/avatar-color';
-import { formatLastSeen, presenceLabel } from '@/lib/presence';
+import { presenceLabel } from '@/lib/presence';
 import { cn } from '@/lib/utils';
-import {
-  PresenceDot,
-  PRESENCE_DOT_CLASS,
-} from '@/components/presence/presence-dot';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
+import { MemberAvatar } from '@/components/presence/member-avatar';
 
 /**
  * Who else is here.
@@ -30,14 +21,23 @@ import {
  * assign dropdown, which you have to open a conversation to reach.
  *
  * The header is on every route and had a whole empty half. Three stacked
- * discs and a number is about the smallest thing that can answer "am I
- * alone in here right now", which for somebody deciding whether to park a
- * thread for a colleague or just answer it themselves is the question.
+ * discs is about the smallest thing that can answer "am I alone in here
+ * right now", which for somebody deciding whether to park a thread for a
+ * colleague or just answer it themselves is the question.
  *
  * THE PRESENCE IS THE ONE THE REST OF THE APP USES — `usePresence` over
  * `member_presence` (migration 024), the same source the assign menu's dots
  * and the auto-assign rotation read. A header that disagreed with the
  * dropdown about who is online would be worse than no header at all.
+ *
+ * NO PANEL BEHIND IT ANY MORE, and that was asked for. Clicking the stack
+ * used to open "Na equipe agora" — the same faces, the same dots, the same
+ * order, plus the names. Which is a popover whose entire content is the
+ * thing you were already looking at, in a product where the roster with the
+ * roles and the last-seen times is two clicks away in Configurações ›
+ * Equipe. What the faces owe the header is a glance, and a glance does not
+ * need somewhere to click. The names did not go anywhere: each disc carries
+ * its own `title`, so hovering one still says "Vitor — Ausente há 4 min".
  */
 
 /** How many faces before it becomes a number. */
@@ -45,38 +45,13 @@ const MAX_FACES = 3;
 
 export function OnlineMembers({ className }: { className?: string }) {
   const t = useTranslations('Presence');
-  const { accountId, user } = useAuth();
+  const { user } = useAuth();
   const { getPresence, getRow, now } = usePresence();
-  const [members, setMembers] = useState<
-    Array<{ user_id: string; full_name: string }>
-  >([]);
-
-  useEffect(() => {
-    if (!accountId) return;
-    const supabase = createClient();
-    let cancelled = false;
-    (async () => {
-      const { data } = await supabase
-        .from('profiles')
-        .select('user_id, full_name')
-        .eq('account_id', accountId);
-      if (cancelled || !data) return;
-      setMembers(
-        (
-          data as Array<{ user_id: string | null; full_name: string | null }>
-        ).filter((m): m is { user_id: string; full_name: string } =>
-          Boolean(m.user_id && m.full_name)
-        )
-      );
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [accountId]);
+  const directory = useMemberDirectory();
 
   const present = useMemo(
     () =>
-      members
+      [...directory.values()]
         .map((m) => ({ ...m, status: getPresence(m.user_id) }))
         .filter((m) => m.status !== 'offline')
         // Yourself last: you know where you are, and putting your own face
@@ -86,7 +61,7 @@ export function OnlineMembers({ className }: { className?: string }) {
           if (b.user_id === user?.id) return -1;
           return a.full_name.localeCompare(b.full_name);
         }),
-    [members, getPresence, user?.id]
+    [directory, getPresence, user?.id]
   );
 
   // Only the "nobody to show" case hides this now.
@@ -104,104 +79,60 @@ export function OnlineMembers({ className }: { className?: string }) {
   const overflow = present.length - faces.length;
 
   return (
-    <Popover>
-      <PopoverTrigger
-        aria-label={t('onlineCountAria', { count: present.length })}
-        title={t('onlineCount', { count: present.length })}
-        className={cn(
-          'hover:bg-muted data-popup-open:bg-muted inline-flex h-9 items-center rounded-full px-1 transition-colors',
-          className
+    // A `<span>`, not a button. There is nothing behind it to open, and a
+    // hover state on something that does not respond to a click is the
+    // interface promising an action it does not have.
+    <span
+      aria-label={t('onlineCountAria', { count: present.length })}
+      className={cn('inline-flex h-9 items-center px-1', className)}
+    >
+      {/* THE FACES ARE THE WHOLE CONTROL — no "3 online" beside them.
+          The number was already in the picture: three discs ARE three
+          people, and a count spelling that out is the label under a
+          photograph of a chair reading "chair". What the word cost was
+          the thing the discs are good at — a face is recognised before
+          it is read, so "is Matheus around" was answered by the avatar
+          and then repeated, more slowly, in text.
+
+          Overlapped, so three faces cost the width of about two. */}
+      <span className="flex items-center -space-x-2">
+        {faces.map((m) => (
+          <MemberAvatar
+            key={m.user_id}
+            name={m.full_name}
+            avatarUrl={m.avatar_url}
+            size="sm"
+            // Presence on the disc itself, which is what replaces the
+            // word: green is here, amber is stepped away. Without it the
+            // stack would say "these five exist", not "these five are
+            // around" — and away-vs-online is the difference between
+            // handing somebody a thread and waiting.
+            status={m.status}
+            // The whole label on the disc, because the panel that used to
+            // carry it is gone: name first, then the state and — for
+            // somebody away — how long, which is the part that decides
+            // whether you wait for them.
+            statusLabel={`${m.full_name}${m.user_id === user?.id ? t('you') : ''} — ${presenceLabel(
+              m.status,
+              getRow(m.user_id)?.last_seen_at ?? null,
+              now,
+              t
+            )}`}
+            className="ring-card rounded-full ring-2"
+          />
+        ))}
+        {overflow > 0 && (
+          <span
+            title={present
+              .slice(MAX_FACES)
+              .map((m) => m.full_name)
+              .join(', ')}
+            className="bg-muted text-secondary-foreground ring-card text-3xs grid size-7 shrink-0 place-items-center rounded-full font-semibold ring-2"
+          >
+            +{overflow}
+          </span>
         )}
-      >
-        {/* THE FACES ARE THE WHOLE CONTROL — no "3 online" beside them.
-            The number was already in the picture: three discs ARE three
-            people, and a count spelling that out is the label under a
-            photograph of a chair reading "chair". What the word cost was
-            the thing the discs are good at — a face is recognised before
-            it is read, so "is Matheus around" was answered by the avatar
-            and then repeated, more slowly, in text.
-
-            Overlapped, so three faces cost the width of about two. */}
-        <span className="flex items-center -space-x-2">
-          {faces.map((m) => (
-            <span key={m.user_id} className="relative shrink-0">
-              <span
-                className={cn(
-                  'text-avatar-ink ring-card text-3xs grid size-7 place-items-center rounded-full font-semibold ring-2',
-                  avatarClass(m.full_name)
-                )}
-              >
-                {avatarInitials(m.full_name)}
-              </span>
-              {/* Presence on the disc itself, which is what replaces the
-                  word: green is here, amber is stepped away. Without it
-                  the stack would say "these five exist", not "these five
-                  are around" — and away-vs-online is the difference
-                  between handing somebody a thread and waiting. */}
-              <span
-                className={cn(
-                  'ring-card absolute -right-0.5 -bottom-0.5 size-2 rounded-full ring-2',
-                  PRESENCE_DOT_CLASS[m.status]
-                )}
-              />
-            </span>
-          ))}
-          {overflow > 0 && (
-            <span className="bg-muted text-secondary-foreground ring-card text-3xs grid size-7 shrink-0 place-items-center rounded-full font-semibold ring-2">
-              +{overflow}
-            </span>
-          )}
-        </span>
-      </PopoverTrigger>
-
-      <PopoverContent align="end" className="w-60 p-1.5">
-        <p className="text-muted-foreground eyebrow px-2 pt-1 pb-1.5">
-          {t('onlineTitle')}
-        </p>
-        <ul className="flex flex-col">
-          {present.map((m) => (
-            <li
-              key={m.user_id}
-              className="flex items-center gap-2.5 rounded-md px-2 py-1.5"
-            >
-              <span
-                className={cn(
-                  'text-avatar-ink text-2xs grid size-7 shrink-0 place-items-center rounded-full font-semibold',
-                  avatarClass(m.full_name)
-                )}
-              >
-                {avatarInitials(m.full_name)}
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="text-foreground block truncate text-sm">
-                  {m.full_name}
-                  {m.user_id === user?.id ? t('you') : ''}
-                </span>
-                {/* "Ausente há 4 min" rather than a second dot: away is the
-                    state where HOW LONG is the whole information. */}
-                {m.status === 'away' && (
-                  <span className="text-muted-foreground text-2xs block truncate">
-                    {formatLastSeen(
-                      getRow(m.user_id)?.last_seen_at ?? null,
-                      now
-                    )}
-                  </span>
-                )}
-              </span>
-              <PresenceDot
-                status={m.status}
-                label={presenceLabel(
-                  m.status,
-                  getRow(m.user_id)?.last_seen_at ?? null,
-                  now,
-                  t
-                )}
-                className="shrink-0"
-              />
-            </li>
-          ))}
-        </ul>
-      </PopoverContent>
-    </Popover>
+      </span>
+    </span>
   );
 }

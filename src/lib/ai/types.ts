@@ -13,6 +13,16 @@ export type AiProvider = 'openai' | 'anthropic'
  * `loadAiConfig` — `apiKey` is the plaintext BYO provider key
  * (stored AES-256-GCM-encrypted at rest).
  */
+/**
+ * Which master switch a load is asking about (migration 057).
+ *
+ * The agent and the manual tools are two products sharing one API key,
+ * and before 057 they shared one switch as well — so turning off the
+ * robot that answers customers also turned off audio transcription for
+ * the humans. `gate` is what makes them independent.
+ */
+export type AiGate = 'agent' | 'assist' | 'none'
+
 export interface AiConfig {
   provider: AiProvider
   model: string
@@ -27,8 +37,57 @@ export interface AiConfig {
   handoffAgentId: string | null
   /** Optional OpenAI-compatible key for embeddings. When set, the
    *  knowledge base is embedded and semantic retrieval turns on; when
-   *  null, retrieval falls back to lexical full-text search. */
+   *  null, retrieval falls back to lexical full-text search.
+   *
+   *  Also the fallback key for AUDIO on an Anthropic account — Anthropic
+   *  has no audio input, and this field is an OpenAI key by definition.
+   *  See `@/lib/ai/media-understanding`. */
   embeddingsApiKey: string | null
+  /** Transcribe inbound audio and describe inbound images as they
+   *  arrive (migration 049). Gated behind `isActive` like the rest. */
+  mediaUnderstandingEnabled: boolean
+
+  // ---- The structured half of the prompt (migration 053) ----------
+  //
+  // `systemPrompt` above is still appended verbatim; these are the
+  // things people were writing INTO it, given their own fields so the
+  // composer can order them and so a prohibition can be stated as a
+  // prohibition. All nullable: an absent one contributes no line.
+  personaName: string | null
+  businessDescription: string | null
+  tone: 'formal' | 'neutral' | 'casual' | null
+  guardrails: string | null
+  escalationRules: string | null
+  /** Tool names this account turned on. See `@/lib/ai/tools`. */
+  enabledTools: string[]
+  /** How many knowledge chunks go in front of the model. 0 = none. */
+  retrievalTopK: number
+  /** Agents may ask for a suggested reply on a message. */
+  assistEnabled: boolean
+
+  // ---- The manual half, split out in migration 057 ----------------
+  //
+  // These are the tools a PERSON uses: a suggested reply they will edit,
+  // words attached to an audio they would otherwise have to listen to,
+  // a description of a photo so search and keyword triggers see
+  // something where they see nothing today.
+  //
+  // None of them talks to a customer. That is why they get their own
+  // master switch instead of riding on the agent's.
+
+  /** Master switch for the manual tools. Independent of `isActive`. */
+  assistIsActive: boolean
+  /** Model for the manual tools. Null = the same one the agent uses. */
+  assistModel: string | null
+  /** Transcribe inbound audio. */
+  transcribeAudioEnabled: boolean
+  /** Describe inbound images. */
+  describeImageEnabled: boolean
+  /** Read inbound PDFs. Off by default — the most expensive of the three
+   *  and the only one that can arrive twenty pages long unannounced. */
+  readDocumentEnabled: boolean
+  /** When somebody walked the setup wizard to the end. */
+  setupCompletedAt: string | null
 }
 
 /** A single conversation turn in the shape both providers accept. */

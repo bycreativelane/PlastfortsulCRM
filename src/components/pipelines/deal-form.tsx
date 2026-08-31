@@ -1,11 +1,17 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
 import { useCan } from '@/hooks/use-can';
 import { CURRENCIES } from '@/lib/currency';
+import {
+  lineTotal,
+  replaceDealItems,
+  type DealItemDraft,
+} from '@/lib/products/catalog';
+import { DealItemsEditor } from './deal-items';
 import type {
   Contact,
   Conversation,
@@ -83,6 +89,22 @@ export function DealForm({
 
   const [title, setTitle] = useState('');
   const [value, setValue] = useState<number | null>(null);
+  /**
+   * The opportunity's line items (spec §10, migration 054).
+   *
+   * Held here rather than inside the editor because they are saved
+   * AFTER the deal exists — on a new deal there is no id to attach them
+   * to until the insert returns one.
+   */
+  const [items, setItems] = useState<DealItemDraft[]>([]);
+  const [itemsPending, setItemsPending] = useState(false);
+  const handleItems = useCallback(
+    (state: { items: DealItemDraft[]; pending: boolean }) => {
+      setItems(state.items);
+      setItemsPending(state.pending);
+    },
+    []
+  );
   const [currency, setCurrency] = useState(defaultCurrency);
   const [contactId, setContactId] = useState('');
   const [stageId, setStageId] = useState('');
@@ -182,9 +204,16 @@ export function DealForm({
     }
     setSaving(true);
 
+    // The lines decide the value when there are lines. The trigger in
+    // 054 does this again server-side — this is only so the row is right
+    // in the same statement rather than a beat later, which is what the
+    // board reads when it refreshes.
+    const lineTotalSum = items.reduce((sum, item) => sum + lineTotal(item), 0);
+    const hasLines = items.length > 0;
+
     const payload = {
       title: title.trim(),
-      value: value ?? 0,
+      value: hasLines ? lineTotalSum : (value ?? 0),
       currency,
       contact_id: contactId,
       pipeline_id: pipelineId,
@@ -204,6 +233,17 @@ export function DealForm({
         setSaving(false);
         return;
       }
+      if (!itemsPending && accountId) {
+        const { error: itemsError } = await replaceDealItems(supabase, {
+          accountId,
+          dealId: deal.id,
+          items,
+        });
+        // The deal saved. Saying so and naming the part that did not is
+        // better than a rollback the user did not ask for — the value is
+        // already correct on the row above.
+        if (itemsError) toast.error(t('toastItemsFailed'));
+      }
     } else {
       const {
         data: { session },
@@ -219,16 +259,30 @@ export function DealForm({
         setSaving(false);
         return;
       }
-      const { error } = await supabase.from('deals').insert({
-        ...payload,
-        user_id: user.id,
-        account_id: accountId,
-        status: 'open',
-      });
-      if (error) {
+      const { data: created, error } = await supabase
+        .from('deals')
+        .insert({
+          ...payload,
+          user_id: user.id,
+          account_id: accountId,
+          status: 'open',
+        })
+        // The id, so the lines have something to attach to. `.select()`
+        // on an insert is one round trip either way.
+        .select('id')
+        .single();
+      if (error || !created) {
         toast.error(t('toastFailedCreate'));
         setSaving(false);
         return;
+      }
+      if (!itemsPending && items.length > 0) {
+        const { error: itemsError } = await replaceDealItems(supabase, {
+          accountId,
+          dealId: (created as { id: string }).id,
+          items,
+        });
+        if (itemsError) toast.error(t('toastItemsFailed'));
       }
     }
 
@@ -355,13 +409,28 @@ export function DealForm({
               <div className="grid grid-cols-[1fr_110px] gap-3">
                 <div className="grid gap-2">
                   <FieldLabel>{t('value')}</FieldLabel>
+                  {/* Read-only once there are lines. The number is what
+                      they add up to, and a field somebody can type over
+                      an arithmetic result is a field that makes the
+                      total a lie again — which is the whole thing line
+                      items were added to stop. */}
                   <CurrencyInput
-                    value={value}
+                    value={
+                      items.length > 0
+                        ? items.reduce((sum, i) => sum + lineTotal(i), 0)
+                        : value
+                    }
                     onValueChange={setValue}
                     currency={currency}
                     placeholder="0"
+                    disabled={items.length > 0}
                     className="border-border bg-muted text-foreground"
                   />
+                  {items.length > 0 ? (
+                    <p className="text-muted-foreground text-2xs">
+                      {t('valueFromItems')}
+                    </p>
+                  ) : null}
                 </div>
                 <div className="grid gap-2">
                   <FieldLabel>{t('currency')}</FieldLabel>
@@ -421,6 +490,18 @@ export function DealForm({
                 </OptionSelect>
               </div>
             </div>
+
+            {/* The lines, between the money and the notes — because they
+                ARE the money, and the note is what somebody adds after
+                deciding what is on the quote. Draws nothing at all on a
+                database without migration 054. */}
+            <DealItemsEditor
+              accountId={accountId}
+              dealId={deal?.id ?? null}
+              currency={currency}
+              disabled={!canWrite}
+              onChange={handleItems}
+            />
 
             <div className="grid gap-2">
               <FieldLabel>{t('notes')}</FieldLabel>

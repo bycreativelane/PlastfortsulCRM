@@ -1,5 +1,6 @@
 import { timingSafeEqual } from 'node:crypto'
 import { NextResponse } from 'next/server'
+import { sweepStalledConversations } from '@/lib/conversations/handover-sweep'
 import { supabaseAdmin } from '@/lib/automations/admin-client'
 import { resumePendingExecution } from '@/lib/automations/engine'
 import type { AutomationContext } from '@/lib/automations/engine'
@@ -70,5 +71,22 @@ export async function GET(request: Request) {
     processed++
   }
 
-  return NextResponse.json({ processed })
+  /**
+   * The stalled-conversation sweep rides this tick.
+   *
+   * After the automations, not before: a pending automation may itself
+   * be the reply that clears the wait, and handing the conversation to
+   * somebody else a second earlier would move work that was about to be
+   * done.
+   *
+   * Never throws — one account's failure is caught inside, and a sweep
+   * that broke must not turn the automations run into a 500 the
+   * scheduler retries.
+   */
+  const sweep = await sweepStalledConversations().catch((err) => {
+    console.error('[cron] handover sweep failed:', err)
+    return { scanned: 0, handed: [] }
+  })
+
+  return NextResponse.json({ processed, handedOver: sweep.handed.length })
 }

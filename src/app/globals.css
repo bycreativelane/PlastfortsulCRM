@@ -959,6 +959,39 @@ html[data-theme='rose'] {
   height: calc(--value(integer) * 1dvh / var(--zoom));
 }
 
+/* ============================================================
+ * The notch, the home indicator, and the rounded corner.
+ *
+ * Nothing in this app used `env(safe-area-inset-*)`, and on an iPhone
+ * that shows: the inbox composer — the one control the whole screen
+ * exists to reach — sits under the home indicator, and a tap near the
+ * send button is a swipe-up gesture instead. The app is `overflow:
+ * hidden` with children scrolling inside it, so the browser never
+ * scrolls the inset out of the way the way a normal document does.
+ *
+ * `max()` rather than a plain addition: on every device WITHOUT an
+ * inset the value is 0, and adding it to the design's own padding would
+ * be a no-op that still needs a second number to maintain. This way one
+ * utility says "at least this much, and more if the hardware needs it".
+ *
+ * `pb-safe-3` is `padding-bottom: max(0.75rem, env(...))` — the same
+ * ladder as Tailwind's own spacing scale, so the number at the call
+ * site still reads as the design value it was.
+ * ============================================================ */
+@utility pb-safe-* {
+  padding-bottom: max(
+    calc(--value(integer) * 0.25rem),
+    env(safe-area-inset-bottom, 0px)
+  );
+}
+
+@utility pt-safe-* {
+  padding-top: max(
+    calc(--value(integer) * 0.25rem),
+    env(safe-area-inset-top, 0px)
+  );
+}
+
 /**
  * The dot grid both editors are drawn on.
  *
@@ -1433,20 +1466,88 @@ html[data-mode='dark'] {
   [data-slot='button'],
   [data-slot='dropdown-menu-trigger'],
   [data-slot='popover-trigger'],
-  [data-slot='select-trigger'] {
+  [data-slot='select-trigger'],
+  /* `OptionSelect` renders a `SelectTrigger` but OVERRIDES its
+   * `data-slot` to its own name, so every select built through it —
+   * the whole segmentation panel on /contacts, among others — fell
+   * outside the list above and stayed a 32px target on a phone while
+   * the raw `SelectTrigger` beside it was 44. A component that renames
+   * its slot leaves the rule that keyed off the old name behind. */
+  [data-slot='option-select'] {
     position: relative;
   }
 
   [data-slot='button']::before,
   [data-slot='dropdown-menu-trigger']::before,
   [data-slot='popover-trigger']::before,
-  [data-slot='select-trigger']::before {
+  [data-slot='select-trigger']::before,
+  [data-slot='option-select']::before {
     content: '';
     position: absolute;
     top: min(0px, calc((100% - 2.75rem) / 2));
     bottom: min(0px, calc((100% - 2.75rem) / 2));
     left: min(0px, calc((100% - 2.75rem) / 2));
     right: min(0px, calc((100% - 2.75rem) / 2));
+  }
+
+  /* ----------------------------------------------------------------
+   * THE FIELDS YOU TYPE IN CANNOT USE THE SHIELD ABOVE.
+   *
+   * `<input>` is a replaced element: it has no generated content box,
+   * so `::before` never renders on it. Adding `[data-slot='input']` to
+   * the selector list would have looked like a fix and done nothing at
+   * all — which is worth writing down, because it is exactly what the
+   * shape of the rule invites.
+   *
+   * So these grow for real. The base `Input` is `h-8` (32px), which is
+   * the right density for a mouse and eight hours of CRM, and under a
+   * finger it is a 32px target you have to hit before you can even
+   * start typing. `min-height` beats the `height` those components set,
+   * so one rule lifts all 143 call sites without touching one of them.
+   *
+   * The selects come along deliberately. They already get 44px of
+   * invisible hit area from the shield but stay DRAWN at 32, and a form
+   * row with a 44px field beside a 32px select reads as misaligned —
+   * the segmentation panel on /contacts puts four of them in a column.
+   * Fields that share a row should share a height.
+   *
+   * This is also what retires the 26 hand-written
+   * `[@media(pointer:coarse)]:h-11` overrides scattered through `src`:
+   * they are now saying locally what this says once.
+   * ---------------------------------------------------------------- */
+  [data-slot='input'],
+  [data-slot='textarea'],
+  [data-slot='select-trigger'],
+  [data-slot='option-select'] {
+    min-height: 2.75rem;
+  }
+}
+
+/* ============================================================
+ * The two tells that say "this is a web page, not an app".
+ *
+ * 1. THE GREY FLASH. Android Chrome paints a translucent rectangle over
+ *    anything tappable on touch — and it is a RECTANGLE, so it ignores
+ *    every `rounded-lg` in the design and boxes the corners back in. On
+ *    the tab bar that is a 94×56 grey block over an icon and a label,
+ *    on every tap, forever. Nothing in this project had ever set it.
+ *
+ *    `transparent` and not a colour: the app already answers a press
+ *    everywhere it matters — `active:` states on the tab bar,
+ *    `surface-interactive` on the cards, `row-interactive` in the lists.
+ *    The browser's version is a second answer drawn on top of the
+ *    first, half a frame later.
+ *
+ * 2. THE SELECTION HANDLES. A press held a beat too long on a nav label
+ *    — which is what a slow tap on a moving bus is — starts a text
+ *    selection and raises the copy callout, instead of navigating. The
+ *    fix is scoped to CHROME only (`select-none` on the tab bar, the app
+ *    bar and the rail): message text, phone numbers and API keys must
+ *    stay selectable, and a blanket rule here would take that away.
+ * ============================================================ */
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
   }
 }
 

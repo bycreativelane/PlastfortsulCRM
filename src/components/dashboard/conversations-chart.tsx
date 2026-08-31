@@ -9,7 +9,6 @@ import type { ConversationsSeriesPoint } from '@/lib/dashboard/types';
 import { APP_LOCALE } from '@/lib/i18n/locale';
 import {
   Panel,
-  PanelActions,
   PanelBody,
   PanelHeader,
   PanelSub,
@@ -18,25 +17,38 @@ import {
 import { StatePanel } from '@/components/ui/state-panel';
 import {
   CHART_HEIGHT,
+  CHART_MARGIN,
+  ChartGradient,
   ChartGrid,
   ChartLegend,
   ChartSurface,
   ChartTooltipCard,
   CURSOR_LINE,
+  Y_AXIS_WIDTH,
   axisProps,
   axisTick,
+  gradientFill,
 } from '@/components/charts/chart-primitives';
 import { Skeleton } from './skeleton';
-import { cn } from '@/lib/utils';
-
-type RangeDays = 7 | 30 | 90;
 
 interface ConversationsChartProps {
-  /** Per-range data, so switching tabs never re-fetches. */
-  series: Record<RangeDays, ConversationsSeriesPoint[] | null>;
+  /**
+   * The points for the period on screen, or null while they load.
+   *
+   * This used to be a `Record<7 | 30 | 90, …>` and the panel picked one,
+   * because the panel owned the period control. It does not any more —
+   * the control is the page's, and since the period became an arbitrary
+   * window there is no fixed set of keys to hold a record of. Caching
+   * moved up to the page, keyed on the period itself.
+   */
+  data: ConversationsSeriesPoint[] | null;
+  /**
+   * Totals for the window before this one. Optional: a caller that does
+   * not ask the question gets a legend with no deltas rather than one
+   * claiming zero change.
+   */
+  previous?: { incoming: number; outgoing: number } | null;
   loading: boolean;
-  range: RangeDays;
-  onRangeChange: (r: RangeDays) => void;
 }
 
 /**
@@ -63,14 +75,46 @@ interface ConversationsChartProps {
  * letterboxed viewBox. Recharts does all three, in real pixels.
  */
 export function ConversationsChart({
-  series,
+  data,
+  previous,
   loading,
-  range,
-  onRangeChange,
 }: ConversationsChartProps) {
   const t = useTranslations('Dashboard.conversationsChart');
   const gradientId = useId();
-  const data = series[range];
+
+  /**
+   * What the two series add up to over the window on screen.
+   *
+   * Computed here rather than fetched: the points are already loaded and
+   * a sum of at most ninety numbers is cheaper than the round trip that
+   * would tell us the same thing. Recomputed when the period changes,
+   * which is exactly when the answer changes.
+   */
+  const totals = useMemo(() => {
+    const rows = data ?? [];
+    return {
+      incoming: rows.reduce((n, r) => n + r.incoming, 0),
+      outgoing: rows.reduce((n, r) => n + r.outgoing, 0),
+    };
+  }, [data]);
+
+  /**
+   * Percent change against the window before this one.
+   *
+   * `null` when there is no basis — and NOT zero. A period with nothing
+   * before it is not a period that held steady, and printing "0%" would
+   * claim a measurement nobody took. Same rule the metric strip follows.
+   */
+  const change = useMemo(() => {
+    const before = previous;
+    if (!before) return { incoming: null, outgoing: null };
+    const pct = (now: number, then: number) =>
+      then === 0 ? null : Math.round(((now - then) / then) * 100);
+    return {
+      incoming: pct(totals.incoming, before.incoming),
+      outgoing: pct(totals.outgoing, before.outgoing),
+    };
+  }, [previous, totals]);
 
   const { maxY, ticks } = useMemo(() => {
     const arr = data ?? [];
@@ -93,35 +137,6 @@ export function ConversationsChart({
           <PanelTitle>{t('title')}</PanelTitle>
           <PanelSub>{t('description')}</PanelSub>
         </div>
-        <PanelActions>
-          {/* The inbox's `SegBar` geometry at a smaller size — same track,
-              same radius, same lifted active chip. It used to be a
-              `bg-muted/60` group with a `bg-secondary` active state, which
-              is a third kind of segmented control in a product that
-              already had two. */}
-          <div className="bg-muted flex gap-0.5 rounded-lg p-[3px]">
-            {[7, 30, 90].map((r) => (
-              <button
-                key={r}
-                type="button"
-                onClick={() => onRangeChange(r as RangeDays)}
-                aria-pressed={range === r}
-                className={cn(
-                  // Raw <button>: the shell's coarse-pointer rule only
-                  // widens [data-slot="button"], and these three sit ~26px
-                  // tall on a phone. The minimum applies under a coarse
-                  // pointer only, so the desktop segment keeps its size.
-                  'text-2xs h-6.5 rounded-md px-2.5 font-semibold transition-colors [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11',
-                  range === r
-                    ? 'bg-card text-foreground shadow-sm'
-                    : 'text-secondary-foreground hover:text-foreground'
-                )}
-              >
-                {t('days', { count: r })}
-              </button>
-            ))}
-          </div>
-        </PanelActions>
       </PanelHeader>
 
       <PanelBody className="flex flex-1 flex-col">
@@ -135,17 +150,32 @@ export function ConversationsChart({
           />
         ) : (
           <>
+            {/* The legend carries the period totals now. Two words and
+                two dots above a chart is a colour key read once and then
+                paid for on every visit; with the numbers in it, the line
+                answers "quantas, no total?" before anybody hovers a
+                single point. */}
             <ChartLegend
               className="mb-3"
               items={[
-                { label: t('incoming'), color: 'var(--chart-1)' },
-                { label: t('outgoing'), color: 'var(--chart-2)' },
+                {
+                  label: t('incoming'),
+                  color: 'var(--chart-1)',
+                  total: totals.incoming.toLocaleString(APP_LOCALE),
+                  delta: change.incoming,
+                },
+                {
+                  label: t('outgoing'),
+                  color: 'var(--chart-2)',
+                  total: totals.outgoing.toLocaleString(APP_LOCALE),
+                  delta: change.outgoing,
+                },
               ]}
             />
             <ChartSurface>
               <AreaChart
                 data={data}
-                margin={{ top: 4, right: 8, bottom: 0, left: 0 }}
+                margin={CHART_MARGIN}
                 accessibilityLayer
                 role="img"
                 aria-label={t('ariaLabel')}
@@ -154,43 +184,18 @@ export function ConversationsChart({
                   {/* Reaching zero at the baseline is what lets the two
                       series sit on top of each other. A flat 15% fill on
                       both turns the overlap into a third colour that means
-                      nothing. */}
-                  <linearGradient
+                      nothing. Both ramps now come from `ChartGradient`, the
+                      same one the bars use — see the note there. */}
+                  <ChartGradient
                     id={`${gradientId}-in`}
-                    x1="0"
-                    y1="0"
-                    x2="0"
-                    y2="1"
-                  >
-                    <stop
-                      offset="0%"
-                      stopColor="var(--chart-1)"
-                      stopOpacity={0.28}
-                    />
-                    <stop
-                      offset="100%"
-                      stopColor="var(--chart-1)"
-                      stopOpacity={0}
-                    />
-                  </linearGradient>
-                  <linearGradient
+                    color="var(--chart-1)"
+                    from={0.28}
+                  />
+                  <ChartGradient
                     id={`${gradientId}-out`}
-                    x1="0"
-                    y1="0"
-                    x2="0"
-                    y2="1"
-                  >
-                    <stop
-                      offset="0%"
-                      stopColor="var(--chart-2)"
-                      stopOpacity={0.2}
-                    />
-                    <stop
-                      offset="100%"
-                      stopColor="var(--chart-2)"
-                      stopOpacity={0}
-                    />
-                  </linearGradient>
+                    color="var(--chart-2)"
+                    from={0.2}
+                  />
                 </defs>
 
                 <ChartGrid />
@@ -207,7 +212,7 @@ export function ConversationsChart({
                 />
                 <YAxis
                   {...axisProps}
-                  width={36}
+                  width={Y_AXIS_WIDTH}
                   domain={[0, maxY]}
                   ticks={ticks}
                   allowDecimals={false}
@@ -253,7 +258,7 @@ export function ConversationsChart({
                   dataKey="outgoing"
                   stroke="var(--chart-2)"
                   strokeWidth={2}
-                  fill={`url(#${gradientId}-out)`}
+                  fill={gradientFill(`${gradientId}-out`)}
                   dot={false}
                   // The ring is `--card`, not white: it is a hole punched
                   // in the line so the dot reads as a marker rather than a
@@ -270,7 +275,7 @@ export function ConversationsChart({
                   dataKey="incoming"
                   stroke="var(--chart-1)"
                   strokeWidth={2}
-                  fill={`url(#${gradientId}-in)`}
+                  fill={gradientFill(`${gradientId}-in`)}
                   dot={false}
                   activeDot={{
                     r: 3.5,

@@ -20,6 +20,8 @@
 import { NextResponse } from "next/server";
 
 import { requireRole, toErrorResponse } from "@/lib/auth/account";
+import { auditAdmin } from "@/lib/audit/admin-client";
+import { auditActorLabel, logAuditEvent } from "@/lib/audit/log";
 import {
   clampExpiryDays,
   generateInviteToken,
@@ -248,6 +250,20 @@ export async function POST(request: Request) {
         { status: 500 },
       );
     }
+
+    // The token itself never touches the log — only that an invite was
+    // minted, for which role, and by whom. A revoked invite leaves its
+    // row here even though the invite table's own row is gone.
+    await logAuditEvent(auditAdmin(), {
+      accountId: ctx.accountId,
+      actorUserId: ctx.userId,
+      actorLabel: await auditActorLabel(ctx.supabase, ctx.userId),
+      action: "member.invited",
+      targetType: "invitation",
+      targetId: data.id,
+      targetLabel: label ?? null,
+      metadata: { role, expires_at: data.expires_at },
+    });
 
     return NextResponse.json(
       {

@@ -6,6 +6,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { MODES, THEMES, type Mode, type ThemeId } from '@/lib/themes';
 import { cn } from '@/lib/utils';
 import { useTranslations } from 'next-intl';
+import { InstallAppCard } from './install-app-card';
 import { SettingsPanelHead } from './settings-panel-head';
 
 /**
@@ -27,6 +28,15 @@ export function AppearancePanel() {
   return (
     <section className="animate-in fade-in-50 max-w-3xl duration-(--dur-3)">
       <SettingsPanelHead title={t('title')} description={t('description')} />
+
+      {/* Above the appearance controls rather than below them, and the
+          reason is who reads this page. Somebody opens Aparência to
+          change the theme; they arrive with no idea the app can leave
+          the browser at all. This is the only surface in the product
+          that can tell them, and it renders nothing at all on a browser
+          that cannot install (see the component), so it costs the
+          desktop reader nothing. */}
+      <InstallAppCard />
 
       <div className="space-y-4">
         <h3 className="text-foreground flex items-center gap-2 text-sm font-semibold">

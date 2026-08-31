@@ -1,15 +1,17 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 import { BarChart3, GitBranch, Lock, Users, Zap } from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
-import { canEditSettings } from '@/lib/auth/roles';
+import { useCapability } from '@/hooks/use-can';
 import { formatCurrency } from '@/lib/currency';
 import {
   loadActivity,
+  loadConversationsPrevious,
   loadConversationsSeries,
   loadMetrics,
   loadPipelineDonut,
@@ -22,15 +24,19 @@ import type {
   PipelineDonutData,
   ResponseTimeSummary,
 } from '@/lib/dashboard/types';
+import { periodFromPreset, type Period } from '@/lib/dashboard/period';
+import { TooManyRowsError } from '@/lib/supabase/paged';
 import type { Deal, Pipeline, PipelineStage } from '@/types';
 
 import { ActivityFeed } from '@/components/dashboard/activity-feed';
+import { TeamPerformance } from '@/components/reports/team-performance';
 import { ConversationsChart } from '@/components/dashboard/conversations-chart';
-import { PipelineDonut } from '@/components/dashboard/pipeline-donut';
+import { PipelineFunnel } from '@/components/dashboard/pipeline-funnel';
 import { ResponseTimeChart } from '@/components/dashboard/response-time-chart';
 import { SkeletonCard } from '@/components/dashboard/skeleton';
 import { PipelineAnalytics } from '@/components/pipelines/pipeline-analytics';
-import { Metric } from '@/components/ui/metric';
+import { MetricStrip } from '@/components/dashboard/metric-strip';
+import { PeriodPicker } from '@/components/dashboard/period-picker';
 import { SectionTitle } from '@/components/ui/section-title';
 import { StatePanel } from '@/components/ui/state-panel';
 import {
@@ -41,10 +47,9 @@ import {
   PanelTitle,
 } from '@/components/ui/panel';
 import { PageHeader } from '@/components/layout/page-header';
+import { PageActions } from '@/components/layout/page-actions';
 import { APP_LOCALE } from '@/lib/i18n/locale';
 import { cn } from '@/lib/utils';
-
-type RangeDays = 7 | 30 | 90;
 
 /**
  * Reports — the owner's read of the operation.
@@ -61,24 +66,50 @@ type RangeDays = 7 | 30 | 90;
  */
 export default function ReportsPage() {
   const t = useTranslations('Reports');
-  const { accountRole, defaultCurrency, profileLoading } = useAuth();
-  // `accountRole` is null until the profile fetch settles, and the shell's
-  // own gate only waits on the SESSION (`loading`), not on this. So the
-  // owner of the account used to be told "Acesso restrito" on every load
-  // of this page, for as long as the profile took to arrive. A permission
-  // system that denies you and then changes its mind is one you stop
-  // trusting — the cost is not the frame, it is the credibility.
-  const allowed = accountRole ? canEditSettings(accountRole) : false;
+  const { defaultCurrency, profileLoading } = useAuth();
+  // A CAPABILITY, not the role, since migration 050. Admin is still the
+  // default answer — see `CAPABILITIES['reports.view']` — but an account
+  // can now let one agent in here, or keep one admin out, from
+  // Configurações › Acesso. The sidebar row is gated on the same
+  // capability, so the menu and the page agree.
+  //
+  // The gate below still waits on `profileLoading`: the role is null
+  // until the profile fetch settles, and the shell's own gate only waits
+  // on the SESSION. The owner of the account used to be told "Acesso
+  // restrito" on every load of this page, for as long as the profile
+  // took to arrive. A permission system that denies you and then changes
+  // its mind is one you stop trusting — the cost is not the frame, it is
+  // the credibility.
+  const allowed = useCapability('reports.view');
 
   const [metrics, setMetrics] = useState<MetricsBundle | null>(null);
   const [metricsLoading, setMetricsLoading] = useState(true);
 
-  const [range, setRange] = useState<RangeDays>(30);
-  const [series, setSeries] = useState<
-    Record<RangeDays, ConversationsSeriesPoint[] | null>
-  >({ 7: null, 30: null, 90: null });
+  /**
+   * The window this page is about.
+   *
+   * A `Period` rather than a day count since the custom range landed:
+   * "the last 30 days" and "July" are the same question with different
+   * bounds, and only the first can be written as a number.
+   */
+  const [period, setPeriod] = useState<Period>(() => periodFromPreset(30));
   const [seriesLoading, setSeriesLoading] = useState(true);
 
+  /**
+   * Answers already fetched, keyed by the period that produced them.
+   *
+   * This used to be `Record<7 | 30 | 90, …>` — three slots for three
+   * possible questions. A hand-picked window has no fixed set of keys,
+   * so the cache is keyed on `period.key`, which is stable for the same
+   * window and different for any other. Going back to a period you have
+   * already looked at still costs nothing.
+   */
+  const [series, setSeries] = useState<
+    Record<string, ConversationsSeriesPoint[] | undefined>
+  >({});
+  const [previous, setPrevious] = useState<
+    Record<string, { incoming: number; outgoing: number } | undefined>
+  >({});
   const [pipeline, setPipeline] = useState<PipelineDonutData | null>(null);
   const [pipelineLoading, setPipelineLoading] = useState(true);
 
@@ -99,6 +130,24 @@ export default function ReportsPage() {
   const [stages, setStages] = useState<PipelineStage[]>([]);
   const [deals, setDeals] = useState<Deal[]>([]);
 
+  /**
+   * What to do when the series query gives up.
+   *
+   * `TooManyRowsError` gets its own sentence because it is the only one
+   * the reader can act on: the window they picked is bigger than this
+   * page can add up in the browser, and a smaller one works. Everything
+   * else is "it failed", which is all anybody can do anything with.
+   */
+  const failSeries = useCallback(
+    (err: unknown) => {
+      setSeriesLoading(false);
+      toast.error(
+        err instanceof TooManyRowsError ? t('periodTooBig') : t('loadFailed')
+      );
+    },
+    [t]
+  );
+
   useEffect(() => {
     if (!allowed) return;
     const db = createClient();
@@ -106,31 +155,51 @@ export default function ReportsPage() {
 
     // Everything in parallel, each settling on its own — one slow query must
     // not hold the whole page blank.
+    //
+    // AND EVERY ONE OF THEM CATCHES. None of these did: a rejection left
+    // its `…Loading` flag true forever, so the panel showed a skeleton
+    // that would never resolve, plus an unhandled rejection in the
+    // console and nothing on screen. A failed query has to look like a
+    // failure — clearing the flag lets the panel render its own empty
+    // state, which says something true.
     loadMetrics(db).then((d) => {
       if (cancelled) return;
       setMetrics(d);
       setMetricsLoading(false);
-    });
-    loadConversationsSeries(db, 30).then((d) => {
+    }).catch(() => !cancelled && setMetricsLoading(false));
+    const first = periodFromPreset(30);
+    loadConversationsSeries(db, first).then((d) => {
       if (cancelled) return;
-      setSeries((prev) => ({ ...prev, 30: d }));
+      setSeries((prev) => ({ ...prev, [first.key]: d }));
       setSeriesLoading(false);
-    });
+    }).catch((err) => !cancelled && failSeries(err));
+    // Not awaited with the series and not gating `seriesLoading`: the
+    // chart is readable the moment the points land, and a comparison
+    // that arrives a beat later fills in beside a number already on
+    // screen. Holding the whole panel for it would trade something
+    // useful for something merely better.
+    // The comparison is the one thing allowed to fail quietly: the chart
+    // is complete without it, and its absence already reads as "no
+    // basis" rather than as zero.
+    loadConversationsPrevious(db, first).then((d) => {
+      if (cancelled) return;
+      setPrevious((prev) => ({ ...prev, [first.key]: d }));
+    }).catch(() => {});
     loadPipelineDonut(db).then((d) => {
       if (cancelled) return;
       setPipeline(d);
       setPipelineLoading(false);
-    });
+    }).catch(() => !cancelled && setPipelineLoading(false));
     loadResponseTime(db).then((d) => {
       if (cancelled) return;
       setResponseTime(d);
       setResponseTimeLoading(false);
-    });
+    }).catch(() => !cancelled && setResponseTimeLoading(false));
     loadActivity(db).then((d) => {
       if (cancelled) return;
       setActivity(d);
       setActivityLoading(false);
-    });
+    }).catch(() => !cancelled && setActivityLoading(false));
     db.from('pipelines')
       .select('*')
       .order('created_at')
@@ -171,17 +240,27 @@ export default function ReportsPage() {
     };
   }, [pipelineId]);
 
-  const handleRangeChange = useCallback(
-    (next: RangeDays) => {
-      setRange(next);
-      if (series[next]) return;
-      setSeriesLoading(true);
-      loadConversationsSeries(createClient(), next).then((d) => {
-        setSeries((prev) => ({ ...prev, [next]: d }));
+  const handlePeriodChange = useCallback(
+    (next: Period) => {
+      setPeriod(next);
+      // Already answered — switching back to a window you have looked at
+      // is instant, and asking again would be a round trip for a result
+      // that is already on the client.
+      if (series[next.key]) {
         setSeriesLoading(false);
-      });
+        return;
+      }
+      setSeriesLoading(true);
+      const db = createClient();
+      loadConversationsSeries(db, next).then((d) => {
+        setSeries((prev) => ({ ...prev, [next.key]: d }));
+        setSeriesLoading(false);
+      }).catch(failSeries);
+      loadConversationsPrevious(db, next).then((d) => {
+        setPrevious((prev) => ({ ...prev, [next.key]: d }));
+      }).catch(() => {});
     },
-    [series]
+    [series, failSeries]
   );
 
   // Nothing is known yet — show the shape of the page, not a verdict on it.
@@ -220,7 +299,22 @@ export default function ReportsPage() {
 
   return (
     <div className="space-y-6">
+      {/* The period, ON the title row rather than under it.
+          It used to live inside one chart's header, which implied the
+          whole page moved with it — and everything else here reports a
+          fixed window. Promoted, it is the frame the page is read in,
+          and each panel that keeps its own window says so in its
+          subtitle.
+          As a child of PageHeader it sat below a `max-w-2xl`
+          description, so the top of the page was a title, a paragraph,
+          and then a control, with the right two thirds of the row
+          empty — "barra em cima tá com desperdício de espaço". In the
+          actions slot it shares the title's row, which is where the
+          empty space already was. */}
       <PageHeader title={t('title')} description={t('description')} />
+      <PageActions>
+        <PeriodPicker value={period} onChange={handlePeriodChange} />
+      </PageActions>
 
       {/* ---------------------------------------------------- Comercial */}
       <section>
@@ -229,56 +323,88 @@ export default function ReportsPage() {
           {t('sectionCommercial')}
         </SectionTitle>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {metricsLoading || !metrics ? (
-            Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)
-          ) : (
-            <>
-              <Metric
-                label={t('activeConversations')}
-                value={metrics.activeConversations.current.toLocaleString(APP_LOCALE)}
-              />
-              <Metric
-                label={t('newContactsToday')}
-                value={metrics.newContactsToday.current.toLocaleString(APP_LOCALE)}
-                delta={pctChange(
-                  metrics.newContactsToday.current,
-                  metrics.newContactsToday.previous
-                )}
-              />
-              <Metric
-                label={t('openDealsValue')}
-                value={formatCurrency(metrics.openDealsValue, defaultCurrency)}
-                note={t('openDeals', { count: metrics.openDealsCount })}
-              />
-              <Metric
-                label={t('messagesSentToday')}
-                value={metrics.messagesSentToday.current.toLocaleString(APP_LOCALE)}
-                delta={pctChange(
-                  metrics.messagesSentToday.current,
-                  metrics.messagesSentToday.previous
-                )}
-              />
-            </>
-          )}
-        </div>
+        {/* ONE PANEL, DIVIDED — not four cards in a grid. See the note
+            in `MetricStrip`: four borders and four shadows around four
+            readings of the same period made the top of this page the
+            busiest part of it. */}
+        <MetricStrip
+          loading={metricsLoading || !metrics}
+          readings={[
+            {
+              key: 'activeConversations',
+              label: t('activeConversations'),
+              value:
+                metrics?.activeConversations.current.toLocaleString(
+                  APP_LOCALE
+                ) ?? '—',
+            },
+            {
+              key: 'newContactsToday',
+              label: t('newContactsToday'),
+              value:
+                metrics?.newContactsToday.current.toLocaleString(APP_LOCALE) ??
+                '—',
+              delta: metrics
+                ? pctChange(
+                    metrics.newContactsToday.current,
+                    metrics.newContactsToday.previous
+                  )
+                : null,
+            },
+            {
+              key: 'openDealsValue',
+              label: t('openDealsValue'),
+              value: metrics
+                ? formatCurrency(metrics.openDealsValue, defaultCurrency)
+                : '—',
+              note: metrics
+                ? t('openDeals', { count: metrics.openDealsCount })
+                : undefined,
+            },
+            {
+              key: 'messagesSentToday',
+              label: t('messagesSentToday'),
+              value:
+                metrics?.messagesSentToday.current.toLocaleString(APP_LOCALE) ??
+                '—',
+              delta: metrics
+                ? pctChange(
+                    metrics.messagesSentToday.current,
+                    metrics.messagesSentToday.previous
+                  )
+                : null,
+            },
+          ]}
+        />
 
         <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
           <div className="h-full min-w-0">
             <ConversationsChart
-              series={series}
+              data={series[period.key] ?? null}
+              previous={previous[period.key] ?? null}
               loading={seriesLoading}
-              range={range}
-              onRangeChange={handleRangeChange}
             />
           </div>
           <div className="h-full min-w-0">
-            <PipelineDonut
+            {/* A funnel, not a ring. Stages are a sequence and the
+                question is where deals die — see the note at the top of
+                the component. The dashboard keeps the donut: there the
+                panel answers "how is the pipeline split right now", which
+                is the one question a ring is good at. */}
+            <PipelineFunnel
               data={pipeline}
               loading={pipelineLoading}
               currency={defaultCurrency}
             />
           </div>
+        </div>
+
+        {/* Individual performance, under the funnel. It answers a
+            different question than everything above it — those are about
+            the business, this is about people — so it gets its own row
+            rather than a column beside a chart. */}
+        <div className="mt-4">
+          <TeamPerformance period={period} />
         </div>
       </section>
 
@@ -323,8 +449,23 @@ export default function ReportsPage() {
           <Users />
           {t('sectionHuman')}
         </SectionTitle>
-        <ResponseTimeChart data={responseTime} loading={responseTimeLoading} />
-        <div className="mt-4">
+        {/* Two up, the same rhythm the Comercial section above uses.
+            Stacked full-width, the bar chart got the whole 1300px of a
+            desktop page for SEVEN categories — `maxBarSize` caps each bar
+            at 44px, so what widened was the gaps, and a week of response
+            times read as seven lonely sticks. Beside the feed each panel
+            gets ~640px, which is the width the chart was designed at.
+
+            The two also happen to be the same height at rest: a 260px plot
+            under a header, against the feed's five rows under a header and
+            over its footer. Expanding the feed to 50 rows does stretch the
+            row — but that is a state somebody asked for, not the one the
+            page loads in. */}
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <ResponseTimeChart
+            data={responseTime}
+            loading={responseTimeLoading}
+          />
           {/* Cross-module history — messages, deals, broadcasts, automations.
               It reads as "what happened", which is the owner's question; the
               agent's landing page asks "what has to happen". */}

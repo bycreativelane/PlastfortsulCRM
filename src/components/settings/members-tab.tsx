@@ -68,14 +68,13 @@ import { RequireRole } from '@/components/auth/require-role';
 import { useAuth } from '@/hooks/use-auth';
 import { usePresence } from '@/hooks/use-presence';
 import type { AccountRole } from '@/lib/auth/roles';
-import { presenceLabel, summarize } from '@/lib/presence';
+import { formatLastSeen, presenceLabel, summarize } from '@/lib/presence';
 import {
   PRESENCE_DOT_CLASS,
   PresenceDot,
 } from '@/components/presence/presence-dot';
 import { InviteMemberDialog } from './invite-member-dialog';
 import { SettingsPanelHead } from './settings-panel-head';
-import { AutoAssignCard } from './auto-assign-card';
 import { ROLE_META } from './role-meta';
 import { APP_LOCALE } from '@/lib/i18n/locale';
 import { avatarInitials } from '@/lib/avatar-color';
@@ -87,6 +86,13 @@ interface Member {
   avatar_url: string | null;
   role: AccountRole;
   joined_at: string;
+  /**
+   * The later of "last signed in" and "last did something" (migration
+   * 050 plus 024's presence heartbeat). `undefined` when the caller is
+   * not an admin — the route omits it rather than sending null, so the
+   * row can tell "you may not see this" from "they never came".
+   */
+  last_access_at?: string | null;
 }
 
 interface Invitation {
@@ -315,10 +321,6 @@ export function MembersTab() {
         }
       />
 
-      {/* Who gets the next conversation, before the list of who there is
-          to give it to. */}
-      <AutoAssignCard />
-
       {/* Live presence summary across the roster. Updates without a
           full refresh as heartbeats and the local re-derive tick land. */}
       {members.length > 0 &&
@@ -429,9 +431,33 @@ export function MembersTab() {
                   </div>
 
                   {/* Joined date stays desktop-only. The mobile row's
-                      vertical density makes the joined date noise. */}
-                  <div className="text-muted-foreground hidden text-right text-xs sm:block">
-                    {t('joined', { date: fmtDate(member.joined_at) })}
+                      vertical density makes the joined date noise.
+
+                      "Último acesso" sits under it, and it is the line
+                      an admin actually came here for. The dot on the
+                      avatar answers "are they here NOW"; this answers
+                      "is this person still using the account at all",
+                      which is the question behind every seat somebody
+                      is paying for and every ex-colleague nobody
+                      remembered to remove.
+
+                      Admins only — the API returns null for everybody
+                      else (see the note in the members route), so the
+                      line simply does not render for an agent looking
+                      at the same roster. */}
+                  <div className="hidden text-right text-xs sm:block">
+                    <p className="text-muted-foreground">
+                      {t('joined', { date: fmtDate(member.joined_at) })}
+                    </p>
+                    {member.last_access_at !== undefined && (
+                      <p className="text-muted-foreground/80 text-2xs mt-0.5">
+                        {member.last_access_at
+                          ? t('lastAccess', {
+                              when: formatLastSeen(member.last_access_at, now),
+                            })
+                          : t('neverAccessed')}
+                      </p>
+                    )}
                   </div>
 
                   {/* Actions cluster. On mobile this is its own row

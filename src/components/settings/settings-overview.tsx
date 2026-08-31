@@ -13,7 +13,12 @@ import { CURRENCIES, currencyName } from '@/lib/currency';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 
-import { SECTION_META, type SettingsSection } from './settings-sections';
+import {
+  SECTION_META,
+  canSeeSection,
+  type SettingsSection,
+} from './settings-sections';
+import { useCapabilityCheck } from '@/hooks/use-can';
 import { StatusDot } from '@/components/ui/status-badge';
 import { SettingsChip } from './settings-chip';
 import { ROLE_META } from './role-meta';
@@ -46,6 +51,7 @@ export function SettingsOverview({
     canManageMembers,
   } = useAuth();
   const { mode, theme } = useTheme();
+  const { can, ready } = useCapabilityCheck();
   const t = useTranslations('Settings.overview');
   const tRoles = useTranslations('Settings.roles');
   const tSections = useTranslations('Settings.sections');
@@ -283,9 +289,16 @@ export function SettingsOverview({
         ) : null}
       </Panel>
 
-      {/* Status tiles */}
+      {/* Status tiles, gated the same way the rail is.
+          Four of the six are behind `settings.manage`, so without this
+          an agent's landing page would be mostly doors that go nowhere —
+          which is the exact thing the one-rail merge exists to avoid.
+          The queries behind them already tolerate a refusal and render a
+          dash; this stops the tile being drawn at all. */}
       <div className="mt-4 grid grid-cols-1 gap-4 @md:grid-cols-2 @2xl:grid-cols-3">
-        {tiles.map(({ section, loading, subtitle }) => {
+        {tiles
+          .filter(({ section }) => ready && canSeeSection(section, can))
+          .map(({ section, loading, subtitle }) => {
           const meta = SECTION_META[section];
           const Icon = meta.icon;
           return (

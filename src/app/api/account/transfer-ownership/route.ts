@@ -22,6 +22,8 @@ import { NextResponse } from "next/server";
 import type { PostgrestError } from "@supabase/supabase-js";
 
 import { requireRole, toErrorResponse } from "@/lib/auth/account";
+import { auditAdmin } from "@/lib/audit/admin-client";
+import { auditActorLabel, logAuditEvent } from "@/lib/audit/log";
 import {
   checkRateLimit,
   rateLimitResponse,
@@ -81,11 +83,30 @@ export async function POST(request: Request) {
       );
     }
 
+    // The new owner's name, read before the RPC — afterwards the caller
+    // is no longer the owner and the lookup is still fine, but the
+    // ordering keeps the two handlers in this codebase consistent about
+    // when a label is captured.
+    const newOwnerLabel = await auditActorLabel(ctx.supabase, newOwnerUserId);
+    const actorLabel = await auditActorLabel(ctx.supabase, ctx.userId);
+
     const { error } = await ctx.supabase.rpc("transfer_account_ownership", {
       p_new_owner_user_id: newOwnerUserId,
     });
 
     if (error) return rpcErrorToResponse(error);
+
+    // The single most consequential row this log will ever hold: after
+    // this the person who called it can no longer call it back.
+    await logAuditEvent(auditAdmin(), {
+      accountId: ctx.accountId,
+      actorUserId: ctx.userId,
+      actorLabel,
+      action: "account.ownership_transferred",
+      targetType: "member",
+      targetId: newOwnerUserId,
+      targetLabel: newOwnerLabel,
+    });
 
     return NextResponse.json({ ok: true });
   } catch (err) {

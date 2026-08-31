@@ -12,8 +12,9 @@ import {
   Trash2,
   Upload,
   X,
-  Zap,
+  MousePointerClick,
 } from 'lucide-react';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import { toast } from 'sonner';
 import { MISSING_MIGRATION_CODE } from '@/lib/quick-replies/errors';
 
@@ -97,6 +98,7 @@ function fileNameFromUrl(url: string | null | undefined): string {
 
 export function QuickRepliesManager() {
   const t = useTranslations('Settings.quickReplies');
+  const { confirm } = useConfirm();
   const [items, setItems] = useState<QuickReply[]>([]);
   const [loading, setLoading] = useState(true);
   const [draft, setDraft] = useState<DraftState | null>(null);
@@ -275,7 +277,11 @@ export function QuickRepliesManager() {
 
   const remove = useCallback(
     async (id: string) => {
-      if (!window.confirm(t('confirmDelete'))) return;
+      if (
+        !(await confirm({ title: t('confirmDelete'), destructive: true }))
+      ) {
+        return;
+      }
       const res = await fetch(`/api/quick-replies/${id}`, { method: 'DELETE' });
       if (!res.ok) {
         toast.error(t('deleteError'));
@@ -283,7 +289,7 @@ export function QuickRepliesManager() {
       }
       await load();
     },
-    [load, t]
+    [confirm, load, t]
   );
 
   return (
@@ -564,7 +570,14 @@ export function QuickRepliesManager() {
 
 function KindIcon({ kind }: { kind: QuickReplyKind }) {
   const Icon =
-    kind === 'interactive' ? Zap : kind === 'media' ? Paperclip : MessageSquare;
+    // `MousePointerClick` for the interactive kind: what makes it
+    // different from the other two is that the CUSTOMER taps something.
+    // It was the lightning, which now belongs to Automações alone.
+    kind === 'interactive'
+      ? MousePointerClick
+      : kind === 'media'
+        ? Paperclip
+        : MessageSquare;
   return <Icon className="text-muted-foreground mt-0.5 h-4 w-4 shrink-0" />;
 }
 

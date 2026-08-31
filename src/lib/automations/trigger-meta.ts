@@ -25,6 +25,7 @@ const KNOWN_TRIGGERS: Record<AutomationTriggerType, true> = {
   tag_added: true,
   time_based: true,
   interactive_reply: true,
+  webhook_received: true,
 };
 
 /**

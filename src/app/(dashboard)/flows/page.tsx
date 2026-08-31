@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import { toast } from 'sonner';
 import {
   Workflow,
@@ -95,6 +96,7 @@ export default function FlowsPage() {
   const router = useRouter();
   const canCreate = useCan('send-messages');
   const t = useTranslations('Flows.list');
+  const { confirm } = useConfirm();
   const [flows, setFlows] = useState<FlowRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
@@ -190,7 +192,10 @@ export default function FlowsPage() {
   }
 
   async function handleDelete(flow: FlowRow) {
-    const yes = window.confirm(t('deleteConfirm', { name: flow.name }));
+    const yes = await confirm({
+      title: t('deleteConfirm', { name: flow.name }),
+      destructive: true,
+    });
     if (!yes) return;
     try {
       const res = await fetch(`/api/flows/${flow.id}`, { method: 'DELETE' });

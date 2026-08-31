@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server'
+import { auditAdmin } from '@/lib/audit/admin-client'
+import { auditActorLabel, logAuditEvent } from '@/lib/audit/log'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import {
@@ -413,6 +415,23 @@ export async function POST(request: Request) {
         phone_info: phoneInfo,
       })
     }
+
+    // The number and the WABA, never the token. "Quem trocou o número"
+    // is the one settings question in this product whose wrong answer
+    // sends every message to the wrong place.
+    await logAuditEvent(auditAdmin(), {
+      accountId,
+      actorUserId: user.id,
+      actorLabel: await auditActorLabel(supabase, user.id),
+      action: 'whatsapp.config_updated',
+      targetType: 'setting',
+      targetId: 'whatsapp',
+      metadata: {
+        phone_number_id,
+        waba_id: waba_id ?? null,
+        registered: registeredAt != null,
+      },
+    })
 
     return NextResponse.json({
       success: true,

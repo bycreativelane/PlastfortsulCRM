@@ -18,6 +18,8 @@
 // ============================================================
 
 import { NextResponse } from 'next/server';
+import { auditAdmin } from '@/lib/audit/admin-client';
+import { auditActorLabel, logAuditEvent } from '@/lib/audit/log';
 
 import {
   getCurrentAccount,
@@ -144,6 +146,20 @@ export async function POST(request: Request) {
         { status: 500 }
       );
     }
+
+    // The prefix and the scopes, never the key. What an admin needs
+    // months later is "who minted a key that can send broadcasts", and
+    // the prefix is what ties the log row to the row on the keys screen.
+    await logAuditEvent(auditAdmin(), {
+      accountId: ctx.accountId,
+      actorUserId: ctx.userId,
+      actorLabel: await auditActorLabel(ctx.supabase, ctx.userId),
+      action: 'api_key.created',
+      targetType: 'api_key',
+      targetId: data.id,
+      targetLabel: rawName,
+      metadata: { key_prefix: prefix, scopes, expires_at: expiresAt },
+    });
 
     return NextResponse.json(
       {

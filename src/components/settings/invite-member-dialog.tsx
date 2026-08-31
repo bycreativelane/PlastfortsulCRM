@@ -16,7 +16,12 @@
 
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { Copy, Loader2, MessageCircle, Sparkles } from 'lucide-react';
+// `CircleCheck` and not `Sparkles`: the sparkle means "a machine wrote
+// this" everywhere else in the product, and nothing here was written by
+// one. This dialog is reporting success, which has its own mark.
+import { CircleCheck, Copy, Loader2 } from 'lucide-react';
+
+import { WhatsAppMark } from '@/components/whatsapp-mark';
 
 import { Button, buttonVariants } from '@/components/ui/button';
 import {
@@ -190,7 +195,7 @@ export function InviteMemberDialog({
           <>
             <DialogHeader>
               <DialogTitle className="text-popover-foreground flex items-center gap-2">
-                <Sparkles className="text-primary size-4" />
+                <CircleCheck className="text-primary size-4" />
                 {t('inviteCreated')}
               </DialogTitle>
               <DialogDescription className="text-muted-foreground">
@@ -247,7 +252,11 @@ export function InviteMemberDialog({
                     'border-border text-muted-foreground hover:bg-muted w-full',
                 })}
               >
-                <MessageCircle className="size-4" />
+                {/* The logo, because the link goes to `wa.me` — this
+                    button opens WhatsApp itself, and a generic speech
+                    bubble beside "Enviar pelo WhatsApp" was the label
+                    doing all the work. */}
+                <WhatsAppMark className="size-4" />
                 {t('sendViaWhatsApp')}
               </a>
             </div>

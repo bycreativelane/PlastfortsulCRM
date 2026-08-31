@@ -77,15 +77,38 @@ export async function POST(request: Request) {
       accountId,
       config,
       latestUserMessage(messages),
+      config.retrievalTopK,
     )
     const systemPrompt = buildSystemPrompt({
       userPrompt: config.systemPrompt,
       mode: 'auto_reply',
       knowledge,
+      persona: {
+        personaName: config.personaName,
+        businessDescription: config.businessDescription,
+        tone: config.tone,
+        guardrails: config.guardrails,
+        escalationRules: config.escalationRules,
+      },
+      hasTools: config.enabledTools.length > 0,
     })
 
+    // NO `toolContext`, and that is the honest answer rather than a
+    // limitation. The playground has no conversation and no contact —
+    // every tool in the registry answers about one of each — so handing
+    // the model tools here would let it call them against nothing and
+    // report "não há contato associado" as if that were the account's
+    // data. What the playground tests is the PROMPT; the tools are
+    // tested by using the thing.
     const { text, handoff } = await generateReply({ config, systemPrompt, messages })
-    return NextResponse.json({ reply: text, handoff })
+    return NextResponse.json({
+      reply: text,
+      handoff,
+      // What it was grounded in, so somebody tuning a prompt can see
+      // whether the retriever found the right document or the model
+      // improvised.
+      sources: knowledge.map((excerpt) => excerpt.slice(0, 320)),
+    })
   } catch (err) {
     if (err instanceof AiError) {
       return NextResponse.json(

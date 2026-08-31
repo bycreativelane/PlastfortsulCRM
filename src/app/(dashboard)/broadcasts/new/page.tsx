@@ -10,7 +10,10 @@ import { Step1ChooseTemplate } from '@/components/broadcasts/step1-choose-templa
 import { Step2SelectAudience } from '@/components/broadcasts/step2-select-audience';
 import { Step3Personalize } from '@/components/broadcasts/step3-personalize';
 import { Step4ScheduleSend } from '@/components/broadcasts/step4-schedule-send';
-import { useBroadcastSending } from '@/hooks/use-broadcast-sending';
+import {
+  useBroadcastSending,
+  type AudienceConfig,
+} from '@/hooks/use-broadcast-sending';
 import { Check } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { PageHeader } from '@/components/layout/page-header';
@@ -31,17 +34,11 @@ export default function NewBroadcastPage() {
 
   const [currentStep, setCurrentStep] = useState(0);
   const [template, setTemplate] = useState<MessageTemplate | null>(null);
-  const [audience, setAudience] = useState<{
-    type: 'all' | 'tags' | 'custom_field' | 'csv';
-    tagIds?: string[];
-    customField?: {
-      fieldId: string;
-      operator: 'is' | 'is_not' | 'contains';
-      value: string;
-    };
-    csvContacts?: { phone: string; name?: string }[];
-    excludeTagIds?: string[];
-  }>({ type: 'all' });
+  // The shape the sender already defines, rather than a second copy of
+  // it declared inline. They had drifted the moment `products` was added
+  // (spec §44) — the local literal did not know about it, so the wizard
+  // could not hand the sender an audience the sender understood.
+  const [audience, setAudience] = useState<AudienceConfig>({ type: 'all' });
   const [variables, setVariables] = useState<
     Record<string, { type: 'static' | 'field' | 'custom_field'; value: string }>
   >({});
@@ -58,6 +55,7 @@ export default function NewBroadcastPage() {
         audience: {
           type: audience.type,
           tagIds: audience.tagIds,
+          productIds: audience.productIds,
           customField: audience.customField,
           csvContacts: audience.csvContacts,
           excludeTagIds: audience.excludeTagIds,

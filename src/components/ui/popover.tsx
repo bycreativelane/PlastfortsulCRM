@@ -13,17 +13,29 @@ function PopoverTrigger({ ...props }: PopoverPrimitive.Trigger.Props) {
   return <PopoverPrimitive.Trigger data-slot="popover-trigger" {...props} />
 }
 
+/**
+ * `anchor` is forwarded for the case where the thing the popup hangs off
+ * is NOT the thing that opens it.
+ *
+ * Normally `PopoverTrigger` is both: you click it, and the popup lines
+ * up under it. But a strip of buttons that each set `open` themselves
+ * has no single trigger — and wrapping it in one means a `<button>`
+ * containing nine `<button>`s, which is invalid HTML and which Base UI
+ * refuses (`nativeButton`). Passing the wrapper as an anchor keeps the
+ * positioning and drops the fake button. See `calendar-strip.tsx`.
+ */
 function PopoverContent({
   className,
   align = "center",
   alignOffset = 0,
   side = "bottom",
   sideOffset = 4,
+  anchor,
   ...props
 }: PopoverPrimitive.Popup.Props &
   Pick<
     PopoverPrimitive.Positioner.Props,
-    "align" | "alignOffset" | "side" | "sideOffset"
+    "align" | "alignOffset" | "side" | "sideOffset" | "anchor"
   >) {
   return (
     <PopoverPrimitive.Portal>
@@ -32,6 +44,7 @@ function PopoverContent({
         alignOffset={alignOffset}
         side={side}
         sideOffset={sideOffset}
+        anchor={anchor}
         className="isolate z-50"
       >
         <PopoverPrimitive.Popup

@@ -6,6 +6,8 @@ import type { ComponentType } from 'react';
 
 import { useTranslations } from 'next-intl';
 
+import { cn } from '@/lib/utils';
+
 // Quick-action shortcuts. Each navigates to the page that owns the
 // relevant "create" flow. We deliberately don't try to auto-open any
 // modal on the target page — that'd require touching those pages,
@@ -24,22 +26,35 @@ const ACTIONS: Action[] = [
 ];
 
 /**
- * Four shortcuts, laid out on the dashboard's own grid.
+ * Four shortcuts — a ROW on a phone, the dashboard's grid from `sm` up.
  *
- * Two things were wrong and they were the same thing. The row used to be
- * `grid-cols-2 gap-3 sm:grid-cols-4` while the tile row directly below it
- * is `grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4` — so between 640
- * and 1280px the top row had four columns over the bottom row's two, and
- * even at xl the 12px gap put every vertical edge 4px off the tiles'. Two
- * stacked rows of four whose borders never line up read as two widgets
- * that happen to be near each other. It now uses the house ladder, class
- * for class, and inherits the tile's geometry (`rounded-lg`, `p-4`) so the
- * two rows are one grid seen twice.
+ * ------------------------------------------------------------------
+ * WHY THE PHONE GETS A DIFFERENT SHAPE, NOT A NARROWER ONE
+ * ------------------------------------------------------------------
  *
- * Starting at one column also settles the 360px overflow: at two columns
- * the label had ~78px of room and "oportunidade" alone measures ~84px, so
- * it ran past the card's rounded corner. `min-w-0` + `leading-tight` are
- * the belt to that suspenders — a long label wraps rather than escapes.
+ * `grid-cols-1` was the honest answer to a real problem — at two columns
+ * the label had ~78px and "oportunidade" alone measures ~84px, so it ran
+ * past the card's rounded corner — and it cost more than the overflow
+ * did. Four 68px cards plus three 16px gaps is 320px of "create
+ * something" stacked at the top of a screen whose own subtitle promises
+ * to say WHAT DEPENDS ON A PERSON TODAY. Measured at 375×812, the first
+ * number on this page landed about three quarters of the way down the
+ * first screen. Somebody opening the CRM at 8am on the warehouse floor
+ * is not starting a broadcast; they are finding out who is waiting.
+ *
+ * So the shortcuts stop being cards and become a TOOLBAR: icon over
+ * label, one line, about 80px tall. That is the shape every banking and
+ * messaging app on the same phone uses for the same job, and it gives
+ * ~240px back to the queue below.
+ *
+ * `flex-1 basis-0` with a floor, rather than a fixed width: at 375px the
+ * four share the row exactly and nothing scrolls; at 320px they overflow
+ * their floor and the row scrolls, with `snap-x` landing each one. The
+ * alternative — a 2×2 grid — saves half as much height and still has to
+ * solve the label width.
+ *
+ * From `sm` the old geometry returns unchanged, class for class, so the
+ * two stacked rows on a desktop are still one grid seen twice.
  *
  * The icons carry no per-action hue. They used to: amber on "Nova
  * campanha", which is the one colour in the system that means a person
@@ -49,19 +64,39 @@ export function QuickActions() {
   const t = useTranslations('Dashboard.quickActions');
 
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div
+      className={cn(
+        // Phone: one scrollable, snapping row.
+        'flex snap-x snap-mandatory gap-2 overflow-x-auto',
+        // No scrollbar under the row — it would sit between the
+        // shortcuts and the queue and read as a divider. The row is
+        // short enough that a partly-visible fourth tile is the
+        // affordance, on the rare width where one is cut.
+        '[scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
+        // Desktop: the house grid, exactly as before.
+        'sm:grid sm:grid-cols-2 sm:gap-4 sm:overflow-visible xl:grid-cols-4'
+      )}
+    >
       {ACTIONS.map((a) => {
         const Icon = a.icon;
         return (
           <Link
             key={a.href}
             href={a.href}
-            className="surface-interactive group border-border bg-card flex items-center gap-3 rounded-lg border p-4"
+            className={cn(
+              'surface-interactive group border-border bg-card flex snap-start rounded-lg border',
+              // Phone: a column, centred, sized to share the row.
+              // `basis-0` is what makes `flex-1` divide the space evenly
+              // instead of proportionally to four different label widths.
+              'min-w-19 flex-1 basis-0 flex-col items-center justify-center gap-1.5 px-1.5 py-3',
+              // Desktop: back to a row with the icon tile on the left.
+              'sm:min-w-0 sm:flex-none sm:flex-row sm:items-center sm:justify-start sm:gap-3 sm:p-4'
+            )}
           >
-            <div className="bg-muted text-primary flex h-9 w-9 shrink-0 items-center justify-center rounded-lg">
-              <Icon className="h-4 w-4" />
+            <div className="bg-muted text-primary flex size-8 shrink-0 items-center justify-center rounded-lg sm:size-9">
+              <Icon className="size-4" />
             </div>
-            <span className="text-foreground min-w-0 text-sm leading-tight font-medium">
+            <span className="text-foreground text-2xs w-full min-w-0 text-center leading-tight font-medium text-balance sm:w-auto sm:text-left sm:text-sm">
               {t(a.labelKey as string)}
             </span>
           </Link>

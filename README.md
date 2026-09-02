@@ -124,7 +124,8 @@ de segredo nenhum.
 | Onde                                                       | O quê                                                                            |
 | ---------------------------------------------------------- | -------------------------------------------------------------------------------- |
 | [docs/ux-overhaul/](./docs/ux-overhaul/)                   | A reforma de UX/UI: worklog, decisões, defeitos, verificação                     |
-| [docs/playbook-comercial.md](./docs/playbook-comercial.md) | O playbook de vendas, em português, para a equipe                                |
+| [docs/revisao-0.8.5/](./docs/revisao-0.8.5/00-README.md)   | Revisão 0.8.5: Relatórios, Visão geral, anexos da equipe, Playbook            |
+| [docs/playbook-comercial.md](./docs/playbook-comercial.md) | Passos da etapa (checklist do funil), em português, para a equipe              |
 | [docs/configuracao-env.md](./docs/configuracao-env.md)     | Cada variável de ambiente: o que faz, onde achar o valor, o que quebra se faltar |
 | [docs/public-api.md](./docs/public-api.md)                 | A API REST pública                                                               |
 | [docs/mcp.md](./docs/mcp.md)                               | O servidor MCP                                                                   |

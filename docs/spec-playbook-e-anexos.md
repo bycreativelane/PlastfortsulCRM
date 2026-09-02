@@ -1,12 +1,19 @@
 # Base de consulta comercial e anexos no Atendimento
 
+> **Estado na 0.8.5 (2 de setembro de 2026).** A saída 2 do §0 foi a
+> escolhida: o checklist do funil chama-se **Passos da etapa**; **Playbook**
+> no menu é a base de consulta (`/playbook`, migração 064). Anexos na sala
+> da equipe estão na 063 (balde privado `team-media`). O texto abaixo é o
+> inventário **antes** dessa entrega — várias marcas ❌ já não valem. O
+> que falta de verdade (PDF interno, vários anexos, galeria) continua na
+> Parte B.
+
 Revisão do documento `PlastfortSul_CRM_Playbook_e_Anexos_Claude_Code.md`,
 conferido contra o código em **1 de setembro de 2026** (versão 0.8.5).
 
 O original foi escrito como se nada existisse. **A segunda metade dele —
 anexos no Atendimento — já está construída em cerca de 80%**, e a
-primeira metade colide de nome com um recurso que já existe e já tem
-documento de conteúdo próprio.
+primeira metade colidia de nome com o checklist de etapa.
 
 Este arquivo carrega o que continua válido, corrige o que não está mais,
 e marca cada item com o estado real.

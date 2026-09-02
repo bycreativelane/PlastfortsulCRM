@@ -61,6 +61,26 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: '0.8.5',
+    date: '2026-09-02',
+    highlights: [
+      { key: 'teamMedia', href: '/inbox' },
+      { key: 'playbookConsult', href: '/playbook' },
+      { key: 'quieterUi', href: '/reports' },
+    ],
+    changes: [
+      { kind: 'new', key: 'teamMedia' },
+      { kind: 'new', key: 'playbookConsult' },
+      { kind: 'new', key: 'sendCost' },
+      { kind: 'improved', key: 'reportsCharts' },
+      { kind: 'improved', key: 'dashboardLayout' },
+      { kind: 'improved', key: 'controlBorders' },
+      { kind: 'fixed', key: 'profileAvatar' },
+      { kind: 'fixed', key: 'settingsSticky' },
+      { kind: 'fixed', key: 'reportsSkeleton' },
+    ],
+  },
+  {
     version: '0.8.4',
     date: '2026-08-31',
     highlights: [

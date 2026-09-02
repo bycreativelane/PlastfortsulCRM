@@ -3224,6 +3224,18 @@
       "aiAssist": {
         "title": "A IA ajuda a responder",
         "body": "Botão direito na mensagem do cliente: resumir, traduzir, sugerir resposta ou ajustar o tom do que você escreveu. Sem sair da conversa."
+      },
+      "teamMedia": {
+        "title": "Print, vídeo e áudio na sala da equipe",
+        "body": "Arraste, cole com Ctrl+V ou grave áudio no navegador. O arquivo fica num balde privado — só quem é da conta lê, e nada disso vai para o cliente."
+      },
+      "playbookConsult": {
+        "title": "O Playbook, no menu",
+        "body": "Scripts, objeções, regras da operação e a ficha dos produtos, numa busca só. O checklist do funil passou a se chamar Passos da etapa."
+      },
+      "quieterUi": {
+        "title": "O produto parou de gritar",
+        "body": "Relatórios e a Visão geral passaram a usar superfície neutra: o tom vive no ícone e no número, não no fundo do card."
       }
     },
     "items": {
@@ -3287,7 +3299,16 @@
       "mobileNav": "No celular a navegação desceu para o polegar, e a lista de conversas responde ao deslizar.",
       "messageAuthor": "A resposta mostra o nome de quem respondeu, e o tique de entrega como no WhatsApp.",
       "productDialogs": "As caixas cinzas do navegador viraram diálogos do produto.",
-      "periodCompare": "A comparação com o período anterior contava errado acima de mil conversas."
+      "periodCompare": "A comparação com o período anterior contava errado acima de mil conversas.",
+      "teamMedia": "Sala da equipe: print, vídeo, áudio, arrastar, colar e gravar. O arquivo fica privado.",
+      "playbookConsult": "Playbook no menu: scripts, objeções, regras e a ficha dos produtos. Uma busca atravessa as quatro seções.",
+      "sendCost": "Custo de envio nos Relatórios: quanto saiu, o que a Meta cobrou e em qual categoria — sem valor em reais.",
+      "reportsCharts": "Três gráficos novos: conversas em barras agrupadas, funil em três colunas, tempo de resposta em múltiplos da meta.",
+      "dashboardLayout": "Visão geral: os avisos viraram quatro linhas, a agenda subiu para o lado, e “O CRM fez hoje” voltou a ficar junto.",
+      "controlBorders": "Borda dos campos ficou leve; checkbox e radio continuam com contraste 3:1.",
+      "profileAvatar": "A foto do perfil aparece no card do CRM e no cabeçalho da conversa — as duas mostravam só as iniciais.",
+      "settingsSticky": "A trilha de Configurações não sobe mais junto com a página.",
+      "reportsSkeleton": "O carregamento de Relatórios tem a forma da página, não a faixa antiga de quatro caixas."
     },
     "seeIt": "Ver na prática"
   },

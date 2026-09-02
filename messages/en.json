@@ -3224,6 +3224,18 @@
       "aiAssist": {
         "title": "AI helps you answer",
         "body": "Right-click a customer message: summarise, translate, suggest a reply, or adjust the tone of what you wrote. Without leaving the conversation."
+      },
+      "teamMedia": {
+        "title": "Screenshots, video and audio in the team room",
+        "body": "Drag, paste with Ctrl+V, or record audio in the browser. Files sit in a private bucket — only account members can read them, and none of it reaches a customer."
+      },
+      "playbookConsult": {
+        "title": "Playbook, in the menu",
+        "body": "Sales scripts, objections, operating rules and product sheets, in one search. The pipeline checklist is now called Stage steps."
+      },
+      "quieterUi": {
+        "title": "The product stopped shouting",
+        "body": "Reports and Overview use a neutral surface: tone lives in the icon and the figure, not in the card background."
       }
     },
     "items": {
@@ -3287,7 +3299,16 @@
       "mobileNav": "On a phone the navigation moved down to the thumb, and the conversation list responds to a swipe.",
       "messageAuthor": "A reply shows who answered, and the delivery tick like WhatsApp.",
       "productDialogs": "The browser grey boxes became product dialogs.",
-      "periodCompare": "The comparison with the previous period miscounted above a thousand conversations."
+      "periodCompare": "The comparison with the previous period miscounted above a thousand conversations.",
+      "teamMedia": "Team room: screenshots, video, audio, drag, paste and record. The file stays private.",
+      "playbookConsult": "Playbook in the menu: scripts, objections, rules and product sheets. One search covers all four.",
+      "sendCost": "Send cost in Reports: what went out, what Meta billed, and which category — no money amounts.",
+      "reportsCharts": "Three new charts: grouped conversation bars, a three-column funnel, response time as multiples of the target.",
+      "dashboardLayout": "Overview: the four alerts became rows, the agenda moved beside them, and “What the CRM did today” sits with its counterpart again.",
+      "controlBorders": "Field borders are light; checkboxes and radios still meet 3:1 contrast.",
+      "profileAvatar": "The profile photo shows on the CRM card and in the conversation header — both used to show initials only.",
+      "settingsSticky": "The Settings rail no longer scrolls away with the page.",
+      "reportsSkeleton": "The Reports loading state matches the page, not the old four-box strip."
     },
     "seeIt": "See it"
   },

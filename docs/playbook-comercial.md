@@ -1,13 +1,17 @@
-# Playbook comercial — PlastfortSul
+# Passos da etapa — pipeline de Vendas (PlastfortSul)
 
 O que fazer com uma oportunidade em cada etapa do pipeline de Vendas.
 
+A área **Playbook** no menu (scripts, objeções, regras e ficha de produtos)
+é outra coisa: `docs/spec-playbook-e-anexos.md`. Este arquivo é o
+**checklist por etapa** — na interface, “Passos da etapa”.
+
 Este documento tem dois usos:
 
-1. **É o conteúdo do recurso de Playbook do CRM.** Cada bloco abaixo é a lista
-   de passos de uma etapa. Um administrador abre uma oportunidade daquela
-   etapa, clica em _Criar playbook para …_ e digita os passos. A partir daí
-   toda oportunidade que chegar naquela etapa mostra a lista, e o card no
+1. **É o conteúdo desses passos no CRM.** Cada bloco abaixo é a lista de
+   uma etapa. Um administrador abre uma oportunidade daquela etapa, clica em
+   _Criar playbook para …_ e digita os passos. A partir daí toda
+   oportunidade que chegar naquela etapa mostra a lista, e o card no
    quadro mostra quanto falta.
 2. **É o combinado da equipe.** O CRM não obriga ninguém a nada — ele só
    lembra. O que está aqui é o que a PlastfortSul decidiu que é o mínimo.

@@ -188,7 +188,12 @@ const PAIRS: Array<[string, string, string, number]> = [
   // secondary ink, `--muted-foreground`, measures 4.18:1 light and 3.98:1
   // dark on this ground — it FAILS — which is why the surfaces inside a
   // bubble use `--foreground` at reduced alpha instead of the muted token.
-  ['attachment label on an inset in a bubble', '--foreground', '--wa-out-inset', 4.5],
+  [
+    'attachment label on an inset in a bubble',
+    '--foreground',
+    '--wa-out-inset',
+    4.5,
+  ],
 ];
 
 /**
@@ -234,6 +239,60 @@ const ON_FILL: Array<[string, string, string | null, number]> = [
  * measure them all.
  */
 const SURFACES: Array<[string, string, string, number]> = [
+  /**
+   * THE BORDER OF A CONTROL THAT IS NOTHING BUT ITS BORDER.
+   *
+   * This table was built for exactly this class of bug — an invisible
+   * SURFACE, which no amount of ink assertions can see — and then
+   * covered only the eight avatar discs. The control border appeared in
+   * no pair at all, and measured 1.56:1 on a card in light and 1.29:1
+   * in dark: the bulk-select checkboxes on the contacts table were, in
+   * plain terms, not there.
+   *
+   * All four grounds, not a spot check. A control sits on a card, on a
+   * hovered card, on the page itself and on a muted well, and the token
+   * has one value for all four — so the binding constraint is whichever
+   * ground is closest to it, and the only way to know which is to
+   * measure them.
+   *
+   * ------------------------------------------------------------------
+   * WHY THIS IS `--control` AND NOT `--input`
+   * ------------------------------------------------------------------
+   *
+   * These four assertions used to name `--input`, which at the time was
+   * the border of everything: checkbox, radio, text field, select,
+   * textarea, button, tabs. Satisfying 3:1 with one token meant every
+   * text field on every form became a heavy outlined box, and that is
+   * what got fixed by splitting the token rather than by lowering the
+   * bar.
+   *
+   * WCAG 1.4.11 asks for 3:1 on "visual information required to
+   * IDENTIFY a component". The two cases differ on exactly that word:
+   *
+   *   checkbox, radio   16px, empty, no label inside, no fill of its
+   *                     own. The border is the entire component. If it
+   *                     is not visible, the control is not there — and
+   *                     that was the reported bug.
+   *
+   *   input, select,    32px tall, under a persistent `FieldLabel`,
+   *   textarea          holding a placeholder, on a `--field` wash that
+   *                     already separates it from the card. Four
+   *                     channels identify it before the stroke does.
+   *
+   * So `--control` keeps the requirement and these assertions, and
+   * `--input` is deliberately lighter and deliberately in no pair. That
+   * is a judgement, not an oversight, and it is written here rather
+   * than in a commit message so the next person to darken `--input`
+   * finds the argument before they find the diff.
+   *
+   * If the call is ever reversed, the way back is to point these four
+   * at `--input` again — not to add a fifth token.
+   */
+  ['control border on a card', '--control', '--card', 3],
+  ['control border on a hovered surface', '--control', '--card-2', 3],
+  ['control border on the page', '--control', '--background', 3],
+  ['control border on a muted well', '--control', '--muted', 3],
+
   ['avatar 1 on a card', '--avatar-1', '--card', 3],
   ['avatar 1 on a selected row', '--avatar-1', '--muted', 3],
   ['avatar 1 on a hovered row', '--avatar-1', '--card-2', 3],
@@ -328,7 +387,11 @@ describe.each([
    */
   it('keeps three separated tints of ink', () => {
     const card = tokens.get('--card')!;
-    const steps = ['--foreground', '--secondary-foreground', '--muted-foreground'] as const;
+    const steps = [
+      '--foreground',
+      '--secondary-foreground',
+      '--muted-foreground',
+    ] as const;
     const ratios = steps.map((t) => contrast(tokens.get(t)!, card));
 
     for (let i = 0; i < ratios.length - 1; i++) {

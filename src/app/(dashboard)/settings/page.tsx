@@ -1,11 +1,9 @@
 'use client';
 
-import { Suspense, useMemo, type ReactNode } from 'react';
+import { Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 
-import { useAuth } from '@/hooks/use-auth';
-import { useTheme } from '@/hooks/use-theme';
 import { SettingsRail } from '@/components/settings/settings-rail';
 import { panelFor } from '@/components/settings/settings-panels';
 import {
@@ -37,8 +35,6 @@ export default function SettingsPage() {
 function SettingsPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { defaultCurrency } = useAuth();
-  const { mode } = useTheme();
   const t = useTranslations('Settings');
   const { can, ready } = useCapabilityCheck();
 
@@ -76,16 +72,23 @@ function SettingsPageInner() {
     router.push(`/settings?${params.toString()}`, { scroll: false });
   };
 
-  // Cheap, fetch-free rail hints. The Overview landing carries the
-  // full live status/counts; the rail just surfaces the two that are
-  // already in context.
-  const hints: Partial<Record<SettingsSection, ReactNode>> = useMemo(
-    () => ({
-      appearance: mode.charAt(0).toUpperCase() + mode.slice(1),
-      deals: defaultCurrency,
-    }),
-    [mode, defaultCurrency]
-  );
+  /**
+   * No rail hints.
+   *
+   * There were two — "Light" on Aparência and "BRL" em Oportunidades —
+   * and the Overview panel to their right already said both, with more
+   * room and more context: "modo Light · acento PlastfortSul" and
+   * "BRL — Real brasileiro". The same two facts, twice, on one screen.
+   *
+   * And they were the only two of seventeen rows carrying anything, so
+   * their presence did not read as a rule either — just as two rows
+   * that happened to have a note. A navigation index says where things
+   * are; the panel it points at says what they hold.
+   *
+   * The prop stays on `SettingsRail`: it is a legitimate slot for a
+   * count that has nowhere else to live (an unread badge, a pending
+   * invite). It is simply not for restating the page it links to.
+   */
 
   return (
     <div>
@@ -119,7 +122,6 @@ function SettingsPageInner() {
         <SettingsRail
           active={section}
           onSelect={go}
-          hints={hints}
           className={cn(section === DEFAULT_SECTION && 'hidden lg:flex')}
         />
         {/* The panel is the only thing that changed — the title above and

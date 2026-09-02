@@ -71,7 +71,18 @@ export function AppearancePanel() {
             ladder went from two ~490px cards to three ~137px ones the
             instant the window got WIDER. Measuring the panel keeps the
             step monotonic. */}
-        <div className="grid grid-cols-1 gap-3 @md:grid-cols-2 @2xl:grid-cols-3">
+        {/* A RADIOGROUP, like the mode picker above it.
+            These were plain buttons with `aria-pressed`, so the same
+            interaction — pick exactly one of N — was a radiogroup in the
+            top half of this panel and a row of independent toggles in
+            the bottom half. Arrow keys walked one and not the other, and
+            a screen reader said "selected" for one and "pressed" for the
+            other. */}
+        <div
+          role="radiogroup"
+          aria-label={t('accentColor')}
+          className="grid grid-cols-1 gap-3 @md:grid-cols-2 @2xl:grid-cols-3"
+        >
           {THEMES.map((tObj) => (
             <ThemeCard
               key={tObj.id}
@@ -153,8 +164,9 @@ function ThemeCard({
   return (
     <button
       type="button"
+      role="radio"
       onClick={onPick}
-      aria-pressed={isActive}
+      aria-checked={isActive}
       aria-label={t('useTheme', { name })}
       className={cn(
         'bg-card flex flex-col gap-3 rounded-lg border p-4 text-left transition-colors duration-(--dur-1)',
@@ -182,11 +194,24 @@ function ThemeCard({
           {tagline}
         </div>
       </div>
-      <div className="mt-1 flex h-2 overflow-hidden rounded-full" aria-hidden>
+      {/* `mt-auto` pins the bar to the bottom of the card.
+          Without it the card is `flex flex-col gap-3` with nothing
+          claiming the slack, so a two-line tagline and a three-line one
+          put their bars at two different heights in the same row —
+          which the grid's own `stretch` then made obvious by making the
+          cards equal height and leaving the difference as dead space.
+
+          The last segment was `bg-card`, which is the surface the card
+          is ALREADY painted in: two of the four swatches measured about
+          1.1:1 against each other and the strip read as an accent, a
+          grey, and then nothing. `bg-background` is the page behind the
+          card, which is a real second surface and the one the accent
+          actually has to work on. */}
+      <div className="mt-auto flex h-2 overflow-hidden rounded-full" aria-hidden>
         <span className="flex-1" style={{ background: swatch }} />
         <span className="bg-muted-foreground/60 w-3" />
         <span className="bg-muted w-3" />
-        <span className="bg-card w-3" />
+        <span className="bg-background w-3" />
       </div>
       <span className="sr-only">Theme id: {id}</span>
     </button>

@@ -15,7 +15,9 @@ import {
   type TeamMessage,
 } from '@/lib/team/messages';
 import { loadTeamRooms, roomName, type TeamRoom } from '@/lib/team/rooms';
+import { formatListTime } from '@/lib/i18n/dates';
 import { cn } from '@/lib/utils';
+import { teamMessagePreview } from '@/lib/team/media';
 import { MemberAvatar } from '@/components/presence/member-avatar';
 
 /**
@@ -62,6 +64,22 @@ const LOOKBACK = 20;
 
 export function TeamRoomCard() {
   const t = useTranslations('Inbox.team');
+
+  /**
+   * Os rótulos dos quatro tipos de anexo, para a linha de prévia.
+   * Memoizados porque `teamMessagePreview` é chamado uma vez por
+   * mensagem visível e reconstruir o objeto a cada chamada faria o
+   * `useMemo` das runs invalidar sozinho.
+   */
+  const mediaLabels = useMemo(
+    () => ({
+      image: t('attachImage'),
+      video: t('attachVideo'),
+      audio: t('attachAudio'),
+      document: t('attachDocument'),
+    }),
+    [t]
+  );
   const { accountId, user } = useAuth();
   /** Newest last, the way they are drawn. */
   const [recent, setRecent] = useState<TeamMessage[]>([]);
@@ -258,6 +276,20 @@ export function TeamRoomCard() {
    * line the full width. It is also what the room's own bubbles do — the
    * author's name sits over the first bubble of a turn, not inside it —
    * so the card and the room finally read the same way.
+   *
+   * E É ONDE O HORÁRIO CABE.
+   *
+   * O pedido era "mostrar a hora da última mensagem". Uma hora só, no
+   * rodapé do card, responderia — e desperdiçaria o que já está montado:
+   * a linha do nome existe, é curta ("Você" tem quatro letras) e sobra
+   * largura nela. Um carimbo por turno custa zero linha nova e diz mais
+   * do que um: lendo de cima para baixo aparece o RITMO da conversa —
+   * uma pergunta às 9h12 e a resposta às 11h40 é uma sala devagar, e as
+   * duas às 9h12 é uma sala ao vivo.
+   *
+   * O horário é o da ÚLTIMA mensagem do turno, não da primeira: o turno
+   * é uma coisa só na tela e a pergunta que o carimbo responde é "quão
+   * recente é isto", que a última responde e a primeira não.
    */
   const runs: Array<{ authorId: string; messages: TeamMessage[] }> = [];
   for (const message of lines) {
@@ -284,7 +316,7 @@ export function TeamRoomCard() {
       // The full sentence, for a card that can only afford a first name.
       title={
         latest && speaker
-          ? `${heading} — ${speaker.full_name}: ${latest.body}`
+          ? `${heading} — ${speaker.full_name}: ${teamMessagePreview(latest, mediaLabels)}`
           : heading
       }
       className={cn(
@@ -380,16 +412,36 @@ export function TeamRoomCard() {
               <span key={run.messages[0].id} className="block">
                 {/* The name, on its own line, at the room's own eyebrow
                     weight — it is a label over the turn, not part of the
-                    sentence. */}
-                <span className="text-muted-foreground/80 text-3xs block truncate font-semibold">
-                  {speakerLabel(run.authorId)}
+                    sentence.
+
+                    O nome trunca, o horário não: `min-w-0 truncate` de um
+                    lado e `shrink-0` do outro. Ao contrário, um nome
+                    comprido empurraria o carimbo para fora do card e a
+                    única coisa que sumiria seria justamente a que foi
+                    pedida — um "Gabriel" cortado em "Gabri" ainda diz
+                    quem falou; um horário cortado não diz nada. */}
+                <span className="text-muted-foreground/80 text-3xs flex items-baseline gap-1.5 font-semibold">
+                  <span className="min-w-0 truncate">
+                    {speakerLabel(run.authorId)}
+                  </span>
+                  <span className="text-muted-foreground/60 shrink-0 font-normal tabular-nums">
+                    {formatListTime(
+                      run.messages[run.messages.length - 1].created_at
+                    )}
+                  </span>
                 </span>
                 {run.messages.map((message) => (
                   <span
                     key={message.id}
-                    className="text-muted-foreground text-2xs block truncate leading-snug"
+                    className={cn(
+                      'text-muted-foreground text-2xs block truncate leading-snug',
+                      // Sem legenda a linha é o TIPO do anexo, não algo
+                      // que alguém escreveu — o itálico diz isso sem
+                      // gastar um ícone numa linha de 11px.
+                      !message.body?.trim() && message.media_path && 'italic'
+                    )}
                   >
-                    {message.body}
+                    {teamMessagePreview(message, mediaLabels)}
                   </span>
                 ))}
               </span>

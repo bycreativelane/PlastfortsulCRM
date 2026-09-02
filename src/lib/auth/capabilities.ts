@@ -49,6 +49,8 @@ export type Capability =
   | 'pipelines.view'
   /** The product catalogue. */
   | 'products.view'
+  /** The commercial reference: scripts, objections, operating rules. */
+  | 'playbook.view'
   /** Compose and send a broadcast. */
   | 'broadcasts.send'
   /** Create, edit and activate automations. */
@@ -94,6 +96,18 @@ export const CAPABILITIES: Record<Capability, CapabilityMeta> = {
     rlsBacked: true,
     labelKey: 'contactsView',
   },
+  // `viewer`, deliberately the lowest floor in the product. The base
+  // exists to be READ during a conversation, and the person most likely
+  // to need "o que respondo quando ele reclama do preço" is the one with
+  // the least seniority. Writing is a different question and it is not
+  // this capability's — migration 064 puts INSERT/UPDATE/DELETE behind
+  // `admin` in RLS, so the edit buttons are gated by the database and
+  // not by this flag.
+  'playbook.view': {
+    minRole: 'viewer',
+    rlsBacked: true,
+    labelKey: 'playbookView',
+  },
   'contacts.export': {
     minRole: 'agent',
     rlsBacked: false,
@@ -124,7 +138,11 @@ export const CAPABILITIES: Record<Capability, CapabilityMeta> = {
     rlsBacked: true,
     labelKey: 'automationsManage',
   },
-  'flows.manage': { minRole: 'agent', rlsBacked: true, labelKey: 'flowsManage' },
+  'flows.manage': {
+    minRole: 'agent',
+    rlsBacked: true,
+    labelKey: 'flowsManage',
+  },
   'reports.view': {
     minRole: 'admin',
     rlsBacked: false,

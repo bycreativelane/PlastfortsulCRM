@@ -34,7 +34,23 @@ export interface TeamMessage {
   room_id: string | null;
   created_at: string;
   edited_at: string | null;
+  /**
+   * Anexo (migração 063). `content_type` é `'text'` em toda linha
+   * escrita antes dela, porque a coluna tem esse DEFAULT — então uma
+   * mensagem antiga se descreve corretamente sem backfill.
+   *
+   * `media_path` é o CAMINHO no balde privado `team-media`, nunca uma
+   * URL: a URL é assinada e expira. Ver `lib/team/media.ts`.
+   */
+  content_type?: TeamContentType;
+  media_path?: string | null;
+  media_mime?: string | null;
+  media_name?: string | null;
+  media_size?: number | null;
 }
+
+/** Os cinco tipos que o CHECK da 063 aceita. */
+export type TeamContentType = 'text' | 'image' | 'audio' | 'video' | 'document';
 
 /**
  * The filter for "messages in this room", including the pre-052 rows.
@@ -46,7 +62,9 @@ export interface TeamMessage {
  */
 export function roomFilter(roomId: string | null, isDefault: boolean): string {
   if (!roomId) return 'room_id.is.null';
-  return isDefault ? `room_id.is.null,room_id.eq.${roomId}` : `room_id.eq.${roomId}`;
+  return isDefault
+    ? `room_id.is.null,room_id.eq.${roomId}`
+    : `room_id.eq.${roomId}`;
 }
 
 /** How many messages the room loads. */
@@ -132,20 +150,52 @@ export async function sendTeamMessage(
     conversationId?: string | null;
     /** Omit (or null) on a pre-052 database — see the retry below. */
     roomId?: string | null;
+    /** Anexo já subido no balde. Migração 063. */
+    media?: {
+      path: string;
+      mime: string;
+      name: string;
+      size: number;
+      kind: Exclude<TeamContentType, 'text'>;
+    } | null;
   }
 ): Promise<{ error: string | null }> {
   const body = args.body.trim();
-  if (!body) return { error: null };
+  const media = args.media ?? null;
+
+  // Sem texto E sem anexo não é mensagem. Com anexo, o corpo é legenda e
+  // pode ser vazio — é exatamente o que o CHECK `team_messages_has_content`
+  // da 063 permite, e o motivo de ele não ter sido simplesmente removido.
+  if (!body && !media) return { error: null };
 
   const row: Record<string, unknown> = {
     account_id: args.accountId,
     author_id: args.authorId,
-    body,
+    // NULL e não string vazia quando é só anexo: o CHECK aceita corpo
+    // nulo para mídia, e uma string vazia gravada aqui apareceria como
+    // um parágrafo em branco acima da imagem.
+    body: body || null,
     conversation_id: args.conversationId ?? null,
   };
   if (args.roomId) row.room_id = args.roomId;
+  if (media) {
+    row.content_type = media.kind;
+    row.media_path = media.path;
+    row.media_mime = media.mime;
+    row.media_name = media.name;
+    row.media_size = media.size;
+  }
 
   const { error } = await db.from('team_messages').insert(row);
+
+  // A 063 não foi aplicada e alguém tentou anexar. Isto não pode virar
+  // um retry silencioso: sem as colunas o arquivo não tem onde ser
+  // referenciado, e reinserir só o corpo entregaria uma legenda solta
+  // como se fosse a mensagem — o anexo sumiria sem ninguém saber.
+  if (error && media && isUnknownColumn(error)) {
+    return { error: 'TEAM_MEDIA_UNAVAILABLE' };
+  }
+
   if (error && args.roomId && isUnknownColumn(error)) {
     // 052 has not been applied. The room the composer thinks it is in
     // does not exist yet, and the ONE thing that must not happen is the
@@ -154,7 +204,7 @@ export async function sendTeamMessage(
     const { error: retryError } = await db.from('team_messages').insert({
       account_id: args.accountId,
       author_id: args.authorId,
-      body,
+      body: body || null,
       conversation_id: args.conversationId ?? null,
     });
     return { error: retryError?.message ?? null };

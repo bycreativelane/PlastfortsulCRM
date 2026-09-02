@@ -124,6 +124,10 @@ export async function POST(request: Request) {
           typeof body.reply_to_message_id === 'string'
             ? body.reply_to_message_id
             : null,
+        // Uso por integração, não por alguém na caixa de entrada
+        // (migração 062). É a mesma distinção que `senderId` ausente já
+        // faz para autoria, dita de propósito — ver `SendMessageParams`.
+        origin: 'api',
       }
     );
 

@@ -100,7 +100,8 @@
     "menuSignOut": "Sign out",
     "primaryNav": "Primary navigation",
     "products": "Products",
-    "more": "More"
+    "more": "More",
+    "playbook": "Playbook"
   },
   "Roadmap": {
     "regionLabel": "Coming next",
@@ -140,7 +141,8 @@
       "nextWeek": "Next week",
       "openFull": "Open the full agenda"
     },
-    "products": "Products"
+    "products": "Products",
+    "playbook": "Playbook"
   },
   "Search": {
     "placeholder": "Search a customer, company or number…",
@@ -192,7 +194,6 @@
     },
     "conversationsChart": {
       "title": "Conversations Over Time",
-      "description": "Daily message volume by direction",
       "days": "{count} days",
       "noActivity": "No message activity in this range",
       "noActivityHint": "Send or receive messages to start populating this chart.",
@@ -200,7 +201,12 @@
       "outgoing": "Outgoing",
       "tooltipIncoming": "{count} incoming",
       "tooltipOutgoing": "{count} outgoing",
-      "ariaLabel": "Conversations per day"
+      "ariaLabel": "Conversations per day",
+      "per": {
+        "day": "Daily message volume by direction",
+        "week": "Weekly message volume by direction",
+        "month": "Monthly message volume by direction"
+      }
     },
     "pipelineDonut": {
       "title": "Pipeline Value",
@@ -210,21 +216,22 @@
       "dealCount": "{count} {count, plural, =1 {deal} other {deals}}",
       "total": "Total",
       "ariaLabel": "Pipeline value by stage",
-      "funnelSub": "First contact to close, in order. The percentage is how many are lost between steps.",
-      "dropOff": "{percent}% did not advance"
+      "funnelSubPlain": "First contact to close, in order.",
+      "biggestDrop": "Biggest drop: {percent}% did not move from {from} to {to}."
     },
     "responseTimeChart": {
       "title": "Average First Response Time",
-      "description": "Minutes to reply to a customer's first unreplied message, by weekday",
+      "description": "How long a customer waited for the first reply, by weekday",
       "target": "target {minutes}m",
       "thisWeek": "This week:",
       "lastWeek": "Last week:",
       "noReplies": "No replies recorded yet",
       "noRepliesHint": "This chart fills in as you reply to customer messages.",
-      "average": "Average time",
       "noSamples": "No samples",
       "samples": "{count} {count, plural, =1 {sample} other {samples}}",
-      "ariaLabel": "Average first response time by day of week"
+      "ariaLabel": "Average first response time by day of week",
+      "times": "{times}× target",
+      "withinTarget": "on target"
     },
     "emptyState": {
       "title": "Not enough data yet"
@@ -299,13 +306,17 @@
     "restrictedTitle": "Reports are admin-only",
     "restrictedBody": "Ask an owner or admin for access, or open the dashboard for what needs doing today.",
     "sectionCommercial": "Commercial",
+    "sectionUsage": "Sending cost",
     "sectionHuman": "What depended on a person",
     "sectionPending": "Waiting on data",
     "activeConversations": "Active conversations",
-    "newContactsToday": "New contacts today",
+    "newContacts": "New contacts",
     "openDealsValue": "Open deals value",
-    "messagesSentToday": "Messages sent today",
+    "messagesSent": "Messages sent",
     "openDeals": "{count} open {count, plural, =1 {deal} other {deals}}",
+    "windowNow": "now",
+    "windowToday": "today",
+    "vsYesterday": "vs. yesterday",
     "pendingTitle": "Not measurable yet",
     "pendingSub": "These need data the database does not record",
     "pending": {
@@ -315,6 +326,50 @@
       "calls": "Logged calls — notes have no call fields."
     },
     "sectionPipeline": "Pipeline",
+    "templateUsage": {
+      "total": "Templates sent",
+      "billable": "Billable",
+      "free": "Free",
+      "pending": "Awaiting Meta",
+      "billableNote": "charged by Meta",
+      "freeNote": "not charged",
+      "pendingNote": "Meta has not answered yet",
+      "failedNote": "{count} never went out",
+      "since": "recorded since {date}",
+      "perDayTitle": "Sends per day",
+      "byCategoryTitle": "By billed category",
+      "byCategorySub": "The category Meta charged, not the one recorded here.",
+      "categoryBreakdown": "{billable} charged · {pending} awaiting",
+      "recategorized": "{count} sends were billed under a different category than the one recorded here — Meta recategorises templates on its own.",
+      "topTemplatesTitle": "Most-sent templates",
+      "topTemplatesSub": "The ten largest in the period.",
+      "ofWhichBillable": "{count} charged",
+      "byOriginTitle": "By origin",
+      "byOriginSub": "Where the send came from — where you can act.",
+      "windowDays": "Last {days} days.",
+      "windowRange": "From {from} to {to}.",
+      "emptyTitle": "No templates sent",
+      "emptyWindow": "Nothing went out in this period. Try another window.",
+      "emptyNoData": "Measurement starts when the record is switched on. Earlier sends cannot be reconstructed: Meta's billing notice arrives once, at send time.",
+      "tooBigTitle": "Period too large",
+      "tooBigBody": "This window holds more sends than can be added up here. Pick a shorter period.",
+      "errorTitle": "Could not load",
+      "errorBody": "Try again in a moment.",
+      "category": {
+        "marketing": "Marketing",
+        "utility": "Utility",
+        "authentication": "Authentication",
+        "service": "Service",
+        "unknown": "Uncategorised"
+      },
+      "origin": {
+        "inbox": "Inbox",
+        "broadcast": "Broadcast",
+        "automation": "Automation",
+        "flow": "Flow",
+        "api": "API"
+      }
+    },
     "performance": {
       "title": "Team performance",
       "description": "The time is the MEDIAN, not the mean — one conversation answered on Monday after sitting all weekend would wreck an average and barely moves a median.",
@@ -674,7 +729,26 @@
       "deleteAction": "Delete",
       "deleteConfirm": "Delete this message for the whole team?",
       "edited": "edited",
-      "cardYou": "You"
+      "cardYou": "You",
+      "attach": "Attach a file",
+      "attachImage": "Image",
+      "attachVideo": "Video",
+      "attachAudio": "Audio",
+      "attachDocument": "Document",
+      "uploading": "Uploading…",
+      "uploadFailed": "The file could not be uploaded.",
+      "tooLarge": "That file is over {mb} MB.",
+      "mediaUnavailable": "This file could not be loaded.",
+      "mediaUnsupported": "Attachments need migration 063. Ask whoever runs the database.",
+      "removeAttachment": "Remove attachment",
+      "captionPlaceholder": "Add a caption (optional)",
+      "document": "Document",
+      "dropHere": "Drop to attach",
+      "record": "Record audio",
+      "recordStop": "Send recording",
+      "recordCancel": "Discard",
+      "recording": "Recording {time}",
+      "recordingUnsupported": "This browser cannot record audio."
     },
     "assist": {
       "suggest": "Suggest a reply",
@@ -1049,7 +1123,7 @@
       "noContact": "No contact",
       "won": "Won",
       "lost": "Lost",
-      "playbook": "Playbook"
+      "playbook": "Stage steps"
     },
     "menu": {
       "open": "Open deal",
@@ -1073,21 +1147,21 @@
       "toastFailedDelete": "Couldn't delete the deal"
     },
     "playbook": {
-      "title": "Playbook",
-      "edit": "Edit playbook",
-      "addForStage": "Add a playbook for {stage}",
-      "editingFor": "Playbook · {stage}",
+      "title": "Stage steps",
+      "edit": "Edit steps",
+      "addForStage": "Create steps for {stage}",
+      "editingFor": "Steps · {stage}",
       "stepPlaceholder": "What has to happen",
       "hintPlaceholder": "Hint (optional)",
       "addStep": "Add step",
       "removeStep": "Remove step",
       "moveUp": "Move up",
       "moveDown": "Move down",
-      "save": "Save playbook",
+      "save": "Save steps",
       "cancel": "Cancel",
       "remaining": "{count} {count, plural, =1 {step left} other {steps left}}",
-      "toastSaved": "Playbook saved",
-      "toastSaveFailed": "Couldn't save the playbook",
+      "toastSaved": "Steps saved",
+      "toastSaveFailed": "Could not save the steps",
       "toastFailed": "Couldn't update the step"
     },
     "form": {
@@ -2073,7 +2147,7 @@
       "membersCount": "{count} {count, plural, =1 {member} other {members}}",
       "pendingInvites": "{count} pending {count, plural, =1 {invite} other {invites}}",
       "manageTemplates": "Manage message templates",
-      "templatesCount": "{count} {count, plural, =1 {template} other {templates}}",
+      "templatesCount": "{count, plural, =0 {None yet} =1 {1 template} other {# templates}}",
       "pendingReview": "{count} pending review",
       "tagsAndFields": "Tags and custom fields",
       "tagsCount": "{count} {count, plural, =1 {tag} other {tags}}",
@@ -2393,7 +2467,7 @@
     "sections": {
       "overview": "Overview",
       "profile": "Your profile",
-      "security": "Login & security",
+      "security": "Password & sessions",
       "appearance": "Appearance",
       "whatsapp": "WhatsApp",
       "templates": "Templates",
@@ -2404,7 +2478,7 @@
       "members": "Team members",
       "api": "API keys",
       "whats-new": "What's new",
-      "access": "Access & audit",
+      "access": "Audit log",
       "assignment": "Assignment",
       "rooms": "Team rooms",
       "ai-tools": "AI tools",
@@ -2429,6 +2503,9 @@
       "role": "Role",
       "joined": "Joined",
       "userId": "User ID",
+      "copyUserId": "Copy user ID",
+      "userIdCopied": "ID copied",
+      "userIdCopyFailed": "Couldn't copy. Select and copy it by hand.",
       "loading": "Loading your profile…",
       "saving": "Saving…",
       "saveChanges": "Save changes",
@@ -2743,6 +2820,8 @@
       "resetToRole": "Back to what the role says",
       "auditTitle": "Account audit",
       "auditSub": "Who did what, and when. Nobody can edit or delete a line here.",
+      "dayToday": "Today",
+      "dayYesterday": "Yesterday",
       "auditFailed": "Could not load the audit log",
       "auditMore": "Show older",
       "auditPendingTitle": "Waiting on migration 050",
@@ -2781,7 +2860,8 @@
         "teamRoomWrite": "Write in the team room",
         "auditView": "See this page",
         "productsView": "See the product catalogue",
-        "productsViewDesc": "A price somebody cannot look up is a price they ask a colleague for."
+        "productsViewDesc": "A price somebody cannot look up is a price they ask a colleague for.",
+        "playbookView": "View the Playbook"
       }
     },
     "assignment": {
@@ -3279,5 +3359,60 @@
     "color": "Colour",
     "colorPlaceholder": "black, natural, white",
     "adminOnly": "Only an admin can create or retire a product. Correcting one is yours."
+  },
+  "Playbook": {
+    "title": "Playbook",
+    "description": "What to say, and what the company agreed on. To check mid-conversation.",
+    "searchPlaceholder": "Search scripts, objections and rules…",
+    "tab": {
+      "sales_script": "Scripts",
+      "objection": "Objections",
+      "operation_rule": "Rules",
+      "products": "Products"
+    },
+    "new": {
+      "sales_script": "New script",
+      "objection": "New objection",
+      "operation_rule": "New rule"
+    },
+    "editTitle": "Edit",
+    "fieldTitle": "Title",
+    "fieldCategory": "Category",
+    "fieldContent": {
+      "sales_script": "Script text",
+      "objection": "Suggested reply",
+      "operation_rule": "Content"
+    },
+    "categoryHint": {
+      "sales_script": "Follow-up, Prospecting, Closing…",
+      "objection": "Price, Shipping, Lead time…",
+      "operation_rule": "Sales, Shipping, Support…"
+    },
+    "variablesHint": "Use [Name], [Company], [Product], [Value] as a reminder of what to swap. The text is copied as written.",
+    "copy": "Copy",
+    "copied": "Copied",
+    "copyFailed": "Could not copy.",
+    "edit": "Edit",
+    "delete": "Delete",
+    "deleteTitle": "Delete this item?",
+    "cancel": "Cancel",
+    "save": "Save",
+    "saveFailed": "Could not save.",
+    "requiredFields": "Title and content are required.",
+    "empty": "Nothing here yet",
+    "emptyHint": "Whatever is written here is available to the whole team during a conversation.",
+    "noResults": "Nothing found for “{query}”",
+    "missingTitle": "Playbook is not switched on",
+    "missingBody": "It needs migration 064. Ask whoever runs the database.",
+    "sku": "Code",
+    "size": "Size",
+    "thickness": "Thickness",
+    "material": "Material",
+    "color": "Colour",
+    "unit": "Unit",
+    "price": "Price",
+    "onRequest": "On request",
+    "copySheet": "Copy sheet",
+    "emptyProducts": "Products added under Products show up here for reference."
   }
 }

@@ -4,6 +4,7 @@ import { sendTemplateMessage } from '@/lib/whatsapp/meta-api'
 import { decrypt } from '@/lib/whatsapp/encryption'
 import type { SendTimeParams } from '@/lib/whatsapp/template-send-builder'
 import { resolveTemplateRow } from '@/lib/whatsapp/template-body'
+import { logTemplateSend } from '@/lib/whatsapp/usage-log'
 import {
   sanitizePhoneForMeta,
   isValidE164,
@@ -50,6 +51,14 @@ interface NewRecipient {
   /** Body variable values, one per {{N}}. Legacy field. */
   params?: string[]
   /**
+   * Quem recebe, para o registro de uso (migração 062).
+   *
+   * Opcional: quem chama esta rota de fora não tem contato criado no
+   * CRM, e o disparo entra no log sem ele. O painel manda — ele acabou
+   * de criar as linhas de `broadcast_recipients` e tem o id na mão.
+   */
+  contact_id?: string
+  /**
    * Structured per-send values (header text variable, media URL
    * override, URL/COPY_CODE button values). When set, takes
    * precedence over `params` for the body too — see
@@ -89,7 +98,15 @@ export async function POST(request: Request) {
       template_name,
       template_language,
       template_params,
+      // A campanha dona deste lote, quando há uma (migração 062). O
+      // painel manda uma campanha em vários lotes e passa o id em
+      // todos; quem chama de fora dispara sem campanha e não passa
+      // nada. Só é aceito como string — um número ou objeto vindo de um
+      // cliente qualquer não pode virar um FK inválido no log.
+      broadcast_id,
     } = body
+    const broadcastId =
+      typeof broadcast_id === 'string' && broadcast_id ? broadcast_id : null
 
     // Normalize to a list of {phone, params} regardless of shape.
     let recipients: NewRecipient[]
@@ -211,6 +228,35 @@ export async function POST(request: Request) {
       }
 
       if (sentMessageId) {
+        // Registro de uso (migração 062).
+        //
+        // ESTA É A ROTA DE CAMPANHA DO PAINEL, não uma sobra legada: o
+        // hook cria a linha de `broadcasts`, cria os destinatários e
+        // manda por aqui em lotes de dez. Por isso `broadcast_id` e
+        // `contact_id` chegam no corpo em vez de serem lidos do banco —
+        // esta rota não escreve nada (ver o comentário no topo do POST)
+        // e não tem como descobrir sozinha a que campanha o lote
+        // pertence.
+        //
+        // Os dois são opcionais porque quem chama de fora dispara sem
+        // campanha nenhuma. Nesse caso a linha entra sem atribuição: um
+        // disparo sem origem detalhada ainda soma certo no total, e o
+        // que não é registrado some do total.
+        await logTemplateSend({
+          accountId,
+          wamid: sentMessageId,
+          broadcastId,
+          contactId:
+            typeof recipient.contact_id === 'string'
+              ? recipient.contact_id
+              : null,
+          templateId: templateRow?.id ?? null,
+          templateName: template_name,
+          templateLanguage: resolvedTemplate.language,
+          declaredCategory: templateRow?.category ?? null,
+          origin: 'broadcast',
+        })
+
         results.push({
           phone: recipient.phone,
           status: 'sent',

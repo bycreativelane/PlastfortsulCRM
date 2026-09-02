@@ -31,6 +31,7 @@ export const PROTECTED_PATHS = [
   '/inbox',
   '/notifications',
   '/pipelines',
+  '/playbook',
   '/products',
   '/reports',
   '/settings',

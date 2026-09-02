@@ -119,8 +119,18 @@ describe('createBroadcast atomicity (#370)', () => {
     expect(calls.usedDirectInsert).toBe(0);
     expect(plan.broadcastId).toBe('b-1');
     expect(plan.planned).toEqual([
-      { recipientRowId: 'r-1', phone: '14155550123', params: [] },
+      {
+        recipientRowId: 'r-1',
+        phone: '14155550123',
+        params: [],
+        // Carregado desde a 062: a entrega precisa dele para registrar
+        // quem recebeu no `whatsapp_usage_log`.
+        contactId: 'c1',
+      },
     ]);
+    // Idem — constante no plano inteiro, para não reconsultar
+    // `broadcasts` uma vez por destinatário dentro do laço de entrega.
+    expect(plan.accountId).toBe('acc');
   });
 
   it('throws and leaves no orphaned parent when the atomic create fails', async () => {

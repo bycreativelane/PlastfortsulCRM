@@ -27,6 +27,7 @@ import {
   isRecipientNotAllowedError,
 } from '@/lib/whatsapp/phone-utils';
 import { resolveTemplateRow } from '@/lib/whatsapp/template-body';
+import { logTemplateSend } from '@/lib/whatsapp/usage-log';
 import type { MessageTemplate } from '@/types';
 import { findOrCreateContact } from '@/lib/api/v1/contacts';
 
@@ -60,10 +61,24 @@ interface PlannedRecipient {
   recipientRowId: string;
   phone: string;
   params: string[];
+  /** Para o registro de uso (migração 062) — quem recebeu este disparo. */
+  contactId: string;
 }
 
 export interface BroadcastPlan {
   broadcastId: string;
+  /**
+   * A conta dona do disparo.
+   *
+   * O plano não carregava isto porque nada depois de `createBroadcast`
+   * precisava: as escritas em `broadcast_recipients` são por id de
+   * linha, já escopadas. O registro de uso (migração 062) é
+   * account-scoped como todo o resto do produto, e a alternativa —
+   * reconsultar `broadcasts` dentro do laço de entrega — seria uma ida
+   * ao banco por destinatário para buscar um valor que é constante no
+   * plano inteiro.
+   */
+  accountId: string;
   templateName: string;
   templateLanguage: string;
   phoneNumberId: string;
@@ -226,12 +241,18 @@ export async function createBroadcast(
   const planned: PlannedRecipient[] = createdRows.map(
     (row: { recipient_id: string; contact_id: string }) => {
       const r = byContact.get(row.contact_id)!;
-      return { recipientRowId: row.recipient_id, phone: r.phone, params: r.params };
+      return {
+        recipientRowId: row.recipient_id,
+        phone: r.phone,
+        params: r.params,
+        contactId: row.contact_id,
+      };
     }
   );
 
   return {
     broadcastId,
+    accountId,
     templateName,
     templateLanguage: resolvedTemplate.language,
     phoneNumberId: config.phone_number_id,
@@ -287,6 +308,22 @@ export async function deliverBroadcast(
     }
 
     if (sentMessageId) {
+      // Registro de uso (migração 062). Campanha é a maior fonte de
+      // volume de template do produto E a única que não escreve em
+      // `messages` — é literalmente o caso que fez o log existir como
+      // tabela própria em vez de colunas na mensagem.
+      await logTemplateSend({
+        accountId: plan.accountId,
+        wamid: sentMessageId,
+        contactId: recipient.contactId,
+        broadcastId: plan.broadcastId,
+        templateId: plan.templateRow?.id ?? null,
+        templateName: plan.templateName,
+        templateLanguage: plan.templateLanguage,
+        declaredCategory: plan.templateRow?.category ?? null,
+        origin: 'broadcast',
+      });
+
       await db
         .from('broadcast_recipients')
         .update({

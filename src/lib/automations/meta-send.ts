@@ -15,6 +15,7 @@ import {
   resolveTemplateRow,
   templateContentText,
 } from '@/lib/whatsapp/template-body'
+import { logTemplateSend } from '@/lib/whatsapp/usage-log'
 import { supabaseAdmin } from './admin-client'
 import { writeLastMessage } from '@/lib/conversations/last-message'
 
@@ -222,6 +223,24 @@ async function sendViaMeta(input: SendInput): Promise<{ whatsapp_message_id: str
 
   if (workingPhone !== sanitized) {
     await db.from('contacts').update({ phone: workingPhone }).eq('id', contact.id)
+  }
+
+  // Registro de uso (migração 062), antes do insert em `messages` — que
+  // logo abaixo LANÇA quando falha, num ponto em que a mensagem já saiu
+  // e já será cobrada. Mesmo raciocínio e mesma posição do caminho
+  // manual, em `@/lib/whatsapp/send-message`.
+  if (input.kind === 'template') {
+    await logTemplateSend({
+      accountId: input.accountId,
+      wamid: waMessageId,
+      conversationId: input.conversationId,
+      contactId: contact.id,
+      templateId: templateRow?.id ?? null,
+      templateName: input.templateName,
+      templateLanguage: input.language ?? null,
+      declaredCategory: templateRow?.category ?? null,
+      origin: 'automation',
+    })
   }
 
   // Persist the sent message so it appears in the inbox with a real

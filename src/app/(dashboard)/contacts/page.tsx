@@ -1007,7 +1007,7 @@ function ContactsPageInner() {
                       className="max-w-[26ch] truncate"
                       title={contact.email || undefined}
                     >
-                      {contact.email || '-'}
+                      {contact.email || EMPTY}
                     </div>
                   </TableCell>
                   <TableCell className="text-muted-foreground hidden text-xs lg:table-cell">
@@ -1015,7 +1015,7 @@ function ContactsPageInner() {
                       className="max-w-[20ch] truncate"
                       title={contact.company || undefined}
                     >
-                      {contact.company || '-'}
+                      {contact.company || EMPTY}
                     </div>
                   </TableCell>
                   <TableCell className="hidden md:table-cell">
@@ -1027,7 +1027,7 @@ function ContactsPageInner() {
                           </TagChip>
                         ))
                       ) : (
-                        <span className="text-muted-foreground text-xs">-</span>
+                        <span className="text-muted-foreground text-xs">{EMPTY}</span>
                       )}
                       {contact.tags && contact.tags.length > 3 && (
                         <span className="text-muted-foreground text-3xs self-center">
@@ -1036,15 +1036,14 @@ function ContactsPageInner() {
                       )}
                     </div>
                   </TableCell>
-                  <TableCell className="text-muted-foreground hidden text-xs lg:table-cell">
-                    {new Date(contact.created_at).toLocaleDateString(
-                      APP_LOCALE,
-                      {
-                        month: 'short',
-                        day: 'numeric',
-                        year: 'numeric',
-                      }
-                    )}
+                  {/* O ANO SÓ QUANDO NÃO É ESTE.
+                      "24 de ago. de 2026" gastava ~110px na coluna menos
+                      consultada da tabela, e o ano era o mesmo em todas
+                      as linhas — enquanto NOME está preso em 22ch e
+                      E-MAIL trunca em 26ch, perdendo justo o domínio, que
+                      é o que identifica a empresa. */}
+                  <TableCell className="text-muted-foreground hidden text-xs tabular-nums lg:table-cell">
+                    {formatRegisteredAt(contact.created_at)}
                   </TableCell>
                   <TableCell>
                     <DropdownMenu>
@@ -1235,4 +1234,30 @@ function ContactsPageInner() {
       </Dialog>
     </div>
   );
+}
+
+/**
+ * O travessão que o resto do app usa para "não tem".
+ *
+ * Esta tabela imprimia `-`, o hífen-menos, em três colunas; o perfil, o
+ * funil e os gráficos imprimem `—`. Numa coluna de nove linhas o hífen
+ * lê como sinal de menos, e não como ausência.
+ */
+const EMPTY = '—';
+
+/**
+ * Data de cadastro, sem repetir o ano em todas as linhas.
+ *
+ * `dd/mm` dentro do ano corrente, `dd/mm/aaaa` fora dele — a mesma
+ * regra do cabeçalho de dia da auditoria, pelo mesmo motivo: o ano é
+ * informação em janeiro e ruído nos outros onze meses.
+ */
+function formatRegisteredAt(iso: string): string {
+  const date = new Date(iso);
+  const sameYear = date.getFullYear() === new Date().getFullYear();
+  return date.toLocaleDateString(APP_LOCALE, {
+    day: '2-digit',
+    month: '2-digit',
+    ...(sameYear ? {} : { year: 'numeric' }),
+  });
 }

@@ -1,3 +1,4 @@
+import { format, isSameDay, isSameYear } from 'date-fns';
 import { enUS, ko, ptBR, type Locale } from 'date-fns/locale';
 
 import { APP_LOCALE } from './locale';
@@ -61,4 +62,57 @@ export function formatMonthDay(date: Date): string {
     day: 'numeric',
     month: 'short',
   }).format(date);
+}
+
+/**
+ * Quando algo aconteceu, para uma LINHA DE LISTA — curto, e nunca ambíguo.
+ *
+ * ------------------------------------------------------------------
+ * POR QUE NÃO SÓ `HH:mm`
+ * ------------------------------------------------------------------
+ *
+ * É o que a sala de equipe usa em cada bolha, e lá está certo: as bolhas
+ * vivem sob um separador de dia, então o dia já foi dito e a hora sozinha
+ * completa a frase.
+ *
+ * Uma linha de lista não tem esse separador. `09:15` sozinho ali é lido
+ * como hoje de manhã, sempre — inclusive numa sala parada desde
+ * quinta-feira. O carimbo teria a aparência de estar informando e o
+ * efeito de enganar, que é pior do que não ter carimbo.
+ *
+ * ------------------------------------------------------------------
+ * E POR QUE NÃO TEMPO RELATIVO
+ * ------------------------------------------------------------------
+ *
+ * "há 5 minutos" é o que a lista de conversas usa, e lá funciona porque
+ * aquela lista é remontada e re-renderizada o tempo todo. Um card que
+ * vive na barra lateral em TODA rota fica parado entre uma mensagem e
+ * outra: o relativo congela e passa a mentir sozinho, sem ninguém tocar
+ * em nada. Um horário absoluto envelhece sem nunca ficar errado.
+ *
+ * ------------------------------------------------------------------
+ * A ESCADA
+ * ------------------------------------------------------------------
+ *
+ *   hoje          → 14:32
+ *   mesmo ano     → 26 de ago.
+ *   mais velho    → 26/08/2025
+ *
+ * Sem "ontem" e sem dia da semana: os dois exigiriam decidir onde
+ * termina "recente", e a data curta já responde a mesma pergunta sem
+ * essa fronteira. O ano só aparece quando muda — num card de 150px,
+ * quatro dígitos que dizem o óbvio custam a metade do nome de quem
+ * escreveu.
+ */
+export function formatListTime(value: string | Date): string {
+  const date = typeof value === 'string' ? new Date(value) : value;
+  // Uma data inválida devolve string vazia em vez de "Invalid Date":
+  // quem chama renderiza o retorno cru, e um carimbo em branco é uma
+  // ausência — um "Invalid Date" é um defeito visível para o cliente.
+  if (Number.isNaN(date.getTime())) return '';
+
+  const now = new Date();
+  if (isSameDay(date, now)) return format(date, 'HH:mm');
+  if (isSameYear(date, now)) return formatMonthDay(date);
+  return format(date, 'P', { locale: dateLocale });
 }

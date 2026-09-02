@@ -21,7 +21,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Skeleton } from '@/components/dashboard/skeleton';
-import { BarChart } from '@/components/tremor/bar-chart';
+import { ChartBars } from '@/components/charts/chart-primitives';
 import { formatCompactNumber } from '@/lib/currency';
 import { format, parseISO } from 'date-fns';
 import { formatMonthDay } from '@/lib/i18n/dates';
@@ -101,13 +101,14 @@ export function AiUsageCard() {
 
   if (profileLoading || !canView) return null;
 
-  // The series KEY is what the tooltip prints, so it has to be the
-  // translated word rather than the identifier `Tokens`.
-  const seriesLabel = t('seriesTokens');
+  // The key is stable and the LABEL is translated — `ChartSeries` keeps
+  // the two apart. Tremor indexed the series by the string it printed,
+  // so the data key and the tooltip caption were the same value and
+  // rewording the catalogue silently renamed the column.
   const chartData =
     data?.daily.map((d) => ({
       day: formatMonthDay(parseISO(d.date)),
-      [seriesLabel]: d.tokens,
+      tokens: d.tokens,
     })) ?? [];
   const hasSpend = (data?.totals.total_tokens ?? 0) > 0;
 
@@ -171,15 +172,19 @@ export function AiUsageCard() {
               <p className="text-muted-foreground mb-2 text-xs font-medium">
                 {t('perDay')}
               </p>
-              <BarChart
+              <ChartBars
                 data={chartData}
                 index="day"
-                categories={[seriesLabel]}
-                colors={['violet']}
-                valueFormatter={(v) => formatCompactNumber(v)}
-                showLegend={false}
-                yAxisWidth={48}
-                className="h-[200px]"
+                series={[
+                  {
+                    key: 'tokens',
+                    label: t('seriesTokens'),
+                    color: 'var(--chart-1)',
+                  },
+                ]}
+                height={200}
+                formatValue={formatCompactNumber}
+                ariaLabel={t('perDay')}
               />
             </div>
 

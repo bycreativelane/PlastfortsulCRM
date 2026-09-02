@@ -3,7 +3,17 @@
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
-import { BarChart3, GitBranch, Lock, Users, Zap } from 'lucide-react';
+import {
+  BarChart3,
+  GitBranch,
+  Lock,
+  MessagesSquare,
+  Send,
+  UserPlus,
+  Users,
+  Wallet,
+  Zap,
+} from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
@@ -30,10 +40,10 @@ import type { Deal, Pipeline, PipelineStage } from '@/types';
 
 import { ActivityFeed } from '@/components/dashboard/activity-feed';
 import { TeamPerformance } from '@/components/reports/team-performance';
+import { TemplateUsage } from '@/components/reports/template-usage';
 import { ConversationsChart } from '@/components/dashboard/conversations-chart';
 import { PipelineFunnel } from '@/components/dashboard/pipeline-funnel';
 import { ResponseTimeChart } from '@/components/dashboard/response-time-chart';
-import { SkeletonCard } from '@/components/dashboard/skeleton';
 import { PipelineAnalytics } from '@/components/pipelines/pipeline-analytics';
 import { MetricStrip } from '@/components/dashboard/metric-strip';
 import { PeriodPicker } from '@/components/dashboard/period-picker';
@@ -162,17 +172,21 @@ export default function ReportsPage() {
     // console and nothing on screen. A failed query has to look like a
     // failure — clearing the flag lets the panel render its own empty
     // state, which says something true.
-    loadMetrics(db).then((d) => {
-      if (cancelled) return;
-      setMetrics(d);
-      setMetricsLoading(false);
-    }).catch(() => !cancelled && setMetricsLoading(false));
+    loadMetrics(db)
+      .then((d) => {
+        if (cancelled) return;
+        setMetrics(d);
+        setMetricsLoading(false);
+      })
+      .catch(() => !cancelled && setMetricsLoading(false));
     const first = periodFromPreset(30);
-    loadConversationsSeries(db, first).then((d) => {
-      if (cancelled) return;
-      setSeries((prev) => ({ ...prev, [first.key]: d }));
-      setSeriesLoading(false);
-    }).catch((err) => !cancelled && failSeries(err));
+    loadConversationsSeries(db, first)
+      .then((d) => {
+        if (cancelled) return;
+        setSeries((prev) => ({ ...prev, [first.key]: d }));
+        setSeriesLoading(false);
+      })
+      .catch((err) => !cancelled && failSeries(err));
     // Not awaited with the series and not gating `seriesLoading`: the
     // chart is readable the moment the points land, and a comparison
     // that arrives a beat later fills in beside a number already on
@@ -181,25 +195,33 @@ export default function ReportsPage() {
     // The comparison is the one thing allowed to fail quietly: the chart
     // is complete without it, and its absence already reads as "no
     // basis" rather than as zero.
-    loadConversationsPrevious(db, first).then((d) => {
-      if (cancelled) return;
-      setPrevious((prev) => ({ ...prev, [first.key]: d }));
-    }).catch(() => {});
-    loadPipelineDonut(db).then((d) => {
-      if (cancelled) return;
-      setPipeline(d);
-      setPipelineLoading(false);
-    }).catch(() => !cancelled && setPipelineLoading(false));
-    loadResponseTime(db).then((d) => {
-      if (cancelled) return;
-      setResponseTime(d);
-      setResponseTimeLoading(false);
-    }).catch(() => !cancelled && setResponseTimeLoading(false));
-    loadActivity(db).then((d) => {
-      if (cancelled) return;
-      setActivity(d);
-      setActivityLoading(false);
-    }).catch(() => !cancelled && setActivityLoading(false));
+    loadConversationsPrevious(db, first)
+      .then((d) => {
+        if (cancelled) return;
+        setPrevious((prev) => ({ ...prev, [first.key]: d }));
+      })
+      .catch(() => {});
+    loadPipelineDonut(db)
+      .then((d) => {
+        if (cancelled) return;
+        setPipeline(d);
+        setPipelineLoading(false);
+      })
+      .catch(() => !cancelled && setPipelineLoading(false));
+    loadResponseTime(db)
+      .then((d) => {
+        if (cancelled) return;
+        setResponseTime(d);
+        setResponseTimeLoading(false);
+      })
+      .catch(() => !cancelled && setResponseTimeLoading(false));
+    loadActivity(db)
+      .then((d) => {
+        if (cancelled) return;
+        setActivity(d);
+        setActivityLoading(false);
+      })
+      .catch(() => !cancelled && setActivityLoading(false));
     db.from('pipelines')
       .select('*')
       .order('created_at')
@@ -252,13 +274,17 @@ export default function ReportsPage() {
       }
       setSeriesLoading(true);
       const db = createClient();
-      loadConversationsSeries(db, next).then((d) => {
-        setSeries((prev) => ({ ...prev, [next.key]: d }));
-        setSeriesLoading(false);
-      }).catch(failSeries);
-      loadConversationsPrevious(db, next).then((d) => {
-        setPrevious((prev) => ({ ...prev, [next.key]: d }));
-      }).catch(() => {});
+      loadConversationsSeries(db, next)
+        .then((d) => {
+          setSeries((prev) => ({ ...prev, [next.key]: d }));
+          setSeriesLoading(false);
+        })
+        .catch(failSeries);
+      loadConversationsPrevious(db, next)
+        .then((d) => {
+          setPrevious((prev) => ({ ...prev, [next.key]: d }));
+        })
+        .catch(() => {});
     },
     [series, failSeries]
   );
@@ -268,11 +294,50 @@ export default function ReportsPage() {
     return (
       <div className="space-y-6">
         <PageHeader title={t('title')} description={t('description')} />
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {Array.from({ length: 4 }, (_, i) => (
-            <SkeletonCard key={i} />
-          ))}
-        </div>
+        {/* THE SHAPE THAT RESOLVES, NOT FOUR EQUAL CARDS.
+            This was `xl:grid-cols-4` with four `SkeletonCard`s, which
+            is what the strip above used to be. It is now a 2/5 hero
+            beside a 3/5 strip — so the page drew four boxes and then
+            replaced them with two of different widths, which is the
+            layout shift `SkeletonCard` exists to prevent, reintroduced
+            one grid up from it.
+            `MetricStrip` renders its own loading state at exactly the
+            geometry it will resolve into, so the honest placeholder is
+            the component itself with no data in it. The labels are the
+            real ones: they do not move when the numbers arrive. */}
+        <MetricStrip
+          loading
+          hero={{
+            key: 'openDealsValue',
+            label: t('openDealsValue'),
+            window: t('windowNow'),
+            icon: <Wallet />,
+            value: '—',
+          }}
+          readings={[
+            {
+              key: 'activeConversations',
+              label: t('activeConversations'),
+              window: t('windowNow'),
+              icon: <MessagesSquare />,
+              value: '—',
+            },
+            {
+              key: 'newContacts',
+              label: t('newContacts'),
+              window: t('windowToday'),
+              icon: <UserPlus />,
+              value: '—',
+            },
+            {
+              key: 'messagesSent',
+              label: t('messagesSent'),
+              window: t('windowToday'),
+              icon: <Send />,
+              value: '—',
+            },
+          ]}
+        />
       </div>
     );
   }
@@ -323,24 +388,58 @@ export default function ReportsPage() {
           {t('sectionCommercial')}
         </SectionTitle>
 
-        {/* ONE PANEL, DIVIDED — not four cards in a grid. See the note
-            in `MetricStrip`: four borders and four shadows around four
-            readings of the same period made the top of this page the
-            busiest part of it. */}
+        {/* A HERO AND A STRIP — not four cards, and not four equal cells
+            either. See the note in `MetricStrip`.
+
+            The money is the hero because it is the only reading here
+            that survives the question "why did you open Relatórios".
+            Conversas ativas, novos contatos and mensagens enviadas are
+            all counts of the operation running; R$ em aberto is the
+            operation's reason for running, and it is the one number an
+            owner repeats out loud.
+
+            EVERY READING NAMES ITS WINDOW, because none of the four
+            follows the period picker sitting directly above them. Two
+            are states of right now and two are counts of today, on a
+            page whose header says 30 dias. Saying so costs one word per
+            cell; not saying so taught the reader that the control does
+            nothing. */}
         <MetricStrip
           loading={metricsLoading || !metrics}
+          hero={{
+            key: 'openDealsValue',
+            label: t('openDealsValue'),
+            window: t('windowNow'),
+            icon: <Wallet />,
+            value: metrics
+              ? formatCurrency(metrics.openDealsValue, defaultCurrency)
+              : '—',
+            note: metrics
+              ? t('openDeals', { count: metrics.openDealsCount })
+              : undefined,
+          }}
           readings={[
             {
               key: 'activeConversations',
               label: t('activeConversations'),
+              window: t('windowNow'),
+              icon: <MessagesSquare />,
               value:
                 metrics?.activeConversations.current.toLocaleString(
                   APP_LOCALE
                 ) ?? '—',
+              // NO DELTA, deliberately. `activeConversations.previous`
+              // is not yesterday's open count — nothing snapshots that —
+              // it is the difference between conversations OPENED today
+              // and yesterday, which is a different quantity wearing the
+              // same field name. A percentage built from it would be
+              // arithmetic on two unrelated numbers.
             },
             {
-              key: 'newContactsToday',
-              label: t('newContactsToday'),
+              key: 'newContacts',
+              label: t('newContacts'),
+              window: t('windowToday'),
+              icon: <UserPlus />,
               value:
                 metrics?.newContactsToday.current.toLocaleString(APP_LOCALE) ??
                 '—',
@@ -350,20 +449,13 @@ export default function ReportsPage() {
                     metrics.newContactsToday.previous
                   )
                 : null,
+              deltaLabel: t('vsYesterday'),
             },
             {
-              key: 'openDealsValue',
-              label: t('openDealsValue'),
-              value: metrics
-                ? formatCurrency(metrics.openDealsValue, defaultCurrency)
-                : '—',
-              note: metrics
-                ? t('openDeals', { count: metrics.openDealsCount })
-                : undefined,
-            },
-            {
-              key: 'messagesSentToday',
-              label: t('messagesSentToday'),
+              key: 'messagesSent',
+              label: t('messagesSent'),
+              window: t('windowToday'),
+              icon: <Send />,
               value:
                 metrics?.messagesSentToday.current.toLocaleString(APP_LOCALE) ??
                 '—',
@@ -373,6 +465,7 @@ export default function ReportsPage() {
                     metrics.messagesSentToday.previous
                   )
                 : null,
+              deltaLabel: t('vsYesterday'),
             },
           ]}
         />
@@ -408,6 +501,19 @@ export default function ReportsPage() {
         </div>
       </section>
 
+      {/* ---------------------------------------------- Custo de envio */}
+      {/* Depois de Comercial e antes do funil: receita, depois custo.
+          É a ordem em que o dono lê a operação, e a razão de não ser
+          uma aba de Configurações — quanto o WhatsApp custou no mês é
+          uma pergunta de relatório, não de ajuste. */}
+      <section>
+        <SectionTitle>
+          <Send />
+          {t('sectionUsage')}
+        </SectionTitle>
+        <TemplateUsage period={period} />
+      </section>
+
       {/* ----------------------------------------------------- Funil */}
       {pipelines.length > 0 && stages.length > 0 && (
         <section>
@@ -430,7 +536,7 @@ export default function ReportsPage() {
                   className={cn(
                     'inline-flex h-7 items-center rounded-full border px-2.5 text-xs font-semibold [@media(pointer:coarse)]:min-h-11',
                     pipe.id === pipelineId
-                      ? 'border-foreground bg-foreground text-background'
+                      ? 'border-primary-soft-2 bg-primary-soft text-primary'
                       : 'border-border bg-card text-secondary-foreground hover:bg-muted hover:text-foreground transition-colors'
                   )}
                 >

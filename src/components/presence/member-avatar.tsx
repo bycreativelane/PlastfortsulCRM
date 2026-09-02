@@ -25,6 +25,8 @@ import { cn } from '@/lib/utils';
 
 /** The three sizes anything in this app actually asks for. */
 const SIZE = {
+  /** The deal card's footer, beside the due date. 20px. */
+  '2xs': { avatar: 'size-5', text: 'text-3xs', dot: 'size-1.5' },
   /** The rail's card, where the whole disc is 24px. */
   xs: { avatar: 'size-6', text: 'text-3xs', dot: 'size-1.5' },
   /** Message bubbles, dense lists. */
@@ -74,7 +76,10 @@ export function MemberAvatar({
     <span className={cn('relative inline-flex shrink-0', className)}>
       <Avatar className={cn(scale.avatar, 'after:hidden')}>
         {avatarUrl ? <AvatarImage src={avatarUrl} alt={label} /> : null}
-        <AvatarFallback seed={label} className={cn(scale.text, 'font-semibold')}>
+        <AvatarFallback
+          seed={label}
+          className={cn(scale.text, 'font-semibold')}
+        >
           {avatarInitials(label)}
         </AvatarFallback>
       </Avatar>

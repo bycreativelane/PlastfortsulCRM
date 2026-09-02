@@ -155,7 +155,7 @@ export function DateField({
             commitText((e.target as HTMLInputElement).value);
           }
         }}
-        className="border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 dark:bg-input/30 h-8 w-full min-w-0 rounded-lg border bg-transparent py-1 pr-9 pl-2.5 text-base tabular-nums transition-colors outline-none focus-visible:ring-3 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
+        className="border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 dark:bg-field/30 h-8 w-full min-w-0 rounded-lg border bg-transparent py-1 pr-9 pl-2.5 text-base tabular-nums transition-colors outline-none focus-visible:ring-3 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
       />
 
       <Popover open={open} onOpenChange={setOpen}>

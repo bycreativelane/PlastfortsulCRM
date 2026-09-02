@@ -5,7 +5,7 @@ import { Calendar, ListChecks } from 'lucide-react';
 import { formatCurrency } from '@/lib/currency';
 import { useFormatter, useTranslations } from 'next-intl';
 import { cn } from '@/lib/utils';
-import { avatarClass, avatarInitials } from '@/lib/avatar-color';
+import { MemberAvatar } from '@/components/presence/member-avatar';
 import { StatusBadge } from '@/components/ui/status-badge';
 
 interface DealCardProps {
@@ -151,15 +151,23 @@ export function DealCard({
             </span>
           )}
           {assigneeLabel && (
-            <span
-              title={assigneeLabel}
-              className={cn(
-                'text-avatar-ink text-3xs ml-auto grid size-5 shrink-0 place-items-center rounded-full font-semibold',
-                avatarClass(assigneeLabel)
-              )}
-            >
-              {avatarInitials(assigneeLabel, '?')}
-            </span>
+            // A FOTO, e as iniciais só quando não há foto.
+            //
+            // Este disco era montado à mão com `avatarClass` +
+            // `avatarInitials` e nunca lia `avatar_url` — então o card do
+            // CRM mostrava "GS" para alguém cuja foto o produto já
+            // desenha na barra lateral, no atendimento e na equipe. A
+            // 0.8.4 corrigiu aqueles três; este ficou.
+            //
+            // `MemberAvatar` é onde a regra mora: imagem quando existe,
+            // iniciais com a cor semeada pelo nome quando não. Um
+            // segundo disco escrito à mão é como a divergência volta.
+            <MemberAvatar
+              size="2xs"
+              name={assigneeLabel}
+              avatarUrl={deal.assignee?.avatar_url}
+              className="ml-auto"
+            />
           )}
         </div>
       )}

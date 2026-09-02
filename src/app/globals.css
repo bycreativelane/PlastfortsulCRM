@@ -64,6 +64,34 @@
    * --card-2) as Tailwind utilities: bg-card-2, bg-primary-soft,
    * bg-primary-soft-2, hover:bg-primary-hover. */
   --color-card-2: var(--card-2);
+  /* THREE ROLES, BECAUSE A CHECKBOX AND A TEXT FIELD ARE NOT THE SAME
+   * PROBLEM.
+   *
+   * One token used to do all of it, tuned to be light enough to type
+   * on — so the BORDER it also drew measured 1.56:1 on a card in light
+   * and 1.29:1 in dark, against the 3:1 WCAG 1.4.11 asks of a
+   * component's boundary. In practice the bulk-select checkboxes on the
+   * contacts table were invisible. The first fix darkened the one token
+   * to the value that passes everywhere, which fixed the checkboxes and
+   * made every text field on every form read as a heavy outlined box.
+   *
+   *   --field    the FILL of a field. Drawn at /30, so it is a wash.
+   *   --input    the border of a field you TYPE IN or PICK FROM.
+   *   --control  the border of a 16px control: checkbox, radio.
+   *
+   * `--control` carries the 3:1 and the test that pins it. `--input` is
+   * deliberately below it, and the argument is in
+   * `theme-contrast.test.ts` next to the assertions that moved — in one
+   * line: a 16px square with nothing inside it is its border, and a
+   * 32px field under a visible label, holding a placeholder, on a fill
+   * that differs from the card, is not.
+   *
+   * `--input` and `--field` hold the same value today. That is a
+   * coincidence of tuning, not an identity — the fill is drawn at 30%
+   * and the border at 100%, so they are already doing different work,
+   * and either can move without the other. */
+  --color-field: var(--field);
+  --color-control: var(--control);
   --color-overlay: var(--overlay);
   --color-primary-hover: var(--primary-hover);
   --color-primary-soft: var(--primary-soft);
@@ -253,12 +281,33 @@
  * different panels sat on different baselines. 14px on the 10 and 16px
  * on the 11 continue Tailwind's own ramp (12/16 · 14/20 · 16/24), so
  * the whole scale keeps one rhythm.
+ *
+ * A NINTH STEP AT THE TOP, AND WHY IT IS NOT A NEW BODY SIZE
+ * ---------------------------------------------------------
+ *
+ *   text-display  32px / 1  the one number a panel is FOR.
+ *
+ * Nothing in the product reads at this size. It is reserved for the
+ * headline figure of a metric block — the money in the pipeline, the
+ * count a queue is asking about — and it is a step rather than a
+ * `text-[32px]` for the reason the whole file exists: the leading. At
+ * `text-2xl` Tailwind gives 24/32, which is 8px of air baked under a
+ * figure that is supposed to sit tight against its caption. A display
+ * number wants leading 1 and nothing else; asking for it inline is how
+ * the twentieth font size gets born.
+ *
+ * The BASE size is untouched, deliberately — that question was asked
+ * and answered separately. This adds a top to the scale, not a shift
+ * of it: `text-base` is still 16, and a page with no metric block on
+ * it renders identically before and after.
  * ============================================================ */
 @theme {
   --text-3xs: 0.625rem;
   --text-3xs--line-height: calc(0.875 / 0.625);
   --text-2xs: 0.6875rem;
   --text-2xs--line-height: calc(1 / 0.6875);
+  --text-display: 2rem;
+  --text-display--line-height: 1;
 }
 
 /* ============================================================
@@ -335,7 +384,13 @@ html[data-mode='dark'] {
    * nothing is left carrying white text on it. */
   --destructive: var(--danger-700);
   --border: oklch(0.28 0.01 260);
+  /* Same solve on the dark ramp: 3.27 / 3.12 / 3.50 / 3.01. It is now
+   * clearly lighter than --border, which is correct rather than
+   * incidental — a divider may recede, the edge of something you can
+   * type into may not. */
   --input: oklch(0.28 0.01 260);
+  --control: oklch(0.51 0.01 260);
+  --field: oklch(0.28 0.01 260);
   /* The series ramp, and in dark mode it was never one.
    *
    * These four arrived from shadcn's neutral base as `oklch(L 0 0)` —
@@ -370,6 +425,25 @@ html[data-mode='dark'] {
    * corner in one mode and a 10px corner in the other, and every
    * radius in the app is derived from this one number. Nothing about a
    * dark surface asks for a rounder corner. */
+  /* 8px, and it stays there.
+   *
+   * This was briefly 0.75rem, to give cards the softer geometry every
+   * reference dashboard has. It does — and it moves the CONTROLS by the
+   * same proportion, which is not what was wanted and is worse than
+   * what it replaced.
+   *
+   * The reason is that the ladder is one number: `rounded-lg` is
+   * `var(--radius)` and BOTH `Panel` and `Input` ask for it. A panel is
+   * 400px tall and 12px of corner reads as a soft surface; a text field
+   * is 32px tall and the same 12px is 38% of its height, which reads as
+   * a capsule. Stacked four to a form, capsules are the heaviest thing
+   * on the screen — and they made the (correct, and separately argued)
+   * 3:1 border look heavier still, because a closed rounded outline
+   * reads as an object where a rectangle reads as an edge.
+   *
+   * Softness for surfaces is a job for `rounded-xl` at the two or three
+   * call sites that want it, not for the base every control inherits.
+   * See the note on `Panel`. */
   --radius: 0.5rem;
   --sidebar: oklch(0.16 0.01 260);
   --sidebar-foreground: oklch(0.985 0 0);
@@ -534,7 +608,15 @@ html[data-mode='light'] {
    * surface it usually lands on. */
   --destructive: var(--danger-700);
   --border: oklch(0.924 0.003 247.9);
+  /* 0.640 and not the 0.853 this was: measured against --card, --card-2,
+   * --background and --muted, the four grounds a control lands on, that
+   * is the lightest value that clears 3:1 on ALL of them
+   * (3.43 / 3.33 / 3.22 / 3.00). The binding ground is --muted: a control
+   * inside a muted well has the least room, so it sets the value and the
+   * other three come along. See --color-field above for the split. */
   --input: oklch(0.853 0.007 247.9);
+  --control: oklch(0.635 0.007 247.9);
+  --field: oklch(0.853 0.007 247.9);
 
   /* Doctrine tokens, light — the prototype's audited values. */
   --human-50: oklch(0.971 0.026 80.3);
@@ -619,6 +701,25 @@ html[data-mode='light'] {
   --chart-3: oklch(0.68 0.085 262);
   --chart-4: oklch(0.76 0.06 262);
   --chart-5: oklch(0.83 0.045 262);
+  /* 8px, and it stays there.
+   *
+   * This was briefly 0.75rem, to give cards the softer geometry every
+   * reference dashboard has. It does — and it moves the CONTROLS by the
+   * same proportion, which is not what was wanted and is worse than
+   * what it replaced.
+   *
+   * The reason is that the ladder is one number: `rounded-lg` is
+   * `var(--radius)` and BOTH `Panel` and `Input` ask for it. A panel is
+   * 400px tall and 12px of corner reads as a soft surface; a text field
+   * is 32px tall and the same 12px is 38% of its height, which reads as
+   * a capsule. Stacked four to a form, capsules are the heaviest thing
+   * on the screen — and they made the (correct, and separately argued)
+   * 3:1 border look heavier still, because a closed rounded outline
+   * reads as an object where a rectangle reads as an edge.
+   *
+   * Softness for surfaces is a job for `rounded-xl` at the two or three
+   * call sites that want it, not for the base every control inherits.
+   * See the note on `Panel`. */
   --radius: 0.5rem;
   --sidebar: oklch(1 0 0);
   --sidebar-foreground: oklch(0.204 0.007 258.4);
@@ -696,6 +797,36 @@ html[data-theme='plastfortsul'] {
   --primary-soft-2: oklch(0.523 0.169 262 / 0.18);
   --ring: oklch(0.523 0.169 262);
   --chart-1: oklch(0.523 0.169 262);
+  /* THE SECOND SERIES NEEDS ITS OWN HUE, AND THIS ACCENT NEVER GAVE IT
+   * ONE.
+   *
+   * Emerald, cobalt, amber and rose all override `--chart-2` right here
+   * with a hue 30–36° off their own — so the pattern already exists in
+   * this file. Plastfortsul and violet were the two that skipped it, and
+   * they are the default and the pre-JS fallback, so in practice EVERY
+   * install shipped a two-series chart drawn in one hue.
+   *
+   * That is fine for a ramp and wrong for a key. `--chart-1..5` is a
+   * sequential scale — one hue, lightness receding — and a sequential
+   * scale is the right tool when the fifth thing matters less than the
+   * first. "Recebidas" and "Enviadas" are not that. They are two
+   * CATEGORIES of equal weight, and encoding them as two steps of one
+   * ramp says the second one is a lesser version of the first.
+   *
+   * Measured, with the OKLab ΔE the palette validator uses (×100):
+   *
+   *   chart-1 vs the old chart-2   ΔE  9.4   — below the 15 floor, i.e.
+   *                                            hard to tell apart even
+   *                                            with full colour vision
+   *   chart-1 vs the teal below    ΔE 20.0
+   *
+   * Teal at hue 190 and not something warmer, because the warm half of
+   * the wheel is spoken for: amber IS "a person must act", green IS
+   * "confirmed", red IS "failed". A data series may not borrow any of
+   * them. Teal is the widest gap left that is neither the accent nor a
+   * signal — and at this lightness it is nowhere near the WhatsApp
+   * green the Emerald theme's own tagline is careful to avoid. */
+  --chart-2: oklch(0.62 0.11 190);
   --sidebar-primary: oklch(0.523 0.169 262);
   --sidebar-primary-foreground: oklch(0.985 0 0);
   --sidebar-ring: oklch(0.523 0.169 262);
@@ -718,6 +849,27 @@ html[data-mode='dark'][data-theme='plastfortsul'] {
   --primary-soft-2: oklch(0.7 0.14 262 / 0.24);
   --ring: oklch(0.7 0.14 262);
   --chart-1: oklch(0.7 0.14 262);
+  /* Darker than the light-mode teal, not lighter — and that is the
+   * opposite of what a dark ramp usually does.
+   *
+   * `--chart-1` is pinned high here (L 0.70) because it follows
+   * `--primary`, which had to be lifted for the link to reach AA on the
+   * dark card — see the note above. With the first series already near
+   * the top of the range, the second one buys its separation by going
+   * DOWN. Measured against `--chart-1` in dark:
+   *
+   *   L 0.62 (the light value)   deutan ΔE 13.4 · tritan  5.9
+   *   L 0.55 (this one)          deutan ΔE 18.2 · tritan 13.1
+   *
+   * Tritan is the axis that merges blue and teal, so it is the one that
+   * decides this, and it more than doubles.
+   *
+   * Its measured chroma lands at 0.096 against a 0.10 floor, and that
+   * floor is deliberately conceded: it exists to catch a series so
+   * desaturated it reads as grey, which #00847f plainly does not. The
+   * failure it is traded against — two series a reader cannot tell
+   * apart — is the actual bug. */
+  --chart-2: oklch(0.55 0.105 190);
   --sidebar-primary: oklch(0.7 0.14 262);
   --sidebar-primary-foreground: oklch(0.18 0.01 260);
   --sidebar-ring: oklch(0.7 0.14 262);
@@ -731,6 +883,10 @@ html[data-theme='violet'] {
   --primary-soft-2: oklch(0.526 0.247 293 / 0.2);
   --ring: oklch(0.526 0.247 293);
   --chart-1: oklch(0.526 0.247 293);
+  /* The other half of the gap described under Plastfortsul. Violet was
+   * the second accent with no hue of its own for the second series;
+   * against its own `--chart-1` the same teal measures ΔE 30.3. */
+  --chart-2: oklch(0.62 0.11 190);
   --sidebar-primary: oklch(0.526 0.247 293);
   --sidebar-primary-foreground: oklch(0.985 0 0);
   --sidebar-ring: oklch(0.526 0.247 293);
@@ -1025,7 +1181,11 @@ html[data-theme='rose'] {
 
 @utility editor-grid {
   background-color: var(--card-2);
-  background-image: radial-gradient(circle, var(--border) 1.4px, transparent 1.4px);
+  background-image: radial-gradient(
+    circle,
+    var(--border) 1.4px,
+    transparent 1.4px
+  );
   background-size: 22px 22px;
 }
 
@@ -1173,7 +1333,6 @@ html[data-theme='rose'] {
   html[data-nav='collapsed'] [data-nav-group]:not(:first-child) {
     margin-top: 0.25rem;
   }
-
 
   /* Counters have no room for a number — they become a corner dot. */
   html[data-nav='collapsed'] [data-nav-badge] {

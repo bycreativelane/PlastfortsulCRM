@@ -20,6 +20,11 @@ import {
   handleTemplateWebhookChange,
   isTemplateWebhookField,
 } from '@/lib/whatsapp/template-webhook';
+import {
+  applyMetaPricing,
+  type MetaConversation,
+  type MetaPricing,
+} from '@/lib/whatsapp/usage-log';
 
 // The `after()` callback in POST runs within this route's max duration.
 // Inbound processing can fan out to per-media Meta verification calls, so
@@ -106,6 +111,22 @@ interface WhatsAppWebhookEntry {
         status: string;
         timestamp: string;
         recipient_id: string;
+        /**
+         * O QUE A META COBROU por esta mensagem.
+         *
+         * Estava fora deste tipo até a 062, e por isso ia inteiro para o
+         * lixo: o handler abaixo só lia os quatro campos acima. É o
+         * único lugar onde a categoria REALMENTE FATURADA aparece — a
+         * Meta recategoriza templates por conta própria, então o que
+         * está em `message_templates.category` é a nossa intenção, não
+         * a fatura.
+         *
+         * Opcional porque não vem sempre: `failed` nunca traz, e
+         * `conversation` some conforme a conta migra para cobrança por
+         * mensagem. Ver `@/lib/whatsapp/usage-log`.
+         */
+        pricing?: MetaPricing;
+        conversation?: MetaConversation;
       }>;
     };
     field: string;
@@ -387,7 +408,27 @@ async function handleStatusUpdate(status: {
   status: string;
   timestamp: string;
   recipient_id: string;
+  pricing?: MetaPricing;
+  conversation?: MetaConversation;
 }) {
+  // 0) O faturamento, ANTES de tudo.
+  //
+  //    Primeiro porque é o único passo cujo dado não se repete: os
+  //    espelhamentos abaixo derivam de colunas que continuam no banco,
+  //    e o objeto `pricing` passa uma vez. Se um erro mais adiante
+  //    abortasse o handler, o que se perderia aqui não voltaria — a
+  //    Meta reenvia o evento, mas o retry cai no mesmo caminho.
+  //
+  //    `applyMetaPricing` não lança e não insere: sem linha de disparo
+  //    correspondente (mensagem de texto, envio por outro sistema no
+  //    mesmo número) ela simplesmente não faz nada.
+  await applyMetaPricing(supabaseAdmin(), {
+    wamid: status.id,
+    status: status.status,
+    pricing: status.pricing,
+    conversation: status.conversation,
+  });
+
   // 1) Mirror onto messages (legacy behavior) — Meta's status values
   //    already match the CHECK constraint on messages.status. No
   //    `.select()`: message_id is NOT unique (migration 009 — Meta ids

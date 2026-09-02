@@ -46,7 +46,7 @@ export function Skeleton({ className, ...props }: React.ComponentProps<'div'>) {
 export function SkeletonCard({ className }: { className?: string }) {
   return (
     <div
-      className={cn('border-border bg-card rounded-lg border p-4', className)}
+      className={cn('border-border bg-card rounded-xl border p-4', className)}
     >
       <Skeleton className="h-4 w-28" />
       <Skeleton className="mt-1 h-6 w-20" />

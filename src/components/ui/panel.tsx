@@ -20,13 +20,30 @@ import { cn } from '@/lib/utils';
  * accent bar was a second signalling channel competing with the first — in a
  * grid of tiles the urgency already comes from the icon, and the bar only broke
  * the alignment.
+ *
+ * ------------------------------------------------------------------
+ * `rounded-xl`, AND WHY IT IS HERE RATHER THAN IN `--radius`
+ * ------------------------------------------------------------------
+ *
+ * Softer corners are what separate a page of surfaces from a page of
+ * boxes, and every dashboard worth borrowing from sits above 8px. The
+ * obvious way to get there is to raise `--radius`, and that was tried:
+ * it works on the panel and ruins the controls, because `rounded-lg` is
+ * `var(--radius)` and `Input`, `Select`, `Textarea` and `Button` all
+ * ask for the same token. 12px on a 400px panel is a soft surface; 12px
+ * on a 32px field is a capsule.
+ *
+ * So the base stays at 8 for everything that is small, and the SURFACE
+ * asks for one step up. `--radius-xl` is 1.4 × the base — 11.2px — and
+ * it is derived, so a future change to the base still moves the panel
+ * with everything else instead of stranding it.
  */
 function Panel({ className, ...props }: React.ComponentProps<'div'>) {
   return (
     <div
       data-slot="panel"
       className={cn(
-        'border-border bg-card text-card-foreground rounded-lg border',
+        'border-border bg-card text-card-foreground rounded-xl border',
         className
       )}
       {...props}

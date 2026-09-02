@@ -55,13 +55,13 @@ describe('type scale', () => {
 
     expect(
       offenders,
-      'Use a named step from the scale in globals.css: text-3xs (10) · text-2xs (11) · text-xs (12) · text-sm (14) · text-base (16) · text-lg (18) · text-xl (20) · text-2xl (24)'
+      'Use a named step from the scale in globals.css: text-3xs (10) · text-2xs (11) · text-xs (12) · text-sm (14) · text-base (16) · text-lg (18) · text-xl (20) · text-2xl (24) · text-display (32)'
     ).toEqual([]);
   });
 
-  it('both added steps declare a line-height', () => {
+  it('every added step declares a line-height', () => {
     const css = readFileSync(join(SRC, 'app', 'globals.css'), 'utf8');
-    for (const step of ['--text-3xs', '--text-2xs']) {
+    for (const step of ['--text-3xs', '--text-2xs', '--text-display']) {
       expect(css, `${step} is missing from globals.css`).toContain(`${step}:`);
       expect(
         css,

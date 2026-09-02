@@ -10,12 +10,16 @@ import {
   Loader2,
   MoreVertical,
   Pencil,
+  Mic,
+  Paperclip,
   Send,
   Trash2,
   Users,
   Wrench,
   X,
 } from 'lucide-react';
+
+import { toast } from 'sonner';
 
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import { createClient } from '@/lib/supabase/client';
@@ -27,6 +31,21 @@ import { usePresence } from '@/hooks/use-presence';
 import { dateLocale } from '@/lib/i18n/dates';
 import { presenceLabel } from '@/lib/presence';
 import { cn } from '@/lib/utils';
+import {
+  TEAM_MEDIA_BUCKET,
+  signTeamMedia,
+  teamMediaKind,
+} from '@/lib/team/media';
+import {
+  MEDIA_MAX_BYTES,
+  MEDIA_MAX_BYTES_BY_KIND,
+  uploadAccountMedia,
+} from '@/lib/storage/upload-media';
+import { extensionForMime } from '@/lib/media/filename';
+import {
+  TeamMediaBubble,
+  TeamMediaUploading,
+} from '@/components/inbox/team-media-bubble';
 import {
   deleteTeamMessage,
   editTeamMessage,
@@ -95,6 +114,15 @@ function autosize(el: HTMLTextAreaElement | null, max = COMPOSER_MAX_HEIGHT) {
   el.style.height = `${Math.min(el.scrollHeight, max)}px`;
 }
 
+/**
+ * O worker do encoder, servido de `/public`. Mesmo caminho que o
+ * compositor do atendimento usa — um encoder, um arquivo.
+ */
+const OPUS_ENCODER_PATH = '/opus/encoderWorker.min.js';
+
+/** Teto de uma gravação, em segundos. Para sozinha ao chegar. */
+const MAX_RECORDING_SECONDS = 5 * 60;
+
 export function TeamChannel({ onBack }: TeamChannelProps) {
   const t = useTranslations('Inbox.team');
   const { confirm } = useConfirm();
@@ -126,6 +154,53 @@ export function TeamChannel({ onBack }: TeamChannelProps) {
   const [roomId, setRoomId] = useState<string | null>(null);
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
+
+  /**
+   * O anexo já subido e ainda não enviado.
+   *
+   * Sobe ANTES do envio, de propósito: o upload é a parte lenta e a que
+   * falha, e descobrir isso depois de clicar em enviar significa uma
+   * mensagem que fica pela metade. Subindo antes, o botão de enviar só
+   * fica disponível quando o arquivo já está lá.
+   *
+   * O preço é o órfão: escolher um arquivo e desistir deixa o objeto no
+   * balde. É o mesmo trade que o compositor do atendimento faz, e a
+   * faxina é trabalho de rotina.
+   */
+  const [draft, setDraft] = useState<{
+    path: string;
+    mime: string;
+    name: string;
+    size: number;
+  } | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  /** Overlay de "solte aqui". Ver o efeito de drag mais abaixo. */
+  const [dragging, setDragging] = useState(false);
+
+  const [recording, setRecording] = useState(false);
+  const [recordSeconds, setRecordSeconds] = useState(0);
+  const recorderRef = useRef<{ stop: () => Promise<void> } | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  /**
+   * Marca "esta gravação foi descartada".
+   *
+   * `opus-recorder` entrega os bytes no `ondataavailable` DEPOIS do
+   * `stop()`, então cancelar não é parar — é parar e ignorar o que
+   * chegar. Sem isto, tocar em cancelar sobe o áudio assim mesmo.
+   */
+  const cancelledRef = useRef(false);
+
+  /**
+   * Caminho → url assinada, para os balões de mídia.
+   *
+   * Um lote por página de mensagens. Ver `signTeamMedia` para por que
+   * não é uma assinatura por balão.
+   */
+  const [mediaUrls, setMediaUrls] = useState<Map<string, string>>(
+    () => new Map()
+  );
 
   /** The message being rewritten, and the text it currently holds. */
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -161,6 +236,36 @@ export function TeamChannel({ onBack }: TeamChannelProps) {
       cancelled = true;
     };
   }, [accountId]);
+
+  /**
+   * Assina os anexos da lista atual, em lote.
+   *
+   * Depende da lista inteira e não só do tamanho dela: uma mensagem com
+   * anexo pode chegar pelo realtime no meio de uma lista que já estava
+   * assinada, e comparar comprimentos deixaria esse balão sem url para
+   * sempre.
+   *
+   * O `Map` é reconstruído inteiro em vez de ser mesclado. As urls
+   * expiram em uma hora e a lista raramente passa de duzentos itens;
+   * mesclar guardaria assinaturas velhas indefinidamente para poupar uma
+   * requisição que já é uma só.
+   */
+  useEffect(() => {
+    const paths = (messages ?? [])
+      .map((m) => m.media_path)
+      .filter((p): p is string => !!p);
+    if (!paths.length) {
+      setMediaUrls((prev) => (prev.size ? new Map() : prev));
+      return;
+    }
+    let cancelled = false;
+    void signTeamMedia(createClient(), paths).then((map) => {
+      if (!cancelled) setMediaUrls(map);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [messages]);
 
   const room = roomId ? (rooms.find((r) => r.id === roomId) ?? null) : null;
   // Hoisted so the load effect below depends on two primitives rather than
@@ -300,9 +405,252 @@ export function TeamChannel({ onBack }: TeamChannelProps) {
   // shape.
   const authorId = user?.id ?? null;
 
+  /**
+   * Sobe o arquivo escolhido e o deixa como rascunho.
+   *
+   * O teto é checado AQUI e não só no balde: o `file_size_limit` da 063
+   * recusa do outro lado da rede, depois de o usuário ter esperado o
+   * upload inteiro de um vídeo de 40 MB para receber um erro.
+   */
+  const stageFile = useCallback(
+    async (file: File | undefined) => {
+      if (!file || uploading) return;
+      if (file.size > MEDIA_MAX_BYTES) {
+        toast.error(
+          t('tooLarge', { mb: Math.floor(MEDIA_MAX_BYTES / 1024 / 1024) })
+        );
+        return;
+      }
+      setUploading(true);
+      try {
+        const { path } = await uploadAccountMedia(TEAM_MEDIA_BUCKET, file);
+        setDraft({
+          path,
+          mime: file.type,
+          name: file.name,
+          size: file.size,
+        });
+      } catch (err) {
+        // `uploadAccountMedia` lança prosa em inglês — console, não toast,
+        // numa instalação pt-BR. Mesma regra do compositor do atendimento.
+        console.error('Team upload failed:', err);
+        toast.error(t('uploadFailed'));
+      } finally {
+        setUploading(false);
+        // Zerado sempre: sem isso, escolher o MESMO arquivo de novo não
+        // dispara `change` e o clique parece não ter feito nada.
+        if (fileRef.current) fileRef.current.value = '';
+      }
+    },
+    [uploading, t]
+  );
+
+  /**
+   * ARRASTAR E SOLTAR na área da conversa.
+   *
+   * O `depth` é o detalhe que faz isto funcionar. `dragleave` dispara
+   * toda vez que o cursor cruza a fronteira de QUALQUER filho — e a
+   * lista é feita de balões —, então desligar o overlay no primeiro
+   * `dragleave` o faz piscar a cada mensagem que o cursor atravessa.
+   * Contando entradas e saídas, ele só apaga quando o cursor sai de
+   * verdade.
+   *
+   * Só liga para arquivos: arrastar texto selecionado de um balão para
+   * outro não é anexo, e acender o overlay para isso seria mentira.
+   */
+  useEffect(() => {
+    const zone = scrollRef.current;
+    if (!zone) return;
+
+    let depth = 0;
+    const active = () => canWrite && !pending && !uploading && !draft;
+
+    const onOver = (e: Event) => {
+      if (!active()) return;
+      e.preventDefault();
+    };
+    const onEnter = (e: Event) => {
+      if (!active()) return;
+      if (!(e as DragEvent).dataTransfer?.types?.includes('Files')) return;
+      depth += 1;
+      setDragging(true);
+    };
+    const onLeave = () => {
+      depth = Math.max(0, depth - 1);
+      if (depth === 0) setDragging(false);
+    };
+    const onDrop = (e: Event) => {
+      depth = 0;
+      setDragging(false);
+      if (!active()) return;
+      e.preventDefault();
+      void stageFile((e as DragEvent).dataTransfer?.files?.[0]);
+    };
+
+    zone.addEventListener('dragover', onOver);
+    zone.addEventListener('dragenter', onEnter);
+    zone.addEventListener('dragleave', onLeave);
+    zone.addEventListener('drop', onDrop);
+    return () => {
+      zone.removeEventListener('dragover', onOver);
+      zone.removeEventListener('dragenter', onEnter);
+      zone.removeEventListener('dragleave', onLeave);
+      zone.removeEventListener('drop', onDrop);
+    };
+  }, [canWrite, pending, uploading, draft, stageFile]);
+
+  /**
+   * COLAR um print direto no campo.
+   *
+   * É o caminho mais curto que existe entre um `PrtSc` e um colega
+   * vendo a tela, e é o gesto que as pessoas já tentam antes de
+   * procurar o clipe.
+   *
+   * `preventDefault` porque alguns aplicativos colocam a imagem E um
+   * texto no clipboard ao mesmo tempo; sem ele o texto cairia no campo
+   * atrás do anexo.
+   *
+   * O arquivo colado costuma vir sem nome, ou com um genérico que o
+   * sistema inventou. `buildMediaPath` precisa de extensão de verdade
+   * para nomear o objeto no balde, então ela sai do MIME — a mesma
+   * tabela que `lib/media/filename` já mantém.
+   */
+  const onPaste = useCallback(
+    (event: React.ClipboardEvent) => {
+      if (!canWrite || pending || uploading || draft) return;
+      const item = Array.from(event.clipboardData?.items ?? []).find(
+        (candidate) =>
+          candidate.kind === 'file' && candidate.type.startsWith('image/')
+      );
+      if (!item) return;
+      const file = item.getAsFile();
+      if (!file) return;
+      event.preventDefault();
+      const named =
+        file.name && file.name.includes('.')
+          ? file
+          : new File([file], `print.${extensionForMime(file.type)}`, {
+              type: file.type,
+            });
+      void stageFile(named);
+    },
+    [canWrite, pending, uploading, draft, stageFile]
+  );
+
+  // ---- Gravação de voz (Ogg/Opus no cliente, sem transcode no servidor)
+
+  const finalizeRecording = useCallback(
+    async (bytes: Uint8Array) => {
+      // `Uint8Array` é um BlobPart válido em runtime; o cast contorna a
+      // divergência ArrayBufferLike-vs-ArrayBuffer do lib.dom.
+      const file = new File(
+        [bytes as unknown as BlobPart],
+        `audio-${Date.now()}.ogg`,
+        { type: 'audio/ogg' }
+      );
+      if (file.size === 0) return; // take vazio / cancelado
+      if (file.size > MEDIA_MAX_BYTES_BY_KIND.audio) {
+        toast.error(
+          t('tooLarge', { mb: Math.floor(MEDIA_MAX_BYTES / 1024 / 1024) })
+        );
+        return;
+      }
+      await stageFile(file);
+    },
+    [stageFile, t]
+  );
+
+  const stopTimer = useCallback(() => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = null;
+  }, []);
+
+  const startRecording = useCallback(async () => {
+    if (!canWrite || pending || uploading || draft || recording) return;
+    if (
+      !navigator.mediaDevices?.getUserMedia ||
+      typeof AudioContext === 'undefined'
+    ) {
+      toast.error(t('recordingUnsupported'));
+      return;
+    }
+    try {
+      // O encoder são ~400 KB de worker. Importado só quando alguém
+      // grava, para não entrar no bundle de quem nunca vai gravar.
+      const { default: Recorder } = await import('opus-recorder');
+      const recorder = new Recorder({
+        encoderPath: OPUS_ENCODER_PATH,
+        numberOfChannels: 1,
+        encoderApplication: 2048, // VOIP — afinado para fala
+        encoderSampleRate: 48000,
+        streamPages: false, // um callback com o arquivo inteiro no stop
+      });
+      cancelledRef.current = false;
+      recorder.ondataavailable = (bytes: Uint8Array) => {
+        if (cancelledRef.current) return;
+        void finalizeRecording(bytes);
+      };
+      recorderRef.current = recorder;
+      await recorder.start();
+      setRecording(true);
+      setRecordSeconds(0);
+      timerRef.current = setInterval(
+        () => setRecordSeconds((value) => value + 1),
+        1000
+      );
+    } catch {
+      void recorderRef.current?.stop().catch(() => {});
+      recorderRef.current = null;
+      stopTimer();
+      setRecording(false);
+      toast.error(t('recordingUnsupported'));
+    }
+  }, [
+    canWrite,
+    pending,
+    uploading,
+    draft,
+    recording,
+    finalizeRecording,
+    stopTimer,
+    t,
+  ]);
+
+  const stopRecording = useCallback(
+    async (cancel: boolean) => {
+      cancelledRef.current = cancel;
+      stopTimer();
+      setRecording(false);
+      await recorderRef.current?.stop().catch(() => {});
+      recorderRef.current = null;
+    },
+    [stopTimer]
+  );
+
+  // Teto duro: para sozinha, para o arquivo não estourar o limite do
+  // balde depois de a pessoa ter falado cinco minutos.
+  useEffect(() => {
+    if (recording && recordSeconds >= MAX_RECORDING_SECONDS) {
+      void stopRecording(false);
+    }
+  }, [recording, recordSeconds, stopRecording]);
+
+  // Sair da sala no meio de uma gravação não pode deixar o microfone
+  // aberto nem o timer rodando.
+  useEffect(
+    () => () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+      cancelledRef.current = true;
+      void recorderRef.current?.stop().catch(() => {});
+    },
+    []
+  );
+
   const send = useCallback(async () => {
     const body = text.trim();
-    if (!body || sending || !accountId || !authorId || pending) return;
+    if ((!body && !draft) || sending || !accountId || !authorId || pending) {
+      return;
+    }
 
     setSending(true);
     // Cleared before the round trip: the field belongs to the typist, and
@@ -312,11 +660,20 @@ export function TeamChannel({ onBack }: TeamChannelProps) {
     const el = textareaRef.current;
     if (el) el.style.height = 'auto';
 
+    const attachment = draft;
+    setDraft(null);
+
     const { error } = await sendTeamMessage(createClient(), {
       accountId,
       authorId,
       body,
       roomId,
+      media: attachment
+        ? {
+            ...attachment,
+            kind: teamMediaKind(attachment.mime),
+          }
+        : null,
     });
     setSending(false);
 
@@ -325,8 +682,13 @@ export function TeamChannel({ onBack }: TeamChannelProps) {
       // migration 046; until it is applied every send fails here, and the
       // one thing that must not happen is the message disappearing.
       setText(body);
+      setDraft(attachment);
+      // O único erro que merece frase própria: as colunas da 063 não
+      // existem. "Falhou" mandaria a pessoa tentar de novo para sempre.
+      if (error === 'TEAM_MEDIA_UNAVAILABLE')
+        toast.error(t('mediaUnsupported'));
     }
-  }, [text, sending, accountId, authorId, pending, roomId]);
+  }, [text, draft, sending, accountId, authorId, pending, roomId, t]);
 
   const onKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -489,7 +851,8 @@ export function TeamChannel({ onBack }: TeamChannelProps) {
                   <ChevronDown className="text-muted-foreground size-3.5 shrink-0" />
                 </span>
                 <span className="text-muted-foreground block truncate text-xs">
-                  {room?.description || t('subtitle', { count: directory.size })}
+                  {room?.description ||
+                    t('subtitle', { count: directory.size })}
                 </span>
               </span>
             </DropdownMenuTrigger>
@@ -530,7 +893,19 @@ export function TeamChannel({ onBack }: TeamChannelProps) {
         )}
       </div>
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4">
+      <div
+        ref={scrollRef}
+        className="relative flex-1 overflow-y-auto px-4 py-4"
+      >
+        {/* O OVERLAY É `pointer-events-none`, e isso não é detalhe: um
+            elemento que aparece sob o cursor no meio de um arrasto e
+            captura ponteiro dispara `dragleave` no container debaixo, o
+            que apagaria o próprio overlay — ele piscaria para sempre. */}
+        {dragging && (
+          <div className="bg-background/80 border-primary text-primary pointer-events-none absolute inset-2 z-10 grid place-items-center rounded-xl border-2 border-dashed text-sm font-semibold backdrop-blur-[2px]">
+            {t('dropHere')}
+          </div>
+        )}
         {messages === null ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="text-muted-foreground size-5 animate-spin" />
@@ -661,9 +1036,30 @@ export function TeamChannel({ onBack }: TeamChannelProps) {
                             </div>
                           </div>
                         ) : (
-                          <p className="text-foreground text-sm break-words whitespace-pre-wrap">
-                            {message.body}
-                          </p>
+                          <>
+                            {/* O ANEXO VEM ANTES DO CORPO, porque o corpo
+                                é legenda quando os dois existem — e uma
+                                legenda impressa acima da imagem que ela
+                                descreve lê como outra mensagem. */}
+                            {message.media_path && (
+                              <div className="mb-1.5">
+                                <TeamMediaBubble
+                                  message={message}
+                                  src={mediaUrls.get(message.media_path)}
+                                  labels={{
+                                    unavailable: t('mediaUnavailable'),
+                                    download: t('attachDocument'),
+                                    document: t('document'),
+                                  }}
+                                />
+                              </div>
+                            )}
+                            {message.body && (
+                              <p className="text-foreground text-sm break-words whitespace-pre-wrap">
+                                {message.body}
+                              </p>
+                            )}
+                          </>
                         )}
 
                         <div className="mt-0.5 flex items-center justify-end gap-1.5">
@@ -693,7 +1089,7 @@ export function TeamChannel({ onBack }: TeamChannelProps) {
                           <DropdownMenu>
                             <DropdownMenuTrigger
                               aria-label={t('messageActions')}
-                              className="text-muted-foreground hover:bg-muted hover:text-foreground data-popup-open:bg-muted data-popup-open:opacity-100 grid size-6 place-items-center rounded-md opacity-0 transition-opacity group-hover/msg:opacity-100 focus-visible:opacity-100"
+                              className="text-muted-foreground hover:bg-muted hover:text-foreground data-popup-open:bg-muted grid size-6 place-items-center rounded-md opacity-0 transition-opacity group-hover/msg:opacity-100 focus-visible:opacity-100 data-popup-open:opacity-100"
                             >
                               <MoreVertical className="size-3.5" />
                             </DropdownMenuTrigger>
@@ -738,60 +1134,171 @@ export function TeamChannel({ onBack }: TeamChannelProps) {
       </div>
 
       {/* Composer — the pill, and nothing else. No clip, no microphone, no
-          templates: this room sends text between colleagues.
+          templates: a sala manda texto e arquivo entre colegas.
+
+          O clipe chegou com a migração 063. O argumento antigo — "esta
+          sala manda texto" — caiu pela razão que a própria 046 escreveu:
+          o que se perde quando a conversa sai do CRM não é o chat, é que
+          a frase que explica o pedido mora noutro aplicativo. Um print
+          do comprovante é essa frase com mais frequência do que uma
+          frase é.
 
           The PILL takes the focus ring now, rather than leaving the textarea
           inside it to glow on its own. What you are typing into is the whole
           rounded box; a highlight on only the inner rectangle read as a
           second, misaligned field sitting inside the first. Same
           `focus-within` recipe the inbox composer uses. */}
-      <div className="px-3 pt-3 pb-safe-3 sm:px-4">
-        <div className="border-border bg-card-2 focus-within:border-primary/40 focus-within:ring-primary/15 flex items-end gap-1 rounded-3xl border px-1.5 py-1 transition-colors focus-within:ring-3">
-          <textarea
-            ref={textareaRef}
-            value={text}
-            onChange={(e) => {
-              setText(e.target.value);
-              autosize(e.currentTarget);
-            }}
-            onKeyDown={onKeyDown}
-            disabled={!canWrite || pending}
-            rows={1}
-            placeholder={
-              pending
-                ? t('pendingTitle')
-                : canWrite
-                  ? t('placeholder')
-                  : t('readOnlyPlaceholder')
-            }
-            autoCapitalize="sentences"
-            autoCorrect="on"
-            spellCheck
-            className={cn(
-              // `min-h-9` matches the send button beside it, so an empty
-              // composer is one bar rather than a short field with a taller
-              // button parked next to it.
-              'text-foreground placeholder-muted-foreground min-h-9 flex-1 resize-none border-0 bg-transparent px-2 py-2 text-sm leading-snug outline-none',
-              (!canWrite || pending) && 'cursor-not-allowed opacity-50'
-            )}
-          />
-          <GatedButton
-            size="sm"
-            canAct={canWrite && !pending}
-            gateReason="send messages"
-            disabled={!text.trim() || sending}
-            onClick={send}
-            aria-label={t('send')}
-            title={t('send')}
-            className="bg-primary hover:bg-primary-hover size-9 shrink-0 rounded-full p-0 disabled:opacity-40"
-          >
-            {sending ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
+      <div className="pb-safe-3 px-3 pt-3 sm:px-4">
+        {/* O rascunho fica ACIMA da pílula e não dentro dela: dentro, ele
+            empurraria o campo de texto para baixo a cada anexo e o botão
+            de enviar mudaria de lugar entre uma mensagem e outra. */}
+        {(uploading || draft) && (
+          <div className="mb-2 flex items-center gap-2">
+            {uploading ? (
+              <TeamMediaUploading label={t('uploading')} />
+            ) : draft ? (
+              <>
+                <div className="border-border bg-card-2 text-secondary-foreground flex min-w-0 items-center gap-2 rounded-lg border px-2.5 py-1.5 text-xs">
+                  <Paperclip className="text-muted-foreground size-3.5 shrink-0" />
+                  <span className="max-w-52 min-w-0 truncate">
+                    {draft.name}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setDraft(null)}
+                  aria-label={t('removeAttachment')}
+                  title={t('removeAttachment')}
+                  className="text-muted-foreground hover:bg-muted hover:text-foreground grid size-7 shrink-0 place-items-center rounded-md transition-colors"
+                >
+                  <X className="size-3.5" />
+                </button>
+              </>
+            ) : null}
+          </div>
+        )}
+
+        {/* Um input só, com `accept` largo. Os três inputs escondidos do
+            atendimento existem lá porque a Meta trata cada tipo de forma
+            diferente no envio; aqui não há Meta, e três menus para
+            escolher o que o seletor do sistema já filtra é uma escolha a
+            mais antes da única coisa que se queria fazer. */}
+        <input
+          ref={fileRef}
+          type="file"
+          className="hidden"
+          accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip"
+          onChange={(e) => void stageFile(e.target.files?.[0])}
+        />
+
+        {/* GRAVANDO, A PÍLULA SAI DE CENA.
+            Deixar o campo de texto no ar durante a gravação convida a
+            digitar enquanto se fala, e o que fosse digitado seria perdido
+            — o take vira anexo e o corpo vira legenda, mas só depois de
+            parar. Uma barra com o contador, descartar e enviar diz que a
+            única decisão agora é sobre o áudio. */}
+        {recording ? (
+          <div className="border-border bg-card-2 flex items-center gap-2 rounded-3xl border px-1.5 py-1">
+            <span className="bg-danger ml-2 size-2 shrink-0 animate-pulse rounded-full" />
+            <span className="text-secondary-foreground min-w-0 flex-1 text-sm tabular-nums">
+              {t('recording', { time: formatRecordTime(recordSeconds) })}
+            </span>
+            <button
+              type="button"
+              onClick={() => void stopRecording(true)}
+              aria-label={t('recordCancel')}
+              title={t('recordCancel')}
+              className="text-muted-foreground hover:bg-muted hover:text-foreground grid size-9 shrink-0 place-items-center rounded-full transition-colors"
+            >
+              <X className="size-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => void stopRecording(false)}
+              aria-label={t('recordStop')}
+              title={t('recordStop')}
+              className="bg-primary hover:bg-primary-hover grid size-9 shrink-0 place-items-center rounded-full text-white transition-colors"
+            >
               <Send className="size-4" />
-            )}
-          </GatedButton>
-        </div>
+            </button>
+          </div>
+        ) : (
+          <div className="border-border bg-card-2 focus-within:border-primary/40 focus-within:ring-primary/15 flex items-end gap-1 rounded-3xl border px-1.5 py-1 transition-colors focus-within:ring-3">
+            <GatedButton
+              size="sm"
+              variant="ghost"
+              canAct={canWrite && !pending}
+              gateReason="send messages"
+              disabled={uploading || !!draft}
+              onClick={() => fileRef.current?.click()}
+              aria-label={t('attach')}
+              title={t('attach')}
+              className="text-muted-foreground hover:text-foreground size-9 shrink-0 rounded-full p-0 disabled:opacity-40"
+            >
+              <Paperclip className="size-4" />
+            </GatedButton>
+            <GatedButton
+              size="sm"
+              variant="ghost"
+              canAct={canWrite && !pending}
+              gateReason="send messages"
+              disabled={uploading || !!draft}
+              onClick={() => void startRecording()}
+              aria-label={t('record')}
+              title={t('record')}
+              className="text-muted-foreground hover:text-foreground size-9 shrink-0 rounded-full p-0 disabled:opacity-40"
+            >
+              <Mic className="size-4" />
+            </GatedButton>
+            <textarea
+              ref={textareaRef}
+              value={text}
+              onChange={(e) => {
+                setText(e.target.value);
+                autosize(e.currentTarget);
+              }}
+              onKeyDown={onKeyDown}
+              onPaste={onPaste}
+              disabled={!canWrite || pending}
+              rows={1}
+              placeholder={
+                pending
+                  ? t('pendingTitle')
+                  : !canWrite
+                    ? t('readOnlyPlaceholder')
+                    : draft
+                      ? t('captionPlaceholder')
+                      : t('placeholder')
+              }
+              autoCapitalize="sentences"
+              autoCorrect="on"
+              spellCheck
+              className={cn(
+                // `min-h-9` matches the send button beside it, so an empty
+                // composer is one bar rather than a short field with a taller
+                // button parked next to it.
+                'text-foreground placeholder-muted-foreground min-h-9 flex-1 resize-none border-0 bg-transparent px-2 py-2 text-sm leading-snug outline-none',
+                (!canWrite || pending) && 'cursor-not-allowed opacity-50'
+              )}
+            />
+            <GatedButton
+              size="sm"
+              canAct={canWrite && !pending}
+              gateReason="send messages"
+              disabled={(!text.trim() && !draft) || sending || uploading}
+              onClick={send}
+              aria-label={t('send')}
+              title={t('send')}
+              className="bg-primary hover:bg-primary-hover size-9 shrink-0 rounded-full p-0 disabled:opacity-40"
+            >
+              {sending ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Send className="size-4" />
+              )}
+            </GatedButton>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -819,4 +1326,11 @@ function groupByDay(
   }
 
   return groups.map(({ day, messages: rows }) => ({ day, messages: rows }));
+}
+
+/** `mm:ss` para o contador da gravação. */
+function formatRecordTime(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const sec = seconds % 60;
+  return `${m}:${String(sec).padStart(2, '0')}`;
 }

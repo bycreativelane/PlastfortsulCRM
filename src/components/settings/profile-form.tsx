@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { Loader2, Upload, Trash2, Mail, CircleAlert } from 'lucide-react';
+import { Loader2, Upload, Trash2, Mail, CircleAlert, Copy } from 'lucide-react';
 import { Panel, PanelBody } from '@/components/ui/panel';
 
 import { createClient } from '@/lib/supabase/client';
@@ -13,6 +13,8 @@ import { FieldLabel } from '@/components/ui/field';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useTranslations } from 'next-intl';
 import { SettingsPanelHead } from './settings-panel-head';
+import { SettingsChip } from './settings-chip';
+import { ROLE_META } from './role-meta';
 import { APP_LOCALE } from '@/lib/i18n/locale';
 
 const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
@@ -30,7 +32,10 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function ProfileForm() {
   const t = useTranslations('Settings.profile');
-  const { user, profile, refreshProfile } = useAuth();
+  const tRoles = useTranslations('Settings.roles');
+  const { user, profile, accountRole, refreshProfile } = useAuth();
+  const roleMeta = accountRole ? ROLE_META[accountRole] : null;
+  const RoleIcon = roleMeta?.icon;
   const supabase = createClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -295,16 +300,41 @@ export function ProfileForm() {
               )}
             </div>
 
-            {/* Read-only block */}
-            <div className="border-border bg-muted rounded-lg border p-4">
+            {/* Read-only block.
+                `bg-card-2` and not `bg-muted`: a grey slab inside a white
+                card reads as DISABLED, and nothing here is disabled — it
+                is reference, which is the same relationship a table
+                header has to its rows, and the same pair of surfaces. */}
+            <div className="border-border bg-card-2 rounded-lg border p-4">
               <p className="eyebrow text-muted-foreground mb-3">
                 {t('accountDetails')}
               </p>
               <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
                 <div>
                   <dt className="text-muted-foreground">{t('role')}</dt>
-                  <dd className="text-foreground mt-0.5 font-mono">
-                    {profile?.role ?? 'user'}
+                  {/* THE SAME CHIP THE OVERVIEW SHOWS, from the same
+                      table.
+                      This printed `profile.role` raw and in `font-mono` —
+                      a database enum, untranslated, styled like an
+                      identifier. It rendered the word `user`, which is
+                      not even one of the four roles this product has
+                      (`ROLE_META` knows owner · admin · agent · viewer):
+                      it is a legacy column being shown to a person. And
+                      one click away, the identity card on Visão geral
+                      called the SAME person "Proprietário", with a
+                      crown.
+                      `accountRole` is the role the whole app gates on,
+                      and `role-meta.ts` exists to be the single place its
+                      label and icon are decided. */}
+                  <dd className="mt-1">
+                    {roleMeta && RoleIcon ? (
+                      <SettingsChip variant={roleMeta.variant}>
+                        <RoleIcon />
+                        {tRoles(accountRole!)}
+                      </SettingsChip>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
                   </dd>
                 </div>
                 <div>
@@ -313,8 +343,34 @@ export function ProfileForm() {
                 </div>
                 <div className="sm:col-span-2">
                   <dt className="text-muted-foreground">{t('userId')}</dt>
-                  <dd className="text-muted-foreground mt-0.5 font-mono text-xs break-all">
-                    {user?.id ?? '—'}
+                  {/* The only thing on this screen that exists to be
+                      copied, and it had no way to be. A UUID is not read
+                      — it is pasted into a support thread or an API
+                      call. */}
+                  <dd className="mt-0.5 flex items-start gap-2">
+                    <span className="text-muted-foreground min-w-0 font-mono text-xs break-all">
+                      {user?.id ?? '—'}
+                    </span>
+                    {user?.id ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={t('copyUserId')}
+                        title={t('copyUserId')}
+                        className="text-muted-foreground hover:text-foreground -mt-1 shrink-0"
+                        onClick={() => {
+                          void navigator.clipboard
+                            .writeText(user.id)
+                            .then(() => toast.success(t('userIdCopied')))
+                            .catch(() => toast.error(t('userIdCopyFailed')));
+                        }}
+                      >
+                        {/* `size-3.5`, matching the other icons in this
+                            panel rather than the button's own default. */}
+                        <Copy className="size-3.5" />
+                      </Button>
+                    ) : null}
                   </dd>
                 </div>
               </dl>

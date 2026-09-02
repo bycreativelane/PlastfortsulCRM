@@ -84,16 +84,26 @@ export function QuickActions() {
             key={a.href}
             href={a.href}
             className={cn(
-              'surface-interactive group border-border bg-card flex snap-start rounded-lg border',
+              'surface-interactive group border-border bg-card flex snap-start rounded-xl border',
               // Phone: a column, centred, sized to share the row.
               // `basis-0` is what makes `flex-1` divide the space evenly
               // instead of proportionally to four different label widths.
               'min-w-19 flex-1 basis-0 flex-col items-center justify-center gap-1.5 px-1.5 py-3',
               // Desktop: back to a row with the icon tile on the left.
-              'sm:min-w-0 sm:flex-none sm:flex-row sm:items-center sm:justify-start sm:gap-3 sm:p-4'
+              // `py-2.5` and not `p-4` on the desktop row. At p-4 with a
+              // 36px icon tile these were ~76px tall — as tall as a
+              // StatTile below, which carries a number AND a caption.
+              // One word of shortcut was buying as much vertical space
+              // as a reading, directly above the section this page
+              // exists for. ~56px keeps the row legible and hands the
+              // difference to "Precisa de você" — which now stacks its
+              // icon, figure and caption and is taller still, so the gap
+              // between a shortcut and a reading is wider than when this
+              // was written.
+              'sm:min-w-0 sm:flex-none sm:flex-row sm:items-center sm:justify-start sm:gap-3 sm:px-3.5 sm:py-2.5'
             )}
           >
-            <div className="bg-muted text-primary flex size-8 shrink-0 items-center justify-center rounded-lg sm:size-9">
+            <div className="bg-muted text-primary flex size-8 shrink-0 items-center justify-center rounded-lg">
               <Icon className="size-4" />
             </div>
             <span className="text-foreground text-2xs w-full min-w-0 text-center leading-tight font-medium text-balance sm:w-auto sm:text-left sm:text-sm">

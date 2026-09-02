@@ -127,7 +127,7 @@ export function CurrencyInput({
         onChange={handleChange}
         disabled={disabled}
         className={cn(
-          'border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:bg-input/30 h-8 w-full min-w-0 rounded-lg border bg-transparent py-1 pr-2.5 text-base tabular-nums transition-colors outline-none focus-visible:ring-3 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:ring-3 md:text-sm',
+          'border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:bg-field/30 h-8 w-full min-w-0 rounded-lg border bg-transparent py-1 pr-2.5 text-base tabular-nums transition-colors outline-none focus-visible:ring-3 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:ring-3 md:text-sm',
           // Room for the symbol. Sized off the symbol's own length so
           // "R$" and "د.إ" both clear the text.
           symbol.length > 2 ? 'pl-12' : 'pl-7',

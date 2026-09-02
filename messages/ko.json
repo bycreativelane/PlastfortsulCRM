@@ -100,7 +100,8 @@
     "menuSignOut": "로그아웃",
     "primaryNav": "기본 탐색",
     "products": "제품",
-    "more": "더보기"
+    "more": "더보기",
+    "playbook": "플레이북"
   },
   "Roadmap": {
     "regionLabel": "다음 업데이트",
@@ -140,7 +141,8 @@
       "nextWeek": "다음 주",
       "openFull": "전체 일정 보기"
     },
-    "products": "제품"
+    "products": "제품",
+    "playbook": "플레이북"
   },
   "Search": {
     "placeholder": "고객, 회사 또는 번호 검색…",
@@ -192,7 +194,6 @@
     },
     "conversationsChart": {
       "title": "기간별 대화 추이",
-      "description": "방향별 일일 메시지 볼륨",
       "days": "{count}일",
       "noActivity": "이 기간에는 메시지 활동이 없습니다",
       "noActivityHint": "메시지를 주고받으면 이 차트가 채워지기 시작합니다.",
@@ -200,7 +201,12 @@
       "outgoing": "발신",
       "tooltipIncoming": "수신 {count}건",
       "tooltipOutgoing": "발신 {count}건",
-      "ariaLabel": "일별 대화 수"
+      "ariaLabel": "일별 대화 수",
+      "per": {
+        "day": "방향별 일간 메시지 볼륨",
+        "week": "방향별 주간 메시지 볼륨",
+        "month": "방향별 월간 메시지 볼륨"
+      }
     },
     "pipelineDonut": {
       "title": "파이프라인 금액",
@@ -210,21 +216,22 @@
       "dealCount": "딜 {count}건",
       "total": "합계",
       "ariaLabel": "단계별 파이프라인 금액",
-      "funnelSub": "첫 접촉부터 성사까지 순서대로. 백분율은 단계 사이에서 이탈한 비율입니다.",
-      "dropOff": "{percent}% 진행되지 않음"
+      "funnelSubPlain": "첫 접촉부터 성사까지, 순서대로.",
+      "biggestDrop": "최대 이탈: {from}에서 {to}로 {percent}%가 넘어가지 못했습니다."
     },
     "responseTimeChart": {
       "title": "평균 첫 응답 시간",
-      "description": "요일별, 고객의 첫 미응답 메시지에 답변하기까지 걸린 시간(분)",
+      "description": "요일별, 고객이 첫 응답까지 기다린 시간",
       "target": "목표 {minutes}분",
       "thisWeek": "이번 주:",
       "lastWeek": "지난 주:",
       "noReplies": "아직 기록된 응답이 없습니다",
       "noRepliesHint": "고객 메시지에 답변하면 이 차트가 채워집니다.",
-      "average": "평균 시간",
       "noSamples": "샘플 없음",
       "samples": "샘플 {count}개",
-      "ariaLabel": "요일별 평균 첫 응답 시간"
+      "ariaLabel": "요일별 평균 첫 응답 시간",
+      "times": "목표의 {times}배",
+      "withinTarget": "목표 달성"
     },
     "emptyState": {
       "title": "아직 데이터가 충분하지 않습니다"
@@ -299,13 +306,17 @@
     "restrictedTitle": "리포트는 관리자 전용입니다",
     "restrictedBody": "소유자나 관리자에게 권한을 요청하거나, 오늘 할 일은 대시보드에서 확인하세요.",
     "sectionCommercial": "영업",
+    "sectionUsage": "발송 비용",
     "sectionHuman": "사람이 처리한 일",
     "sectionPending": "데이터 대기 중",
     "activeConversations": "진행 중인 대화",
-    "newContactsToday": "오늘 신규 연락처",
+    "newContacts": "신규 연락처",
     "openDealsValue": "진행 중 거래 금액",
-    "messagesSentToday": "오늘 보낸 메시지",
+    "messagesSent": "보낸 메시지",
     "openDeals": "진행 중 거래 {count}건",
+    "windowNow": "현재",
+    "windowToday": "오늘",
+    "vsYesterday": "어제 대비",
     "pendingTitle": "아직 측정할 수 없음",
     "pendingSub": "데이터베이스가 기록하지 않는 데이터가 필요합니다",
     "pending": {
@@ -315,6 +326,50 @@
       "calls": "통화 기록 — 메모에 통화 필드가 없습니다."
     },
     "sectionPipeline": "파이프라인",
+    "templateUsage": {
+      "total": "발송한 템플릿",
+      "billable": "과금 대상",
+      "free": "무료",
+      "pending": "Meta 응답 대기",
+      "billableNote": "Meta가 청구함",
+      "freeNote": "청구되지 않음",
+      "pendingNote": "아직 Meta 응답 없음",
+      "failedNote": "{count}건 발송되지 않음",
+      "since": "{date}부터 기록",
+      "perDayTitle": "일별 발송",
+      "byCategoryTitle": "청구된 카테고리별",
+      "byCategorySub": "여기 등록한 카테고리가 아니라 Meta가 청구한 카테고리입니다.",
+      "categoryBreakdown": "청구 {billable}건 · 대기 {pending}건",
+      "recategorized": "{count}건이 여기 등록된 것과 다른 카테고리로 청구되었습니다 — Meta는 템플릿을 자체적으로 재분류합니다.",
+      "topTemplatesTitle": "가장 많이 발송한 템플릿",
+      "topTemplatesSub": "기간 내 상위 10개.",
+      "ofWhichBillable": "청구 {count}건",
+      "byOriginTitle": "발송 출처별",
+      "byOriginSub": "발송이 시작된 곳 — 조정할 수 있는 지점입니다.",
+      "windowDays": "최근 {days}일.",
+      "windowRange": "{from}부터 {to}까지.",
+      "emptyTitle": "발송한 템플릿 없음",
+      "emptyWindow": "이 기간에는 발송이 없습니다. 다른 기간을 선택하세요.",
+      "emptyNoData": "측정은 기록이 켜진 시점부터 시작됩니다. Meta의 과금 알림은 발송 시점에 한 번만 오기 때문에 그 이전 발송은 복원할 수 없습니다.",
+      "tooBigTitle": "기간이 너무 깁니다",
+      "tooBigBody": "이 기간은 여기서 합산하기에 발송이 너무 많습니다. 더 짧은 기간을 선택하세요.",
+      "errorTitle": "불러올 수 없습니다",
+      "errorBody": "잠시 후 다시 시도하세요.",
+      "category": {
+        "marketing": "마케팅",
+        "utility": "유틸리티",
+        "authentication": "인증",
+        "service": "서비스",
+        "unknown": "카테고리 없음"
+      },
+      "origin": {
+        "inbox": "인박스",
+        "broadcast": "브로드캐스트",
+        "automation": "자동화",
+        "flow": "플로우",
+        "api": "API"
+      }
+    },
     "performance": {
       "title": "팀 성과",
       "description": "시간은 평균이 아니라 중앙값입니다. 주말 내내 방치되었다가 월요일에 답한 대화 하나가 평균은 망가뜨리지만 중앙값은 거의 바꾸지 않습니다.",
@@ -674,7 +729,26 @@
       "deleteAction": "삭제",
       "deleteConfirm": "이 메시지를 팀 전체에서 삭제할까요?",
       "edited": "수정됨",
-      "cardYou": "나"
+      "cardYou": "나",
+      "attach": "파일 첨부",
+      "attachImage": "이미지",
+      "attachVideo": "동영상",
+      "attachAudio": "오디오",
+      "attachDocument": "문서",
+      "uploading": "업로드 중…",
+      "uploadFailed": "파일을 업로드하지 못했습니다.",
+      "tooLarge": "파일이 {mb} MB를 초과합니다.",
+      "mediaUnavailable": "이 파일을 불러오지 못했습니다.",
+      "mediaUnsupported": "첨부에는 마이그레이션 063이 필요합니다. 데이터베이스 담당자에게 문의하세요.",
+      "removeAttachment": "첨부 제거",
+      "captionPlaceholder": "설명 추가 (선택)",
+      "document": "문서",
+      "dropHere": "놓아서 첨부",
+      "record": "오디오 녹음",
+      "recordStop": "녹음 보내기",
+      "recordCancel": "취소",
+      "recording": "녹음 중 {time}",
+      "recordingUnsupported": "이 브라우저는 오디오를 녹음할 수 없습니다."
     },
     "assist": {
       "suggest": "답변 제안",
@@ -1049,7 +1123,7 @@
       "noContact": "연락처 없음",
       "won": "성사",
       "lost": "실패",
-      "playbook": "플레이북"
+      "playbook": "단계 체크리스트"
     },
     "menu": {
       "open": "딜 열기",
@@ -1073,21 +1147,21 @@
       "toastFailedDelete": "딜을 삭제하지 못했습니다"
     },
     "playbook": {
-      "title": "플레이북",
-      "edit": "플레이북 편집",
-      "addForStage": "{stage} 플레이북 만들기",
-      "editingFor": "플레이북 · {stage}",
+      "title": "단계 체크리스트",
+      "edit": "체크리스트 편집",
+      "addForStage": "{stage} 체크리스트 만들기",
+      "editingFor": "체크리스트 · {stage}",
       "stepPlaceholder": "해야 할 일",
       "hintPlaceholder": "힌트 (선택)",
       "addStep": "단계 추가",
       "removeStep": "단계 삭제",
       "moveUp": "위로 이동",
       "moveDown": "아래로 이동",
-      "save": "플레이북 저장",
+      "save": "체크리스트 저장",
       "cancel": "취소",
       "remaining": "남은 단계 {count}개",
-      "toastSaved": "플레이북을 저장했습니다",
-      "toastSaveFailed": "플레이북을 저장하지 못했습니다",
+      "toastSaved": "저장되었습니다",
+      "toastSaveFailed": "저장하지 못했습니다",
       "toastFailed": "단계를 업데이트하지 못했습니다"
     },
     "form": {
@@ -2073,7 +2147,7 @@
       "membersCount": "멤버 {count}명",
       "pendingInvites": "대기 중인 초대 {count}건",
       "manageTemplates": "메시지 템플릿 관리",
-      "templatesCount": "템플릿 {count}개",
+      "templatesCount": "{count, plural, =0 {아직 없음} other {템플릿 #개}}",
       "pendingReview": "검토 대기 {count}건",
       "tagsAndFields": "태그 및 커스텀 필드",
       "tagsCount": "태그 {count}개",
@@ -2393,7 +2467,7 @@
     "sections": {
       "overview": "개요",
       "profile": "내 프로필",
-      "security": "로그인 & 보안",
+      "security": "비밀번호 및 세션",
       "appearance": "화면 설정",
       "whatsapp": "WhatsApp",
       "templates": "템플릿",
@@ -2404,7 +2478,7 @@
       "members": "팀원",
       "api": "API 키",
       "whats-new": "새 소식",
-      "access": "접근 및 감사",
+      "access": "감사 로그",
       "assignment": "배정",
       "rooms": "팀 대화방",
       "ai-tools": "AI 도구",
@@ -2429,6 +2503,9 @@
       "role": "역할",
       "joined": "가입일",
       "userId": "사용자 ID",
+      "copyUserId": "사용자 ID 복사",
+      "userIdCopied": "ID 복사됨",
+      "userIdCopyFailed": "복사하지 못했습니다. 직접 선택해 복사하세요.",
       "loading": "프로필을 불러오는 중…",
       "saving": "저장 중…",
       "saveChanges": "변경 사항 저장",
@@ -2743,6 +2820,8 @@
       "resetToRole": "역할 기본값으로 되돌리기",
       "auditTitle": "계정 감사",
       "auditSub": "누가 무엇을 언제 했는지. 어떤 줄도 수정하거나 삭제할 수 없습니다.",
+      "dayToday": "오늘",
+      "dayYesterday": "어제",
       "auditFailed": "감사 기록을 불러오지 못했습니다",
       "auditMore": "이전 기록 보기",
       "auditPendingTitle": "마이그레이션 050 대기 중",
@@ -2781,7 +2860,8 @@
         "teamRoomWrite": "팀 대화방에 글쓰기",
         "auditView": "이 페이지 보기",
         "productsView": "제품 카탈로그 보기",
-        "productsViewDesc": "직접 조회할 수 없는 가격은 결국 동료에게 묻게 됩니다."
+        "productsViewDesc": "직접 조회할 수 없는 가격은 결국 동료에게 묻게 됩니다.",
+        "playbookView": "플레이북 보기"
       }
     },
     "assignment": {
@@ -3279,5 +3359,60 @@
     "color": "색상",
     "colorPlaceholder": "검정, 무색, 흰색",
     "adminOnly": "제품 생성과 판매 중지는 관리자만 가능합니다. 수정은 가능합니다."
+  },
+  "Playbook": {
+    "title": "플레이북",
+    "description": "무엇을 말할지, 회사가 무엇을 정했는지. 대화 중에 확인하세요.",
+    "searchPlaceholder": "스크립트, 반론, 규칙 검색…",
+    "tab": {
+      "sales_script": "스크립트",
+      "objection": "반론",
+      "operation_rule": "규칙",
+      "products": "제품"
+    },
+    "new": {
+      "sales_script": "새 스크립트",
+      "objection": "새 반론",
+      "operation_rule": "새 규칙"
+    },
+    "editTitle": "편집",
+    "fieldTitle": "제목",
+    "fieldCategory": "분류",
+    "fieldContent": {
+      "sales_script": "스크립트 내용",
+      "objection": "추천 답변",
+      "operation_rule": "내용"
+    },
+    "categoryHint": {
+      "sales_script": "후속, 발굴, 성사…",
+      "objection": "가격, 배송비, 납기…",
+      "operation_rule": "영업, 배송, 상담…"
+    },
+    "variablesHint": "[이름], [회사], [제품], [금액]을 바꿀 항목의 표시로 쓰세요. 텍스트는 그대로 복사됩니다.",
+    "copy": "복사",
+    "copied": "복사됨",
+    "copyFailed": "복사하지 못했습니다.",
+    "edit": "편집",
+    "delete": "삭제",
+    "deleteTitle": "이 항목을 삭제할까요?",
+    "cancel": "취소",
+    "save": "저장",
+    "saveFailed": "저장하지 못했습니다.",
+    "requiredFields": "제목과 내용은 필수입니다.",
+    "empty": "아직 등록된 항목이 없습니다",
+    "emptyHint": "여기에 작성한 내용은 상담 중 팀 전체가 볼 수 있습니다.",
+    "noResults": "“{query}”에 대한 결과가 없습니다",
+    "missingTitle": "플레이북이 아직 켜지지 않았습니다",
+    "missingBody": "마이그레이션 064가 필요합니다. 데이터베이스 담당자에게 문의하세요.",
+    "sku": "코드",
+    "size": "규격",
+    "thickness": "두께",
+    "material": "재질",
+    "color": "색상",
+    "unit": "단위",
+    "price": "가격",
+    "onRequest": "문의",
+    "copySheet": "사양 복사",
+    "emptyProducts": "제품에 등록된 항목이 여기에 참고용으로 표시됩니다."
   }
 }

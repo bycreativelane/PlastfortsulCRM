@@ -2,7 +2,15 @@
 
 import * as React from 'react';
 import { ArrowDown, ArrowUp } from 'lucide-react';
-import { CartesianGrid, ResponsiveContainer } from 'recharts';
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
 
 import { cn } from '@/lib/utils';
 
@@ -62,6 +70,14 @@ import { cn } from '@/lib/utils';
 export const CHART_HEIGHT = 260;
 
 /**
+ * The tallest a `ChartSurface fill` plot may grow to. See the note on
+ * the `fillMax` prop for why a ceiling exists at all — in one line: a
+ * near-square time series reports the panel's height rather than the
+ * data's shape.
+ */
+export const CHART_FILL_MAX = 380;
+
+/**
  * The plot's inset inside the panel body.
  *
  * Both cartesian charts had this literal typed out at their call site and
@@ -70,6 +86,85 @@ export const CHART_HEIGHT = 260;
  * a series is not clipped by the panel's own padding.
  */
 export const CHART_MARGIN = { top: 4, right: 8, bottom: 0, left: 0 } as const;
+
+/**
+ * The mark specs, in one place, because they are the difference between
+ * three charts and one chart system.
+ *
+ * `BAR_RADIUS` rounds the DATA END only — `[4, 4, 0, 0]` on a vertical
+ * bar. The other end is anchored to the baseline and a rounded corner
+ * there would lift the bar off the axis it is measured against.
+ *
+ * `STACK_STROKE` is the 2px gap between stacked segments, drawn as a
+ * stroke in the surface colour rather than as a real gap: Recharts
+ * stacks segments edge to edge, and two adjacent fills with no seam read
+ * as one mark with a colour change in the middle. Painting the seam in
+ * `--card` makes it read as two segments with the panel showing through.
+ *
+ * `DOT_R` is 4 and not 3.5, because a hover marker is a hit target as
+ * well as a mark and 8px across is the floor for one.
+ */
+export const BAR_RADIUS = [4, 4, 0, 0] as const;
+export const STACK_STROKE = {
+  stroke: 'var(--card)',
+  strokeWidth: 2,
+} as const;
+export const LINE_WIDTH = 2;
+export const DOT_R = 4;
+
+/**
+ * A round scale whose labels are drawn WHERE THEY SAY THEY ARE.
+ *
+ * The bug this replaces: the conversations chart built its ticks as
+ * `[0, ceil/4, ceil/2, 3*ceil/4, ceil].map(Math.round)`. With a ceiling
+ * of 10 that prints 0 · 3 · 5 · 8 · 10 — and draws them at 0 · 2.5 · 5 ·
+ * 7.5 · 10, because rounding the LABEL does not move the LINE. The
+ * gridline captioned "3" sat at two and a half, so anybody measuring a
+ * point against it read 20% high. `allowDecimals={false}` on the axis is
+ * no defence: it only governs ticks Recharts picks for itself, and these
+ * were handed to it.
+ *
+ * The fix is to round the STEP instead of the label. Pick a step from
+ * 1 · 2 · 2.5 · 5 · 10 × a power of ten, raise the ceiling to a whole
+ * number of steps, and every tick is then both round and exactly where
+ * it is drawn — by construction, not by luck.
+ *
+ * `integer` drops 2.5 from the candidates. A count axis labelled 2.5 is
+ * a different kind of lie: there is no such thing as two and a half
+ * conversations.
+ */
+export function niceScale(
+  rawMax: number,
+  {
+    targetTicks = 4,
+    integer = false,
+  }: { targetTicks?: number; integer?: boolean } = {}
+): { max: number; ticks: number[] } {
+  if (!(rawMax > 0)) return { max: 4, ticks: [0, 1, 2, 3, 4] };
+
+  const rough = rawMax / targetTicks;
+  // The floor at 1 is what actually makes `integer` true. Dropping 2.5
+  // from the candidates is not enough on its own: the DECADE can be
+  // fractional too, and a peak of 1 gives `rough = 0.25`, a power of
+  // 0.1, and a step of 0.5 — a count axis labelled 0 · 0.5 · 1 built
+  // entirely out of integer candidates.
+  const pow = Math.max(
+    integer ? 1 : Number.MIN_VALUE,
+    Math.pow(10, Math.floor(Math.log10(rough)))
+  );
+  const norm = rough / pow;
+  const candidates = integer ? [1, 2, 5, 10] : [1, 2, 2.5, 5, 10];
+  const step = (candidates.find((c) => norm <= c) ?? 10) * pow;
+
+  const max = Math.ceil(rawMax / step) * step;
+  const ticks: number[] = [];
+  // The half-step slack absorbs the float error that would otherwise
+  // drop the top tick when `max / step` lands on 4.999999999999999.
+  for (let v = 0; v <= max + step / 2; v += step) {
+    ticks.push(Number(v.toPrecision(12)));
+  }
+  return { max, ticks };
+}
 
 /**
  * One width for every y-axis in the product.
@@ -179,16 +274,72 @@ export function ChartGrid(props: React.ComponentProps<typeof CartesianGrid>) {
  */
 export function ChartSurface({
   height = CHART_HEIGHT,
+  fill = false,
+  fillMax = CHART_FILL_MAX,
   className,
   children,
 }: {
+  /** Fixed plot height, or — with `fill` — the floor it may not go under. */
   height?: number;
+  /**
+   * Grow to whatever height the panel has left.
+   *
+   * ------------------------------------------------------------------
+   * THE DEAD SPACE THIS EXISTS TO CLOSE
+   * ------------------------------------------------------------------
+   *
+   * On /relatórios the conversations chart sits in a `lg:grid-cols-2`
+   * row beside the funnel, and both panels are `h-full` — so the row is
+   * as tall as the funnel, which on an eight-stage pipeline is around
+   * 500px. The chart's plot was a fixed 260. The remaining ~240px was
+   * empty card, every single load, and it was the largest blank region
+   * on the page.
+   *
+   * `flex-1` on a `min-h-0` track lets the plot take it. The `height`
+   * prop stops being a size and becomes a FLOOR (`min-height`), because
+   * the same panel on a phone, or beside a two-stage funnel, must not
+   * be allowed to collapse to nothing.
+   *
+   * Requires the ancestor chain to be a column flexbox with a real
+   * height — `Panel` → `PanelBody` on that page both are. Without one,
+   * `flex-1` resolves to auto and the floor is what renders, which is
+   * exactly the old behaviour rather than a broken one.
+   */
+  fill?: boolean;
+  /**
+   * The ceiling `fill` may not grow past. Ignored without `fill`.
+   *
+   * ------------------------------------------------------------------
+   * BECAUSE "USE ALL THE SPACE" IS NOT THE SAME AS "BE BIGGER"
+   * ------------------------------------------------------------------
+   *
+   * Uncapped, the plot beside an eight-stage funnel came out roughly
+   * 690 × 500 — very nearly square. Aspect ratio is not decoration on a
+   * time series: it is the slope of every segment, and a series that
+   * peaks at ten messages drawn half as tall as it is wide turns a
+   * quiet fortnight and one busy Tuesday into a cliff. The chart would
+   * have been reporting the panel's height, not the data.
+   *
+   * 380 against the ~690px column of a `lg:grid-cols-2` row on a capped
+   * page is a shade under 2:1, which is the proportion every dashboard
+   * in the reference set draws a trend at, and the shape the eye reads
+   * a slope correctly in.
+   *
+   * The space left over stays panel padding. That is a real cost and it
+   * is the smaller one: a bit of white under a plot reads as breathing
+   * room, and 240px of it — which is what this replaced — reads as a
+   * bug.
+   */
+  fillMax?: number;
   className?: string;
   /** Exactly one Recharts chart element. */
   children: React.ReactElement;
 }) {
   return (
-    <div className={cn('w-full', className)} style={{ height }}>
+    <div
+      className={cn('w-full', fill && 'min-h-0 flex-1', className)}
+      style={fill ? { minHeight: height, maxHeight: fillMax } : { height }}
+    >
       <ResponsiveContainer width="100%" height="100%">
         {children}
       </ResponsiveContainer>
@@ -387,7 +538,9 @@ export function ChartLegend({
   }
 
   return (
-    <div className={cn('flex flex-wrap items-start gap-x-6 gap-y-2', className)}>
+    <div
+      className={cn('flex flex-wrap items-start gap-x-6 gap-y-2', className)}
+    >
       {items.map((item) => (
         <span key={item.label} className="min-w-0">
           <span className="text-muted-foreground text-2xs flex items-center gap-1.5">
@@ -412,7 +565,7 @@ export function ChartLegend({
               // colouring it would have the chart cheering for volume.
               // The arrow carries the direction; the reader supplies the
               // judgement.
-              <span className="text-muted-foreground flex items-center gap-0.5 text-2xs tabular-nums">
+              <span className="text-muted-foreground text-2xs flex items-center gap-0.5 tabular-nums">
                 {item.delta > 0 ? (
                   <ArrowUp className="size-2.5" aria-hidden />
                 ) : item.delta < 0 ? (
@@ -425,5 +578,383 @@ export function ChartLegend({
         </span>
       ))}
     </div>
+  );
+}
+
+// ------------------------------------------------------------------
+// The horizontal bar — the shape this product draws most, and drew
+// four different ways
+// ------------------------------------------------------------------
+
+/**
+ * One row: a label, its number, and a bar for the number.
+ *
+ * Counted before this existed, four implementations of the same idea:
+ *
+ *   · the funnel on /relatórios    28px bar, stage colour, share of PEAK
+ *   · the mini funnel on /          6px bar, flat accent, share of TOTAL
+ *   · "por categoria" on Custo      6px bar, flat `bg-chart-1`
+ *   · `ProgressBar` in metric.tsx   6px bar, five tones
+ *
+ * They disagreed about height, colour, rounding, what the width is a
+ * share OF, and whether the number goes before or after the count. Two
+ * of them sat on the same page.
+ *
+ * WIDTH IS A SHARE OF THE BIGGEST ROW, NEVER OF THE TOTAL. Against the
+ * total, eight rows draw eight stubs and the bars stop encoding "how big
+ * is this" — they encode "what fraction of everything is this", which is
+ * a pie chart's question rendered as a worse pie chart. `peakPercent`
+ * below does that arithmetic so no call site has to choose again.
+ *
+ * ZERO DRAWS NOTHING. There is no minimum-width floor here. A floor is
+ * tempting — it keeps a tiny-but-real row visible — but it cannot tell
+ * "almost nothing" from "nothing", so it paints a bar for R$ 0 and the
+ * reader has no way to know. The label already carries the value; a row
+ * with no bar reads as zero, correctly.
+ */
+export function ChartBarRow({
+  label,
+  sublabel,
+  value,
+  meta,
+  chip,
+  percent,
+  color = 'var(--chart-1)',
+  density = 'full',
+  muted = false,
+  ariaLabel,
+  className,
+}: {
+  label: React.ReactNode;
+  /** A second line under the label — a category, an owner, a kind. */
+  sublabel?: React.ReactNode;
+  /** The number this row is about. Rendered as the loud part. */
+  value: React.ReactNode;
+  /** A second, quieter number — a count, a share, a subtotal. */
+  meta?: React.ReactNode;
+  /** A pill at the far right — a share, a delta. Tinted with `color`. */
+  chip?: React.ReactNode;
+  /** 0–100, a share of the biggest row. Clamped here. */
+  percent: number;
+  /** The row's own colour: a stage's colour on the board, or the accent. */
+  color?: string;
+  /** `full` for a panel that is only this list; `compact` inside a card. */
+  density?: 'full' | 'compact';
+  /** Draw the mark in the neutral ink — for a row that is not the point. */
+  muted?: boolean;
+  ariaLabel?: string;
+  className?: string;
+}) {
+  const pct = Math.max(0, Math.min(100, percent));
+  const full = density === 'full';
+  const ink = muted ? 'var(--muted-foreground)' : color;
+
+  return (
+    <div className={cn('min-w-0', className)}>
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="min-w-0">
+          <span className="text-secondary-foreground block truncate text-xs font-medium">
+            {label}
+          </span>
+          {sublabel != null ? (
+            <span className="text-muted-foreground text-3xs block truncate">
+              {sublabel}
+            </span>
+          ) : null}
+        </span>
+        <span className="flex shrink-0 items-baseline gap-2">
+          <span className="text-foreground text-xs font-semibold tabular-nums">
+            {value}
+          </span>
+          {meta != null ? (
+            <span className="text-muted-foreground text-3xs tabular-nums">
+              {meta}
+            </span>
+          ) : null}
+          {/* NEUTRAL, and deliberately not tinted with the row's colour.
+              Tinting it is what the reference dashboards do, and they can:
+              their palettes are three or four controlled hues. `color`
+              here is whatever hex somebody picked for a stage on the
+              Kanban board, so a chip tinted with it is arbitrary ink on
+              an arbitrary wash — a pale amber stage lands around 2:1,
+              which is unreadable text, and no amount of care at this end
+              can fix a colour chosen at the other.
+              The bar beside it already carries the identity. The chip
+              only has to carry a number. */}
+          {chip != null ? (
+            <span className="bg-muted text-secondary-foreground text-2xs inline-flex h-5 shrink-0 items-center rounded-full px-1.5 font-semibold whitespace-nowrap tabular-nums">
+              {chip}
+            </span>
+          ) : null}
+        </span>
+      </div>
+
+      {/* A THIN PILL ON A HAIRLINE RAIL.
+          The bar was 28px of solid fill on a full-strength track, which
+          is a progress widget, not a chart row: eight of them stacked
+          read as sixteen slabs, and eight database stage colours at that
+          weight became a rainbow you had to translate before you could
+          compare any two lengths.
+          At 8px the same eight colours stop competing and start doing
+          the job colour is for here — telling you WHICH row you are
+          looking at, in the same hue it has on the board — while length
+          goes back to being the thing you read. Same move every ranked
+          list in a well-made dashboard makes. */}
+      <div
+        className={cn(
+          'bg-muted/60 w-full overflow-hidden rounded-full',
+          full ? 'mt-2 h-2' : 'mt-1.5 h-1.5'
+        )}
+      >
+        <div
+          role="img"
+          aria-label={ariaLabel}
+          className="h-full rounded-full transition-[width] duration-(--dur-2)"
+          style={{ width: `${pct}%`, background: ink }}
+        />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Share of the biggest value in the set — the scaling every bar row uses.
+ *
+ * Exported because the alternative is each call site writing
+ * `Math.max(...values)` inline, and one of them eventually writing
+ * `total` instead, which is exactly how the two funnels drifted apart.
+ */
+export function peakPercent(value: number, values: number[]): number {
+  const peak = Math.max(0, ...values);
+  return peak > 0 ? (value / peak) * 100 : 0;
+}
+
+/**
+ * A ranked list that shows its ranking.
+ *
+ * "Top templates" and "por origem" on Custo de envio were bordered lists
+ * of right-aligned numbers — a table with no visual encoding at all, on
+ * a page made of charts. Reading which of six templates dominates meant
+ * comparing "1.284" against "980" as STRINGS, which is the comparison
+ * human vision is worst at and the one a 6px bar makes free.
+ */
+export function ChartRankList({
+  rows,
+  density = 'compact',
+  className,
+}: {
+  rows: {
+    key: string;
+    label: React.ReactNode;
+    sublabel?: React.ReactNode;
+    value: React.ReactNode;
+    meta?: React.ReactNode;
+    chip?: React.ReactNode;
+    /** The raw number the bar is drawn from. */
+    amount: number;
+    color?: string;
+    ariaLabel?: string;
+  }[];
+  density?: 'full' | 'compact';
+  className?: string;
+}) {
+  const amounts = rows.map((r) => r.amount);
+  return (
+    <ol className={cn('flex flex-col gap-3', className)}>
+      {rows.map((row) => (
+        <li key={row.key}>
+          <ChartBarRow
+            label={row.label}
+            sublabel={row.sublabel}
+            value={row.value}
+            meta={row.meta}
+            chip={row.chip}
+            percent={peakPercent(row.amount, amounts)}
+            color={row.color}
+            density={density}
+            ariaLabel={row.ariaLabel}
+          />
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+// ------------------------------------------------------------------
+// The vertical bar chart
+// ------------------------------------------------------------------
+
+export interface ChartSeries {
+  /** Key into each row of `data`. */
+  key: string;
+  label: string;
+  /** Any CSS colour — normally `var(--chart-1)` / `var(--chart-2)`. */
+  color: string;
+}
+
+/**
+ * The product's bar chart, and the end of the second charting library.
+ *
+ * `components/tremor/bar-chart.tsx` was 904 vendored lines carrying its
+ * own tooltip (`text-sm`, `px-4`, `shadow-md`), its own legend, its own
+ * axis defaults and its own idea of a gridline — all of it sitting next
+ * to `chart-primitives`, which exists to be the single answer to those
+ * four questions. Two panels on /relatórios used it and two used this
+ * file, so one page drew two kinds of chart.
+ *
+ * Everything Tremor was actually doing for those call sites — stacked
+ * bars, a legend, a y-axis — is thirty lines against primitives that
+ * were already here.
+ */
+export function ChartBars({
+  data,
+  index,
+  series,
+  stacked = false,
+  height = CHART_HEIGHT,
+  integer = true,
+  formatValue = (n: number) => String(n),
+  formatIndex,
+  ariaLabel,
+  legendTotals,
+}: {
+  data: Record<string, string | number>[];
+  /** Key holding the category label for each row. */
+  index: string;
+  series: ChartSeries[];
+  stacked?: boolean;
+  height?: number;
+  /** Count axes cannot be labelled 2.5 — see `niceScale`. */
+  integer?: boolean;
+  formatValue?: (n: number) => string;
+  /** Long form of the x label, for the tooltip heading. */
+  formatIndex?: (v: string) => string;
+  ariaLabel: string;
+  /** Per-series totals for the legend. Same contract as `ChartLegend`. */
+  legendTotals?: Record<string, string>;
+}) {
+  const gradientId = React.useId();
+
+  const { max, ticks } = React.useMemo(() => {
+    const peak = data.reduce((m, row) => {
+      // A stack is measured by its SUM; grouped bars by their tallest
+      // member. Measuring a stack by its tallest member puts the top of
+      // the tallest column above the axis it is drawn against.
+      const vals = series.map((s) => Number(row[s.key] ?? 0));
+      const rowPeak = stacked
+        ? vals.reduce((a, b) => a + b, 0)
+        : Math.max(0, ...vals);
+      return Math.max(m, rowPeak);
+    }, 0);
+    return niceScale(peak, { integer });
+  }, [data, series, stacked, integer]);
+
+  return (
+    <>
+      {series.length > 1 ? (
+        <ChartLegend
+          className="mb-3"
+          items={series.map((s) => ({
+            label: s.label,
+            color: s.color,
+            total: legendTotals?.[s.key],
+          }))}
+        />
+      ) : null}
+      <ChartSurface height={height}>
+        <BarChart
+          data={data}
+          margin={CHART_MARGIN}
+          barCategoryGap="34%"
+          accessibilityLayer
+          role="img"
+          aria-label={ariaLabel}
+        >
+          <defs>
+            {series.map((s) => (
+              <ChartGradient
+                key={s.key}
+                id={`${gradientId}-${s.key}`}
+                color={s.color}
+                from={0.9}
+                to={0.42}
+              />
+            ))}
+          </defs>
+
+          <ChartGrid />
+
+          <XAxis
+            {...axisProps}
+            dataKey={index}
+            minTickGap={16}
+            tick={axisTick('translate(0, 6)')}
+          />
+          <YAxis
+            {...axisProps}
+            width={Y_AXIS_WIDTH}
+            domain={[0, max]}
+            ticks={ticks}
+            tickFormatter={formatValue}
+            tick={axisTick('translate(-3, 0)')}
+          />
+
+          <Tooltip
+            cursor={CURSOR_FILL}
+            wrapperStyle={{ outline: 'none' }}
+            animationDuration={120}
+            content={({ active, payload, label }) => {
+              if (!active || !payload?.length) return null;
+              const byKey = new Map(
+                payload.map((p) => [p.dataKey as string, Number(p.value ?? 0)])
+              );
+              return (
+                <ChartTooltipCard
+                  heading={
+                    formatIndex ? formatIndex(String(label)) : String(label)
+                  }
+                  rows={series.map((s) => ({
+                    label: s.label,
+                    value: formatValue(byKey.get(s.key) ?? 0),
+                    color: s.color,
+                  }))}
+                  footer={
+                    stacked
+                      ? formatValue(
+                          series.reduce(
+                            (n, s) => n + (byKey.get(s.key) ?? 0),
+                            0
+                          )
+                        )
+                      : undefined
+                  }
+                />
+              );
+            }}
+          />
+
+          {series.map((s, i) => (
+            <Bar
+              key={s.key}
+              dataKey={s.key}
+              name={s.label}
+              stackId={stacked ? 'a' : undefined}
+              fill={gradientFill(`${gradientId}-${s.key}`)}
+              // Only the top of a stack is rounded. Rounding every
+              // segment turns one column into a stack of pills with gaps
+              // the data does not have.
+              radius={
+                !stacked || i === series.length - 1
+                  ? [...BAR_RADIUS]
+                  : undefined
+              }
+              maxBarSize={34}
+              isAnimationActive={false}
+              {...(stacked ? STACK_STROKE : {})}
+            />
+          ))}
+        </BarChart>
+      </ChartSurface>
+    </>
   );
 }

@@ -21,6 +21,7 @@ import {
   Loader2,
   LogOut,
   MessageSquare,
+  BookOpen,
   Package,
   Radio,
   Settings,
@@ -207,6 +208,21 @@ const navGroups: NavGroup[] = [
         icon: BarChart3,
         capability: 'reports.view',
       },
+      // O ÚLTIMO ANTES DE CONFIGURAÇÕES.
+      //
+      // Ficou primeiro ao lado de Produtos, pelo argumento de que é
+      // coisa que se abre no meio de uma conversa. Está aqui porque foi
+      // pedido assim, e o pedido tem razão que o argumento não tinha: a
+      // lista não mostra os títulos de grupo (ver a nota mais acima), então
+      // ela é lida como uma sequência única — e nessa leitura o Playbook
+      // fica junto do que se CONSULTA sobre a operação, não junto do que
+      // se opera nela.
+      {
+        href: '/playbook',
+        labelKey: 'playbook',
+        icon: BookOpen,
+        capability: 'playbook.view',
+      },
     ],
   },
 ];
@@ -301,9 +317,35 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
     'broadcasts.send': useCapability('broadcasts.send'),
     'flows.manage': useCapability('flows.manage'),
     'reports.view': useCapability('reports.view'),
+    'playbook.view': useCapability('playbook.view'),
   };
-  const isVisible = (item: NavItem) =>
-    !item.capability || can[item.capability] === true;
+  /**
+   * Um item sem capability aparece; com capability, só se o mapa acima
+   * responder `true`.
+   *
+   * O `console.error` existe porque este arquivo tem uma armadilha real:
+   * a lista de hooks acima é escrita À MÃO, e `can` é um `Partial`, então
+   * adicionar um item de menu com uma capability nova e esquecer a
+   * chamada correspondente compila, passa no lint, passa nos testes — e
+   * some com a linha do menu, em silêncio. Aconteceu com o Playbook.
+   *
+   * Não dá para forçar isto no tipo: `can` não pode ser um `Record`
+   * completo, porque existem mais capabilities no produto do que linhas
+   * de menu. Então o erro fica em runtime, nomeando a capability
+   * ausente, onde quem adicionou a linha vai olhar primeiro.
+   */
+  const isVisible = (item: NavItem) => {
+    if (!item.capability) return true;
+    const answer = can[item.capability];
+    if (answer === undefined && process.env.NODE_ENV !== 'production') {
+      console.error(
+        `[sidebar] O item "${item.href}" declara a capability "${item.capability}", ` +
+          'que não está no mapa `can` acima — a linha nunca vai aparecer. ' +
+          'Adicione a chamada `useCapability` correspondente.'
+      );
+    }
+    return answer === true;
+  };
   const visibleGroups = navGroups
     .map((group) => ({ ...group, items: group.items.filter(isVisible) }))
     .filter((group) => group.items.length > 0);

@@ -37,6 +37,7 @@ import {
 } from '@/lib/auth/capabilities';
 import type { AuditArea } from '@/lib/audit/events';
 import { dateLocale } from '@/lib/i18n/dates';
+import { APP_LOCALE } from '@/lib/i18n/locale';
 import { cn } from '@/lib/utils';
 import type { AccountMember } from '@/types';
 import { MemberAvatar } from '@/components/presence/member-avatar';
@@ -532,9 +533,22 @@ function AuditSection() {
           />
         ) : (
           <>
+            {/* Agrupado por dia. Sem isso, a data de cada linha teria de
+                se repetir em todas elas — e a repetição é exatamente o
+                que tornava este painel ilegível. O cabeçalho diz o dia
+                uma vez; a linha diz a hora. */}
             <ul className="divide-border divide-y">
-              {entries.map((entry) => (
-                <AuditRowView key={entry.id} entry={entry} />
+              {groupByDay(entries).map(([day, rows]) => (
+                <li key={day}>
+                  <p className="text-muted-foreground eyebrow bg-card sticky top-0 py-1.5">
+                    {formatDay(new Date(day), t('dayToday'), t('dayYesterday'))}
+                  </p>
+                  <ul className="divide-border divide-y">
+                    {rows.map((entry) => (
+                      <AuditRowView key={entry.id} entry={entry} />
+                    ))}
+                  </ul>
+                </li>
               ))}
             </ul>
             {hasMore && (
@@ -576,13 +590,65 @@ function AreaChip({
       className={cn(
         'inline-flex h-7 items-center rounded-full border px-2.5 text-xs font-semibold transition-colors [@media(pointer:coarse)]:min-h-11',
         active
-          ? 'border-foreground bg-foreground text-background'
+          ? 'border-primary-soft-2 bg-primary-soft text-primary'
           : 'border-border bg-card text-secondary-foreground hover:bg-muted hover:text-foreground'
       )}
     >
       {label}
     </button>
   );
+}
+
+/**
+ * Rows split into days, in the order the server sent them.
+ *
+ * Not sorted here: the API already returns newest-first, and re-sorting
+ * on the client is how a "load more" page ends up interleaved with the
+ * one above it.
+ */
+function groupByDay(entries: AuditRow[]): [string, AuditRow[]][] {
+  const days = new Map<string, AuditRow[]>();
+  for (const entry of entries) {
+    // Local day, not the UTC prefix of the ISO string: an event at
+    // 21:30 in São Paulo is 00:30 UTC the NEXT day, so slicing the
+    // string files a Monday evening under Tuesday.
+    const d = new Date(entry.created_at);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const bucket = days.get(key);
+    if (bucket) bucket.push(entry);
+    else days.set(key, [entry]);
+  }
+  return [...days.entries()];
+}
+
+/** 14:32 — the whole point of the column. */
+function formatClock(date: Date): string {
+  return date.toLocaleTimeString(APP_LOCALE, {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+/**
+ * "hoje", "ontem", or the date — the day heading over a group of rows.
+ *
+ * The two words are passed in rather than read from a hook: this runs
+ * outside the component, and a module-level `useTranslations` is not a
+ * thing. Two arguments is cheaper than making the whole helper a hook.
+ */
+function formatDay(date: Date, today: string, yesterday: string): string {
+  const midnight = (d: Date) =>
+    new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const days = Math.round((midnight(new Date()) - midnight(date)) / 86_400_000);
+  if (days === 0) return today;
+  if (days === 1) return yesterday;
+  return date.toLocaleDateString(APP_LOCALE, {
+    day: '2-digit',
+    month: 'short',
+    // The year only when it is not this one — it is the same on every
+    // row for eleven months of twelve.
+    year: date.getFullYear() === new Date().getFullYear() ? undefined : 'numeric',
+  });
 }
 
 function AuditRowView({ entry }: { entry: AuditRow }) {
@@ -650,15 +716,30 @@ function AuditRowView({ entry }: { entry: AuditRow }) {
               <span className="font-medium"> {entry.target_label}</span>
             ) : null}
           </p>
+          {/* THE HOUR, NOT "HÁ 5 DIAS".
+              `formatDistance` collapses a whole day into one string, so
+              seven sign-ins on the same Tuesday rendered as seven
+              identical rows — same actor, same sentence, same "há 5
+              dias" — in a panel whose own subtitle is "Quem fez o quê,
+              e QUANDO". The one column that carried the answer was the
+              one that had thrown it away.
+              It also mixed precisions with no rule: "há 4 minutos",
+              "há cerca de 5 horas", "há 4 dias" — the "cerca de"
+              appearing only sometimes. An absolute clock has one shape
+              at every age, which is also what makes `tabular-nums`
+              finally worth having on this column: relative strings have
+              nothing to align.
+              The relative form is not lost; it moves to the tooltip,
+              which is the swap of the two. */}
           <time
             dateTime={entry.created_at}
-            title={new Date(entry.created_at).toLocaleString()}
-            className="text-muted-foreground text-2xs shrink-0 tabular-nums"
-          >
-            {formatDistance(new Date(entry.created_at), new Date(), {
+            title={formatDistance(new Date(entry.created_at), new Date(), {
               locale: dateLocale,
               addSuffix: true,
             })}
+            className="text-muted-foreground text-2xs shrink-0 tabular-nums"
+          >
+            {formatClock(new Date(entry.created_at))}
           </time>
         </div>
         {detail ? (

@@ -126,7 +126,33 @@ export function SettingsRail({
         // `visible` on one axis with a non-visible other computes to
         // `auto`, which would put a phantom horizontal scrollbar on a
         // column that has nothing to scroll sideways.
-        'lg:sticky lg:top-6 lg:max-h-[calc(100vh-4rem)] lg:flex-col lg:overflow-x-hidden lg:overflow-y-auto lg:border-b-0 lg:pb-0',
+        //
+        // THE CAP IS MEASURED AGAINST THE SCROLLPORT, NOT THE VIEWPORT,
+        // AND THAT IS THE WHOLE FIX.
+        //
+        // It was `calc(100vh - 4rem)`, and the sticky above it stopped
+        // working the moment a panel grew tall enough to scroll — which
+        // on Novidades is one click of "ver todos". The rail scrolled
+        // away with the page, exactly the failure the note above warns
+        // about, and the reason is arithmetic:
+        //
+        //   the sticky ancestor is <main>, not the document, and <main>
+        //   is `100dvh` minus the app header — the header is `min-h-14`,
+        //   so 3.5rem.
+        //
+        //   sticky holds only while  rail height + top offset ≤ scrollport
+        //     old:  (100vh − 4rem) + 1.5rem  =  100vh − 2.5rem
+        //     have:  100dvh − 3.5rem
+        //
+        //   That is 1rem too tall, on every viewport. It never worked; it
+        //   only became visible when a panel finally overflowed.
+        //
+        //   new:  (100dvh − 5rem) + 1.5rem  =  100dvh − 3.5rem  ✓ exactly
+        //
+        // `dvh` and not `vh` for the reason spelled out on `h-vh-*` in
+        // globals.css: nothing in this app scrolls the document, so the
+        // URL bar never hides and the value never moves mid-gesture.
+        'lg:sticky lg:top-6 lg:max-h-[calc(100dvh-5rem)] lg:flex-col lg:overflow-x-hidden lg:overflow-y-auto lg:border-b-0 lg:pb-0',
         className
       )}
     >

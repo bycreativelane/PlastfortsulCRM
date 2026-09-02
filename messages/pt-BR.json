@@ -100,7 +100,8 @@
     "menuSignOut": "Sair",
     "primaryNav": "Navegação principal",
     "products": "Produtos",
-    "more": "Mais"
+    "more": "Mais",
+    "playbook": "Playbook"
   },
   "Roadmap": {
     "regionLabel": "Próximas novidades",
@@ -140,7 +141,8 @@
       "nextWeek": "Próxima semana",
       "openFull": "Ver a agenda completa"
     },
-    "products": "Produtos"
+    "products": "Produtos",
+    "playbook": "Playbook"
   },
   "Search": {
     "placeholder": "Buscar contato, empresa ou número…",
@@ -192,7 +194,6 @@
     },
     "conversationsChart": {
       "title": "Conversas ao longo do tempo",
-      "description": "Volume diário de mensagens por direção",
       "days": "{count} dias",
       "noActivity": "Nenhuma mensagem neste período",
       "noActivityHint": "Envie ou receba mensagens para o gráfico começar a se preencher.",
@@ -200,7 +201,12 @@
       "outgoing": "Enviadas",
       "tooltipIncoming": "{count} recebidas",
       "tooltipOutgoing": "{count} enviadas",
-      "ariaLabel": "Conversas por dia"
+      "ariaLabel": "Conversas por dia",
+      "per": {
+        "day": "Volume diário de mensagens por direção",
+        "week": "Volume semanal de mensagens por direção",
+        "month": "Volume mensal de mensagens por direção"
+      }
     },
     "pipelineDonut": {
       "title": "Valor no funil",
@@ -210,21 +216,22 @@
       "dealCount": "{count} {count, plural, =1 {oportunidade} other {oportunidades}}",
       "total": "Total",
       "ariaLabel": "Valor do funil por etapa",
-      "funnelSub": "Do primeiro contato ao fechamento, em ordem. A porcentagem é quanto se perde de um passo para o outro.",
-      "dropOff": "{percent}% não avançaram"
+      "funnelSubPlain": "Do primeiro contato ao fechamento, em ordem.",
+      "biggestDrop": "Maior perda: {percent}% não passaram de {from} para {to}."
     },
     "responseTimeChart": {
       "title": "Tempo médio de primeira resposta",
-      "description": "Minutos até responder a primeira mensagem sem resposta do cliente, por dia da semana",
+      "description": "Quanto o cliente esperou pela primeira resposta, por dia da semana",
       "target": "meta {minutes}min",
       "thisWeek": "Esta semana:",
       "lastWeek": "Semana passada:",
       "noReplies": "Nenhuma resposta registrada ainda",
       "noRepliesHint": "Este gráfico se preenche conforme você responde os clientes.",
-      "average": "Tempo médio",
       "noSamples": "Sem amostras",
       "samples": "{count} {count, plural, =1 {amostra} other {amostras}}",
-      "ariaLabel": "Tempo médio de primeira resposta por dia da semana"
+      "ariaLabel": "Tempo médio de primeira resposta por dia da semana",
+      "times": "{times}× a meta",
+      "withinTarget": "na meta"
     },
     "emptyState": {
       "title": "Ainda não há dados suficientes"
@@ -299,13 +306,17 @@
     "restrictedTitle": "Relatórios são só para admins",
     "restrictedBody": "Peça acesso a um proprietário ou admin, ou abra a Visão Geral para o que precisa acontecer hoje.",
     "sectionCommercial": "Comercial",
+    "sectionUsage": "Custo de envio",
     "sectionHuman": "O que dependeu de uma pessoa",
     "sectionPending": "Aguardando dado",
     "activeConversations": "Conversas ativas",
-    "newContactsToday": "Novos contatos hoje",
+    "newContacts": "Novos contatos",
     "openDealsValue": "Valor em aberto",
-    "messagesSentToday": "Mensagens enviadas hoje",
+    "messagesSent": "Mensagens enviadas",
     "openDeals": "{count} {count, plural, =1 {oportunidade aberta} other {oportunidades abertas}}",
+    "windowNow": "agora",
+    "windowToday": "hoje",
+    "vsYesterday": "vs. ontem",
     "pendingTitle": "Ainda não dá para medir",
     "pendingSub": "Dependem de dado que o banco não registra",
     "pending": {
@@ -315,6 +326,50 @@
       "calls": "Ligações registradas — as notas não têm campos de ligação."
     },
     "sectionPipeline": "Funil",
+    "templateUsage": {
+      "total": "Templates disparados",
+      "billable": "Faturáveis",
+      "free": "Gratuitos",
+      "pending": "Aguardando Meta",
+      "billableNote": "cobrados pela Meta",
+      "freeNote": "não cobrados",
+      "pendingNote": "sem resposta da Meta ainda",
+      "failedNote": "{count} não saíram",
+      "since": "registro desde {date}",
+      "perDayTitle": "Disparos por dia",
+      "byCategoryTitle": "Por categoria cobrada",
+      "byCategorySub": "A categoria é a que a Meta faturou, não a que registramos aqui.",
+      "categoryBreakdown": "{billable} cobrados · {pending} aguardando",
+      "recategorized": "{count} disparos foram cobrados numa categoria diferente da registrada aqui — a Meta recategoriza templates por conta própria.",
+      "topTemplatesTitle": "Templates mais disparados",
+      "topTemplatesSub": "Os dez maiores do período.",
+      "ofWhichBillable": "{count} cobrados",
+      "byOriginTitle": "Por origem",
+      "byOriginSub": "De onde partiu o disparo — é onde dá para mexer.",
+      "windowDays": "Últimos {days} dias.",
+      "windowRange": "De {from} a {to}.",
+      "emptyTitle": "Nenhum template disparado",
+      "emptyWindow": "Nada saiu neste período. Escolha outra janela.",
+      "emptyNoData": "A medição começa quando o registro é ativado. Disparos anteriores não podem ser reconstruídos: o aviso de cobrança da Meta chega uma vez só, no momento do envio.",
+      "tooBigTitle": "Período grande demais",
+      "tooBigBody": "Esta janela tem mais disparos do que dá para somar aqui. Escolha um período menor.",
+      "errorTitle": "Não foi possível carregar",
+      "errorBody": "Tente de novo em instantes.",
+      "category": {
+        "marketing": "Marketing",
+        "utility": "Utilidade",
+        "authentication": "Autenticação",
+        "service": "Serviço",
+        "unknown": "Sem categoria"
+      },
+      "origin": {
+        "inbox": "Atendimento",
+        "broadcast": "Campanha",
+        "automation": "Automação",
+        "flow": "Fluxo",
+        "api": "API"
+      }
+    },
     "performance": {
       "title": "Desempenho da equipe",
       "description": "O tempo é a MEDIANA, não a média — uma conversa respondida na segunda depois de passar o fim de semana parada estragaria a média e não mexe na mediana.",
@@ -674,7 +729,26 @@
       "deleteAction": "Apagar",
       "deleteConfirm": "Apagar esta mensagem para toda a equipe?",
       "edited": "editada",
-      "cardYou": "Você"
+      "cardYou": "Você",
+      "attach": "Anexar arquivo",
+      "attachImage": "Imagem",
+      "attachVideo": "Vídeo",
+      "attachAudio": "Áudio",
+      "attachDocument": "Documento",
+      "uploading": "Enviando arquivo…",
+      "uploadFailed": "Não foi possível enviar o arquivo.",
+      "tooLarge": "O arquivo passa de {mb} MB.",
+      "mediaUnavailable": "Não foi possível carregar este arquivo.",
+      "mediaUnsupported": "Anexos exigem a migração 063. Peça a quem cuida do banco.",
+      "removeAttachment": "Remover anexo",
+      "captionPlaceholder": "Escreva uma legenda (opcional)",
+      "document": "Documento",
+      "dropHere": "Solte para anexar",
+      "record": "Gravar áudio",
+      "recordStop": "Enviar gravação",
+      "recordCancel": "Descartar",
+      "recording": "Gravando {time}",
+      "recordingUnsupported": "Este navegador não grava áudio."
     },
     "assist": {
       "suggest": "Sugerir resposta",
@@ -1049,7 +1123,7 @@
       "noContact": "Sem contato",
       "won": "Ganho",
       "lost": "Perdido",
-      "playbook": "Playbook"
+      "playbook": "Passos da etapa"
     },
     "menu": {
       "open": "Abrir oportunidade",
@@ -1073,21 +1147,21 @@
       "toastFailedDelete": "Não foi possível excluir a oportunidade"
     },
     "playbook": {
-      "title": "Playbook",
-      "edit": "Editar playbook",
-      "addForStage": "Criar playbook para {stage}",
-      "editingFor": "Playbook · {stage}",
+      "title": "Passos da etapa",
+      "edit": "Editar passos",
+      "addForStage": "Criar passos para {stage}",
+      "editingFor": "Passos · {stage}",
       "stepPlaceholder": "O que precisa ser feito",
       "hintPlaceholder": "Dica (opcional)",
       "addStep": "Adicionar passo",
       "removeStep": "Remover passo",
       "moveUp": "Mover para cima",
       "moveDown": "Mover para baixo",
-      "save": "Salvar playbook",
+      "save": "Salvar passos",
       "cancel": "Cancelar",
       "remaining": "{count} {count, plural, =1 {passo restante} other {passos restantes}}",
-      "toastSaved": "Playbook salvo",
-      "toastSaveFailed": "Não foi possível salvar o playbook",
+      "toastSaved": "Passos salvos",
+      "toastSaveFailed": "Não foi possível salvar os passos",
       "toastFailed": "Não foi possível atualizar o passo"
     },
     "form": {
@@ -2073,7 +2147,7 @@
       "membersCount": "{count} {count, plural, =1 {pessoa} other {pessoas}}",
       "pendingInvites": "{count} {count, plural, =1 {convite pendente} other {convites pendentes}}",
       "manageTemplates": "Gerenciar templates de mensagem",
-      "templatesCount": "{count} {count, plural, =1 {template} other {templates}}",
+      "templatesCount": "{count, plural, =0 {Nenhum ainda} =1 {1 template} other {# templates}}",
       "pendingReview": "{count} em análise",
       "tagsAndFields": "Etiquetas e campos personalizados",
       "tagsCount": "{count} {count, plural, =1 {etiqueta} other {etiquetas}}",
@@ -2393,7 +2467,7 @@
     "sections": {
       "overview": "Visão geral",
       "profile": "Seu perfil",
-      "security": "Acesso e segurança",
+      "security": "Senha e sessões",
       "appearance": "Aparência",
       "whatsapp": "WhatsApp",
       "templates": "Templates",
@@ -2404,7 +2478,7 @@
       "members": "Equipe",
       "api": "Chaves de API",
       "whats-new": "Novidades",
-      "access": "Acesso e auditoria",
+      "access": "Auditoria",
       "assignment": "Atribuição",
       "rooms": "Salas da equipe",
       "ai-tools": "Ferramentas de IA",
@@ -2429,6 +2503,9 @@
       "role": "Papel",
       "joined": "Entrou em",
       "userId": "ID do usuário",
+      "copyUserId": "Copiar ID do usuário",
+      "userIdCopied": "ID copiado",
+      "userIdCopyFailed": "Não foi possível copiar. Selecione e copie à mão.",
       "loading": "Carregando seu perfil…",
       "saving": "Salvando…",
       "saveChanges": "Salvar alterações",
@@ -2743,6 +2820,8 @@
       "resetToRole": "Voltar ao que o cargo diz",
       "auditTitle": "Auditoria da conta",
       "auditSub": "Quem fez o quê, e quando. Ninguém edita nem apaga uma linha daqui.",
+      "dayToday": "Hoje",
+      "dayYesterday": "Ontem",
       "auditFailed": "Não foi possível carregar a auditoria",
       "auditMore": "Mostrar mais antigas",
       "auditPendingTitle": "Falta aplicar a migração 050",
@@ -2781,7 +2860,8 @@
         "teamRoomWrite": "Escrever na Minha equipe",
         "auditView": "Ver esta página",
         "productsView": "Ver o catálogo de produtos",
-        "productsViewDesc": "Um preço que a pessoa não consegue consultar é um preço que ela vai perguntar para um colega."
+        "productsViewDesc": "Um preço que a pessoa não consegue consultar é um preço que ela vai perguntar para um colega.",
+        "playbookView": "Ver o Playbook"
       }
     },
     "assignment": {
@@ -3279,5 +3359,60 @@
     "color": "Cor",
     "colorPlaceholder": "preto, natural, branco",
     "adminOnly": "Só um admin cria ou aposenta um produto. Corrigir um é seu."
+  },
+  "Playbook": {
+    "title": "Playbook",
+    "description": "O que dizer, e o que a empresa combinou. Para consultar no meio da conversa.",
+    "searchPlaceholder": "Buscar em scripts, objeções e regras…",
+    "tab": {
+      "sales_script": "Scripts",
+      "objection": "Objeções",
+      "operation_rule": "Regras",
+      "products": "Produtos"
+    },
+    "new": {
+      "sales_script": "Novo script",
+      "objection": "Nova objeção",
+      "operation_rule": "Nova regra"
+    },
+    "editTitle": "Editar",
+    "fieldTitle": "Título",
+    "fieldCategory": "Categoria",
+    "fieldContent": {
+      "sales_script": "Texto do script",
+      "objection": "Resposta sugerida",
+      "operation_rule": "Conteúdo"
+    },
+    "categoryHint": {
+      "sales_script": "Follow-up, Prospecção, Fechamento…",
+      "objection": "Preço, Frete, Prazo…",
+      "operation_rule": "Comercial, Frete, Atendimento…"
+    },
+    "variablesHint": "Use [Nome], [Empresa], [Produto], [Valor] como lembrete do que trocar. O texto é copiado como está.",
+    "copy": "Copiar",
+    "copied": "Copiado",
+    "copyFailed": "Não foi possível copiar.",
+    "edit": "Editar",
+    "delete": "Excluir",
+    "deleteTitle": "Excluir este item?",
+    "cancel": "Cancelar",
+    "save": "Salvar",
+    "saveFailed": "Não foi possível salvar.",
+    "requiredFields": "Título e conteúdo são obrigatórios.",
+    "empty": "Nada cadastrado aqui ainda",
+    "emptyHint": "O que for escrito aqui fica disponível para toda a equipe durante o atendimento.",
+    "noResults": "Nada encontrado para “{query}”",
+    "missingTitle": "Playbook ainda não está ligado",
+    "missingBody": "Depende da migração 064. Peça a quem cuida do banco.",
+    "sku": "Código",
+    "size": "Medida",
+    "thickness": "Espessura",
+    "material": "Material",
+    "color": "Cor",
+    "unit": "Unidade",
+    "price": "Preço",
+    "onRequest": "Sob consulta",
+    "copySheet": "Copiar ficha",
+    "emptyProducts": "Os produtos cadastrados em Produtos aparecem aqui para consulta."
   }
 }

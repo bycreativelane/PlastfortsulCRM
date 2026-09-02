@@ -1151,14 +1151,31 @@ export function MessageThread({
             </button>
           )}
           {/* The same disc the conversation list draws for this contact,
-              one column to the right — same seed, same colour. */}
+              one column to the right — same seed, same colour, AND THE
+              SAME PHOTO.
+
+              The photo was the half this was missing. The list next to it
+              has drawn `contact.avatar_url` since it was written, so the
+              two discs for the SAME contact, visible at the same moment
+              on the same screen, disagreed: a face on the left and two
+              letters on the right. The comment above already claimed
+              they matched. */}
           <div
             className={cn(
-              'text-avatar-ink flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-sm font-medium',
+              'text-avatar-ink flex h-9 w-9 flex-shrink-0 items-center justify-center overflow-hidden rounded-full text-sm font-medium',
               avatarClass(displayName)
             )}
           >
-            {avatarInitials(displayName)}
+            {contact.avatar_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={contact.avatar_url}
+                alt=""
+                className="size-9 object-cover"
+              />
+            ) : (
+              avatarInitials(displayName)
+            )}
           </div>
           <div className="min-w-0">
             <h2 className="text-foreground truncate text-sm font-semibold">

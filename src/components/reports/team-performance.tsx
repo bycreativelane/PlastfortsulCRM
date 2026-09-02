@@ -97,7 +97,20 @@ export function TeamPerformance({ period }: { period: Period }) {
     return (
       <Panel>
         <PanelHeader>
-          <PanelTitle>{t('title')}</PanelTitle>
+          <div className="min-w-0">
+            <PanelTitle>{t('title')}</PanelTitle>
+            {/* THE SUBTITLE STAYS WHEN THE PANEL IS EMPTY.
+                This branch dropped the `PanelSub` the populated branch
+                carries, so the line explaining WHICH WINDOW and BY WHAT
+                METHOD disappeared exactly when there was no number left
+                to explain it. An empty panel needs its caption more than
+                a full one does, not less. */}
+            <PanelSub>
+              {period.preset === null
+                ? t('windowRange', formatWindow(period))
+                : t('windowDays', { days: period.days })}
+            </PanelSub>
+          </div>
         </PanelHeader>
         <PanelBody>
           <StatePanel icon={Users} title={t('empty')} description={t('emptyHint')} />

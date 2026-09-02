@@ -107,7 +107,7 @@ Detalhes e resolução de problemas em [docs/docker.md](./docs/docker.md).
 
 Passo a passo: [docs/deploy.md](./docs/deploy.md). Resumo:
 
-- **Releases** — zip da versão (hoje `v0.8.4`). É isto que se baixa para subir em outro lugar.
+- **Releases** — zip da versão (hoje `v0.8.5`). É isto que se baixa para subir em outro lugar.
 - **Packages** — deixe vazio. Não é um pacote npm; não precisa preencher nada.
 - Caminho mais curto: importe o repositório na **Vercel** e cole as variáveis do [guia de env](./docs/configuracao-env.md). Alternativa: `git clone` + Docker no VPS.
 

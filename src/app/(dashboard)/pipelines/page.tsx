@@ -902,7 +902,7 @@ function OwnerChip({
       aria-pressed={active}
       className={
         active
-          ? 'border-foreground bg-foreground text-background hover:bg-foreground hover:text-background dark:bg-foreground rounded-full px-2.5 font-semibold'
+          ? 'border-primary-soft-2 bg-primary-soft text-primary hover:bg-primary-soft hover:text-primary rounded-full px-2.5 font-semibold'
           : 'bg-card dark:bg-card rounded-full px-2.5 font-semibold'
       }
     >

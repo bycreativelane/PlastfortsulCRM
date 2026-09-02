@@ -12,7 +12,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
-  GitBranch,
   Inbox,
   UserPlus,
   Zap,
@@ -21,7 +20,6 @@ import {
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
 import { canEditSettings } from '@/lib/auth/roles';
-import { formatCurrency } from '@/lib/currency';
 import { loadPipelineDonut } from '@/lib/dashboard/queries';
 import type { PipelineDonutData } from '@/lib/dashboard/types';
 import {
@@ -36,6 +34,7 @@ import {
 } from '@/lib/dashboard/today';
 
 import { AgendaCalendar } from '@/components/dashboard/agenda-calendar';
+import { AttentionRow } from '@/components/dashboard/attention-row';
 import { QuickActions } from '@/components/dashboard/quick-actions';
 import { Skeleton } from '@/components/dashboard/skeleton';
 import { PageActions } from '@/components/layout/page-actions';
@@ -47,11 +46,10 @@ import {
   PanelSub,
   PanelTitle,
 } from '@/components/ui/panel';
-import { ProgressBar } from '@/components/ui/metric';
+import { PipelineFunnel } from '@/components/dashboard/pipeline-funnel';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { SectionTitle } from '@/components/ui/section-title';
 import { StatePanel } from '@/components/ui/state-panel';
-import { StatTile } from '@/components/ui/stat-tile';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { PageHeader } from '@/components/layout/page-header';
 import { dateLocale } from '@/lib/i18n/dates';
@@ -76,6 +74,31 @@ import { dateLocale } from '@/lib/i18n/dates';
  *
  * If the top half is empty, the day is genuinely clear. That is the promise,
  * and it only holds because nothing decorative is allowed into it.
+ *
+ * ------------------------------------------------------------------
+ * THE ORDER, AND WHY THE AGENDA MOVED UP
+ * ------------------------------------------------------------------
+ *
+ *   Atalhos
+ *   Precisa de você + O CRM fez hoje  ·  O que vem por aí
+ *   Fila de ações humanas             ·  Valor no funil
+ *
+ * The agenda used to be last, under a ~420px queue, which put it off the
+ * first screen on every desktop and most of the way down a second one on
+ * a phone. "O que vem por aí" is a summary — a month at a glance and the
+ * day's markers — and summaries belong with summaries. It now sits with
+ * the tile row, and the two together answer "what does today look like"
+ * before the page hands you the list you actually work through.
+ *
+ * The queue keeps the bottom on purpose. It is the only block here you
+ * SCROLL INSIDE, and a block with its own scroller is the wrong thing to
+ * put above one the page scrolls past.
+ *
+ * And the two halves of the argument are in one column again. "O CRM
+ * fez hoje" had drifted into the side column of the queue, where it was
+ * a widget rather than the counterpart to anything — the reader had to
+ * hold "what needs me" in mind across two sections to notice that the
+ * grey list was the answer to it.
  */
 export default function DashboardPage() {
   const t = useTranslations('Today');
@@ -164,55 +187,168 @@ export default function DashboardPage() {
 
       <QuickActions />
 
-      {/* ------------------------------------------- Precisa de você */}
-      <section>
-        <SectionTitle tone="human">
-          <UserPlus />
-          {t('needsYou')}
-        </SectionTitle>
+      {/* ----------------------------- Precisa de você · O que vem por aí */}
+      {/* SIDE BY SIDE, on the same four columns as the queue below.
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <TileLink href="/inbox">
-            <StatTile
-              tone="human"
+          These were two full-width bands stacked, and between them they
+          spent about 320px of the first screen on four numbers and a
+          calendar — before the page got to the list you actually work
+          through. Beside each other they cost one band, and the seam
+          between them lands on the same vertical as the seam in the
+          queue row underneath.
+
+          The split is 1/3 and not 2/2 because the agenda cannot take
+          less: it lays out as `[20rem calendar | 1fr day]` and a half
+          page would leave the day pane narrower than the calendar
+          beside it. A quarter is also all the states need — they are
+          four short rows now, not four cards. */}
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-4">
+        {/* A COLUMN, so the two halves can end level with the agenda.
+            The grid stretches this cell to the row height — the agenda's
+            460px — but the content inside it summed 426, so the machine
+            panel's bottom edge floated 34px above the agenda's and the
+            row ended on two different lines.
+            As a flex column with the last panel growing, the bottom
+            edges meet. The slack goes inside that panel, under its rows,
+            which is where empty space in a list belongs. */}
+        <section className="flex min-w-0 flex-col xl:col-span-1">
+          <SectionTitle tone="human">
+            <UserPlus />
+            {t('needsYou')}
+          </SectionTitle>
+
+          {/* ONE PANEL, FOUR ROWS — not four cards in a grid.
+              Four bordered cards is what you build when each one is a
+              subject. These are four readings of one question ("is
+              anything waiting on me?"), read down rather than across,
+              and in a quarter-width column a card each would give the
+              caption about 160px and wrap every one of them to three
+              lines.
+
+              AMBER ONLY WHEN THE NUMBER IS NOT ZERO. Three of these
+              were `tone="human"` unconditionally, so on a morning
+              reading 0 · 5 · 0 · 0 three rows wore the one colour this
+              system reserves for "a person must act" while asking for
+              nothing — and the row that DID need somebody looked
+              exactly like the three that did not.
+
+              The tint is on the ROW now, not on a 154px card, which is
+              the whole "menos aparente": same signal, a fifth of the
+              area carrying it. */}
+          <Panel className="divide-border divide-y overflow-hidden">
+            <AttentionRow
+              href="/inbox"
               icon={<Inbox />}
-              value={queue?.unread ?? '—'}
+              tone={queue?.unread ? 'human' : 'auto'}
+              value={queue?.unread}
               label={t('tileUnread')}
             />
-          </TileLink>
-          <TileLink href="/inbox">
-            <StatTile
-              tone="human"
+            <AttentionRow
+              href="/inbox"
               icon={<UserPlus />}
-              value={queue?.unassigned ?? '—'}
+              tone={queue?.unassigned ? 'human' : 'auto'}
+              value={queue?.unassigned}
               label={t('tileUnassigned')}
             />
-          </TileLink>
-          <TileLink href="/pipelines">
-            <StatTile
-              tone="human"
+            <AttentionRow
+              href="/pipelines"
               icon={<Clock />}
-              value={queue?.stalled ?? '—'}
+              tone={queue?.stalled ? 'human' : 'auto'}
+              value={queue?.stalled}
               label={t('tileStalled', { days: STALE_DEAL_DAYS })}
             />
-          </TileLink>
-          <TileLink href="/automations">
-            <StatTile
-              // Red, not amber: this one did not merely need a person, it
-              // broke. The distinction is the difference between "your turn"
-              // and "something is wrong".
-              tone={queue?.failed ? 'danger' : 'auto'}
+            <AttentionRow
+              href="/automations"
               icon={<AlertTriangle />}
-              value={queue?.failed ?? '—'}
+              // Red, not amber: this one did not merely need a person,
+              // it broke. The distinction is the difference between
+              // "your turn" and "something is wrong".
+              tone={queue?.failed ? 'danger' : 'auto'}
+              value={queue?.failed}
               label={t('tileFailed')}
             />
-          </TileLink>
-        </div>
-      </section>
+          </Panel>
 
-      {/* Four columns, same `gap-4`, same breakpoint as the tile row above —
+          {/* ----------------------------------- O CRM fez hoje */}
+          {/* THE OTHER HALF OF THE PAGE'S ARGUMENT, BACK BESIDE THE
+              FIRST ONE.
+
+              The doctrine at the top of this file says the page is one
+              argument made twice — what needs a person, and what the
+              machine did without one — and then the second half was
+              living in the side column of the queue, two sections down,
+              where nobody read it as the counterpart to anything.
+
+              It also happens to be the right size for the hole. Measured:
+              the attention panel is 199px and the agenda beside it is
+              460px, so the quarter-width column had ~260px of nothing
+              under it. This block is 177px with three rows in it, and
+              taller when it is empty. The two halves are together and
+              the row no longer has a hole in it, and those are the same
+              fix. */}
+          {/* `mt-6` — the gap the page puts between two sections, applied
+              inside a column that holds two of them. Without it the
+              heading sat flush against the bottom edge of the panel
+              above and read as that panel's footer. */}
+          <SectionTitle tone="auto" className="mt-6 shrink-0">
+            <Zap />
+            {t('machineTitle')}
+          </SectionTitle>
+
+          <Panel className="flex min-h-0 flex-1 flex-col">
+            {/* NO TINT, NO ICON, NO TITLE.
+                This header used to carry all three, and once the section
+                heading above it existed they were said twice within
+                40px of each other — the bolt, the words "O CRM fez
+                hoje", and an `bg-auto-soft` wash that was the last
+                tinted surface left on the page after the hero, the
+                tiles and the attention rows gave theirs up.
+                What is left is the only sentence that is NOT in the
+                heading, and it is the one that matters: this is a
+                report, not a list of things to do. */}
+            <PanelHeader>
+              <PanelSub>{t('machineSub')}</PanelSub>
+            </PanelHeader>
+            <PanelBody flush className="min-h-0 flex-1">
+              {machine === null ? (
+                <MachineSkeleton />
+              ) : machine.length === 0 ? (
+                <StatePanel icon={Zap} title={t('machineEmpty')} />
+              ) : (
+                machine.map((row) => (
+                  <div
+                    key={row.label}
+                    className="border-border flex items-center gap-3 border-b px-4 py-2.5 last:border-b-0"
+                  >
+                    <span className="min-w-5 text-base font-bold tabular-nums">
+                      {row.count}
+                    </span>
+                    <span className="text-secondary-foreground min-w-0 flex-1 truncate text-sm">
+                      {row.label}
+                    </span>
+                  </div>
+                ))
+              )}
+            </PanelBody>
+          </Panel>
+        </section>
+
+        <section className="min-w-0 xl:col-span-3">
+          <SectionTitle>
+            <CalendarDays />
+            {t('agendaSection')}
+          </SectionTitle>
+
+          <AgendaCalendar />
+        </section>
+      </div>
+
+      {/* Four columns, same `gap-4`, same breakpoint as the tile row —
           so the seam between the queue and the side column lands exactly on
-          the seam between the third and fourth tile.
+          the seam between the third and fourth tile. The agenda sits between
+          the two now and the alignment survives it: both grids are four
+          columns at the same gap on the same page width, so the vertical
+          runs straight through the block in the middle.
 
           It used to be `minmax(0,1fr) 340px`. Solve for the width where that
           seam coincides with the tiles': 3·(W−48)/4 + 48 = W − 356 gives
@@ -323,98 +459,31 @@ export default function DashboardPage() {
           </Panel>
         </div>
 
+        {/* The side column holds ONE panel now — "O CRM fez hoje" moved
+            up to sit beside the states it is the counterpart to. The
+            flex wrapper stayed anyway: `self-start` is what keeps the
+            funnel its own height instead of stretching to the queue's,
+            and a second panel landing here later needs the gap. */}
         <div className="flex flex-col gap-4 self-start xl:col-span-1">
-          {/* ------------------------------------- O CRM fez hoje */}
-          <Panel>
-            <PanelHeader className="bg-auto-soft">
-              <span className="text-card grid size-7 shrink-0 place-items-center rounded-md bg-auto">
-                <Zap className="size-3.5" />
-              </span>
-              <div className="min-w-0">
-                <PanelTitle className="text-auto-ink">
-                  {t('machineTitle')}
-                </PanelTitle>
-                <PanelSub>{t('machineSub')}</PanelSub>
-              </div>
-            </PanelHeader>
-            <PanelBody flush>
-              {machine === null ? (
-                <MachineSkeleton />
-              ) : machine.length === 0 ? (
-                <StatePanel icon={Zap} title={t('machineEmpty')} />
-              ) : (
-                machine.map((row) => (
-                  <div
-                    key={row.label}
-                    className="border-border flex items-center gap-3 border-b px-4 py-2.5 last:border-b-0"
-                  >
-                    <span className="min-w-5 text-base font-bold tabular-nums">
-                      {row.count}
-                    </span>
-                    <span className="text-secondary-foreground min-w-0 flex-1 truncate text-sm">
-                      {row.label}
-                    </span>
-                  </div>
-                ))
-              )}
-            </PanelBody>
-          </Panel>
-
           {/* ------------------------------------------ Mini funil */}
-          <Panel>
-            <PanelHeader>
-              <div className="min-w-0">
-                <PanelTitle>{t('pipelineTitle')}</PanelTitle>
-              </div>
-              <PanelActions>
-                <span className="text-lg font-bold tracking-tight tabular-nums">
-                  {pipeline
-                    ? formatCurrency(pipeline.totalValue, defaultCurrency)
-                    : '—'}
-                </span>
-              </PanelActions>
-            </PanelHeader>
-            <PanelBody>
-              {pipeline === null ? (
-                <FunnelSkeleton />
-              ) : pipeline.stages.length === 0 ? (
-                <StatePanel icon={GitBranch} title={t('pipelineEmpty')} />
-              ) : (
-                pipeline.stages.map((stage) => (
-                  <div key={stage.id} className="mb-2.5 last:mb-0">
-                    <div className="mb-1 flex items-center justify-between text-xs">
-                      <span className="text-secondary-foreground truncate font-semibold">
-                        {stage.name}
-                      </span>
-                      <span className="text-muted-foreground shrink-0 tabular-nums">
-                        {stage.dealCount} ·{' '}
-                        {formatCurrency(stage.totalValue, defaultCurrency)}
-                      </span>
-                    </div>
-                    <ProgressBar
-                      value={
-                        pipeline.totalValue
-                          ? (stage.totalValue / pipeline.totalValue) * 100
-                          : 0
-                      }
-                    />
-                  </div>
-                ))
-              )}
-            </PanelBody>
-          </Panel>
+          {/* THE SAME COMPONENT /relatórios USES, at a smaller density.
+              It was forty lines of its own funnel here, and the two
+              disagreed about scale, colour, bar height, money format and
+              field order — five decisions, five different answers, on
+              one click's distance. The one that mattered was scale: this
+              copy divided each stage by the pipeline TOTAL, which is
+              precisely what the note at the top of `PipelineFunnel`
+              argues against, and it drew Novo Lead at 6% of the width
+              while the report next door drew it at 17%. */}
+          <PipelineFunnel
+            data={pipeline}
+            loading={pipeline === null}
+            currency={defaultCurrency}
+            density="compact"
+            showTotal
+          />
         </div>
       </div>
-
-      {/* ------------------------------------------- O que vem por aí */}
-      <section>
-        <SectionTitle>
-          <CalendarDays />
-          {t('agendaSection')}
-        </SectionTitle>
-
-        <AgendaCalendar />
-      </section>
 
       {machineTotal > 0 && (
         <p className="text-muted-foreground text-2xs text-center">
@@ -478,21 +547,6 @@ function MachineSkeleton() {
 }
 
 /** Funnel stage: 16px label + 4 + a 6px track, 10px apart. */
-function FunnelSkeleton() {
-  return (
-    <div aria-hidden>
-      {Array.from({ length: 3 }, (_, i) => (
-        <div key={i} className="mb-2.5 last:mb-0">
-          <div className="mb-1 flex items-center justify-between gap-2">
-            <Skeleton className="h-4 w-24 max-w-full" />
-            <Skeleton className="h-4 w-16 shrink-0" />
-          </div>
-          <Skeleton className="h-1.5 w-full rounded-full" />
-        </div>
-      ))}
-    </div>
-  );
-}
 
 /**
  * Page N of M, and the range it covers.
@@ -554,27 +608,5 @@ function QueuePager({
         </button>
       </div>
     </div>
-  );
-}
-
-/** Tile wrapper that makes the whole card the hit target. */
-function TileLink({
-  href,
-  children,
-}: {
-  href: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <Link
-      href={href}
-      // `block h-full`: an anchor is inline by default, so it neither filled
-      // the grid cell it was stretched into nor gave the tile inside it a
-      // height to be 100% OF. Both halves of the chain need it or the tile's
-      // own `h-full` resolves to `auto`.
-      className="focus-visible:outline-ring block h-full rounded-lg transition-shadow hover:shadow-sm focus-visible:outline-2 focus-visible:outline-offset-2"
-    >
-      {children}
-    </Link>
   );
 }

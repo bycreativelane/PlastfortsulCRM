@@ -531,6 +531,11 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
             // Read back off the row rather than re-resolved, so this
             // pass and any later resume send identical params.
             params: Array.isArray(r.template_params) ? r.template_params : [],
+            // Para o registro de uso (migração 062). Sem isto o log
+            // sabe que houve um disparo de campanha e não sabe de QUAL
+            // campanha nem para quem — que é justamente a pergunta que
+            // o painel de custo existe para responder.
+            contact_id: r.contact_id as string,
             ...(messageParams ? { messageParams } : {}),
           }));
 
@@ -549,6 +554,11 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
                 recipients: apiRecipients,
                 template_name: payload.template.name,
                 template_language: payload.template.language ?? 'en_US',
+                // A campanha a que este lote pertence (migração 062).
+                // O painel manda uma campanha em VÁRIOS lotes, então o
+                // id tem que viajar em cada um — sem ele, dez lotes
+                // viram dez punhados de disparos órfãos.
+                broadcast_id: broadcast.id,
               }),
             });
 

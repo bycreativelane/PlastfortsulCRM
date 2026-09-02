@@ -36,6 +36,24 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM storage.buckets WHERE id = 'flow-media') THEN
     RAISE EXCEPTION 'the flow-media bucket row was not created (migration 016)';
   END IF;
+  -- The team room's bucket is the one that must NOT be public: it holds
+  -- what colleagues say to each other, and migration 063 exists because
+  -- reusing the public chat-media bucket would have undone the argument
+  -- that created the room. `public = TRUE` here is a leak, not a style
+  -- difference, so CI asserts the flag and not just the row.
+  IF NOT EXISTS (SELECT 1 FROM storage.buckets WHERE id = 'team-media') THEN
+    RAISE EXCEPTION 'the team-media bucket row was not created (migration 063)';
+  END IF;
+  IF EXISTS (SELECT 1 FROM storage.buckets WHERE id = 'team-media' AND public) THEN
+    RAISE EXCEPTION 'the team-media bucket is PUBLIC — internal attachments would be readable by link (migration 063)';
+  END IF;
+
+  -- The commercial reference (migration 064). One table with `type`, and
+  -- the CHECK is what keeps a fourth kind from being invented by a typo
+  -- in a client that then renders nowhere.
+  IF to_regclass('public.playbook_entries') IS NULL THEN
+    RAISE EXCEPTION 'playbook_entries is missing (migration 064)';
+  END IF;
 
   -- Account scoping (017) is load-bearing for every RLS policy.
   IF to_regclass('public.accounts') IS NULL THEN

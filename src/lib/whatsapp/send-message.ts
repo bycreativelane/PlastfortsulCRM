@@ -35,6 +35,7 @@ import {
   type InteractiveMessagePayload,
 } from '@/lib/whatsapp/interactive';
 import { decrypt, encrypt, isLegacyFormat } from '@/lib/whatsapp/encryption';
+import { logTemplateSend, type UsageOrigin } from '@/lib/whatsapp/usage-log';
 import { supabaseAdmin } from '@/lib/flows/admin-client';
 import { answeredPatch } from '@/lib/conversations/reopen';
 import { isUnknownColumn } from '@/lib/supabase/pg-errors';
@@ -103,6 +104,16 @@ export interface SendMessageParams {
    * author for it would be worse than admitting there isn't one.
    */
   senderId?: string | null;
+  /**
+   * Qual superfície disparou, para o registro de uso (migração 062).
+   *
+   * EXPLÍCITO, e não deduzido de `senderId === null`. As duas coisas
+   * andam juntas hoje — só a API pública manda sem autor — mas são
+   * perguntas diferentes: "quem escreveu" e "por onde saiu". No dia em
+   * que um envio agendado do próprio produto chegar sem autor, a
+   * dedução silenciosamente contaria disparos da casa como uso da API.
+   */
+  origin?: UsageOrigin;
 }
 
 export interface SendMessageResult {
@@ -222,6 +233,7 @@ export async function sendMessageToConversation(
     interactivePayload,
     replyToMessageId,
     senderId,
+    origin = 'inbox',
   } = params;
 
   if (!conversationId) {
@@ -466,6 +478,30 @@ export async function sendMessageToConversation(
       .from('contacts')
       .update({ phone: workingPhone })
       .eq('id', contact.id);
+  }
+
+  // Registro de uso (migração 062), AQUI e não depois do insert.
+  //
+  // O insert em `messages` logo abaixo lança quando falha — e nesse
+  // ponto a mensagem JÁ SAIU e JÁ SERÁ COBRADA. Se o log viesse depois,
+  // todo disparo com erro de persistência sumiria do relatório de custo
+  // enquanto continuaria na fatura, que é a discrepância mais difícil
+  // de explicar que um relatório desses pode ter.
+  //
+  // `logTemplateSend` não lança: um erro aqui não pode desfazer um
+  // envio bem-sucedido.
+  if (messageType === 'template' && templateName) {
+    await logTemplateSend({
+      accountId,
+      wamid: waMessageId,
+      conversationId,
+      contactId: contact.id,
+      templateId: templateRow?.id ?? null,
+      templateName,
+      templateLanguage: sendLanguage,
+      declaredCategory: templateRow?.category ?? null,
+      origin,
+    });
   }
 
   // Persist the sent message. Field names MUST match the messages

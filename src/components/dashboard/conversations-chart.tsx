@@ -1,14 +1,15 @@
 'use client';
 
-import { useId, useMemo } from 'react';
+import { useMemo } from 'react';
 import { useTranslations } from 'next-intl';
 import { MessageSquare } from 'lucide-react';
-import { Area, AreaChart, Tooltip, XAxis, YAxis } from 'recharts';
+import { Bar, BarChart, Tooltip, XAxis, YAxis } from 'recharts';
 
 import type { ConversationsSeriesPoint } from '@/lib/dashboard/types';
 import { APP_LOCALE } from '@/lib/i18n/locale';
 import {
   Panel,
+  PanelActions,
   PanelBody,
   PanelHeader,
   PanelSub,
@@ -18,33 +19,31 @@ import { StatePanel } from '@/components/ui/state-panel';
 import {
   CHART_HEIGHT,
   CHART_MARGIN,
-  ChartGradient,
   ChartGrid,
   ChartLegend,
   ChartSurface,
   ChartTooltipCard,
-  CURSOR_LINE,
+  CURSOR_FILL,
   Y_AXIS_WIDTH,
   axisProps,
   axisTick,
-  gradientFill,
+  niceScale,
 } from '@/components/charts/chart-primitives';
+import { bucketSeries, type Bucket } from './bucket-series';
 import { Skeleton } from './skeleton';
 
 interface ConversationsChartProps {
   /**
    * The points for the period on screen, or null while they load.
    *
-   * This used to be a `Record<7 | 30 | 90, …>` and the panel picked one,
-   * because the panel owned the period control. It does not any more —
-   * the control is the page's, and since the period became an arbitrary
-   * window there is no fixed set of keys to hold a record of. Caching
-   * moved up to the page, keyed on the period itself.
+   * Always DAILY, whatever the panel ends up drawing. Bucketing is a
+   * presentation decision and it is made here, where the width of the
+   * panel is known; the query stays the same one for every period.
    */
   data: ConversationsSeriesPoint[] | null;
   /**
    * Totals for the window before this one. Optional: a caller that does
-   * not ask the question gets a legend with no deltas rather than one
+   * not ask the question gets a readout with no deltas rather than one
    * claiming zero change.
    */
   previous?: { incoming: number; outgoing: number } | null;
@@ -52,27 +51,55 @@ interface ConversationsChartProps {
 }
 
 /**
- * Daily message volume, in and out.
+ * Message volume in and out — grouped bars, ONE HUE, AND ONLY AS MANY
+ * MARKS AS THE PANEL CAN HOLD CALMLY.
  *
- * Areas rather than two bare polylines. The question this chart answers is
- * "how much", and a line only encodes the top edge of an amount — the eye
- * has to measure down to an axis that is 600px away to read it. A filled
- * area puts the quantity on screen as quantity. The fills are gradients
- * that reach zero at the baseline so the two series can overlap without
- * the lower one turning into a muddy band.
+ * ------------------------------------------------------------------
+ * THE MARK COUNT IS THE DESIGN
+ * ------------------------------------------------------------------
  *
- * Reasoning kept from the hand-rolled version this replaces:
+ * Thirty days times two series is sixty marks in a 690px panel. Every
+ * one of them was accurate and the panel read as noise — a picket fence
+ * you scan rather than a chart you read. The dashboards this borrows
+ * from draw five groups of two. That is not them having less data; it
+ * is them deciding that a monthly panel answers a question about weeks.
  *
- *   · `niceCeil` still sets the top of the axis. Recharts' own tick
- *     picker will happily label 0 · 1 · 2 · 3, and a chart whose axis
- *     changes shape every time a quiet day drops the maximum by one is a
- *     chart you cannot compare against yesterday's memory of it.
- *   · Series colour is `--chart-1` / `--chart-2`, never a hex. Both the
- *     accent and the mode move underneath this panel.
+ * So the series is BUCKETED to fit, and the subtitle says which unit it
+ * ended up in:
  *
- * Dropped with it: ~120 lines of `getScreenCTM()` hover math, the manual
- * label stride, and the tooltip that positioned itself against a
- * letterboxed viewBox. Recharts does all three, in real pixels.
+ *   up to 14 points   →  a bar per day
+ *   up to 70          →  a bar per week    (30 days ⇒ 5 groups)
+ *   beyond            →  a bar per month   (90 days ⇒ 3 groups)
+ *
+ * Buckets are cut from the MOST RECENT end backwards, so the last one
+ * is the week you are in and the older ones are whole. Cutting from the
+ * start instead leaves a ragged partial bucket on the right, which is
+ * the one everybody reads first.
+ *
+ * ------------------------------------------------------------------
+ * ONE HUE, TWO WEIGHTS
+ * ------------------------------------------------------------------
+ *
+ * Received is the accent at full strength; sent is the same accent at
+ * a third of it. It was two different hues, which is one more colour than the
+ * panel needs to say a thing that is not a category difference —
+ * "recebidas" and "enviadas" are two directions of one flow, and the
+ * eye reads a lighter version of the same colour as exactly that.
+ *
+ * It also frees the only saturated colour on the panel to mean
+ * something. With two hues, nothing on the chart was emphasised because
+ * everything was.
+ *
+ * ------------------------------------------------------------------
+ * SIDE BY SIDE, NOT MIRRORED
+ * ------------------------------------------------------------------
+ *
+ * The previous version put received above a zero rule and sent below
+ * it. It reads well and it is heavy: a full-height axis of ink through
+ * the middle of the panel, and every quiet day still spending a slot.
+ * Grouped pairs sit on one baseline, use half the vertical ink, and
+ * answer the same question — a pair where the left bar overtops the
+ * right one is a week that took in more than it answered.
  */
 export function ConversationsChart({
   data,
@@ -80,15 +107,14 @@ export function ConversationsChart({
   loading,
 }: ConversationsChartProps) {
   const t = useTranslations('Dashboard.conversationsChart');
-  const gradientId = useId();
 
   /**
    * What the two series add up to over the window on screen.
    *
-   * Computed here rather than fetched: the points are already loaded and
-   * a sum of at most ninety numbers is cheaper than the round trip that
-   * would tell us the same thing. Recomputed when the period changes,
-   * which is exactly when the answer changes.
+   * Off the RAW points, never the buckets — bucketing must not be able
+   * to change a total. Computed here rather than fetched: the points
+   * are already loaded and a sum of at most ninety numbers is cheaper
+   * than the round trip that would tell us the same thing.
    */
   const totals = useMemo(() => {
     const rows = data ?? [];
@@ -116,16 +142,17 @@ export function ConversationsChart({
     };
   }, [previous, totals]);
 
-  const { maxY, ticks } = useMemo(() => {
-    const arr = data ?? [];
-    const max = arr.reduce((m, p) => Math.max(m, p.incoming, p.outgoing), 0);
-    const ceil = niceCeil(max);
-    const steps = [0, ceil / 4, ceil / 2, (3 * ceil) / 4, ceil].map((v) =>
-      Math.round(v)
+  const { unit, buckets } = useMemo(() => bucketSeries(data ?? []), [data]);
+
+  const { max, ticks } = useMemo(() => {
+    const peak = buckets.reduce(
+      (m, b) => Math.max(m, b.incoming, b.outgoing),
+      0
     );
-    // De-dupe when the series is flat 0.
-    return { maxY: ceil, ticks: Array.from(new Set(steps)) };
-  }, [data]);
+    // Three gridlines, not five. The panel is calmer for it and no
+    // reading on a bar chart of counts needs a rule every 20%.
+    return niceScale(peak, { integer: true, targetTicks: 3 });
+  }, [buckets]);
 
   const empty =
     !!data && data.every((p) => p.incoming === 0 && p.outgoing === 0);
@@ -135,11 +162,36 @@ export function ConversationsChart({
       <PanelHeader>
         <div className="min-w-0">
           <PanelTitle>{t('title')}</PanelTitle>
-          <PanelSub>{t('description')}</PanelSub>
+          {/* The subtitle names the UNIT, because the panel chose it.
+              A chart that silently switches from days to weeks when the
+              period grows is a chart that quietly changed the question
+              — and the reader would be comparing five bars against the
+              memory of thirty. */}
+          <PanelSub>{t(`per.${unit}`)}</PanelSub>
         </div>
+        {!loading && data && !empty ? (
+          <PanelActions>
+            <ChartLegend
+              items={[
+                {
+                  label: t('incoming'),
+                  color: INCOMING,
+                  total: totals.incoming.toLocaleString(APP_LOCALE),
+                  delta: change.incoming,
+                },
+                {
+                  label: t('outgoing'),
+                  color: OUTGOING,
+                  total: totals.outgoing.toLocaleString(APP_LOCALE),
+                  delta: change.outgoing,
+                },
+              ]}
+            />
+          </PanelActions>
+        ) : null}
       </PanelHeader>
 
-      <PanelBody className="flex flex-1 flex-col">
+      <PanelBody className="flex min-h-0 flex-1 flex-col justify-center">
         {loading || !data ? (
           <Skeleton style={{ height: CHART_HEIGHT }} className="w-full" />
         ) : empty ? (
@@ -149,180 +201,97 @@ export function ConversationsChart({
             description={t('noActivityHint')}
           />
         ) : (
-          <>
-            {/* The legend carries the period totals now. Two words and
-                two dots above a chart is a colour key read once and then
-                paid for on every visit; with the numbers in it, the line
-                answers "quantas, no total?" before anybody hovers a
-                single point. */}
-            <ChartLegend
-              className="mb-3"
-              items={[
-                {
-                  label: t('incoming'),
-                  color: 'var(--chart-1)',
-                  total: totals.incoming.toLocaleString(APP_LOCALE),
-                  delta: change.incoming,
-                },
-                {
-                  label: t('outgoing'),
-                  color: 'var(--chart-2)',
-                  total: totals.outgoing.toLocaleString(APP_LOCALE),
-                  delta: change.outgoing,
-                },
-              ]}
-            />
-            <ChartSurface>
-              <AreaChart
-                data={data}
-                margin={CHART_MARGIN}
-                accessibilityLayer
-                role="img"
-                aria-label={t('ariaLabel')}
-              >
-                <defs>
-                  {/* Reaching zero at the baseline is what lets the two
-                      series sit on top of each other. A flat 15% fill on
-                      both turns the overlap into a third colour that means
-                      nothing. Both ramps now come from `ChartGradient`, the
-                      same one the bars use — see the note there. */}
-                  <ChartGradient
-                    id={`${gradientId}-in`}
-                    color="var(--chart-1)"
-                    from={0.28}
-                  />
-                  <ChartGradient
-                    id={`${gradientId}-out`}
-                    color="var(--chart-2)"
-                    from={0.2}
-                  />
-                </defs>
+          <ChartSurface fill>
+            <BarChart
+              data={buckets}
+              margin={CHART_MARGIN}
+              // The air is the point. `barGap` is the 4px between the
+              // two bars OF a group — enough to read them as two, small
+              // enough to read them as a pair — and `barCategoryGap`
+              // hands better than a third of the axis back to the
+              // background.
+              barGap={4}
+              barCategoryGap="38%"
+              accessibilityLayer
+              role="img"
+              aria-label={t('ariaLabel')}
+            >
+              <ChartGrid />
 
-                <ChartGrid />
+              <XAxis
+                {...axisProps}
+                dataKey="label"
+                tick={axisTick('translate(0, 6)')}
+              />
+              <YAxis
+                {...axisProps}
+                width={Y_AXIS_WIDTH}
+                domain={[0, max]}
+                ticks={ticks}
+                allowDecimals={false}
+                tick={axisTick('translate(-3, 0)')}
+              />
 
-                <XAxis
-                  {...axisProps}
-                  dataKey="day"
-                  tickFormatter={shortDayLabel}
-                  // Recharts drops labels that would collide, which is the
-                  // same job the old `labelStride` did by hand — except it
-                  // measures the rendered text instead of assuming six fit.
-                  minTickGap={24}
-                  tick={axisTick('translate(0, 6)')}
-                />
-                <YAxis
-                  {...axisProps}
-                  width={Y_AXIS_WIDTH}
-                  domain={[0, maxY]}
-                  ticks={ticks}
-                  allowDecimals={false}
-                  tick={axisTick('translate(-3, 0)')}
-                />
+              <Tooltip
+                cursor={CURSOR_FILL}
+                wrapperStyle={{ outline: 'none' }}
+                animationDuration={120}
+                content={({ active, payload }) => {
+                  if (!active || !payload?.length) return null;
+                  const row = payload[0]?.payload as Bucket | undefined;
+                  if (!row) return null;
+                  return (
+                    <ChartTooltipCard
+                      heading={row.heading}
+                      rows={[
+                        {
+                          label: t('incoming'),
+                          value: row.incoming.toLocaleString(APP_LOCALE),
+                          color: INCOMING,
+                        },
+                        {
+                          label: t('outgoing'),
+                          value: row.outgoing.toLocaleString(APP_LOCALE),
+                          color: OUTGOING,
+                        },
+                      ]}
+                    />
+                  );
+                }}
+              />
 
-                <Tooltip
-                  cursor={CURSOR_LINE}
-                  wrapperStyle={{ outline: 'none' }}
-                  animationDuration={120}
-                  content={({ active, payload, label }) => {
-                    if (!active || !payload?.length) return null;
-                    const byKey = new Map(
-                      payload.map((p) => [p.dataKey as string, Number(p.value)])
-                    );
-                    return (
-                      <ChartTooltipCard
-                        heading={longDayLabel(String(label))}
-                        rows={[
-                          {
-                            label: t('incoming'),
-                            value: (byKey.get('incoming') ?? 0).toLocaleString(
-                              APP_LOCALE
-                            ),
-                            color: 'var(--chart-1)',
-                          },
-                          {
-                            label: t('outgoing'),
-                            value: (byKey.get('outgoing') ?? 0).toLocaleString(
-                              APP_LOCALE
-                            ),
-                            color: 'var(--chart-2)',
-                          },
-                        ]}
-                      />
-                    );
-                  }}
-                />
-
-                {/* Outgoing first, so the accent series draws on top. */}
-                <Area
-                  type="monotone"
-                  dataKey="outgoing"
-                  stroke="var(--chart-2)"
-                  strokeWidth={2}
-                  fill={gradientFill(`${gradientId}-out`)}
-                  dot={false}
-                  // The ring is `--card`, not white: it is a hole punched
-                  // in the line so the dot reads as a marker rather than a
-                  // lump, and on the dark card white would be the lump.
-                  activeDot={{
-                    r: 3.5,
-                    strokeWidth: 2,
-                    stroke: 'var(--card)',
-                    fill: 'var(--chart-2)',
-                  }}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="incoming"
-                  stroke="var(--chart-1)"
-                  strokeWidth={2}
-                  fill={gradientFill(`${gradientId}-in`)}
-                  dot={false}
-                  activeDot={{
-                    r: 3.5,
-                    strokeWidth: 2,
-                    stroke: 'var(--card)',
-                    fill: 'var(--chart-1)',
-                  }}
-                />
-              </AreaChart>
-            </ChartSurface>
-          </>
+              {/* `radius` on the top corners only: a rounded bottom
+                  would lift the bar off the baseline it is measured
+                  from. 6px on a ~20px bar is the reference's silhouette
+                  — a soft cap, not a pill. */}
+              <Bar
+                dataKey="incoming"
+                fill={INCOMING}
+                radius={[6, 6, 0, 0]}
+                maxBarSize={26}
+                isAnimationActive={false}
+              />
+              <Bar
+                dataKey="outgoing"
+                fill={OUTGOING}
+                radius={[6, 6, 0, 0]}
+                maxBarSize={26}
+                isAnimationActive={false}
+              />
+            </BarChart>
+          </ChartSurface>
         )}
       </PanelBody>
     </Panel>
   );
 }
 
-function shortDayLabel(key: string): string {
-  // key is YYYY-MM-DD; return "17 abr"-style. Building the Date from parts
-  // rather than parsing the string avoids the UTC-midnight shift that
-  // moves a day backwards in every timezone west of Greenwich.
-  const [y, m, d] = key.split('-').map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString(APP_LOCALE, {
-    month: 'short',
-    day: 'numeric',
-  });
-}
-
-function longDayLabel(key: string): string {
-  const [y, m, d] = key.split('-').map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString(APP_LOCALE, {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-  });
-}
-
 /**
- * Round `max` up to a "nice" number so Y-axis ticks feel natural
- * (1, 2, 5, 10, 20, 50, …). Keeps the chart readable even when the series
- * is small (max=3 becomes ceil=4, not 3).
+ * The two weights of the one hue.
+ *
+ * Module constants rather than literals at four call sites, because the
+ * legend dot, the bar and the tooltip swatch have to be the same colour
+ * or the key stops being a key.
  */
-function niceCeil(max: number): number {
-  if (max <= 0) return 4;
-  const pow = Math.pow(10, Math.floor(Math.log10(max)));
-  const normalised = max / pow;
-  const nice =
-    normalised <= 1 ? 1 : normalised <= 2 ? 2 : normalised <= 5 ? 5 : 10;
-  return nice * pow;
-}
+const INCOMING = 'var(--chart-1)';
+const OUTGOING = 'color-mix(in oklab, var(--chart-1) 32%, transparent)';

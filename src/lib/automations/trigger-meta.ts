@@ -26,6 +26,9 @@ const KNOWN_TRIGGERS: Record<AutomationTriggerType, true> = {
   time_based: true,
   interactive_reply: true,
   webhook_received: true,
+  deal_stage_entered: true,
+  team_message_sent: true,
+  date_field_reached: true,
 };
 
 /**

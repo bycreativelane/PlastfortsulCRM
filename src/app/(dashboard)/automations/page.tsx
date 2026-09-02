@@ -17,6 +17,15 @@ import {
   PhoneCall,
   Loader2,
   AlertTriangle,
+  Send,
+  Hourglass,
+  Repeat,
+  Snowflake,
+  ShoppingCart,
+  PackageCheck,
+  Heart,
+  CalendarClock,
+  Cake,
 } from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/client';
@@ -46,7 +55,10 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { type TemplateSlug } from '@/lib/automations/templates';
-import { triggerLabelKey, formatRelative } from '@/lib/automations/trigger-meta';
+import {
+  triggerLabelKey,
+  formatRelative,
+} from '@/lib/automations/trigger-meta';
 import { PageHeader } from '@/components/layout/page-header';
 
 const TEMPLATE_ORDER: TemplateSlug[] = [
@@ -56,11 +68,35 @@ const TEMPLATE_ORDER: TemplateSlug[] = [
   'follow_up_reminder',
 ];
 
+/** The ten automations of the official sales flow, in journey order. */
+const FUNNEL_TEMPLATE_ORDER: TemplateSlug[] = [
+  'funnel_quote_sent',
+  'funnel_open_24h',
+  'funnel_followup',
+  'funnel_customer_replied',
+  'funnel_fridge_30d',
+  'funnel_in_progress',
+  'funnel_served',
+  'funnel_after_sale',
+  'funnel_future_purchase',
+  'funnel_birthday',
+];
+
 const TEMPLATE_ICON: Record<TemplateSlug, typeof Zap> = {
   welcome_message: MessageCircle,
   out_of_office: Clock,
   lead_qualifier: Users,
   follow_up_reminder: PhoneCall,
+  funnel_quote_sent: Send,
+  funnel_open_24h: Hourglass,
+  funnel_followup: Repeat,
+  funnel_customer_replied: MessageCircle,
+  funnel_fridge_30d: Snowflake,
+  funnel_in_progress: ShoppingCart,
+  funnel_served: PackageCheck,
+  funnel_after_sale: Heart,
+  funnel_future_purchase: CalendarClock,
+  funnel_birthday: Cake,
 };
 
 export default function AutomationsPage() {
@@ -74,6 +110,9 @@ export default function AutomationsPage() {
   const [error, setError] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<Automation | null>(null);
   const [deleting, setDeleting] = useState(false);
+  // The funnel gallery is ten cards. Open by default on an empty account,
+  // folded once there is a list to read, and one click away either way.
+  const [funnelOpen, setFunnelOpen] = useState<boolean | null>(null);
 
   async function load() {
     try {
@@ -178,6 +217,28 @@ export default function AutomationsPage() {
   }
 
   const showTemplates = automations.length < 3;
+  const showFunnel = funnelOpen ?? showTemplates;
+
+  const templateCard = (slug: TemplateSlug) => {
+    const Icon = TEMPLATE_ICON[slug];
+    return (
+      <button
+        key={slug}
+        onClick={() => startFromTemplate(slug)}
+        className="surface-interactive group border-border bg-card flex flex-col items-start rounded-lg border p-4 text-left"
+      >
+        <div className="bg-auto-soft text-auto-ink mb-3 grid size-8 place-items-center rounded-lg">
+          <Icon className="size-4" />
+        </div>
+        <div className="text-foreground text-sm font-semibold">
+          {tpl(`${slug}.name`)}
+        </div>
+        <p className="text-muted-foreground mt-1 text-xs">
+          {tpl(`${slug}.description`)}
+        </p>
+      </button>
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -203,29 +264,31 @@ export default function AutomationsPage() {
               showing two template cards while every other four-up row in
               the app showed two at 640. */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            {TEMPLATE_ORDER.map((slug) => {
-              const Icon = TEMPLATE_ICON[slug];
-              return (
-                <button
-                  key={slug}
-                  onClick={() => startFromTemplate(slug)}
-                  className="surface-interactive group border-border bg-card flex flex-col items-start rounded-lg border p-4 text-left"
-                >
-                  <div className="bg-auto-soft text-auto-ink mb-3 grid size-8 place-items-center rounded-lg">
-                    <Icon className="size-4" />
-                  </div>
-                  <div className="text-foreground text-sm font-semibold">
-                    {tpl(`${slug}.name`)}
-                  </div>
-                  <p className="text-muted-foreground mt-1 text-xs">
-                    {tpl(`${slug}.description`)}
-                  </p>
-                </button>
-              );
-            })}
+            {TEMPLATE_ORDER.map(templateCard)}
           </div>
         </section>
       )}
+
+      {/* The official sales flow, as installable models. Always reachable:
+          this is how a new account — or this one, after the migration —
+          gets the ten automations without typing a single stage id. */}
+      <section>
+        <div className="flex items-center justify-between gap-3">
+          <SectionTitle>{t('templatesFunnelTitle')}</SectionTitle>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setFunnelOpen(!showFunnel)}
+          >
+            {showFunnel ? t('templatesFunnelHide') : t('templatesFunnelShow')}
+          </Button>
+        </div>
+        {showFunnel && (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {FUNNEL_TEMPLATE_ORDER.map(templateCard)}
+          </div>
+        )}
+      </section>
 
       {automations.length === 0 ? (
         <StatePanel
@@ -358,6 +421,29 @@ function AutomationCard({
               wording identifies the trigger; grey is enough. */}
           <div className="text-muted-foreground mt-2 flex flex-wrap items-center gap-2 text-xs">
             <StatusBadge>{triggerLabel}</StatusBadge>
+            {/* The rules of migration 065, when any is on — so the list
+                says what an automation will do on its own without opening
+                it. Grey, like the trigger: a category, not a signal. */}
+            {automation.cancel_on_reply && (
+              <StatusBadge>{t('rules.cancelOnReply')}</StatusBadge>
+            )}
+            {(automation.cancel_when_stage_in?.length ?? 0) > 0 && (
+              <StatusBadge>
+                {t('rules.cancelOnStages', {
+                  count: automation.cancel_when_stage_in?.length ?? 0,
+                })}
+              </StatusBadge>
+            )}
+            {automation.reentry_policy &&
+              automation.reentry_policy !== 'always' && (
+                <StatusBadge>
+                  {automation.reentry_policy === 'after_days'
+                    ? t('rules.reentry.after_days', {
+                        days: automation.reentry_days ?? 0,
+                      })
+                    : t(`rules.reentry.${automation.reentry_policy}`)}
+                </StatusBadge>
+              )}
             <span className="tabular-nums">
               {automation.execution_count === 1
                 ? t('runs', { count: automation.execution_count })

@@ -110,6 +110,8 @@ export interface SendMediaPayload {
   /** Original file name — surfaced to the recipient for documents. */
   filename?: string;
   replyToId?: string;
+  /** The media quick reply this file came from, when it did. */
+  quickReplyId?: string | null;
 }
 
 interface ReplyDraft {
@@ -140,6 +142,8 @@ interface MediaDraft {
   path: string | null;
   filename: string;
   caption: string;
+  /** Set when the draft was staged from a media quick reply. */
+  quickReplyId?: string | null;
 }
 
 /**
@@ -164,7 +168,15 @@ export function insertIntoComposer(conversationId: string, text: string): void {
 interface MessageComposerProps {
   conversationId: string;
   sessionExpired: boolean;
-  onSend: (text: string, replyToId?: string) => void;
+  /**
+   * `quickReplyId` names the snippet the text came from, when it did —
+   * `/aberto` is a trigger only if the send remembers it was `/aberto`.
+   */
+  onSend: (
+    text: string,
+    replyToId?: string,
+    quickReplyId?: string | null
+  ) => void;
   onSendMedia: (payload: SendMediaPayload) => void;
   onSendInteractive: (
     payload: InteractiveMessagePayload,
@@ -211,6 +223,10 @@ export function MessageComposer({
   const { prompt } = useConfirm();
 
   const [text, setText] = useState('');
+  // The quick reply behind the current text, if one was picked. Cleared
+  // when the field is emptied or the message goes out. Read at send time
+  // and posted with the message so the server can record it.
+  const [quickReplyId, setQuickReplyId] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [drafting, setDrafting] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -301,9 +317,11 @@ export function MessageComposer({
       // also means toggling it off after typing does the obvious thing.
       onSend(
         signature.enabled ? signMessage(trimmed, signature.name) : trimmed,
-        replyTo?.id
+        replyTo?.id,
+        quickReplyId
       );
       setText('');
+      setQuickReplyId(null);
       if (textareaRef.current) {
         textareaRef.current.style.height = 'auto';
       }
@@ -318,6 +336,7 @@ export function MessageComposer({
     replyTo?.id,
     signature.enabled,
     signature.name,
+    quickReplyId,
   ]);
 
   // `@` at the start of the field opens the assign panel. Derived from the
@@ -469,6 +488,8 @@ export function MessageComposer({
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
       setText(e.target.value);
+      // An emptied field no longer carries the snippet it once held.
+      if (!e.target.value) setQuickReplyId(null);
       setAssignCursor(0);
       setSlashCursor(0);
       adjustHeight();
@@ -512,8 +533,9 @@ export function MessageComposer({
    */
   useEffect(() => {
     const onInsert = (event: Event) => {
-      const detail = (event as CustomEvent<{ conversationId: string; text: string }>)
-        .detail;
+      const detail = (
+        event as CustomEvent<{ conversationId: string; text: string }>
+      ).detail;
       if (!detail || detail.conversationId !== conversationId) return;
       if (!detail.text.trim()) return;
       insertDraft(detail.text);
@@ -644,10 +666,12 @@ export function MessageComposer({
           path: null,
           filename: qr.title,
           caption: qr.content_text ?? '',
+          quickReplyId: qr.id,
         });
         return;
       }
       const body = qr.content_text ?? '';
+      setQuickReplyId(qr.id);
       // Separate the snippet from any existing draft with a newline so the
       // words don't run together ("Thanks" + "we'll…" → "Thankswe'll…").
       setText((prev) =>
@@ -998,6 +1022,7 @@ export function MessageComposer({
         draft.kind === 'audio' ? undefined : draft.caption.trim() || undefined,
       filename: draft.kind === 'document' ? draft.filename : undefined,
       replyToId: replyTo?.id,
+      quickReplyId: draft.quickReplyId ?? null,
     });
     // The object is now owned by the sent message — clear without GC.
     setDraft(null);
@@ -1032,7 +1057,7 @@ export function MessageComposer({
       // it is a swipe-up gesture instead. The app is `overflow: hidden`
       // with children scrolling inside, so the browser never scrolls the
       // inset out of the way the way a normal document does.
-      className="px-3 pt-3 pb-safe-3 sm:px-4"
+      className="pb-safe-3 px-3 pt-3 sm:px-4"
       ref={rootRef}
       // The drag listeners are NOT here any more — they are bound to the
       // whole thread in the effect above. Dropping a file onto the

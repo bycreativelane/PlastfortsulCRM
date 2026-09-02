@@ -540,7 +540,7 @@ export function MessageThread({
   }, [messages]);
 
   const handleSend = useCallback(
-    async (text: string, replyToId?: string) => {
+    async (text: string, replyToId?: string, quickReplyId?: string | null) => {
       if (!conversation) return;
 
       const tempId = `temp-${Date.now()}`;
@@ -572,6 +572,8 @@ export function MessageThread({
             message_type: 'text',
             content_text: text,
             reply_to_message_id: replyToId,
+            // Which `/atalho` this came from, so `/aberto` can be a trigger.
+            quick_reply_id: quickReplyId ?? undefined,
           }),
         });
 
@@ -649,6 +651,7 @@ export function MessageThread({
             content_text: contentText,
             filename: payload.filename,
             reply_to_message_id: payload.replyToId,
+            quick_reply_id: payload.quickReplyId ?? undefined,
           }),
         });
 

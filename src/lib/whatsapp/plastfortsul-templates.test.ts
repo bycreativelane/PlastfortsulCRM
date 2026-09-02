@@ -13,13 +13,15 @@ import {
 const DECLARED: Record<string, number> = {
   followup_d1: 2,
   followup_d3: 2,
-  followup_d15: 1,
+  // `followup_d15` and `posvenda_d10` until the official flow (D1, D3, D10,
+  // D30; pós-venda on day 20) renamed them — see the template file.
+  followup_d10: 1,
   followup_d30: 1,
   orcamento_enviado: 2,
   pedido_confirmado: 2,
   compra_futura: 1,
   recompra_60d: 2,
-  posvenda_d10: 1,
+  posvenda_d20: 1,
   posvenda_avaliacao: 1,
   aniversario_cliente: 1,
   reativacao_60d: 1,
@@ -61,7 +63,7 @@ describe('the twelve PlastfortSul templates', () => {
   );
 
   it('keeps every category as the prototype assigns it', () => {
-    const utility = ['orcamento_enviado', 'pedido_confirmado', 'posvenda_d10'];
+    const utility = ['orcamento_enviado', 'pedido_confirmado', 'posvenda_d20'];
     for (const t of PLASTFORTSUL_TEMPLATES) {
       expect(t.category, t.name).toBe(
         utility.includes(t.name) ? 'Utility' : 'Marketing'

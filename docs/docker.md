@@ -66,9 +66,17 @@ docker run -d --env-file .env.local -e PORT=3000 -p 3000:3000 plastfortsul-crm
   Attachment Storage; attachments received while it's off become
   unviewable once Meta drops them. Files over 16 MB (the bucket's
   limit) are never copied.
-- Nothing inside the container is scheduled. If you use automation
-  Wait steps or flows, point an external scheduler at
-  `GET /api/automations/cron` and `GET /api/flows/cron` on this
-  deployment, sending the shared secret in the `x-cron-secret` header
-  (`AUTOMATION_CRON_SECRET`, see `.env.local.example`). Both return
-  503 until that variable is set.
+- Nothing inside the container is scheduled. Point an external
+  scheduler at `GET /api/automations/cron` and `GET /api/flows/cron` on
+  this deployment **every minute**, sending the shared secret in the
+  `x-cron-secret` header (`AUTOMATION_CRON_SECRET`, see
+  `.env.local.example`). Both return 503 until that variable is set.
+  Every minute, not "when convenient": since migration 065 that tick is
+  what carries deal stage changes to the automation engine, cancels the
+  waits of a customer who replied, and sweeps the day's birthdays. A
+  host `crontab` line does it:
+
+  ```
+  * * * * * curl -fsS -H "x-cron-secret: $AUTOMATION_CRON_SECRET" https://seu-dominio/api/automations/cron >/dev/null
+  * * * * * curl -fsS -H "x-cron-secret: $AUTOMATION_CRON_SECRET" https://seu-dominio/api/flows/cron >/dev/null
+  ```

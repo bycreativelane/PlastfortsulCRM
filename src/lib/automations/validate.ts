@@ -1,5 +1,6 @@
-import type { AutomationTriggerType } from '@/types'
-import { validateInteractivePayload } from '@/lib/whatsapp/interactive'
+import type { AutomationTriggerType } from '@/types';
+import { validateInteractivePayload } from '@/lib/whatsapp/interactive';
+import { parseHHmm } from './local-time';
 
 // ------------------------------------------------------------
 // Pre-flight config validation for automations about to be activated.
@@ -17,153 +18,281 @@ import { validateInteractivePayload } from '@/lib/whatsapp/interactive'
 
 export interface ValidationIssue {
   /** Dot-path for the UI to highlight; stable enough to build a table. */
-  path: string
-  message: string
+  path: string;
+  message: string;
 }
 
 interface StepLike {
-  step_type: string
-  step_config: Record<string, unknown>
-  branches?: { yes?: StepLike[]; no?: StepLike[] }
+  step_type: string;
+  step_config: Record<string, unknown>;
+  branches?: { yes?: StepLike[]; no?: StepLike[] };
 }
 
-export function validateStepsForActivation(steps: StepLike[]): ValidationIssue[] {
-  const issues: ValidationIssue[] = []
+const DATE_FIELDS = [
+  'birthday',
+  'next_purchase_expected_at',
+  'last_purchase_at',
+];
+const DEAL_FIELDS = ['title', 'value', 'expected_close_date', 'notes'];
+const REENTRY_POLICIES = ['always', 'never', 'after_complete', 'after_days'];
+
+export function validateStepsForActivation(
+  steps: StepLike[]
+): ValidationIssue[] {
+  const issues: ValidationIssue[] = [];
   if (!Array.isArray(steps) || steps.length === 0) {
     issues.push({
       path: 'steps',
       message: 'active automations need at least one step',
-    })
-    return issues
+    });
+    return issues;
   }
-  walk(steps, '', issues)
-  return issues
+  walk(steps, '', issues);
+  return issues;
 }
 
-function walk(steps: StepLike[], prefix: string, issues: ValidationIssue[]): void {
+function walk(
+  steps: StepLike[],
+  prefix: string,
+  issues: ValidationIssue[]
+): void {
   steps.forEach((s, i) => {
-    const path = `${prefix}steps[${i}]`
-    validateOne(s, path, issues)
+    const path = `${prefix}steps[${i}]`;
+    validateOne(s, path, issues);
     if (s.step_type === 'condition' && s.branches) {
-      if (s.branches.yes) walk(s.branches.yes, `${path}.yes.`, issues)
-      if (s.branches.no) walk(s.branches.no, `${path}.no.`, issues)
+      if (s.branches.yes) walk(s.branches.yes, `${path}.yes.`, issues);
+      if (s.branches.no) walk(s.branches.no, `${path}.no.`, issues);
     }
-  })
+  });
 }
 
-function validateOne(step: StepLike, path: string, issues: ValidationIssue[]): void {
-  const c = step.step_config ?? {}
+function validateOne(
+  step: StepLike,
+  path: string,
+  issues: ValidationIssue[]
+): void {
+  const c = step.step_config ?? {};
   switch (step.step_type) {
     case 'send_message':
       if (!nonEmpty(c.text)) {
-        issues.push({ path: `${path}.text`, message: 'message text is required' })
+        issues.push({
+          path: `${path}.text`,
+          message: 'message text is required',
+        });
       }
-      break
+      break;
     case 'send_buttons':
     case 'send_list': {
       // The whole step_config IS the interactive payload; validate it
       // against Meta's limits (same check the engine runs before send).
-      const result = validateInteractivePayload(c)
+      const result = validateInteractivePayload(c);
       if (!result.ok) {
-        issues.push({ path: `${path}.interactive`, message: result.error })
+        issues.push({ path: `${path}.interactive`, message: result.error });
       }
-      break
+      break;
     }
     case 'send_template':
       if (!nonEmpty(c.template_name)) {
-        issues.push({ path: `${path}.template_name`, message: 'template name is required' })
+        issues.push({
+          path: `${path}.template_name`,
+          message: 'template name is required',
+        });
       }
-      break
+      break;
     case 'add_tag':
     case 'remove_tag':
       if (!nonEmpty(c.tag_id)) {
-        issues.push({ path: `${path}.tag_id`, message: 'tag is required' })
+        issues.push({ path: `${path}.tag_id`, message: 'tag is required' });
       }
-      break
+      break;
     case 'assign_conversation':
       if (c.mode === 'specific' && !nonEmpty(c.agent_id)) {
         issues.push({
           path: `${path}.agent_id`,
           message: 'agent is required when mode is "specific"',
-        })
+        });
       }
-      break
+      break;
     case 'update_contact_field':
       if (!nonEmpty(c.field)) {
-        issues.push({ path: `${path}.field`, message: 'field name is required' })
+        issues.push({
+          path: `${path}.field`,
+          message: 'field name is required',
+        });
       }
       if (c.value === undefined || c.value === null || c.value === '') {
-        issues.push({ path: `${path}.value`, message: 'field value is required' })
+        issues.push({
+          path: `${path}.value`,
+          message: 'field value is required',
+        });
       }
-      break
+      break;
     case 'create_deal':
       if (!nonEmpty(c.pipeline_id)) {
-        issues.push({ path: `${path}.pipeline_id`, message: 'pipeline is required' })
+        issues.push({
+          path: `${path}.pipeline_id`,
+          message: 'pipeline is required',
+        });
       }
       if (!nonEmpty(c.stage_id)) {
-        issues.push({ path: `${path}.stage_id`, message: 'stage is required' })
+        issues.push({ path: `${path}.stage_id`, message: 'stage is required' });
       }
       if (!nonEmpty(c.title)) {
-        issues.push({ path: `${path}.title`, message: 'title is required' })
+        issues.push({ path: `${path}.title`, message: 'title is required' });
       }
-      break
+      break;
     case 'wait':
-      if (typeof c.amount !== 'number' || !Number.isFinite(c.amount) || c.amount <= 0) {
-        issues.push({ path: `${path}.amount`, message: 'wait amount must be greater than 0' })
+      if (c.mode === 'until_contact_date') {
+        if (
+          !DATE_FIELDS.includes(String(c.field ?? 'next_purchase_expected_at'))
+        ) {
+          issues.push({
+            path: `${path}.field`,
+            message: 'wait until date needs a contact date field',
+          });
+        }
+        if (c.at != null && c.at !== '' && parseHHmm(String(c.at)) === null) {
+          issues.push({ path: `${path}.at`, message: 'time must be HH:mm' });
+        }
+        break;
+      }
+      if (
+        typeof c.amount !== 'number' ||
+        !Number.isFinite(c.amount) ||
+        c.amount <= 0
+      ) {
+        issues.push({
+          path: `${path}.amount`,
+          message: 'wait amount must be greater than 0',
+        });
       }
       if (!['minutes', 'hours', 'days'].includes(String(c.unit))) {
         issues.push({
           path: `${path}.unit`,
           message: 'wait unit must be minutes, hours, or days',
-        })
+        });
       }
-      break
+      break;
     case 'condition':
+      // Subject and operand are flagged independently, so an empty
+      // condition reports both at once rather than one per save.
       if (!nonEmpty(c.subject)) {
-        issues.push({ path: `${path}.subject`, message: 'condition subject is required' })
+        issues.push({
+          path: `${path}.subject`,
+          message: 'condition subject is required',
+        });
       }
-      if (!nonEmpty(c.operand)) {
-        issues.push({ path: `${path}.operand`, message: 'condition operand is required' })
+      if (c.subject === 'deal_in_stage') {
+        const list = Array.isArray(c.stage_ids)
+          ? c.stage_ids.filter((v) => typeof v === 'string' && v.trim())
+          : [];
+        if (list.length === 0 && !nonEmpty(c.operand)) {
+          issues.push({
+            path: `${path}.stage_ids`,
+            message: 'at least one stage is required',
+          });
+        }
+      } else if (c.subject === 'customer_replied_since') {
+        if (
+          !['stage_entry', 'run_start'].includes(
+            String(c.operand ?? 'stage_entry')
+          )
+        ) {
+          issues.push({
+            path: `${path}.operand`,
+            message: 'since must be "stage_entry" or "run_start"',
+          });
+        }
+      } else if (c.subject === 'deal_is_open') {
+        // No operand.
+      } else if (!nonEmpty(c.operand)) {
+        issues.push({
+          path: `${path}.operand`,
+          message: 'condition operand is required',
+        });
       }
-      break
+      break;
     case 'send_webhook':
       if (!nonEmpty(c.url)) {
-        issues.push({ path: `${path}.url`, message: 'webhook URL is required' })
-        break
+        issues.push({
+          path: `${path}.url`,
+          message: 'webhook URL is required',
+        });
+        break;
       }
       try {
-        const u = new URL(String(c.url))
+        const u = new URL(String(c.url));
         if (u.protocol !== 'http:' && u.protocol !== 'https:') {
           issues.push({
             path: `${path}.url`,
             message: 'webhook URL must use http or https',
-          })
+          });
         }
       } catch {
-        issues.push({ path: `${path}.url`, message: 'webhook URL is not a valid URL' })
+        issues.push({
+          path: `${path}.url`,
+          message: 'webhook URL is not a valid URL',
+        });
       }
-      break
+      break;
     case 'close_conversation':
       // No config required.
-      break
+      break;
+    case 'move_deal_stage':
+      if (!nonEmpty(c.stage_id)) {
+        issues.push({ path: `${path}.stage_id`, message: 'stage is required' });
+      }
+      break;
+    case 'update_deal':
+      if (!DEAL_FIELDS.includes(String(c.field))) {
+        issues.push({
+          path: `${path}.field`,
+          message:
+            'deal field must be title, value, expected_close_date or notes',
+        });
+      }
+      if (c.value === undefined || c.value === null || c.value === '') {
+        issues.push({
+          path: `${path}.value`,
+          message: 'field value is required',
+        });
+      }
+      break;
+    case 'cancel_automations':
+      if (!['deal', 'contact'].includes(String(c.scope ?? 'deal'))) {
+        issues.push({
+          path: `${path}.scope`,
+          message: 'scope must be "deal" or "contact"',
+        });
+      }
+      break;
+    case 'end':
+      // No config required.
+      break;
     default:
-      issues.push({ path, message: `unknown step type: ${step.step_type}` })
+      issues.push({ path, message: `unknown step type: ${step.step_type}` });
   }
 }
 
 export function validateTriggerForActivation(
   triggerType: AutomationTriggerType | string,
-  triggerConfig: unknown,
+  triggerConfig: unknown
 ): ValidationIssue[] {
-  const issues: ValidationIssue[] = []
-  const cfg = (triggerConfig ?? {}) as Record<string, unknown>
+  const issues: ValidationIssue[] = [];
+  const cfg = (triggerConfig ?? {}) as Record<string, unknown>;
 
   if (triggerType === 'keyword_match') {
-    const k = cfg.keywords
+    const k = cfg.keywords;
     if (!Array.isArray(k) || k.length === 0) {
-      issues.push({ path: 'trigger.keywords', message: 'at least one keyword is required' })
+      issues.push({
+        path: 'trigger.keywords',
+        message: 'at least one keyword is required',
+      });
     } else if (k.some((v) => typeof v !== 'string' || v.trim() === '')) {
-      issues.push({ path: 'trigger.keywords', message: 'keywords cannot be empty strings' })
+      issues.push({
+        path: 'trigger.keywords',
+        message: 'keywords cannot be empty strings',
+      });
     }
     // A missing match_type defaults to "contains" at runtime (see
     // automations/engine.ts and flows/engine.ts, which both read
@@ -180,34 +309,156 @@ export function validateTriggerForActivation(
       issues.push({
         path: 'trigger.match_type',
         message: 'match type must be "exact", "contains" or "word"',
-      })
+      });
     }
   } else if (triggerType === 'time_based') {
     if (!nonEmpty(cfg.schedule)) {
-      issues.push({ path: 'trigger.schedule', message: 'schedule is required' })
+      issues.push({
+        path: 'trigger.schedule',
+        message: 'schedule is required',
+      });
     }
   } else if (triggerType === 'tag_added') {
     if (!nonEmpty(cfg.tag_id)) {
-      issues.push({ path: 'trigger.tag_id', message: 'tag is required' })
+      issues.push({ path: 'trigger.tag_id', message: 'tag is required' });
     }
   } else if (triggerType === 'interactive_reply') {
-    const ids = cfg.reply_ids
+    const ids = cfg.reply_ids;
     if (!Array.isArray(ids) || ids.length === 0) {
       issues.push({
         path: 'trigger.reply_ids',
         message: 'at least one reply id is required',
-      })
+      });
     } else if (ids.some((v) => typeof v !== 'string' || v.trim() === '')) {
       issues.push({
         path: 'trigger.reply_ids',
         message: 'reply ids cannot be empty strings',
-      })
+      });
+    }
+  } else if (triggerType === 'deal_stage_entered') {
+    if (!nonEmpty(cfg.stage_id)) {
+      issues.push({ path: 'trigger.stage_id', message: 'stage is required' });
+    }
+  } else if (triggerType === 'team_message_sent') {
+    if (!nonEmpty(cfg.quick_reply_id) && !nonEmpty(cfg.template_name)) {
+      issues.push({
+        path: 'trigger.quick_reply_id',
+        message: 'a quick reply or a template name is required',
+      });
+    }
+  } else if (triggerType === 'date_field_reached') {
+    if (!DATE_FIELDS.includes(String(cfg.field))) {
+      issues.push({
+        path: 'trigger.field',
+        message: 'a contact date field is required',
+      });
+    }
+    if (cfg.at != null && cfg.at !== '' && parseHHmm(String(cfg.at)) === null) {
+      issues.push({ path: 'trigger.at', message: 'time must be HH:mm' });
     }
   }
 
-  return issues
+  return issues;
+}
+
+/**
+ * The automation-level settings of migration 065 — the funnel scope, the
+ * cancellation rules and the reentry policy. Checked on every save, active
+ * or not: a malformed list would otherwise sit in the row until the day it
+ * silently cancels nothing.
+ */
+export function validateAutomationSettings(
+  settings: Record<string, unknown>
+): ValidationIssue[] {
+  const issues: ValidationIssue[] = [];
+  if (
+    'cancel_when_stage_in' in settings &&
+    settings.cancel_when_stage_in != null
+  ) {
+    const list = settings.cancel_when_stage_in;
+    if (
+      !Array.isArray(list) ||
+      list.some((v) => typeof v !== 'string' || v.trim() === '')
+    ) {
+      issues.push({
+        path: 'cancel_when_stage_in',
+        message: 'cancel_when_stage_in must be a list of stage ids',
+      });
+    }
+  }
+  if ('reentry_policy' in settings && settings.reentry_policy != null) {
+    if (!REENTRY_POLICIES.includes(String(settings.reentry_policy))) {
+      issues.push({
+        path: 'reentry_policy',
+        message:
+          'reentry policy must be always, never, after_complete or after_days',
+      });
+    }
+    if (settings.reentry_policy === 'after_days') {
+      const days = Number(settings.reentry_days);
+      if (!Number.isInteger(days) || days <= 0) {
+        issues.push({
+          path: 'reentry_days',
+          message: 'reentry days must be a whole number greater than 0',
+        });
+      }
+    }
+  }
+  return issues;
+}
+
+/**
+ * Things that will not stop activation but will bite at runtime — shown
+ * to the author as a toast rather than a refusal.
+ *
+ * The one warning today: a free-text `send_message` after a wait of 24
+ * hours or more. Meta only delivers free text inside the 24-hour window
+ * the customer opened, so that step fails on the day unless the customer
+ * happened to write in between. A template is what goes out after a day.
+ * Not a blocking issue, because an automation can legitimately count on
+ * the customer having written — and because the built-in "Lembrete de
+ * retorno" template is exactly that shape and must keep activating.
+ */
+export function collectActivationWarnings(
+  steps: StepLike[]
+): ValidationIssue[] {
+  const warnings: ValidationIssue[] = [];
+  // A branch inherits the waits before its condition: a day's wait at the
+  // root is a day's wait for every step under it.
+  const scan = (list: StepLike[], prefix: string, inherited = 0) => {
+    let waitedMs = inherited;
+    list.forEach((s, i) => {
+      const path = `${prefix}steps[${i}]`;
+      const c = s.step_config ?? {};
+      if (s.step_type === 'wait') {
+        if (c.mode === 'until_contact_date') {
+          waitedMs = 86_400_000;
+        } else {
+          const amount = Number(c.amount) || 0;
+          const unitMs =
+            c.unit === 'days'
+              ? 86_400_000
+              : c.unit === 'hours'
+                ? 3_600_000
+                : 60_000;
+          waitedMs += amount * unitMs;
+        }
+      } else if (s.step_type === 'send_message' && waitedMs >= 86_400_000) {
+        warnings.push({
+          path: `${path}.text`,
+          message:
+            'a plain message after a wait of 24 h or more only reaches customers who wrote in between — use a template',
+        });
+      } else if (s.step_type === 'condition' && s.branches) {
+        if (s.branches.yes) scan(s.branches.yes, `${path}.yes.`, waitedMs);
+        if (s.branches.no) scan(s.branches.no, `${path}.no.`, waitedMs);
+      }
+    });
+  };
+  scan(Array.isArray(steps) ? steps : [], '');
+  return warnings;
 }
 
 function nonEmpty(v: unknown): boolean {
-  return typeof v === 'string' && v.trim().length > 0
+  return typeof v === 'string' && v.trim().length > 0;
 }

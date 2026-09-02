@@ -45,19 +45,33 @@ export default function AutomationLogsPage({
     async function load() {
       try {
         const supabase = createClient();
-        const [autRes, logRes] = await Promise.all([
-          supabase.from('automations').select('*').eq('id', id).maybeSingle(),
+        const loadLogs = (withDeal: boolean) =>
           supabase
             .from('automation_logs')
-            .select('*, contact:contacts(id, name, phone)')
+            .select(
+              withDeal
+                ? '*, contact:contacts(id, name, phone), deal:deals(id, title)'
+                : '*, contact:contacts(id, name, phone)'
+            )
             .eq('automation_id', id)
             .order('created_at', { ascending: false })
-            .limit(100),
+            .limit(100);
+        const [autRes, logResWithDeal] = await Promise.all([
+          supabase.from('automations').select('*').eq('id', id).maybeSingle(),
+          loadLogs(true),
         ]);
+        // `deal_id` arrives with migration 065; before it, PostgREST cannot
+        // embed the deal and the whole select fails. The history still has
+        // to render, just without the deal column.
+        const logRes = logResWithDeal.error
+          ? await loadLogs(false)
+          : logResWithDeal;
         if (autRes.error) throw autRes.error;
         if (logRes.error) throw logRes.error;
         setAutomation(autRes.data as Automation | null);
-        setLogs((logRes.data ?? []) as AutomationLog[]);
+        // Through `unknown`: the select string is chosen at runtime and
+        // the client's string parser cannot type it.
+        setLogs((logRes.data ?? []) as unknown as AutomationLog[]);
       } catch (err) {
         setError(err instanceof Error ? err.message : t('loadError'));
       }
@@ -159,6 +173,33 @@ export default function AutomationLogsPage({
                         {log.error_message}
                       </p>
                     )}
+                    {(log.deal || log.end_reason) && (
+                      <dl className="text-muted-foreground mb-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
+                        {log.deal && (
+                          <>
+                            <dt className="font-medium">{t('dealLabel')}</dt>
+                            <dd className="text-foreground truncate">
+                              <a
+                                href={`/pipelines?deal=${log.deal.id}`}
+                                className="hover:underline"
+                              >
+                                {log.deal.title}
+                              </a>
+                            </dd>
+                          </>
+                        )}
+                        {log.end_reason && (
+                          <>
+                            <dt className="font-medium">
+                              {t('endReasonLabel')}
+                            </dt>
+                            <dd className="text-foreground">
+                              {endReasonLabel(log.end_reason, t)}
+                            </dd>
+                          </>
+                        )}
+                      </dl>
+                    )}
                     <ul className="space-y-1.5">
                       {(log.steps_executed ?? []).map((r, i) => (
                         <StepRow key={i} result={r} />
@@ -193,12 +234,43 @@ export default function AutomationLogsPage({
  */
 const LOG_STATUS_VARIANT: Record<
   AutomationLog['status'],
-  'auto' | 'human' | 'danger'
+  'auto' | 'human' | 'danger' | 'neutral'
 > = {
   success: 'auto',
   partial: 'human',
   failed: 'danger',
+  // Neither is a failure: a cancelled run is the rule working (the
+  // customer replied, the deal moved on), a skipped one is the reentry
+  // policy refusing a duplicate. Grey, and the reason says which.
+  cancelled: 'neutral',
+  skipped: 'neutral',
 };
+
+/**
+ * `end_reason` in words. The engine writes a small vocabulary plus two
+ * prefixed forms (`stage_entered:<id>`, `cancelled_by:<id>`); anything
+ * else is the free text of an End step and is shown as written.
+ */
+function endReasonLabel(
+  reason: string,
+  t: ReturnType<typeof useTranslations>
+): string {
+  const key = reason.startsWith('stage_entered:')
+    ? 'stage_entered'
+    : reason.startsWith('cancelled_by:')
+      ? 'cancelled_by'
+      : reason;
+  const known = [
+    'customer_replied',
+    'stage_entered',
+    'cancelled_by',
+    'reentry_blocked',
+    'already_running',
+    'date_cleared',
+    'end_step',
+  ];
+  return known.includes(key) ? t(`endReasons.${key}`) : reason;
+}
 
 function LogStatusBadge({
   status,

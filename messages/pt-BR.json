@@ -1272,7 +1272,9 @@
         "competitor": "Comprou com concorrente",
         "noReply": "Parou de responder",
         "productMismatch": "Produto incompatível",
-        "other": "Outro"
+        "other": "Outro",
+        "noNeedNow": "Sem necessidade no momento",
+        "gaveUp": "Desistiu"
       }
     },
     "items": {
@@ -1544,7 +1546,19 @@
       "lastRunAt": "última execução {time}",
       "lastRunNever": "nunca executou",
       "loadErrorTitle": "Não foi possível carregar as automações",
-      "loadErrorDesc": "Verifique sua conexão e tente de novo."
+      "loadErrorDesc": "Verifique sua conexão e tente de novo.",
+      "rules": {
+        "cancelOnReply": "cancela ao responder",
+        "cancelOnStages": "cancela em {count} etapa(s)",
+        "reentry": {
+          "never": "uma vez",
+          "after_complete": "uma por vez",
+          "after_days": "depois de {days} dias"
+        }
+      },
+      "templatesFunnelTitle": "Funil de Vendas — o fluxo oficial",
+      "templatesFunnelShow": "Mostrar modelos do funil",
+      "templatesFunnelHide": "Ocultar"
     },
     "templates": {
       "welcome_message": {
@@ -1575,6 +1589,47 @@
         "copy": {
           "nudge": "Passando para saber se ficou alguma dúvida. Posso ajudar em mais alguma coisa?"
         }
+      },
+      "unresolved": "Não encontrei nesta conta: {names}. Escolha à mão antes de ativar.",
+      "funnel_quote_sent": {
+        "name": "/aberto → Em Aberto",
+        "description": "O orçamento saiu: a oportunidade vai para Em Aberto."
+      },
+      "funnel_open_24h": {
+        "name": "Em Aberto, 24 h sem resposta",
+        "description": "Um dia de silêncio depois do orçamento move a oportunidade para Follow-up."
+      },
+      "funnel_followup": {
+        "name": "Sequência de follow-up",
+        "description": "D1, D3, D10 e D30 por template; depois 24 h e Geladeira 30D. A resposta cancela."
+      },
+      "funnel_customer_replied": {
+        "name": "Cliente respondeu",
+        "description": "Uma oportunidade parada — follow-up, geladeira, compra futura — volta para Em Negociação."
+      },
+      "funnel_fridge_30d": {
+        "name": "Geladeira 30D → 60D",
+        "description": "Trinta dias em silêncio na geladeira movem a oportunidade para Geladeira 60D."
+      },
+      "funnel_in_progress": {
+        "name": "/andamento → Em Andamento",
+        "description": "O cliente comprou: Lead vira Cliente e as esperas antigas são canceladas."
+      },
+      "funnel_served": {
+        "name": "/atendido → Atendido",
+        "description": "O pedido foi enviado: a oportunidade vai para Atendido e o pós-venda começa a contar."
+      },
+      "funnel_after_sale": {
+        "name": "Pós-venda e recompra",
+        "description": "No D20 pergunta como foi e move para Pós-venda; no D60 e no D120 oferece a recompra."
+      },
+      "funnel_future_purchase": {
+        "name": "Compra Futura",
+        "description": "Espera até a data que o cliente deu e então envia a mensagem."
+      },
+      "funnel_birthday": {
+        "name": "Aniversário",
+        "description": "Envia o template de aniversário no dia, uma vez."
       }
     },
     "edit": {
@@ -1595,10 +1650,23 @@
       "status": {
         "success": "sucesso",
         "partial": "parcial",
-        "failed": "falhou"
+        "failed": "falhou",
+        "cancelled": "cancelada",
+        "skipped": "pulada"
       },
       "back": "Voltar",
-      "backAria": "Voltar"
+      "backAria": "Voltar",
+      "endReasonLabel": "Encerrou porque",
+      "dealLabel": "Oportunidade",
+      "endReasons": {
+        "customer_replied": "o cliente respondeu",
+        "stage_entered": "a oportunidade mudou de etapa",
+        "cancelled_by": "outra automação cancelou",
+        "reentry_blocked": "a política de reentrada recusou uma segunda execução",
+        "already_running": "já havia uma execução em andamento para esta oportunidade",
+        "date_cleared": "a data foi apagada do contato",
+        "end_step": "um passo Encerrar"
+      }
     },
     "builder": {
       "steps": {
@@ -1614,7 +1682,11 @@
         "wait": "Esperar",
         "condition": "Condição (se/senão)",
         "send_webhook": "Enviar webhook",
-        "close_conversation": "Encerrar conversa"
+        "close_conversation": "Encerrar conversa",
+        "move_deal_stage": "Mover oportunidade de etapa",
+        "update_deal": "Atualizar oportunidade",
+        "cancel_automations": "Cancelar automações",
+        "end": "Encerrar automação"
       },
       "triggers": {
         "new_message_received": {
@@ -1652,6 +1724,18 @@
         "webhook_received": {
           "label": "Webhook recebido",
           "hint": "Um sistema de fora — Typebot, n8n, uma landing page — enviou dados para um webhook desta conta"
+        },
+        "deal_stage_entered": {
+          "label": "Oportunidade entrou na etapa",
+          "hint": "Quando uma oportunidade é movida para a etapa escolhida, ou criada nela. Vale para o quadro, a conversa e a API; o motor vê em até um minuto."
+        },
+        "team_message_sent": {
+          "label": "Mensagem enviada pela equipe",
+          "hint": "Quando alguém da equipe envia a resposta rápida escolhida (como /aberto) ou um template da Meta pelo Atendimento."
+        },
+        "date_field_reached": {
+          "label": "Data do contato chegou",
+          "hint": "Uma vez por dia, para cada contato cujo aniversário ou data de compra é hoje. Nunca duas vezes para o mesmo contato no mesmo dia."
         }
       },
       "trigger": "Gatilho",
@@ -1742,7 +1826,10 @@
           "tag_presence": "Presença de etiqueta",
           "contact_field": "Campo do contato",
           "message_content": "Conteúdo da mensagem",
-          "time_of_day": "Hora do dia"
+          "time_of_day": "Hora do dia",
+          "deal_in_stage": "Oportunidade está na etapa",
+          "deal_is_open": "Oportunidade está aberta",
+          "customer_replied_since": "Cliente respondeu desde…"
         },
         "operandLabel": "Operando",
         "placeholderTime": "HH:mm-HH:mm",
@@ -1758,7 +1845,50 @@
         "matchWord": "Palavra inteira",
         "matchWordHint": "Compara a palavra-chave apenas como palavra isolada, então \"ok\" deixa de disparar em \"okay\". Ideal para palavras curtas em idiomas com espaço entre palavras; use Contém para idiomas escritos sem espaços.",
         "matchExact": "Exata",
-        "closeConversationHint": "Muda a situação da conversa para \"encerrada\". Não precisa de configuração."
+        "closeConversationHint": "Muda a situação da conversa para \"encerrada\". Não precisa de configuração.",
+        "waitModeLabel": "Esperar",
+        "waitModes": {
+          "duration": "Um tempo fixo",
+          "until_contact_date": "Até uma data do contato"
+        },
+        "dateFieldLabel": "Data do contato",
+        "dateFields": {
+          "birthday": "Aniversário",
+          "next_purchase_expected_at": "Próxima compra prevista",
+          "last_purchase_at": "Última compra"
+        },
+        "atLabel": "Às (HH:mm)",
+        "timezoneLabel": "Fuso horário",
+        "untilDateHint": "A data é relida ao acordar: se mudou, espera de novo; se foi apagada, a execução termina.",
+        "sinceLabel": "Desde",
+        "since": {
+          "stage_entry": "A oportunidade entrou na etapa",
+          "run_start": "Esta execução começou"
+        },
+        "stagesLabel": "Etapas",
+        "dealIsOpenHint": "Verdadeiro enquanto a oportunidade não foi ganha nem perdida.",
+        "lostReasonLabel": "Motivo da perda",
+        "lostReasonSelect": "Escolha um motivo…",
+        "moveDealHint": "Move a oportunidade desta execução. Uma etapa ganha marca como ganha se houver valor; uma etapa perdida exige motivo.",
+        "dealFieldLabel": "Campo da oportunidade",
+        "dealFields": {
+          "title": "Título",
+          "value": "Valor",
+          "expected_close_date": "Previsão de fechamento",
+          "notes": "Observações (acrescenta uma linha)"
+        },
+        "scopeLabel": "Cancelar para",
+        "scopes": {
+          "deal": "Esta oportunidade",
+          "contact": "Tudo deste contato"
+        },
+        "automationsLabel": "Automações",
+        "allOtherAutomations": "Nenhuma marcada significa todas as outras automações.",
+        "reasonLabel": "Motivo",
+        "placeholderReason": "ex.: cliente respondeu",
+        "endHint": "Para a execução aqui, inclusive dentro de um ramo, e registra o motivo.",
+        "quickReplyLabel": "Resposta rápida",
+        "templateOrLabel": "…ou o nome de um template"
       },
       "kinds": {
         "action": "Ação",
@@ -1775,7 +1905,37 @@
         "noBody": "sem conteúdo ainda",
         "pickTemplate": "escolha um template",
         "noUrl": "sem URL",
-        "when": "quando {subject}"
+        "when": "quando {subject}",
+        "untilDate": "até {field}",
+        "noStage": "escolha uma etapa",
+        "cancelScope": "cancelar: {scope}",
+        "ended": "encerrar"
+      },
+      "quickReplies": {
+        "select": "Escolha uma resposta rápida…",
+        "placeholder": "Id da resposta rápida",
+        "unknown": "{id} (resposta rápida desconhecida)"
+      },
+      "rules": {
+        "title": "Regras",
+        "none": "Sem regras",
+        "count": "{count} ativa(s)",
+        "pipelineLabel": "Funil",
+        "pipelineAny": "Qualquer funil",
+        "pipelineHint": "Um gatilho de contato trabalha a oportunidade aberta mais recente do contato neste funil.",
+        "cancelOnReply": "Cancelar quando o cliente responder",
+        "cancelOnReplyHint": "As esperas pendentes desta automação são canceladas no instante em que o contato escreve.",
+        "cancelWhenStageIn": "Cancelar quando a oportunidade entrar em…",
+        "cancelWhenStageInHint": "Marque as etapas que encerram esta automação para uma oportunidade.",
+        "reentryLabel": "Rodar de novo",
+        "reentry": {
+          "always": "Sempre que disparar",
+          "after_complete": "Só depois que a execução anterior terminar",
+          "never": "Uma vez por oportunidade ou contato",
+          "after_days": "Depois de alguns dias"
+        },
+        "reentryDays": "Dias",
+        "reentryHint": "Nunca duas execuções ao mesmo tempo para a mesma oportunidade, seja qual for a escolha."
       }
     }
   },
@@ -3236,6 +3396,18 @@
       "quieterUi": {
         "title": "O produto parou de gritar",
         "body": "Relatórios e a Visão geral passaram a usar superfície neutra: o tom vive no ícone e no número, não no fundo do card."
+      },
+      "funnelFlow": {
+        "title": "O funil de Vendas roda sozinho",
+        "body": "Dez modelos prontos: /aberto, 24 h sem resposta, a sequência de follow-up, geladeira, /andamento, /atendido, pós-venda e recompra, compra futura e aniversário. Instale, confira as etapas e ative."
+      },
+      "replyCancels": {
+        "title": "Quem responde sai da fila",
+        "body": "Uma resposta do cliente cancela as esperas pendentes e leva a oportunidade para Em Negociação. Ninguém desliga nada à mão."
+      },
+      "shortcutsMove": {
+        "title": "/aberto, /andamento e /atendido movem a oportunidade",
+        "body": "A resposta rápida que você usa no Atendimento vira gatilho. O CRM registra qual atalho saiu e move a etapa por você."
       }
     },
     "items": {
@@ -3308,7 +3480,19 @@
       "controlBorders": "Borda dos campos ficou leve; checkbox e radio continuam com contraste 3:1.",
       "profileAvatar": "A foto do perfil aparece no card do CRM e no cabeçalho da conversa — as duas mostravam só as iniciais.",
       "settingsSticky": "A trilha de Configurações não sobe mais junto com a página.",
-      "reportsSkeleton": "O carregamento de Relatórios tem a forma da página, não a faixa antiga de quatro caixas."
+      "reportsSkeleton": "O carregamento de Relatórios tem a forma da página, não a faixa antiga de quatro caixas.",
+      "funnelFlow": "Dez modelos do funil de Vendas em Automações, que resolvem etapas, etiquetas e atalhos pelo nome na instalação.",
+      "dealStageTrigger": "Gatilho “Oportunidade entrou na etapa”, vindo do quadro, da conversa, da API ou de outra automação.",
+      "teamMessageTrigger": "Gatilho “Mensagem enviada pela equipe”, por resposta rápida ou por template.",
+      "dateTrigger": "Gatilho “Data do contato chegou”: o aniversário no dia, uma vez só por contato.",
+      "dealSteps": "Passos para mover e atualizar a oportunidade, cancelar outras automações e encerrar a execução.",
+      "waitUntilDate": "Espera até a data de Compra Futura, que acompanha a data se ela for mudada na agenda.",
+      "replyCancels": "Regras por automação: cancelar quando o cliente responder ou quando a oportunidade entrar em certas etapas.",
+      "reentryRules": "Política de reentrada, e nunca duas execuções ao mesmo tempo para a mesma oportunidade.",
+      "logsReasons": "O histórico mostra a oportunidade e por que a execução terminou; cancelada e pulada viraram status.",
+      "lossReasons": "Os motivos de perda são os oito do fluxo oficial; “Parou de responder” saiu da lista.",
+      "wonStage": "Em Andamento passa a ser a venda e pede o valor ao entrar; Venda Perdida pede o motivo.",
+      "deadTriggersHidden": "Gatilhos que nunca disparavam (Por horário, Conversa atribuída) saíram do menu."
     },
     "seeIt": "Ver na prática"
   },

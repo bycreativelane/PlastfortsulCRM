@@ -1,15 +1,29 @@
-import { timingSafeEqual } from 'node:crypto'
-import { NextResponse } from 'next/server'
-import { sweepStalledConversations } from '@/lib/conversations/handover-sweep'
-import { supabaseAdmin } from '@/lib/automations/admin-client'
-import { resumePendingExecution } from '@/lib/automations/engine'
-import type { AutomationContext } from '@/lib/automations/engine'
+import { timingSafeEqual } from 'node:crypto';
+import { NextResponse } from 'next/server';
+import { sweepStalledConversations } from '@/lib/conversations/handover-sweep';
+import { supabaseAdmin } from '@/lib/automations/admin-client';
+import { resumePendingExecution } from '@/lib/automations/engine';
+import type { AutomationContext } from '@/lib/automations/engine';
+import { drainDealStageEvents } from '@/lib/automations/stage-events';
+import { runDateFieldSweeps } from '@/lib/automations/date-sweep';
 
 /**
- * Drain due `automation_pending_executions` rows. Meant to be hit
- * on a schedule (Vercel Cron / external pinger) — requires a shared
- * secret via the `x-cron-secret` header to match
+ * The automation engine's clock. Meant to be hit EVERY MINUTE by a
+ * scheduler (host cron, GitHub Actions `schedule`, a paid Vercel cron) —
+ * requires a shared secret via the `x-cron-secret` header to match
  * `AUTOMATION_CRON_SECRET`.
+ *
+ * Four jobs, in an order that is not negotiable:
+ *
+ *   1. Stage events → `deal_stage_entered`. Migration 065's trigger writes
+ *      one row per stage change of every deal; this drains them. Each one
+ *      first applies the cancellation rule for the stage entered, THEN
+ *      fires the trigger — so a follow-up parked for a deal that just
+ *      reached Em Negociação is cancelled before anything new starts.
+ *   2. Due waits. After the events, so a wait that came due in the same
+ *      minute a cancellation landed does not wake and send anyway.
+ *   3. Date sweeps (birthday). Idempotent per contact and day.
+ *   4. The stalled-conversation handover sweep.
  *
  * The claim step (status = 'running') serves as a simple lock so
  * overlapping invocations don't double-process rows. Best-effort
@@ -17,42 +31,50 @@ import type { AutomationContext } from '@/lib/automations/engine'
  * two-step UPDATE-by-id.
  */
 export async function GET(request: Request) {
-  const expected = process.env.AUTOMATION_CRON_SECRET
+  const expected = process.env.AUTOMATION_CRON_SECRET;
   if (!expected) {
-    return NextResponse.json({ error: 'cron not configured' }, { status: 503 })
+    return NextResponse.json({ error: 'cron not configured' }, { status: 503 });
   }
-  const supplied = request.headers.get('x-cron-secret') ?? ''
-  const suppliedBuf = Buffer.from(supplied)
-  const expectedBuf = Buffer.from(expected)
+  const supplied = request.headers.get('x-cron-secret') ?? '';
+  const suppliedBuf = Buffer.from(supplied);
+  const expectedBuf = Buffer.from(expected);
   if (
     suppliedBuf.length !== expectedBuf.length ||
     !timingSafeEqual(suppliedBuf, expectedBuf)
   ) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const admin = supabaseAdmin()
+  const admin = supabaseAdmin();
+
+  // 1. Stage events. Never throws; a pre-065 database reports zero.
+  const stageEvents = await drainDealStageEvents().catch((err) => {
+    console.error('[cron] stage event drain failed:', err);
+    return { processed: 0, dispatched: 0, suppressed: 0 };
+  });
+
+  // 2. Due waits.
   const { data: due, error } = await admin
     .from('automation_pending_executions')
     .select('*')
     .eq('status', 'pending')
     .lte('run_at', new Date().toISOString())
     .order('run_at', { ascending: true })
-    .limit(50)
+    .limit(50);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  if (!due || due.length === 0) return NextResponse.json({ processed: 0 })
+  if (error)
+    return NextResponse.json({ error: error.message }, { status: 500 });
 
-  let processed = 0
-  for (const row of due) {
+  let processed = 0;
+  for (const row of due ?? []) {
     const { data: claim } = await admin
       .from('automation_pending_executions')
       .update({ status: 'running' })
       .eq('id', row.id)
       .eq('status', 'pending')
       .select('id')
-      .maybeSingle()
-    if (!claim) continue
+      .maybeSingle();
+    if (!claim) continue;
 
     await resumePendingExecution({
       id: row.id as string,
@@ -67,12 +89,18 @@ export async function GET(request: Request) {
       branch: (row.branch as 'yes' | 'no' | null) ?? null,
       next_step_position: row.next_step_position as number,
       context: (row.context as AutomationContext) ?? {},
-    })
-    processed++
+    });
+    processed++;
   }
 
+  // 3. Date sweeps.
+  const sweeps = await runDateFieldSweeps().catch((err) => {
+    console.error('[cron] date sweep failed:', err);
+    return { automations: 0, dispatched: 0 };
+  });
+
   /**
-   * The stalled-conversation sweep rides this tick.
+   * 4. The stalled-conversation sweep rides this tick.
    *
    * After the automations, not before: a pending automation may itself
    * be the reply that clears the wait, and handing the conversation to
@@ -84,9 +112,15 @@ export async function GET(request: Request) {
    * scheduler retries.
    */
   const sweep = await sweepStalledConversations().catch((err) => {
-    console.error('[cron] handover sweep failed:', err)
-    return { scanned: 0, handed: [] }
-  })
+    console.error('[cron] handover sweep failed:', err);
+    return { scanned: 0, handed: [] };
+  });
 
-  return NextResponse.json({ processed, handedOver: sweep.handed.length })
+  return NextResponse.json({
+    processed,
+    stageEvents: stageEvents.dispatched,
+    stageEventsSuppressed: stageEvents.suppressed,
+    dateDispatches: sweeps.dispatched,
+    handedOver: sweep.handed.length,
+  });
 }

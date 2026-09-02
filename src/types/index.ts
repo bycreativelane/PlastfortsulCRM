@@ -376,18 +376,18 @@ export interface Message {
    */
   media_transcript?: string | null;
   /** none | done | failed | unsupported — see migration 049. */
-  media_transcript_status?:
-    | 'none'
-    | 'done'
-    | 'failed'
-    | 'unsupported'
-    | null;
+  media_transcript_status?: 'none' | 'done' | 'failed' | 'unsupported' | null;
   media_transcript_at?: string | null;
   template_name?: string;
   message_id?: string;
   status: MessageStatus;
   created_at: string;
   reply_to_message_id?: string;
+  /**
+   * The quick reply the agent used to write this message, when they did
+   * (migration 065). What lets `/aberto` be an automation trigger.
+   */
+  quick_reply_id?: string | null;
   /**
    * Only set when `content_type === 'interactive'` — the stable id of
    * the button or list row the customer tapped. The Flows engine uses
@@ -567,11 +567,36 @@ export interface Deal {
    */
   lost_reason?: string | null;
   lost_note?: string | null;
+  /**
+   * When the deal entered the stage it is in, maintained by trigger
+   * (migration 065). The clock behind "24 h in Em Aberto". Absent on a
+   * pre-065 database.
+   */
+  stage_entered_at?: string | null;
   created_at: string;
   updated_at?: string;
   contact?: Contact;
   stage?: PipelineStage;
   assignee?: Profile;
+}
+
+/**
+ * One stage change of a deal, including its creation — migration 065.
+ *
+ * Written by a database trigger on `deals`, never by the app, so every
+ * surface that moves a deal produces one. `dispatched_at` is the outbox
+ * marker the cron uses to fire `deal_stage_entered` exactly once.
+ */
+export interface DealStageEvent {
+  id: string;
+  account_id: string;
+  deal_id: string;
+  from_stage_id: string | null;
+  to_stage_id: string;
+  /** NULL when the write came from the engine or the service role. */
+  changed_by: string | null;
+  changed_at: string;
+  dispatched_at: string | null;
 }
 
 /**
@@ -689,7 +714,26 @@ export type AutomationTriggerType =
    * gclid into a custom field, tag the contact, open a deal. What it can
    * do is bounded by the hook's scopes, enforced in the engine.
    */
-  | 'webhook_received';
+  | 'webhook_received'
+  /**
+   * A deal entered a stage — moved there, or created there. Recorded by
+   * the database trigger of migration 065 and drained by the cron, so
+   * every surface that moves a deal fires it (see
+   * `@/lib/automations/stage-events`).
+   */
+  | 'deal_stage_entered'
+  /**
+   * A person on the team sent a message from the inbox. Filters on the
+   * quick reply used (`/aberto`) or the template sent. Engine, flow and
+   * assistant sends never fire it.
+   */
+  | 'team_message_sent'
+  /**
+   * A date on the contact record is today — the birthday, most of all.
+   * Swept once a day by the cron; idempotent per contact and day through
+   * `automation_logs.trigger_key`.
+   */
+  | 'date_field_reached';
 
 export type AutomationStepType =
   | 'send_message'
@@ -704,9 +748,27 @@ export type AutomationStepType =
   | 'wait'
   | 'condition'
   | 'send_webhook'
-  | 'close_conversation';
+  | 'close_conversation'
+  /** Move the run's deal to a stage (migration 065). */
+  | 'move_deal_stage'
+  /** Write one field of the run's deal. */
+  | 'update_deal'
+  /** Cancel pending waits of other automations for this deal or contact. */
+  | 'cancel_automations'
+  /** Stop the run here, inside a branch too, with a reason for the log. */
+  | 'end';
 
-export type AutomationLogStatus = 'success' | 'partial' | 'failed';
+/**
+ * `cancelled` and `skipped` arrived with migration 065: a run whose wait
+ * was cancelled (the customer replied, the deal moved on), and a run the
+ * reentry policy refused to start. Neither is a failure.
+ */
+export type AutomationLogStatus =
+  'success' | 'partial' | 'failed' | 'cancelled' | 'skipped';
+
+/** When an automation may start again for the same deal (or contact). */
+export type AutomationReentryPolicy =
+  'always' | 'never' | 'after_complete' | 'after_days';
 
 export interface KeywordMatchTriggerConfig {
   keywords: string[];
@@ -737,12 +799,40 @@ export interface InteractiveReplyTriggerConfig {
   reply_ids: string[];
 }
 
+export interface DealStageEnteredTriggerConfig {
+  /** Redundant with the stage — kept so the builder can filter stages. */
+  pipeline_id?: string;
+  stage_id: string;
+}
+
+export interface TeamMessageSentTriggerConfig {
+  /** The quick reply that was used — `/aberto`, by id. */
+  quick_reply_id?: string;
+  /** Or the Meta template that was sent, by name. Either one matches. */
+  template_name?: string;
+}
+
+/** Contact date columns the sweep knows how to read. */
+export type DateTriggerField =
+  'birthday' | 'next_purchase_expected_at' | 'last_purchase_at';
+
+export interface DateFieldReachedTriggerConfig {
+  field: DateTriggerField;
+  /** `HH:mm` — not before this local time. Defaults to 09:00. */
+  at?: string;
+  /** IANA zone the day and time are read in. Defaults to America/Sao_Paulo. */
+  timezone?: string;
+}
+
 export type AutomationTriggerConfig =
   | Record<string, never>
   | KeywordMatchTriggerConfig
   | TagTriggerConfig
   | TimeBasedTriggerConfig
   | InteractiveReplyTriggerConfig
+  | DealStageEnteredTriggerConfig
+  | TeamMessageSentTriggerConfig
+  | DateFieldReachedTriggerConfig
   | Record<string, unknown>;
 
 export interface SendMessageStepConfig {
@@ -795,10 +885,34 @@ export interface CreateDealStepConfig {
 export interface WaitStepConfig {
   amount: number;
   unit: 'minutes' | 'hours' | 'days';
+  /**
+   * `duration` (the default, and what every pre-065 step is) waits
+   * `amount` × `unit`. `until_contact_date` sleeps until the date in a
+   * contact column — Compra Futura — and re-reads it on waking, so a
+   * date moved from the agenda moves the wait with it.
+   */
+  mode?: 'duration' | 'until_contact_date';
+  /** With `until_contact_date`: which column. */
+  field?: DateTriggerField;
+  /** With `until_contact_date`: `HH:mm` local time to wake. Default 09:00. */
+  at?: string;
+  timezone?: string;
 }
 
 export type ConditionSubject =
-  'contact_field' | 'tag_presence' | 'message_content' | 'time_of_day';
+  | 'contact_field'
+  | 'tag_presence'
+  | 'message_content'
+  | 'time_of_day'
+  /** The run's deal is in one of `stage_ids` (migration 065). */
+  | 'deal_in_stage'
+  /** The run's deal has `status = 'open'`. */
+  | 'deal_is_open'
+  /**
+   * The customer wrote since the deal entered its stage (`operand:
+   * 'stage_entry'`) or since this run started (`'run_start'`).
+   */
+  | 'customer_replied_since';
 
 export interface ConditionStepConfig {
   subject: ConditionSubject;
@@ -806,12 +920,41 @@ export interface ConditionStepConfig {
   operand?: string;
   /** For contact_field equals / message_content contains — comparison value */
   value?: string;
+  /** For `deal_in_stage`. `operand` as a comma-separated list also works. */
+  stage_ids?: string[];
 }
 
 export interface SendWebhookStepConfig {
   url: string;
   headers?: Record<string, string>;
   body_template?: string;
+}
+
+export interface MoveDealStageStepConfig {
+  stage_id: string;
+  /**
+   * Required when the target stage is a lost stage — the same gate the
+   * board enforces (`@/lib/deals/outcome`). A key, never a label.
+   */
+  lost_reason?: string;
+}
+
+export interface UpdateDealStepConfig {
+  field: 'title' | 'value' | 'expected_close_date' | 'notes';
+  /** `notes` appends a line rather than replacing. Interpolates `{{vars.*}}`. */
+  value: string;
+}
+
+export interface CancelAutomationsStepConfig {
+  /** Whose pending waits: this run's deal, or everything of the contact. */
+  scope: 'deal' | 'contact';
+  /** Only these automations; empty or absent means every other automation. */
+  automation_ids?: string[];
+}
+
+export interface EndStepConfig {
+  /** Free text for `automation_logs.end_reason`. */
+  reason?: string;
 }
 
 export type AutomationStepConfig =
@@ -826,6 +969,10 @@ export type AutomationStepConfig =
   | WaitStepConfig
   | ConditionStepConfig
   | SendWebhookStepConfig
+  | MoveDealStageStepConfig
+  | UpdateDealStepConfig
+  | CancelAutomationsStepConfig
+  | EndStepConfig
   | Record<string, never>
   | Record<string, unknown>;
 
@@ -847,6 +994,26 @@ export interface Automation {
   last_executed_at?: string | null;
   created_at: string;
   updated_at: string;
+
+  /* ---- Deal scope and cancellation rules (migration 065) --------------
+   * All optional: absent on a pre-065 database, and every default keeps
+   * an automation behaving exactly as it did before the migration. */
+
+  /**
+   * The funnel whose deals this automation works. A contact-level trigger
+   * resolves the contact's newest open deal in this pipeline; NULL resolves
+   * in any pipeline.
+   */
+  pipeline_id?: string | null;
+  /** The inbound webhook cancels this automation's pending waits for the
+   *  contact who replied, before any trigger fires. */
+  cancel_on_reply?: boolean;
+  /** Entering any of these stages cancels this automation's pending waits
+   *  for that deal — the §22 list of the official flow, per automation. */
+  cancel_when_stage_in?: string[];
+  reentry_policy?: AutomationReentryPolicy;
+  /** With `after_days`: how many. */
+  reentry_days?: number | null;
 }
 
 export interface AutomationStep {
@@ -876,8 +1043,20 @@ export interface AutomationLog {
   steps_executed: AutomationLogStepResult[];
   status: AutomationLogStatus;
   error_message?: string | null;
+  /** The deal this run worked, when it had one (migration 065). */
+  deal_id?: string | null;
+  /**
+   * Why the run ended when it was not the end of the list —
+   * `customer_replied`, `stage_entered:<id>`, `cancelled_by:<id>`,
+   * `reentry_blocked`, `already_running`, `date_cleared`, `end_step`, or
+   * the free text of an End step.
+   */
+  end_reason?: string | null;
+  /** Idempotency key of a date sweep — `contact:<id>:<YYYY-MM-DD>`. */
+  trigger_key?: string | null;
   created_at: string;
   contact?: Contact;
+  deal?: Pick<Deal, 'id' | 'title'> | null;
 }
 
 // ============================================================

@@ -16,13 +16,19 @@
  * Stage names that mean the sale happened.
  *
  * Matched by name because stages are the account's data — the same reason the
- * contact-type vocabulary is a constant. `Atendido` is PlastfortSul's, `Ganho`
- * and `Won` are what a default pipeline calls it.
+ * contact-type vocabulary is a constant. `Em Andamento` is where the official
+ * flow says the customer bought (§8 of docs/spec-automacoes-fluxo.md);
+ * `Atendido` stays so a deal that skips a stage is still asked for its value;
+ * `Ganho` and `Won` are what a default pipeline calls it.
  */
-const WON_STAGE_NAMES = ['atendido', 'ganho', 'won', 'fechado'];
+const WON_STAGE_NAMES = ['em andamento', 'atendido', 'ganho', 'won', 'fechado'];
 
-/** Stage names that mean it is over and there was no sale. */
-const LOST_STAGE_NAMES = ['perdido', 'perdida', 'lost'];
+/**
+ * Stage names that mean it is over and there was no sale. `Venda Perdida`
+ * is the official flow's name; without it here the mandatory loss reason
+ * would silently stop being asked.
+ */
+const LOST_STAGE_NAMES = ['venda perdida', 'perdido', 'perdida', 'lost'];
 
 const norm = (v: string) => v.trim().toLowerCase();
 
@@ -35,7 +41,7 @@ export function isLostStage(stageName: string): boolean {
 }
 
 /**
- * The seven reasons, in the prototype's order.
+ * The eight reasons of the official flow (§14), in its order.
  *
  * A fixed list and not free text, because the point of asking is the report:
  * twelve spellings of "preço" group into nothing. `other` carries the note
@@ -43,13 +49,18 @@ export function isLostStage(stageName: string): boolean {
  *
  * Stored as these keys, not as the label — the label is translated and the
  * report has to survive somebody switching the interface language.
+ *
+ * `noReply` ("parou de responder") left the list with the official flow: a
+ * customer who does not answer goes to the Geladeira, not to Venda Perdida.
+ * Deals already lost with that key keep it; the catalogue still labels it.
  */
 export const LOSS_REASONS = [
   'price',
   'freight',
   'leadTime',
   'competitor',
-  'noReply',
+  'noNeedNow',
+  'gaveUp',
   'productMismatch',
   'other',
 ] as const;

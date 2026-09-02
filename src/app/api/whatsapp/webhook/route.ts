@@ -11,6 +11,7 @@ import { notifyNewInboundMessage } from '@/lib/notifications/new-message';
 import { isUnknownColumn } from '@/lib/supabase/pg-errors';
 import { verifyMetaWebhookSignature } from '@/lib/whatsapp/webhook-signature';
 import { runAutomationsForTrigger } from '@/lib/automations/engine';
+import { cancelPendingOnReply } from '@/lib/automations/cancel';
 import { dispatchInboundToFlows } from '@/lib/flows/engine';
 import { dispatchInboundToAiReply } from '@/lib/ai/auto-reply';
 import { dispatchInboundMediaUnderstanding } from '@/lib/ai/media-understanding';
@@ -702,12 +703,11 @@ async function processMessage(
     mediaId,
     mediaFilename,
     interactiveReplyId,
-  } =
-    await parseMessageContent(
-      message,
-      accessToken,
-      mirrorMedia ? { accountId } : null
-    );
+  } = await parseMessageContent(
+    message,
+    accessToken,
+    mirrorMedia ? { accountId } : null
+  );
 
   // Resolve swipe-reply context if present. A missing parent is fine —
   // we just store NULL and the UI renders the message without a quote.
@@ -959,6 +959,15 @@ async function processMessage(
   // no active flows take the runner's early-exit "no_match" path
   // basically for free (one indexed SELECT for the active run).
   // ============================================================
+  // The customer wrote. Every parked follow-up whose automation asked to be
+  // cancelled on reply goes FIRST — before flows or automations see the
+  // message, and regardless of what it says (a "SAIR" is a reply too).
+  // §7 of the official flow; never throws.
+  await cancelPendingOnReply(supabaseAdmin(), {
+    accountId,
+    contactId: contactRecord.id,
+  });
+
   // A stop request must not start a flow or fire send-capable automations.
   // The inbound row is already persisted so the inbox shows they opted out.
   const flowResult = optedOutThisMessage

@@ -44,6 +44,16 @@ export default function EditAutomationPage({
         trigger_config: body.automation.trigger_config ?? {},
         is_active: !!body.automation.is_active,
         steps: fromServerSteps((body.steps ?? []) as ServerStepNode[]),
+        // The rules of migration 065; every fallback is the pre-065 default.
+        pipeline_id: body.automation.pipeline_id ?? null,
+        cancel_on_reply: !!body.automation.cancel_on_reply,
+        cancel_when_stage_in: Array.isArray(
+          body.automation.cancel_when_stage_in
+        )
+          ? (body.automation.cancel_when_stage_in as string[])
+          : [],
+        reentry_policy: body.automation.reentry_policy ?? 'always',
+        reentry_days: body.automation.reentry_days ?? null,
       });
     }
     load();

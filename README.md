@@ -25,8 +25,12 @@ Desenvolvido e mantido pela **Creative Lane**.
 - **Campanhas** com modelos aprovados pela Meta, acompanhamento de
   entrega e leitura, e substituição de variáveis por destinatário.
 - **Automações sem código** — gatilhos por mensagem recebida, contato
-  novo, palavra-chave ou agendamento; ramificações condicionais,
-  esperas, etiquetas e webhooks, num construtor visual.
+  novo, palavra-chave, oportunidade que entrou numa etapa, resposta
+  rápida enviada pela equipe ou data do contato; ramificações
+  condicionais, esperas (por tempo ou até uma data), mover oportunidade
+  de etapa, etiquetas e webhooks, num construtor visual. Cancelamento
+  automático quando o cliente responde, e dez modelos prontos com o
+  funil de Vendas da PlastfortSul.
 - **Fluxos** (beta) — o mesmo motor, num canvas de nós.
 - **Assistente de IA** com a sua própria chave da OpenAI ou da
   Anthropic, guardada criptografada. Rascunho de resposta na caixa de
@@ -107,7 +111,7 @@ Detalhes e resolução de problemas em [docs/docker.md](./docs/docker.md).
 
 Passo a passo: [docs/deploy.md](./docs/deploy.md). Resumo:
 
-- **Releases** — zip da versão (hoje `v0.8.5`). É isto que se baixa para subir em outro lugar.
+- **Releases** — zip da versão (hoje `v0.9.0`). É isto que se baixa para subir em outro lugar.
 - **Packages** — deixe vazio. Não é um pacote npm; não precisa preencher nada.
 - Caminho mais curto: importe o repositório na **Vercel** e cole as variáveis do [guia de env](./docs/configuracao-env.md). Alternativa: `git clone` + Docker no VPS.
 
@@ -121,17 +125,19 @@ de segredo nenhum.
 
 ## Documentação
 
-| Onde                                                       | O quê                                                                            |
-| ---------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| [docs/ux-overhaul/](./docs/ux-overhaul/)                   | A reforma de UX/UI: worklog, decisões, defeitos, verificação                     |
-| [docs/revisao-0.8.5/](./docs/revisao-0.8.5/00-README.md)   | Revisão 0.8.5: Relatórios, Visão geral, anexos da equipe, Playbook            |
-| [docs/playbook-comercial.md](./docs/playbook-comercial.md) | Passos da etapa (checklist do funil), em português, para a equipe              |
-| [docs/configuracao-env.md](./docs/configuracao-env.md)     | Cada variável de ambiente: o que faz, onde achar o valor, o que quebra se faltar |
-| [docs/public-api.md](./docs/public-api.md)                 | A API REST pública                                                               |
-| [docs/mcp.md](./docs/mcp.md)                               | O servidor MCP                                                                   |
-| [docs/docker.md](./docs/docker.md)                         | Docker e Docker Compose                                                          |
-| [docs/deploy.md](./docs/deploy.md)                         | Produção: Vercel, VPS, o que é Releases vs Packages                              |
-| `src/app/globals.css`                                      | O sistema de design: tokens, doutrina de cor, escala de tipo, movimento          |
+| Onde                                                             | O quê                                                                              |
+| ---------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| [docs/ux-overhaul/](./docs/ux-overhaul/)                         | A reforma de UX/UI: worklog, decisões, defeitos, verificação                       |
+| [docs/revisao-0.9.0/](./docs/revisao-0.9.0/00-README.md)         | Revisão 0.9.0: o fluxo comercial oficial no motor de automações                    |
+| [docs/revisao-0.8.5/](./docs/revisao-0.8.5/00-README.md)         | Revisão 0.8.5: Relatórios, Visão geral, anexos da equipe, Playbook                 |
+| [docs/playbook-comercial.md](./docs/playbook-comercial.md)       | Passos da etapa (checklist do funil), em português, para a equipe                  |
+| [docs/spec-automacoes-fluxo.md](./docs/spec-automacoes-fluxo.md) | Automações comerciais: o fluxo oficial contra o código, decisões e plano por fases |
+| [docs/configuracao-env.md](./docs/configuracao-env.md)           | Cada variável de ambiente: o que faz, onde achar o valor, o que quebra se faltar   |
+| [docs/public-api.md](./docs/public-api.md)                       | A API REST pública                                                                 |
+| [docs/mcp.md](./docs/mcp.md)                                     | O servidor MCP                                                                     |
+| [docs/docker.md](./docs/docker.md)                               | Docker e Docker Compose                                                            |
+| [docs/deploy.md](./docs/deploy.md)                               | Produção: Vercel, VPS, o que é Releases vs Packages                                |
+| `src/app/globals.css`                                            | O sistema de design: tokens, doutrina de cor, escala de tipo, movimento            |
 
 O sistema de design não vive num arquivo separado — ele vive nos
 comentários do `globals.css` e dos primitivos em `src/components/ui/`,

@@ -59,7 +59,12 @@ export const PLASTFORTSUL_TEMPLATES: TemplatePayload[] = [
     sample_values: { body: ['Marcos', 'sacos de lixo 100L'] },
   },
   {
-    name: 'followup_d15',
+    // Was `followup_d15`. The official flow (docs/spec-automacoes-fluxo.md)
+    // runs the sequence over the first ten days — D1, D3, D10 — and then
+    // the D30; the copy already reads as "it has been a while", which is
+    // the D10. Renamed before submission to Meta, which is free; after
+    // approval it would be a new template.
+    name: 'followup_d10',
     category: 'Marketing',
     language: 'pt_BR',
     body_text:
@@ -114,13 +119,17 @@ export const PLASTFORTSUL_TEMPLATES: TemplatePayload[] = [
     sample_values: { body: ['Marcos', '28/08'] },
   },
   {
-    name: 'posvenda_d10',
+    // Was `posvenda_d10`. §10 of the official flow asks, on day 20, the
+    // four things at once — delivery, use, all good, a review — in one
+    // message, then moves the deal to Pós-venda. Still UTILITY: it is
+    // about the order the customer placed.
+    name: 'posvenda_d20',
     category: 'Utility',
     language: 'pt_BR',
     body_text:
-      '{{1}}, o material chegou certinho? Qualquer coisa é só me chamar por aqui.',
+      '{{1}}, como foi a entrega do seu pedido? Já usou o material e ficou tudo certo? Se puder, me conta em uma frase como foi — ajuda muito.',
     buttons: [
-      { type: 'QUICK_REPLY', text: 'Chegou tudo certo' },
+      { type: 'QUICK_REPLY', text: 'Tudo certo' },
       { type: 'QUICK_REPLY', text: 'Tive um problema' },
     ],
     sample_values: { body: ['Marcos'] },

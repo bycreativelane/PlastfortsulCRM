@@ -1272,7 +1272,9 @@
         "competitor": "Bought from a competitor",
         "noReply": "Stopped replying",
         "productMismatch": "Wrong product fit",
-        "other": "Other"
+        "other": "Other",
+        "noNeedNow": "No need right now",
+        "gaveUp": "Gave up"
       }
     },
     "items": {
@@ -1544,7 +1546,19 @@
       "lastRunAt": "last run {time}",
       "lastRunNever": "never run",
       "loadErrorTitle": "Couldn't load automations",
-      "loadErrorDesc": "Check your connection and try again."
+      "loadErrorDesc": "Check your connection and try again.",
+      "rules": {
+        "cancelOnReply": "cancels on reply",
+        "cancelOnStages": "cancels in {count} stage(s)",
+        "reentry": {
+          "never": "once",
+          "after_complete": "one at a time",
+          "after_days": "after {days} days"
+        }
+      },
+      "templatesFunnelTitle": "Sales funnel — the official flow",
+      "templatesFunnelShow": "Show funnel models",
+      "templatesFunnelHide": "Hide"
     },
     "templates": {
       "welcome_message": {
@@ -1575,6 +1589,47 @@
         "copy": {
           "nudge": "Just circling back — did you have any other questions for us? Happy to help!"
         }
+      },
+      "unresolved": "Not found in this account: {names}. Pick them by hand before activating.",
+      "funnel_quote_sent": {
+        "name": "/aberto → Em Aberto",
+        "description": "The quote went out: the deal moves to Em Aberto."
+      },
+      "funnel_open_24h": {
+        "name": "Em Aberto, 24 h without a reply",
+        "description": "A day of silence after the quote moves the deal to Follow-up."
+      },
+      "funnel_followup": {
+        "name": "Follow-up sequence",
+        "description": "D1, D3, D10 and D30 by template; then 24 h and Geladeira 30D. A reply cancels it."
+      },
+      "funnel_customer_replied": {
+        "name": "Customer replied",
+        "description": "A parked deal — follow-up, fridge, future purchase — goes back to Em Negociação."
+      },
+      "funnel_fridge_30d": {
+        "name": "Geladeira 30D → 60D",
+        "description": "Thirty quiet days in the fridge move the deal to Geladeira 60D."
+      },
+      "funnel_in_progress": {
+        "name": "/andamento → Em Andamento",
+        "description": "The customer bought: Lead becomes Cliente and older waits are cancelled."
+      },
+      "funnel_served": {
+        "name": "/atendido → Atendido",
+        "description": "The order shipped: the deal moves to Atendido and the after-sale clock starts."
+      },
+      "funnel_after_sale": {
+        "name": "After-sale and repurchase",
+        "description": "Day 20 asks how it went and moves to Pós-venda; days 60 and 120 offer a repurchase."
+      },
+      "funnel_future_purchase": {
+        "name": "Compra Futura",
+        "description": "Waits until the date the customer gave, then sends the message."
+      },
+      "funnel_birthday": {
+        "name": "Birthday",
+        "description": "Sends the birthday template on the day, once."
       }
     },
     "edit": {
@@ -1595,10 +1650,23 @@
       "status": {
         "success": "success",
         "partial": "partial",
-        "failed": "failed"
+        "failed": "failed",
+        "cancelled": "cancelled",
+        "skipped": "skipped"
       },
       "back": "Back",
-      "backAria": "Back"
+      "backAria": "Back",
+      "endReasonLabel": "Ended because",
+      "dealLabel": "Deal",
+      "endReasons": {
+        "customer_replied": "the customer replied",
+        "stage_entered": "the deal moved to another stage",
+        "cancelled_by": "another automation cancelled it",
+        "reentry_blocked": "the reentry policy refused a second run",
+        "already_running": "a run was already in progress for this deal",
+        "date_cleared": "the date was cleared from the contact",
+        "end_step": "an End step"
+      }
     },
     "builder": {
       "steps": {
@@ -1614,7 +1682,11 @@
         "wait": "Wait",
         "condition": "Condition (If/Else)",
         "send_webhook": "Send Webhook",
-        "close_conversation": "Close Conversation"
+        "close_conversation": "Close Conversation",
+        "move_deal_stage": "Move deal to stage",
+        "update_deal": "Update deal",
+        "cancel_automations": "Cancel automations",
+        "end": "End automation"
       },
       "triggers": {
         "new_message_received": {
@@ -1652,6 +1724,18 @@
         "webhook_received": {
           "label": "Webhook received",
           "hint": "Something outside the product — Typebot, n8n, a landing page — posted to one of this account’s webhooks"
+        },
+        "deal_stage_entered": {
+          "label": "Deal entered a stage",
+          "hint": "When a deal is moved to — or created in — the chosen stage. Every board, thread and API move counts; the engine sees it within a minute."
+        },
+        "team_message_sent": {
+          "label": "Message sent by the team",
+          "hint": "When somebody on the team sends a chosen quick reply (like /aberto) or a Meta template from the inbox."
+        },
+        "date_field_reached": {
+          "label": "Contact date is today",
+          "hint": "Once a day, for every contact whose birthday or purchase date is today. Never twice for the same contact and day."
         }
       },
       "trigger": "Trigger",
@@ -1742,7 +1826,10 @@
           "tag_presence": "Tag presence",
           "contact_field": "Contact field",
           "message_content": "Message content",
-          "time_of_day": "Time of day"
+          "time_of_day": "Time of day",
+          "deal_in_stage": "Deal is in stage",
+          "deal_is_open": "Deal is open",
+          "customer_replied_since": "Customer replied since…"
         },
         "operandLabel": "Operand",
         "placeholderTime": "HH:mm-HH:mm",
@@ -1758,7 +1845,50 @@
         "matchWord": "Whole word",
         "matchWordHint": "Matches the keyword only as a standalone word, so \"k\" no longer fires on \"thanks\". Best for short keywords in space-separated languages; use Contains for languages written without spaces.",
         "matchExact": "Exact",
-        "closeConversationHint": "Sets the conversation status to \"closed\". No configuration needed."
+        "closeConversationHint": "Sets the conversation status to \"closed\". No configuration needed.",
+        "waitModeLabel": "Wait for",
+        "waitModes": {
+          "duration": "A fixed time",
+          "until_contact_date": "Until a date on the contact"
+        },
+        "dateFieldLabel": "Contact date",
+        "dateFields": {
+          "birthday": "Birthday",
+          "next_purchase_expected_at": "Next purchase expected",
+          "last_purchase_at": "Last purchase"
+        },
+        "atLabel": "At (HH:mm)",
+        "timezoneLabel": "Time zone",
+        "untilDateHint": "The date is read again when the wait ends: moved, it waits more; cleared, the run ends.",
+        "sinceLabel": "Since",
+        "since": {
+          "stage_entry": "The deal entered its stage",
+          "run_start": "This run started"
+        },
+        "stagesLabel": "Stages",
+        "dealIsOpenHint": "True while the deal is neither won nor lost.",
+        "lostReasonLabel": "Loss reason",
+        "lostReasonSelect": "Choose a reason…",
+        "moveDealHint": "Moves the deal this run works. A won stage marks it won when it has a value; a lost stage needs a reason.",
+        "dealFieldLabel": "Deal field",
+        "dealFields": {
+          "title": "Title",
+          "value": "Value",
+          "expected_close_date": "Expected close date",
+          "notes": "Notes (append a line)"
+        },
+        "scopeLabel": "Cancel for",
+        "scopes": {
+          "deal": "This deal",
+          "contact": "Everything of this contact"
+        },
+        "automationsLabel": "Automations",
+        "allOtherAutomations": "None selected means every other automation.",
+        "reasonLabel": "Reason",
+        "placeholderReason": "e.g. customer replied",
+        "endHint": "Stops the run here, inside a branch too, and records the reason.",
+        "quickReplyLabel": "Quick reply",
+        "templateOrLabel": "…or a template name"
       },
       "kinds": {
         "action": "Action",
@@ -1775,7 +1905,37 @@
         "noBody": "no body yet",
         "pickTemplate": "pick a template",
         "noUrl": "no url",
-        "when": "when {subject}"
+        "when": "when {subject}",
+        "untilDate": "until {field}",
+        "noStage": "choose a stage",
+        "cancelScope": "cancel: {scope}",
+        "ended": "end"
+      },
+      "quickReplies": {
+        "select": "Choose a quick reply…",
+        "placeholder": "Quick reply id",
+        "unknown": "{id} (unknown quick reply)"
+      },
+      "rules": {
+        "title": "Rules",
+        "none": "No rules",
+        "count": "{count} active",
+        "pipelineLabel": "Funnel",
+        "pipelineAny": "Any funnel",
+        "pipelineHint": "A contact trigger works the contact's newest open deal in this funnel.",
+        "cancelOnReply": "Cancel when the customer replies",
+        "cancelOnReplyHint": "Pending waits of this automation are cancelled the moment the contact writes.",
+        "cancelWhenStageIn": "Cancel when the deal enters…",
+        "cancelWhenStageInHint": "Pick the stages that end this automation for a deal.",
+        "reentryLabel": "Run again",
+        "reentry": {
+          "always": "Every time it fires",
+          "after_complete": "Only after the previous run finishes",
+          "never": "Once per deal or contact",
+          "after_days": "After a number of days"
+        },
+        "reentryDays": "Days",
+        "reentryHint": "Never two runs at once for the same deal, whatever the choice."
       }
     }
   },
@@ -3236,6 +3396,18 @@
       "quieterUi": {
         "title": "The product stopped shouting",
         "body": "Reports and Overview use a neutral surface: tone lives in the icon and the figure, not in the card background."
+      },
+      "funnelFlow": {
+        "title": "The sales funnel runs on its own",
+        "body": "Ten ready-made models: /aberto, 24 h without a reply, the follow-up sequence, the fridge, /andamento, /atendido, after-sale and repurchase, future purchase and birthday. Install, check the stages, activate."
+      },
+      "replyCancels": {
+        "title": "Whoever replies leaves the queue",
+        "body": "A customer reply cancels pending waits and moves the deal to Em Negociação. Nobody switches anything off by hand."
+      },
+      "shortcutsMove": {
+        "title": "/aberto, /andamento and /atendido move the deal",
+        "body": "The quick reply you use in the inbox becomes a trigger. The CRM records which shortcut went out and moves the stage for you."
       }
     },
     "items": {
@@ -3308,7 +3480,19 @@
       "controlBorders": "Field borders are light; checkboxes and radios still meet 3:1 contrast.",
       "profileAvatar": "The profile photo shows on the CRM card and in the conversation header — both used to show initials only.",
       "settingsSticky": "The Settings rail no longer scrolls away with the page.",
-      "reportsSkeleton": "The Reports loading state matches the page, not the old four-box strip."
+      "reportsSkeleton": "The Reports loading state matches the page, not the old four-box strip.",
+      "funnelFlow": "Ten sales-funnel models under Automations, resolving stages, tags and shortcuts by name on install.",
+      "dealStageTrigger": "“Deal entered a stage” trigger — from the board, the thread, the API or another automation.",
+      "teamMessageTrigger": "“Message sent by the team” trigger, by quick reply or by template.",
+      "dateTrigger": "“Contact date is today” trigger: the birthday, once per contact per day.",
+      "dealSteps": "Steps to move and update the deal, cancel other automations and end the run.",
+      "waitUntilDate": "A wait until the future-purchase date, which follows the date if it is moved on the agenda.",
+      "replyCancels": "Per-automation rules: cancel when the customer replies or when the deal enters chosen stages.",
+      "reentryRules": "A reentry policy, and never two runs at once for the same deal.",
+      "logsReasons": "The history shows the deal and why the run ended; cancelled and skipped became statuses.",
+      "lossReasons": "Loss reasons are the eight of the official flow; “Stopped replying” left the list.",
+      "wonStage": "Em Andamento is now the sale and asks for the value on entry; Venda Perdida asks for the reason.",
+      "deadTriggersHidden": "Triggers that never fired (Schedule, Conversation assigned) left the menu."
     },
     "seeIt": "See it"
   },

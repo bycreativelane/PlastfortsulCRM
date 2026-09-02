@@ -726,6 +726,78 @@ BEGIN
     RAISE EXCEPTION 'automation_logs.delivery_id must be ON DELETE SET NULL — pruning a delivery would otherwise delete the automation run with it';
   END IF;
 
+  -- ============================================================
+  -- 065 — evento de etapa, oportunidade no motor, cancelamento
+  -- ============================================================
+
+  -- Sem a tabela, o cron não tem o que drenar e o gatilho
+  -- deal_stage_entered nunca dispara — e nada avisa.
+  IF to_regclass('public.deal_stage_events') IS NULL THEN
+    RAISE EXCEPTION 'public.deal_stage_events is missing — migration 065 did not apply';
+  END IF;
+
+  -- O gatilho é a parte que falha mais quieta: a tabela existe, as
+  -- movimentações acontecem, e a caixa de saída fica vazia para sempre.
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger WHERE tgname = 'trg_deals_record_stage_event'
+  ) THEN
+    RAISE EXCEPTION 'trg_deals_record_stage_event is missing — stage changes will never reach the automation engine (migration 065)';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger WHERE tgname = 'trg_deals_stage_entered_at'
+  ) THEN
+    RAISE EXCEPTION 'trg_deals_stage_entered_at is missing — deals.stage_entered_at would never move (migration 065)';
+  END IF;
+
+  -- A fila e o log sabem de qual oportunidade são.
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+     WHERE table_schema = 'public'
+       AND table_name = 'automation_pending_executions'
+       AND column_name = 'deal_id'
+  ) THEN
+    RAISE EXCEPTION 'automation_pending_executions.deal_id is missing — migration 065 did not apply';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+     WHERE table_schema = 'public'
+       AND table_name = 'automation_logs'
+       AND column_name = 'end_reason'
+  ) THEN
+    RAISE EXCEPTION 'automation_logs.end_reason is missing — migration 065 did not apply';
+  END IF;
+
+  -- A automação declara as regras; sem a coluna o motor lê undefined e
+  -- nenhuma espera é cancelada quando o cliente responde.
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+     WHERE table_schema = 'public'
+       AND table_name = 'automations'
+       AND column_name = 'cancel_on_reply'
+  ) THEN
+    RAISE EXCEPTION 'automations.cancel_on_reply is missing — migration 065 did not apply';
+  END IF;
+
+  -- /aberto como gatilho depende da mensagem lembrar da resposta rápida.
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+     WHERE table_schema = 'public'
+       AND table_name = 'messages'
+       AND column_name = 'quick_reply_id'
+  ) THEN
+    RAISE EXCEPTION 'messages.quick_reply_id is missing — migration 065 did not apply';
+  END IF;
+
+  -- A varredura de aniversário chama esta função com o service role.
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_proc p
+      JOIN pg_namespace n ON n.oid = p.pronamespace
+     WHERE n.nspname = 'public'
+       AND p.proname = 'contacts_with_birthday_on'
+  ) THEN
+    RAISE EXCEPTION 'contacts_with_birthday_on() is missing — the birthday sweep has nothing to call (migration 065)';
+  END IF;
+
   RAISE NOTICE 'schema verification passed';
 END
 $$;

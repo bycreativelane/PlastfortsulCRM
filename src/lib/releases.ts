@@ -61,6 +61,29 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: '0.9.0',
+    date: '2026-09-02',
+    highlights: [
+      { key: 'funnelFlow', href: '/automations' },
+      { key: 'replyCancels', href: '/automations' },
+      { key: 'shortcutsMove', href: '/inbox' },
+    ],
+    changes: [
+      { kind: 'new', key: 'funnelFlow' },
+      { kind: 'new', key: 'dealStageTrigger' },
+      { kind: 'new', key: 'teamMessageTrigger' },
+      { kind: 'new', key: 'dateTrigger' },
+      { kind: 'new', key: 'dealSteps' },
+      { kind: 'new', key: 'waitUntilDate' },
+      { kind: 'new', key: 'replyCancels' },
+      { kind: 'new', key: 'reentryRules' },
+      { kind: 'new', key: 'logsReasons' },
+      { kind: 'improved', key: 'lossReasons' },
+      { kind: 'improved', key: 'wonStage' },
+      { kind: 'improved', key: 'deadTriggersHidden' },
+    ],
+  },
+  {
     version: '0.8.5',
     date: '2026-09-02',
     highlights: [

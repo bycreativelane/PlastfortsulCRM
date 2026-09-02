@@ -39,6 +39,7 @@ import { logTemplateSend, type UsageOrigin } from '@/lib/whatsapp/usage-log';
 import { supabaseAdmin } from '@/lib/flows/admin-client';
 import { answeredPatch } from '@/lib/conversations/reopen';
 import { isUnknownColumn } from '@/lib/supabase/pg-errors';
+import { runAutomationsForTrigger } from '@/lib/automations/engine';
 import {
   sanitizePhoneForMeta,
   isValidE164,
@@ -114,6 +115,14 @@ export interface SendMessageParams {
    * dedução silenciosamente contaria disparos da casa como uso da API.
    */
   origin?: UsageOrigin;
+  /**
+   * The quick reply the agent picked to write this message, when they
+   * did (migration 065). Persisted on the row and handed to the
+   * `team_message_sent` trigger, which is how `/aberto` moves a deal.
+   * An id that is not this account's is ignored, not refused — the
+   * message still goes; only the attribution is dropped.
+   */
+  quickReplyId?: string | null;
 }
 
 export interface SendMessageResult {
@@ -234,6 +243,7 @@ export async function sendMessageToConversation(
     replyToMessageId,
     senderId,
     origin = 'inbox',
+    quickReplyId,
   } = params;
 
   if (!conversationId) {
@@ -525,24 +535,53 @@ export async function sendMessageToConversation(
           )
         : (contentText ?? null);
 
-  const { data: messageRecord, error: msgError } = await db
+  // The quick reply, verified as this account's before it is written
+  // anywhere. Its shortcut rides along to the trigger for the log line.
+  let quickReply: { id: string; shortcut: string | null } | null = null;
+  if (quickReplyId) {
+    const { data: qr } = await db
+      .from('quick_replies')
+      .select('id, shortcut')
+      .eq('id', quickReplyId)
+      .eq('account_id', accountId)
+      .maybeSingle();
+    quickReply = (qr as { id: string; shortcut: string | null } | null) ?? null;
+  }
+
+  const messageRow: Record<string, unknown> = {
+    conversation_id: conversationId,
+    sender_type: 'agent',
+    sender_id: senderId ?? null,
+    content_type: messageType,
+    content_text: persistedText,
+    media_url: mediaUrl || null,
+    template_name: templateName || null,
+    interactive_payload:
+      messageType === 'interactive' ? interactivePayload : null,
+    message_id: waMessageId,
+    status: 'sent',
+    reply_to_message_id: replyToMessageId || null,
+  };
+
+  let { data: messageRecord, error: msgError } = await db
     .from('messages')
-    .insert({
-      conversation_id: conversationId,
-      sender_type: 'agent',
-      sender_id: senderId ?? null,
-      content_type: messageType,
-      content_text: persistedText,
-      media_url: mediaUrl || null,
-      template_name: templateName || null,
-      interactive_payload:
-        messageType === 'interactive' ? interactivePayload : null,
-      message_id: waMessageId,
-      status: 'sent',
-      reply_to_message_id: replyToMessageId || null,
-    })
+    .insert(
+      quickReply ? { ...messageRow, quick_reply_id: quickReply.id } : messageRow
+    )
     .select()
     .single();
+
+  // `quick_reply_id` arrives with migration 065. Until it runs, the message
+  // — which Meta has already delivered — must still be saved; only the
+  // attribution is given up.
+  if (msgError && quickReply && isUnknownColumn(msgError)) {
+    quickReply = null;
+    ({ data: messageRecord, error: msgError } = await db
+      .from('messages')
+      .insert(messageRow)
+      .select()
+      .single());
+  }
 
   if (msgError) {
     console.error('[send-message] error inserting sent message:', msgError);
@@ -628,6 +667,39 @@ export async function sendMessageToConversation(
       '[flows] pause-on-agent-send threw:',
       err instanceof Error ? err.message : err
     );
+  }
+
+  // A PERSON on the team sent this — `senderId` is set only by the
+  // dashboard, and `origin` tells the inbox from the public API. Engine,
+  // flow and assistant sends have their own paths and never come through
+  // here, so this cannot fire itself. The trigger is what lets a quick
+  // reply like `/aberto` move a deal, or a template like `orcamento_enviado`
+  // start the follow-up clock. Awaited: the route is not inside `after()`,
+  // and a detached dispatch can be frozen half-way on serverless.
+  // `runAutomationsForTrigger` never throws; the try is belt and braces.
+  if (senderId && origin === 'inbox') {
+    try {
+      await runAutomationsForTrigger({
+        accountId,
+        triggerType: 'team_message_sent',
+        contactId: contact.id,
+        context: {
+          conversation_id: conversationId,
+          message_id: messageRecord.id,
+          quick_reply_id: quickReply?.id,
+          shortcut: quickReply?.shortcut ?? undefined,
+          template_name:
+            messageType === 'template'
+              ? (templateName ?? undefined)
+              : undefined,
+        },
+      });
+    } catch (err) {
+      console.error(
+        '[automations] team_message_sent dispatch threw:',
+        err instanceof Error ? err.message : err
+      );
+    }
   }
 
   return { messageId: messageRecord.id, whatsappMessageId: waMessageId };

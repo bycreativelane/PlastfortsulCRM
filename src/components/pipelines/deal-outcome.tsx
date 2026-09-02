@@ -3,14 +3,15 @@
 import { useCallback, useState } from 'react';
 import {
   Ban,
+  CalendarX,
   CircleDollarSign,
   Clock,
   Loader2,
-  MessageSquareOff,
   MoreHorizontal,
   PackageX,
   Trophy,
   Truck,
+  UserX,
   Users,
   type LucideIcon,
 } from 'lucide-react';
@@ -46,7 +47,8 @@ const REASON_ICONS: Record<LossReason, LucideIcon> = {
   freight: Truck,
   leadTime: Clock,
   competitor: Users,
-  noReply: MessageSquareOff,
+  noNeedNow: CalendarX,
+  gaveUp: UserX,
   productMismatch: PackageX,
   other: MoreHorizontal,
 };

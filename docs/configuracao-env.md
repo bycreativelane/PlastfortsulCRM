@@ -146,7 +146,9 @@ cabeçalho de imagem ou documento falha.
 ### `AUTOMATION_CRON_SECRET`
 
 Protege `/api/automations/cron` e `/api/flows/cron`, que são as rotas
-que o agendador chama para processar follow-ups vencidos.
+que o agendador chama — **a cada minuto** — para processar as esperas
+vencidas, levar as mudanças de etapa das oportunidades ao motor
+(migração 065) e varrer os aniversários do dia.
 
 Gere com:
 

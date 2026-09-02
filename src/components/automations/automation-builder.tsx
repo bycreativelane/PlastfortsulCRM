@@ -33,6 +33,11 @@ import {
   ArrowUp,
   MousePointerClick,
   List,
+  ArrowRightToLine,
+  FilePenLine,
+  OctagonX,
+  CircleStop,
+  ShieldCheck,
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -47,14 +52,17 @@ import {
 } from '@/components/ui/dropdown-menu';
 import type {
   AccountMember,
+  AutomationReentryPolicy,
   AutomationStepType,
   AutomationTriggerType,
   CustomField,
   InteractiveMessagePayload,
   KeywordMatchTriggerConfig,
   MessageTemplate,
+  QuickReply,
   Tag as TagRecord,
 } from '@/types';
+import { LOSS_REASONS, isLostStage } from '@/lib/deals/outcome';
 import {
   InteractiveBuilder,
   blankButtonsPayload,
@@ -94,7 +102,30 @@ export interface BuilderInitial {
   trigger_config: Record<string, unknown>;
   is_active: boolean;
   steps: BuilderStep[];
+  /* ---- Rules (migration 065). Defaults keep pre-065 behaviour. ---- */
+  /** The funnel whose deals this automation works; null = any. */
+  pipeline_id: string | null;
+  cancel_on_reply: boolean;
+  cancel_when_stage_in: string[];
+  reentry_policy: AutomationReentryPolicy;
+  reentry_days: number | null;
 }
+
+/** The rule defaults — what a fresh automation, or a pre-065 row, has. */
+export const DEFAULT_RULES: Pick<
+  BuilderInitial,
+  | 'pipeline_id'
+  | 'cancel_on_reply'
+  | 'cancel_when_stage_in'
+  | 'reentry_policy'
+  | 'reentry_days'
+> = {
+  pipeline_id: null,
+  cancel_on_reply: false,
+  cancel_when_stage_in: [],
+  reentry_policy: 'always',
+  reentry_days: null,
+};
 
 // ------------------------------------------------------------
 // Step metadata — one source of truth for icon + label + border color
@@ -196,6 +227,18 @@ const STEP_META: Record<AutomationStepType, StepMeta> = {
     icon: CircleSlash,
     kind: 'stop',
   },
+  move_deal_stage: {
+    label: 'move_deal_stage',
+    icon: ArrowRightToLine,
+    kind: 'action',
+  },
+  update_deal: { label: 'update_deal', icon: FilePenLine, kind: 'action' },
+  cancel_automations: {
+    label: 'cancel_automations',
+    icon: OctagonX,
+    kind: 'action',
+  },
+  end: { label: 'end', icon: CircleStop, kind: 'stop' },
 };
 
 const ADDABLE_STEPS: AutomationStepType[] = [
@@ -208,21 +251,33 @@ const ADDABLE_STEPS: AutomationStepType[] = [
   'assign_conversation',
   'update_contact_field',
   'create_deal',
+  'move_deal_stage',
+  'update_deal',
   'wait',
   'condition',
+  'cancel_automations',
   'send_webhook',
   'close_conversation',
+  'end',
 ];
 
+/**
+ * What the picker offers. `time_based` and `conversation_assigned` are
+ * NOT here: nothing in the product dispatches either, and offering a
+ * trigger that never fires is worse than not offering it. An automation
+ * saved with one of them still opens — `TriggerCard` adds the current
+ * type to the list so editing does not silently rewrite the trigger.
+ */
 const TRIGGER_OPTIONS: { value: AutomationTriggerType }[] = [
   { value: 'new_message_received' },
   { value: 'first_inbound_message' },
   { value: 'keyword_match' },
   { value: 'interactive_reply' },
   { value: 'new_contact_created' },
-  { value: 'conversation_assigned' },
   { value: 'tag_added' },
-  { value: 'time_based' },
+  { value: 'deal_stage_entered' },
+  { value: 'team_message_sent' },
+  { value: 'date_field_reached' },
 ];
 
 function cid(): string {
@@ -275,6 +330,14 @@ function blankConfig(type: AutomationStepType): Record<string, unknown> {
       return { url: '', headers: {}, body_template: '' };
     case 'close_conversation':
       return {};
+    case 'move_deal_stage':
+      return { stage_id: '' };
+    case 'update_deal':
+      return { field: 'notes', value: '' };
+    case 'cancel_automations':
+      return { scope: 'deal', automation_ids: [] };
+    case 'end':
+      return { reason: '' };
     default:
       return {};
   }
@@ -297,9 +360,18 @@ interface AutomationResources {
   customFields: CustomField[];
   pipelines: PipelineOption[];
   stages: PipelineStageOption[];
+  /** For the team_message_sent trigger — `/aberto` by name, not by id. */
+  quickReplies: QuickReply[];
+  /** For the cancel_automations step. */
+  automations: AutomationOption[];
 }
 
 interface PipelineOption {
+  id: string;
+  name: string;
+}
+
+interface AutomationOption {
   id: string;
   name: string;
 }
@@ -318,6 +390,8 @@ const ResourcesContext = createContext<AutomationResources>({
   customFields: [],
   pipelines: [],
   stages: [],
+  quickReplies: [],
+  automations: [],
 });
 
 function useResources(): AutomationResources {
@@ -331,6 +405,8 @@ function ResourcesProvider({ children }: { children: ReactNode }) {
   const [customFields, setCustomFields] = useState<CustomField[]>([]);
   const [pipelines, setPipelines] = useState<PipelineOption[]>([]);
   const [stages, setStages] = useState<PipelineStageOption[]>([]);
+  const [quickReplies, setQuickReplies] = useState<QuickReply[]>([]);
+  const [automations, setAutomations] = useState<AutomationOption[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -341,27 +417,49 @@ function ResourcesProvider({ children }: { children: ReactNode }) {
     // actually be sent (anything else 400s at send time), matching the
     // broadcast picker.
     void (async () => {
-      const [tagsRes, templatesRes, customFieldsRes, pipelinesRes, stagesRes] =
-        await Promise.all([
-          supabase.from('tags').select('*').order('name'),
-          supabase
-            .from('message_templates')
-            .select('*')
-            .eq('status', 'APPROVED')
-            .order('name'),
-          supabase.from('custom_fields').select('*').order('field_name'),
-          supabase.from('pipelines').select('id, name').order('name'),
-          supabase
-            .from('pipeline_stages')
-            .select('id, name, pipeline_id, position')
-            .order('position'),
-        ]);
+      const [
+        tagsRes,
+        templatesRes,
+        customFieldsRes,
+        pipelinesRes,
+        stagesRes,
+        automationsRes,
+      ] = await Promise.all([
+        supabase.from('tags').select('*').order('name'),
+        supabase
+          .from('message_templates')
+          .select('*')
+          .eq('status', 'APPROVED')
+          .order('name'),
+        supabase.from('custom_fields').select('*').order('field_name'),
+        supabase.from('pipelines').select('id, name').order('name'),
+        supabase
+          .from('pipeline_stages')
+          .select('id, name, pipeline_id, position')
+          .order('position'),
+        supabase.from('automations').select('id, name').order('name'),
+      ]);
       if (cancelled) return;
       setTags((tagsRes.data as TagRecord[] | null) ?? []);
       setTemplates((templatesRes.data as MessageTemplate[] | null) ?? []);
       setCustomFields((customFieldsRes.data as CustomField[] | null) ?? []);
       setPipelines((pipelinesRes.data as PipelineOption[] | null) ?? []);
       setStages((stagesRes.data as PipelineStageOption[] | null) ?? []);
+      setAutomations((automationsRes.data as AutomationOption[] | null) ?? []);
+    })();
+
+    // Quick replies go through their API, which is what the composer's
+    // `/` panel reads too — so the trigger picker and the panel agree on
+    // what a snippet is called.
+    void (async () => {
+      try {
+        const res = await fetch('/api/quick-replies', { cache: 'no-store' });
+        if (!res.ok) return;
+        const json = (await res.json()) as { quick_replies?: QuickReply[] };
+        if (!cancelled) setQuickReplies(json.quick_replies ?? []);
+      } catch {
+        // Endpoint absent — the trigger falls back to a raw id input.
+      }
     })();
 
     // Members go through the API so we inherit its email-visibility
@@ -385,7 +483,16 @@ function ResourcesProvider({ children }: { children: ReactNode }) {
 
   return (
     <ResourcesContext.Provider
-      value={{ tags, members, templates, customFields, pipelines, stages }}
+      value={{
+        tags,
+        members,
+        templates,
+        customFields,
+        pipelines,
+        stages,
+        quickReplies,
+        automations,
+      }}
     >
       {children}
     </ResourcesContext.Provider>
@@ -531,6 +638,219 @@ function AgentSelect({
         <option value={value}>{t('agents.unknown', { id: value })}</option>
       )}
     </OptionSelect>
+  );
+}
+
+/** Quick-reply dropdown by shortcut and title, storing the snippet's id.
+ *  Falls back to a raw id input when the list is unavailable. */
+function QuickReplySelect({
+  value,
+  onChange,
+  t,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  t: ReturnType<typeof useTranslations>;
+}) {
+  const { quickReplies } = useResources();
+  if (quickReplies.length === 0) {
+    return (
+      <Input
+        placeholder={t('quickReplies.placeholder')}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="bg-muted text-foreground"
+      />
+    );
+  }
+  const selected = quickReplies.find((q) => q.id === value);
+  return (
+    <OptionSelect
+      value={value}
+      onValueChange={onChange}
+      className={SELECT_CLASS}
+    >
+      <option value="">{t('quickReplies.select')}</option>
+      {quickReplies.map((q) => (
+        <option key={q.id} value={q.id}>
+          {q.shortcut ? `/${q.shortcut} — ${q.title}` : q.title}
+        </option>
+      ))}
+      {value && !selected && (
+        <option value={value}>
+          {t('quickReplies.unknown', { id: value })}
+        </option>
+      )}
+    </OptionSelect>
+  );
+}
+
+/** Every stage of the account, grouped by funnel, storing the stage id.
+ *  Used where the funnel is implied by the run (move_deal_stage) rather
+ *  than chosen first (create_deal). */
+function StageSelect({
+  value,
+  onChange,
+  t,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  t: ReturnType<typeof useTranslations>;
+}) {
+  const { pipelines, stages } = useResources();
+  if (stages.length === 0) {
+    return (
+      <Input
+        placeholder={t('pipelines.stageIdLabel')}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="bg-muted text-foreground"
+      />
+    );
+  }
+  const known = stages.some((s) => s.id === value);
+  return (
+    <OptionSelect
+      value={value}
+      onValueChange={onChange}
+      className={SELECT_CLASS}
+    >
+      <option value="">{t('pipelines.selectStage')}</option>
+      {pipelines.map((p) => (
+        <optgroup key={p.id} label={p.name}>
+          {stages
+            .filter((s) => s.pipeline_id === p.id)
+            .map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+        </optgroup>
+      ))}
+      {value && !known && (
+        <option value={value}>
+          {t('pipelines.unknownStage', { id: value })}
+        </option>
+      )}
+    </OptionSelect>
+  );
+}
+
+/**
+ * A list of stages to tick — the shape a rule like "cancel when the deal
+ * enters any of these" needs. `pipelineId` narrows the list to one
+ * funnel; without it every funnel is offered, grouped.
+ */
+function StageChecklist({
+  value,
+  onChange,
+  pipelineId,
+  t,
+}: {
+  value: string[];
+  onChange: (next: string[]) => void;
+  pipelineId?: string | null;
+  t: ReturnType<typeof useTranslations>;
+}) {
+  const { pipelines, stages } = useResources();
+  const visible = pipelineId
+    ? pipelines.filter((p) => p.id === pipelineId)
+    : pipelines;
+  const toggle = (id: string) =>
+    onChange(
+      value.includes(id) ? value.filter((v) => v !== id) : [...value, id]
+    );
+  if (stages.length === 0) {
+    return (
+      <p className="text-muted-foreground text-2xs leading-relaxed">
+        {t('pipelines.selectPipelineFirst')}
+      </p>
+    );
+  }
+  const unknown = value.filter((id) => !stages.some((s) => s.id === id));
+  return (
+    <div className="space-y-2">
+      {visible.map((p) => (
+        <div key={p.id}>
+          {!pipelineId && (
+            <div className="text-muted-foreground eyebrow mb-1">{p.name}</div>
+          )}
+          <div className="flex flex-wrap gap-1.5">
+            {stages
+              .filter((s) => s.pipeline_id === p.id)
+              .map((s) => {
+                const on = value.includes(s.id);
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    aria-pressed={on}
+                    onClick={() => toggle(s.id)}
+                    className={cn(
+                      'rounded-md border px-2 py-1 text-xs transition-colors',
+                      on
+                        ? 'border-primary bg-primary-soft text-primary'
+                        : 'border-border bg-muted text-secondary-foreground hover:text-foreground'
+                    )}
+                  >
+                    {s.name}
+                  </button>
+                );
+              })}
+          </div>
+        </div>
+      ))}
+      {unknown.length > 0 && (
+        <p className="text-muted-foreground text-2xs">
+          {t('pipelines.unknownStage', { id: unknown.join(', ') })}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** Which automations a cancel step reaches. Empty means all the others. */
+function AutomationChecklist({
+  value,
+  onChange,
+  t,
+}: {
+  value: string[];
+  onChange: (next: string[]) => void;
+  t: ReturnType<typeof useTranslations>;
+}) {
+  const { automations } = useResources();
+  const toggle = (id: string) =>
+    onChange(
+      value.includes(id) ? value.filter((v) => v !== id) : [...value, id]
+    );
+  return (
+    <div className="space-y-1.5">
+      <p className="text-muted-foreground text-2xs leading-relaxed">
+        {t('config.allOtherAutomations')}
+      </p>
+      <div className="flex flex-wrap gap-1.5">
+        {automations.map((a) => {
+          const on = value.includes(a.id);
+          return (
+            <button
+              key={a.id}
+              type="button"
+              aria-pressed={on}
+              onClick={() => toggle(a.id)}
+              className={cn(
+                'rounded-md border px-2 py-1 text-xs transition-colors',
+                on
+                  ? 'border-primary bg-primary-soft text-primary'
+                  : 'border-border bg-muted text-secondary-foreground hover:text-foreground'
+              )}
+            >
+              {a.name}
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
@@ -785,6 +1105,13 @@ export function AutomationBuilder({ initial }: { initial: BuilderInitial }) {
         trigger_config: state.trigger_config,
         is_active: state.is_active,
         steps: toApiSteps(state.steps),
+        // The rules of migration 065. Sent whole, every save.
+        pipeline_id: state.pipeline_id || null,
+        cancel_on_reply: state.cancel_on_reply,
+        cancel_when_stage_in: state.cancel_when_stage_in,
+        reentry_policy: state.reentry_policy,
+        reentry_days:
+          state.reentry_policy === 'after_days' ? state.reentry_days : null,
       };
 
       const res = isEditing
@@ -816,6 +1143,12 @@ export function AutomationBuilder({ initial }: { initial: BuilderInitial }) {
         return;
       }
       toast.success(isEditing ? t('toasts.saved') : t('toasts.created'));
+      // Saved, but with something that will bite at runtime — a plain
+      // message a day after a wait, say. Said once, here, not refused.
+      const warning: { message?: string } | undefined = body?.warnings?.[0];
+      if (warning?.message) {
+        toast.warning(warning.message, { duration: 8000 });
+      }
       if (!isEditing && body?.automation?.id) {
         router.replace(`/automations/${body.automation.id}/edit`);
       }
@@ -890,6 +1223,11 @@ export function AutomationBuilder({ initial }: { initial: BuilderInitial }) {
               onConfigChange={(c) => patchTop('trigger_config', c)}
               t={t}
             />
+            <RulesCard
+              state={state}
+              onChange={(patch) => setState((s) => ({ ...s, ...patch }))}
+              t={t}
+            />
             <StepList
               steps={state.steps}
               basePath={[]}
@@ -926,6 +1264,12 @@ function TriggerCard({
   t: ReturnType<typeof useTranslations>;
 }) {
   const [open, setOpen] = useState(false);
+  // The picker's list, plus whatever this automation already uses — so a
+  // row saved with a trigger the picker no longer offers still opens on
+  // the trigger it has rather than on the first one in the list.
+  const options = TRIGGER_OPTIONS.some((o) => o.value === type)
+    ? TRIGGER_OPTIONS
+    : [...TRIGGER_OPTIONS, { value: type }];
   return (
     // Card width: full on mobile, fixed 320px on sm+. The canvas wrapper
     // (max-w-2xl + px-4) keeps this tidy on tablet/desktop.
@@ -970,7 +1314,7 @@ function TriggerCard({
                 }
                 className="bg-muted"
               >
-                {TRIGGER_OPTIONS.map((o) => (
+                {options.map((o) => (
                   <option key={o.value} value={o.value}>
                     {t(`triggers.${o.value}.label`)}
                   </option>
@@ -1024,6 +1368,232 @@ function TriggerCard({
                 </p>
               </div>
             )}
+            {type === 'deal_stage_entered' && (
+              <DealPipelineFields
+                pipelineId={(config.pipeline_id as string) ?? ''}
+                stageId={(config.stage_id as string) ?? ''}
+                onChange={(patch) => onConfigChange({ ...config, ...patch })}
+                t={t}
+              />
+            )}
+            {type === 'team_message_sent' && (
+              <>
+                <FieldBlock label={t('config.quickReplyLabel')}>
+                  <QuickReplySelect
+                    value={(config.quick_reply_id as string) ?? ''}
+                    onChange={(v) =>
+                      onConfigChange({ ...config, quick_reply_id: v })
+                    }
+                    t={t}
+                  />
+                </FieldBlock>
+                <FieldBlock label={t('config.templateOrLabel')}>
+                  <Input
+                    value={(config.template_name as string) ?? ''}
+                    onChange={(e) =>
+                      onConfigChange({
+                        ...config,
+                        template_name: e.target.value.trim(),
+                      })
+                    }
+                    placeholder="orcamento_enviado"
+                    className="bg-muted text-foreground font-mono"
+                  />
+                </FieldBlock>
+              </>
+            )}
+            {type === 'date_field_reached' && (
+              <>
+                <FieldBlock label={t('config.dateFieldLabel')}>
+                  <OptionSelect
+                    value={(config.field as string) ?? 'birthday'}
+                    onValueChange={(field) =>
+                      onConfigChange({ ...config, field })
+                    }
+                    className="bg-muted"
+                  >
+                    <option value="birthday">
+                      {t('config.dateFields.birthday')}
+                    </option>
+                    <option value="next_purchase_expected_at">
+                      {t('config.dateFields.next_purchase_expected_at')}
+                    </option>
+                    <option value="last_purchase_at">
+                      {t('config.dateFields.last_purchase_at')}
+                    </option>
+                  </OptionSelect>
+                </FieldBlock>
+                <FieldBlock label={t('config.atLabel')}>
+                  <Input
+                    value={(config.at as string) ?? '09:00'}
+                    onChange={(e) =>
+                      onConfigChange({ ...config, at: e.target.value })
+                    }
+                    placeholder="09:00"
+                    className="bg-muted text-foreground"
+                  />
+                </FieldBlock>
+                <FieldBlock label={t('config.timezoneLabel')}>
+                  <Input
+                    value={(config.timezone as string) ?? ''}
+                    onChange={(e) =>
+                      onConfigChange({ ...config, timezone: e.target.value })
+                    }
+                    placeholder="America/Sao_Paulo"
+                    className="bg-muted text-foreground"
+                  />
+                </FieldBlock>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ------------------------------------------------------------
+// Rules card — the funnel, the cancellation rules, the reentry policy
+// (migration 065). Sits between the trigger and the first step: they are
+// properties of the whole automation, applied by the engine on its own,
+// not steps in the list.
+// ------------------------------------------------------------
+
+function RulesCard({
+  state,
+  onChange,
+  t,
+}: {
+  state: BuilderInitial;
+  onChange: (patch: Partial<BuilderInitial>) => void;
+  t: ReturnType<typeof useTranslations>;
+}) {
+  const [open, setOpen] = useState(false);
+  const { pipelines } = useResources();
+  const activeRules =
+    (state.cancel_on_reply ? 1 : 0) +
+    (state.cancel_when_stage_in.length > 0 ? 1 : 0) +
+    (state.reentry_policy !== 'always' ? 1 : 0) +
+    (state.pipeline_id ? 1 : 0);
+  const selectedPipeline = pipelines.find((p) => p.id === state.pipeline_id);
+
+  return (
+    <div className="z-10 w-full max-w-[320px] sm:w-80">
+      <div className="bg-border mx-auto h-4 w-[2px]" aria-hidden />
+      <div className="border-border bg-card overflow-hidden rounded-lg border shadow-sm">
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="flex w-full items-center gap-3 px-4 py-3 text-left"
+        >
+          <div className="bg-muted text-secondary-foreground grid size-8 shrink-0 place-items-center rounded-md">
+            <ShieldCheck className="size-4" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="text-secondary-foreground eyebrow">
+              {t('rules.title')}
+            </div>
+            <div className="text-foreground truncate text-sm font-medium">
+              {activeRules === 0
+                ? t('rules.none')
+                : t('rules.count', { count: activeRules })}
+            </div>
+          </div>
+          <ChevronDown
+            className={cn(
+              'text-muted-foreground size-4 shrink-0 transition-transform duration-(--dur-2)',
+              open && 'rotate-180'
+            )}
+          />
+        </button>
+        {open && (
+          <div className="border-border space-y-3 border-t px-4 py-3">
+            <FieldBlock label={t('rules.pipelineLabel')}>
+              <OptionSelect
+                value={state.pipeline_id ?? ''}
+                onValueChange={(v) => onChange({ pipeline_id: v || null })}
+                className="bg-muted"
+              >
+                <option value="">{t('rules.pipelineAny')}</option>
+                {pipelines.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+                {state.pipeline_id && !selectedPipeline && (
+                  <option value={state.pipeline_id}>
+                    {t('pipelines.unknownPipeline', { id: state.pipeline_id })}
+                  </option>
+                )}
+              </OptionSelect>
+              <p className="text-muted-foreground text-2xs mt-1 leading-relaxed">
+                {t('rules.pipelineHint')}
+              </p>
+            </FieldBlock>
+
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="text-foreground text-xs font-medium">
+                  {t('rules.cancelOnReply')}
+                </div>
+                <p className="text-muted-foreground text-2xs mt-0.5 leading-relaxed">
+                  {t('rules.cancelOnReplyHint')}
+                </p>
+              </div>
+              <Switch
+                checked={state.cancel_on_reply}
+                onCheckedChange={(v) => onChange({ cancel_on_reply: !!v })}
+                aria-label={t('rules.cancelOnReply')}
+              />
+            </div>
+
+            <FieldBlock label={t('rules.cancelWhenStageIn')}>
+              <p className="text-muted-foreground text-2xs mb-2 leading-relaxed">
+                {t('rules.cancelWhenStageInHint')}
+              </p>
+              <StageChecklist
+                value={state.cancel_when_stage_in}
+                onChange={(next) => onChange({ cancel_when_stage_in: next })}
+                pipelineId={state.pipeline_id}
+                t={t}
+              />
+            </FieldBlock>
+
+            <FieldBlock label={t('rules.reentryLabel')}>
+              <OptionSelect
+                value={state.reentry_policy}
+                onValueChange={(v) =>
+                  onChange({ reentry_policy: v as AutomationReentryPolicy })
+                }
+                className="bg-muted"
+              >
+                <option value="always">{t('rules.reentry.always')}</option>
+                <option value="after_complete">
+                  {t('rules.reentry.after_complete')}
+                </option>
+                <option value="never">{t('rules.reentry.never')}</option>
+                <option value="after_days">
+                  {t('rules.reentry.after_days')}
+                </option>
+              </OptionSelect>
+              {state.reentry_policy === 'after_days' && (
+                <Input
+                  type="number"
+                  min={1}
+                  value={state.reentry_days ?? 30}
+                  onChange={(e) =>
+                    onChange({
+                      reentry_days: Math.max(1, Number(e.target.value) || 1),
+                    })
+                  }
+                  className="bg-muted text-foreground mt-2"
+                  aria-label={t('rules.reentryDays')}
+                />
+              )}
+              <p className="text-muted-foreground text-2xs mt-1 leading-relaxed">
+                {t('rules.reentryHint')}
+              </p>
+            </FieldBlock>
           </div>
         )}
       </div>
@@ -1234,6 +1804,7 @@ function StepRenderer({
   basePath: StepPath;
 } & Omit<StepListProps, 'steps' | 'basePath' | 'scope'>) {
   const t = useTranslations('Automations.builder');
+  const resources = useResources();
   const path = childPath(basePath, scope, index);
   const meta = STEP_META[step.step_type];
   const Icon = meta.icon;
@@ -1300,7 +1871,7 @@ function StepRenderer({
               width. Wedged into the title row it truncated after four words
               and told you nothing about the step. */}
           <div className="border-border text-muted-foreground text-2xs truncate border-b px-3 py-1.5">
-            {previewFor(step, t)}
+            {previewFor(step, t, resources)}
           </div>
           {expanded && (
             <div className="px-3 py-3">
@@ -1471,6 +2042,9 @@ function StepEditor({
   onChange: (s: BuilderStep) => void;
 }) {
   const t = useTranslations('Automations.builder');
+  // The loss reasons are worded once, in the outcome dialog's catalogue.
+  const tOutcome = useTranslations('Pipelines.outcome');
+  const resources = useResources();
   const cfg = step.step_config;
   const set = (patch: Record<string, unknown>) =>
     onChange({ ...step, step_config: { ...cfg, ...patch } });
@@ -1591,48 +2165,113 @@ function StepEditor({
           </FieldBlock>
         </>
       );
-    case 'wait':
+    case 'wait': {
+      const untilDate = cfg.mode === 'until_contact_date';
       return (
-        // Amount + unit want one line, but a hard `grid-cols-2` gave them
-        // one everywhere — including a step nested two branches deep on a
-        // 360px phone, where each half is under 120px and the select
-        // clipped its own options. A container query asks the card, not
-        // the viewport: 18rem of editor is enough for the pair, less than
-        // that stacks.
-        <div className="@container">
-          <div className="grid grid-cols-1 gap-2 @2xs:grid-cols-2">
-            <FieldBlock label={t('config.amountLabel')}>
-              <Input
-                type="number"
-                min={1}
-                value={(cfg.amount as number) ?? 1}
-                onChange={(e) =>
-                  set({ amount: Math.max(1, Number(e.target.value)) })
-                }
-                className="bg-muted text-foreground"
-              />
-            </FieldBlock>
-            <FieldBlock label={t('config.unitLabel')}>
-              <OptionSelect
-                value={(cfg.unit as string) ?? 'hours'}
-                onValueChange={(unit) => set({ unit })}
-                className="bg-muted"
-              >
-                <option value="minutes">{t('config.units.minutes')}</option>
-                <option value="hours">{t('config.units.hours')}</option>
-                <option value="days">{t('config.units.days')}</option>
-              </OptionSelect>
-            </FieldBlock>
-          </div>
-        </div>
+        <>
+          <FieldBlock label={t('config.waitModeLabel')}>
+            <OptionSelect
+              value={untilDate ? 'until_contact_date' : 'duration'}
+              onValueChange={(mode) =>
+                set(
+                  mode === 'until_contact_date'
+                    ? {
+                        mode,
+                        field:
+                          (cfg.field as string) ?? 'next_purchase_expected_at',
+                        at: (cfg.at as string) ?? '09:00',
+                      }
+                    : { mode: 'duration' }
+                )
+              }
+              className="bg-muted"
+            >
+              <option value="duration">{t('config.waitModes.duration')}</option>
+              <option value="until_contact_date">
+                {t('config.waitModes.until_contact_date')}
+              </option>
+            </OptionSelect>
+          </FieldBlock>
+          {untilDate ? (
+            <>
+              <FieldBlock label={t('config.dateFieldLabel')}>
+                <OptionSelect
+                  value={(cfg.field as string) ?? 'next_purchase_expected_at'}
+                  onValueChange={(field) => set({ field })}
+                  className="bg-muted"
+                >
+                  <option value="next_purchase_expected_at">
+                    {t('config.dateFields.next_purchase_expected_at')}
+                  </option>
+                  <option value="birthday">
+                    {t('config.dateFields.birthday')}
+                  </option>
+                  <option value="last_purchase_at">
+                    {t('config.dateFields.last_purchase_at')}
+                  </option>
+                </OptionSelect>
+              </FieldBlock>
+              <FieldBlock label={t('config.atLabel')}>
+                <Input
+                  value={(cfg.at as string) ?? '09:00'}
+                  onChange={(e) => set({ at: e.target.value })}
+                  placeholder="09:00"
+                  className="bg-muted text-foreground"
+                />
+              </FieldBlock>
+              <p className="text-muted-foreground text-2xs leading-relaxed">
+                {t('config.untilDateHint')}
+              </p>
+            </>
+          ) : (
+            // Amount + unit want one line, but a hard `grid-cols-2` gave
+            // them one everywhere — including a step nested two branches
+            // deep on a 360px phone, where each half is under 120px and
+            // the select clipped its own options. A container query asks
+            // the card, not the viewport: 18rem of editor is enough for
+            // the pair, less than that stacks.
+            <div className="@container">
+              <div className="grid grid-cols-1 gap-2 @2xs:grid-cols-2">
+                <FieldBlock label={t('config.amountLabel')}>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={(cfg.amount as number) ?? 1}
+                    onChange={(e) =>
+                      set({ amount: Math.max(1, Number(e.target.value)) })
+                    }
+                    className="bg-muted text-foreground"
+                  />
+                </FieldBlock>
+                <FieldBlock label={t('config.unitLabel')}>
+                  <OptionSelect
+                    value={(cfg.unit as string) ?? 'hours'}
+                    onValueChange={(unit) => set({ unit })}
+                    className="bg-muted"
+                  >
+                    <option value="minutes">{t('config.units.minutes')}</option>
+                    <option value="hours">{t('config.units.hours')}</option>
+                    <option value="days">{t('config.units.days')}</option>
+                  </OptionSelect>
+                </FieldBlock>
+              </div>
+            </div>
+          )}
+        </>
       );
-    case 'condition':
+    }
+    case 'condition': {
+      const subject = (cfg.subject as string) ?? 'tag_presence';
+      const dealSubject =
+        subject === 'deal_in_stage' ||
+        subject === 'deal_is_open' ||
+        subject === 'customer_replied_since';
       return (
         <>
           <FieldBlock label={t('config.subjectLabel')}>
             <OptionSelect
-              value={(cfg.subject as string) ?? 'tag_presence'}
-              onValueChange={(subject) => set({ subject })}
+              value={subject}
+              onValueChange={(next) => set({ subject: next, operand: '' })}
               className="bg-muted"
             >
               <option value="tag_presence">
@@ -1647,26 +2286,64 @@ function StepEditor({
               <option value="time_of_day">
                 {t('config.subjects.time_of_day')}
               </option>
+              <option value="deal_in_stage">
+                {t('config.subjects.deal_in_stage')}
+              </option>
+              <option value="deal_is_open">
+                {t('config.subjects.deal_is_open')}
+              </option>
+              <option value="customer_replied_since">
+                {t('config.subjects.customer_replied_since')}
+              </option>
             </OptionSelect>
           </FieldBlock>
-          <FieldBlock label={t('config.operandLabel')}>
-            <Input
-              placeholder={
-                cfg.subject === 'time_of_day'
-                  ? t('config.placeholderTime')
-                  : cfg.subject === 'contact_field'
-                    ? t('config.placeholderContact')
-                    : cfg.subject === 'tag_presence'
-                      ? t('config.placeholderTag')
-                      : ''
-              }
-              value={(cfg.operand as string) ?? ''}
-              onChange={(e) => set({ operand: e.target.value })}
-              className="bg-muted text-foreground"
-            />
-          </FieldBlock>
-          {(cfg.subject === 'contact_field' ||
-            cfg.subject === 'message_content') && (
+          {subject === 'deal_in_stage' && (
+            <FieldBlock label={t('config.stagesLabel')}>
+              <StageChecklist
+                value={(cfg.stage_ids as string[]) ?? []}
+                onChange={(next) => set({ stage_ids: next })}
+                t={t}
+              />
+            </FieldBlock>
+          )}
+          {subject === 'customer_replied_since' && (
+            <FieldBlock label={t('config.sinceLabel')}>
+              <OptionSelect
+                value={(cfg.operand as string) || 'stage_entry'}
+                onValueChange={(operand) => set({ operand })}
+                className="bg-muted"
+              >
+                <option value="stage_entry">
+                  {t('config.since.stage_entry')}
+                </option>
+                <option value="run_start">{t('config.since.run_start')}</option>
+              </OptionSelect>
+            </FieldBlock>
+          )}
+          {subject === 'deal_is_open' && (
+            <p className="text-muted-foreground text-xs leading-relaxed">
+              {t('config.dealIsOpenHint')}
+            </p>
+          )}
+          {!dealSubject && (
+            <FieldBlock label={t('config.operandLabel')}>
+              <Input
+                placeholder={
+                  subject === 'time_of_day'
+                    ? t('config.placeholderTime')
+                    : subject === 'contact_field'
+                      ? t('config.placeholderContact')
+                      : subject === 'tag_presence'
+                        ? t('config.placeholderTag')
+                        : ''
+                }
+                value={(cfg.operand as string) ?? ''}
+                onChange={(e) => set({ operand: e.target.value })}
+                className="bg-muted text-foreground"
+              />
+            </FieldBlock>
+          )}
+          {(subject === 'contact_field' || subject === 'message_content') && (
             <FieldBlock label={t('config.valueLabel')}>
               <Input
                 value={(cfg.value as string) ?? ''}
@@ -1675,6 +2352,111 @@ function StepEditor({
               />
             </FieldBlock>
           )}
+        </>
+      );
+    }
+    case 'move_deal_stage': {
+      const { stages } = resources;
+      const target = stages.find((s) => s.id === cfg.stage_id);
+      const lost = target ? isLostStage(target.name) : false;
+      return (
+        <>
+          <FieldBlock label={t('pipelines.stageLabel')}>
+            <StageSelect
+              value={(cfg.stage_id as string) ?? ''}
+              onChange={(v) => set({ stage_id: v })}
+              t={t}
+            />
+          </FieldBlock>
+          {lost && (
+            <FieldBlock label={t('config.lostReasonLabel')}>
+              <OptionSelect
+                value={(cfg.lost_reason as string) ?? ''}
+                onValueChange={(v) => set({ lost_reason: v })}
+                className="bg-muted"
+              >
+                <option value="">{t('config.lostReasonSelect')}</option>
+                {LOSS_REASONS.map((r) => (
+                  <option key={r} value={r}>
+                    {tOutcome(`reasons.${r}`)}
+                  </option>
+                ))}
+              </OptionSelect>
+            </FieldBlock>
+          )}
+          <p className="text-muted-foreground text-2xs leading-relaxed">
+            {t('config.moveDealHint')}
+          </p>
+        </>
+      );
+    }
+    case 'update_deal':
+      return (
+        <>
+          <FieldBlock label={t('config.dealFieldLabel')}>
+            <OptionSelect
+              value={(cfg.field as string) ?? 'notes'}
+              onValueChange={(field) => set({ field })}
+              className="bg-muted"
+            >
+              <option value="notes">{t('config.dealFields.notes')}</option>
+              <option value="title">{t('config.dealFields.title')}</option>
+              <option value="value">{t('config.dealFields.value')}</option>
+              <option value="expected_close_date">
+                {t('config.dealFields.expected_close_date')}
+              </option>
+            </OptionSelect>
+          </FieldBlock>
+          <FieldBlock label={t('config.valueLabel')}>
+            <Input
+              value={(cfg.value as string) ?? ''}
+              onChange={(e) => set({ value: e.target.value })}
+              placeholder={
+                cfg.field === 'expected_close_date'
+                  ? 'AAAA-MM-DD'
+                  : t.raw('config.placeholderValue')
+              }
+              className="bg-muted text-foreground"
+            />
+          </FieldBlock>
+        </>
+      );
+    case 'cancel_automations':
+      return (
+        <>
+          <FieldBlock label={t('config.scopeLabel')}>
+            <OptionSelect
+              value={(cfg.scope as string) ?? 'deal'}
+              onValueChange={(scope) => set({ scope })}
+              className="bg-muted"
+            >
+              <option value="deal">{t('config.scopes.deal')}</option>
+              <option value="contact">{t('config.scopes.contact')}</option>
+            </OptionSelect>
+          </FieldBlock>
+          <FieldBlock label={t('config.automationsLabel')}>
+            <AutomationChecklist
+              value={(cfg.automation_ids as string[]) ?? []}
+              onChange={(next) => set({ automation_ids: next })}
+              t={t}
+            />
+          </FieldBlock>
+        </>
+      );
+    case 'end':
+      return (
+        <>
+          <FieldBlock label={t('config.reasonLabel')}>
+            <Input
+              value={(cfg.reason as string) ?? ''}
+              onChange={(e) => set({ reason: e.target.value })}
+              placeholder={t('config.placeholderReason')}
+              className="bg-muted text-foreground"
+            />
+          </FieldBlock>
+          <p className="text-muted-foreground text-xs leading-relaxed">
+            {t('config.endHint')}
+          </p>
         </>
       );
     case 'send_webhook':
@@ -1734,8 +2516,11 @@ function FieldBlock({
  */
 function previewFor(
   step: BuilderStep,
-  t: ReturnType<typeof useTranslations>
+  t: ReturnType<typeof useTranslations>,
+  resources?: AutomationResources
 ): string {
+  const stageName = (id: unknown) =>
+    resources?.stages.find((s) => s.id === id)?.name ?? (id ? String(id) : '');
   switch (step.step_type) {
     case 'send_message':
       return (step.step_config.text as string) || t('preview.noText');
@@ -1750,6 +2535,11 @@ function previewFor(
         (step.step_config.template_name as string) || t('preview.pickTemplate')
       );
     case 'wait':
+      if (step.step_config.mode === 'until_contact_date') {
+        return t('preview.untilDate', {
+          field: String(step.step_config.field ?? 'next_purchase_expected_at'),
+        });
+      }
       return `${step.step_config.amount ?? '?'} ${step.step_config.unit ?? ''}`;
     case 'condition':
       return t('preview.when', {
@@ -1757,6 +2547,16 @@ function previewFor(
       });
     case 'send_webhook':
       return (step.step_config.url as string) || t('preview.noUrl');
+    case 'move_deal_stage':
+      return stageName(step.step_config.stage_id) || t('preview.noStage');
+    case 'update_deal':
+      return `${String(step.step_config.field ?? '')}: ${String(step.step_config.value ?? '')}`;
+    case 'cancel_automations':
+      return t('preview.cancelScope', {
+        scope: String(step.step_config.scope ?? 'deal'),
+      });
+    case 'end':
+      return (step.step_config.reason as string) || t('preview.ended');
     default:
       return '';
   }

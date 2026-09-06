@@ -1,6 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { addDays, fromISO, toISO } from '@/lib/calendar';
+import { DEFAULT_TIMEZONE, localParts } from '@/lib/automations/local-time';
+import { loadTasksInRange } from '@/lib/tasks/queries';
+import { rescheduleTask } from '@/lib/tasks/mutations';
 
 /**
  * The agenda — every dated thing the CRM knows about, on one grid.
@@ -46,6 +49,8 @@ import { addDays, fromISO, toISO } from '@/lib/calendar';
 type DB = SupabaseClient;
 
 export type AgendaKind =
+  /** A task somebody set, with an owner and a deadline (migration 068). */
+  | 'task'
   /** A step the automation engine will run: follow-up D+3, pós-venda D+10. */
   | 'automation'
   /** A campaign, on the day it went out. */
@@ -64,6 +69,11 @@ export type AgendaTone = 'human' | 'auto' | 'danger' | 'neutral';
 
 /** Draw order, and the order of the filter chips. Human work first. */
 export const AGENDA_KINDS: readonly AgendaKind[] = [
+  // FIRST, and it is the one row here that is unambiguously a person's
+  // work. Everything else on this calendar is a date that belongs to
+  // something else — a deal that closes, a birthday, a campaign that went
+  // out. A task is the only one somebody sat down and decided.
+  'task',
   'deal',
   'repurchase',
   'occurrence',
@@ -78,6 +88,7 @@ export const AGENDA_KINDS: readonly AgendaKind[] = [
  * neutral rather than borrowing the one colour that means come here.
  */
 export const AGENDA_TONE: Record<AgendaKind, AgendaTone> = {
+  task: 'human',
   deal: 'human',
   repurchase: 'human',
   occurrence: 'danger',
@@ -87,7 +98,7 @@ export const AGENDA_TONE: Record<AgendaKind, AgendaTone> = {
 };
 
 /** The table a reschedule writes to. `null` on everything else. */
-export type RescheduleTarget = 'deal' | 'repurchase';
+export type RescheduleTarget = 'deal' | 'repurchase' | 'task';
 
 export interface AgendaItem {
   /** Unique across sources — `${kind}:${rowId}`, plus the year for birthdays. */
@@ -129,15 +140,18 @@ export interface AgendaItem {
 export async function loadAgenda(
   db: DB,
   from: Date,
-  to: Date
+  to: Date,
+  timeZone: string = DEFAULT_TIMEZONE
 ): Promise<AgendaItem[]> {
+  const zone = timeZone || DEFAULT_TIMEZONE;
   const groups = await Promise.all([
+    safe(() => loadTasks(db, from, to)),
     safe(() => loadDeals(db, from, to)),
     safe(() => loadRepurchases(db, from, to)),
     safe(() => loadBirthdays(db, from, to)),
-    safe(() => loadBroadcasts(db, from, to)),
+    safe(() => loadBroadcasts(db, from, to, zone)),
     safe(() => loadOccurrences(db, from, to)),
-    safe(() => loadScheduledAutomations(from, to)),
+    safe(() => loadScheduledAutomations(from, to, zone)),
   ]);
 
   return groups.flat().sort(compareItems);
@@ -160,6 +174,46 @@ function compareItems(a: AgendaItem, b: AgendaItem): number {
     return a.time < b.time ? -1 : 1;
   }
   return AGENDA_KINDS.indexOf(a.kind) - AGENDA_KINDS.indexOf(b.kind);
+}
+
+/**
+ * Tarefas abertas com prazo na janela (migração 068).
+ *
+ * A sétima fonte, e a primeira que é um compromisso em vez da data de
+ * outra coisa. `reschedule: 'task'` porque o prazo de uma tarefa é a
+ * terceira data de que uma pessoa é dona — a doutrina no topo deste arquivo
+ * dizia "as duas", e passou a valer para três sem mudar de forma.
+ *
+ * O `href` aponta para o contato porque a tarefa ainda não tem página
+ * própria: a Fase 3 do `docs/spec-tarefas-e-agendas.md` cria `/agenda`, e aí
+ * vira `/agenda?task=`. `null` numa tarefa solta é a resposta honesta — o
+ * mesmo raciocínio de `lib/notifications/destination.ts`.
+ */
+async function loadTasks(db: DB, from: Date, to: Date): Promise<AgendaItem[]> {
+  const rows = await loadTasksInRange(db, from, to);
+
+  return rows.flatMap((row) => {
+    const day = dayOf(row.due_on);
+    if (!day) return [];
+    return [
+      {
+        id: `task:${row.id}`,
+        kind: 'task' as const,
+        day,
+        // Já é hora de parede no fuso da conta: uma coluna TIME não passa
+        // por fuso nenhum, então não vai para `timeOf`.
+        time: row.due_time ? row.due_time.slice(0, 5) : null,
+        title: row.title,
+        contact: null,
+        value: null,
+        currency: null,
+        status: row.kind,
+        href: row.contact_id ? `/contacts?id=${row.contact_id}` : null,
+        reschedule: 'task' as const,
+        rowId: row.id,
+      },
+    ];
+  });
 }
 
 async function loadDeals(db: DB, from: Date, to: Date): Promise<AgendaItem[]> {
@@ -315,7 +369,8 @@ function anniversary(born: Date, year: number): Date {
 async function loadBroadcasts(
   db: DB,
   from: Date,
-  to: Date
+  to: Date,
+  zone: string
 ): Promise<AgendaItem[]> {
   const start = startOfDay(from).toISOString();
   const end = endOfDay(to).toISOString();
@@ -337,14 +392,14 @@ async function loadBroadcasts(
 
   return ((data ?? []) as RawBroadcast[]).flatMap((row) => {
     const at = row.scheduled_at ?? row.created_at;
-    const day = dayOf(at);
+    const day = dayOf(at, zone);
     if (!day) return [];
     return [
       {
         id: `broadcast:${row.id}`,
         kind: 'broadcast' as const,
         day,
-        time: timeOf(at),
+        time: timeOf(at, zone),
         title: row.name,
         contact: null,
         value: null,
@@ -420,7 +475,8 @@ async function loadOccurrences(
  */
 async function loadScheduledAutomations(
   from: Date,
-  to: Date
+  to: Date,
+  zone: string
 ): Promise<AgendaItem[]> {
   const params = new URLSearchParams({
     from: startOfDay(from).toISOString(),
@@ -432,14 +488,14 @@ async function loadScheduledAutomations(
   const body = (await response.json()) as { items?: RawPending[] };
 
   return (body.items ?? []).flatMap((row) => {
-    const day = dayOf(row.run_at);
+    const day = dayOf(row.run_at, zone);
     if (!day) return [];
     return [
       {
         id: `automation:${row.id}`,
         kind: 'automation' as const,
         day,
-        time: timeOf(row.run_at),
+        time: timeOf(row.run_at, zone),
         title: row.automation_name ?? '',
         contact: row.contact_name ?? null,
         value: null,
@@ -481,6 +537,13 @@ export async function rescheduleItem(
     return !error;
   }
 
+  if (item.reschedule === 'task') {
+    // Passa por `rescheduleTask` e não por um UPDATE aqui porque mover o
+    // prazo também tem de limpar `reminded_at` — senão a tarefa remarcada
+    // para a semana que vem nunca mais lembra.
+    return rescheduleTask(db, item.rowId, iso);
+  }
+
   if (item.reschedule === 'repurchase') {
     const { error } = await db
       .from('contacts')
@@ -510,6 +573,7 @@ export function groupByDay(items: AgendaItem[]): Map<string, AgendaItem[]> {
 /** How many of each kind are in the window — the count on a filter chip. */
 export function countByKind(items: AgendaItem[]): Record<AgendaKind, number> {
   const counts: Record<AgendaKind, number> = {
+    task: 0,
     deal: 0,
     repurchase: 0,
     occurrence: 0,
@@ -546,25 +610,40 @@ function endOfDay(date: Date): Date {
   return out;
 }
 
-/** Local day key for either a `date` column or a timestamp. */
-function dayOf(value: string | null | undefined): string | null {
+/**
+ * Day key for either a `date` column or a timestamp, in the ACCOUNT's zone.
+ *
+ * The account's and not the reader's, which is the change migration 066
+ * bought. Both were the same thing while the whole company sat in one
+ * timezone, and the difference is only visible at the edges — a campaign
+ * that went out at 23:40 in São Paulo is on the NEXT day for a colleague
+ * reading from Lisbon, so the same calendar shows the same event on two
+ * different days to two people. A commercial calendar is about the
+ * company's day, not the reader's.
+ */
+function dayOf(
+  value: string | null | undefined,
+  zone: string = DEFAULT_TIMEZONE
+): string | null {
   if (!value) return null;
   // A bare `YYYY-MM-DD` is already the answer, and must NOT go through `new
   // Date()` — that parses it as UTC midnight and hands back the previous day
   // west of Greenwich.
   if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? null : toISO(date);
+  return Number.isNaN(date.getTime()) ? null : localParts(date, zone).dateKey;
 }
 
-/** `HH:MM` in the reader's own timezone, for rows that carry a clock. */
-function timeOf(value: string | null | undefined): string | null {
+/** `HH:MM` on the account's wall clock, for rows that carry a time. */
+function timeOf(
+  value: string | null | undefined,
+  zone: string = DEFAULT_TIMEZONE
+): string | null {
   if (!value || /^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return null;
-  const hours = String(date.getHours()).padStart(2, '0');
-  const minutes = String(date.getMinutes()).padStart(2, '0');
-  return `${hours}:${minutes}`;
+  const { hour, minute } = localParts(date, zone);
+  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
 }
 
 /** The day `n` days from today, as an ISO key — the reschedule presets. */

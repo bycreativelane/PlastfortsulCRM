@@ -45,12 +45,8 @@ import { isUnknownColumn } from '@/lib/supabase/pg-errors';
 import { isLostStage, isWonStage } from '@/lib/deals/outcome';
 import { cancelPendingByStep } from './cancel';
 import { checkReentry } from './reentry';
-import {
-  DEFAULT_TIMEZONE,
-  parseHHmm,
-  safeTimeZone,
-  zonedTimeToUtc,
-} from './local-time';
+import { parseHHmm, zonedTimeToUtc } from './local-time';
+import { resolveTimeZone } from './account-timezone';
 
 // ------------------------------------------------------------
 // Public API
@@ -525,7 +521,13 @@ async function executeStepsFrom(args: ExecuteArgs): Promise<ScopeOutcome> {
         const until = {
           field: cfg.field ?? 'next_purchase_expected_at',
           at: cfg.at ?? '09:00',
-          timezone: safeTimeZone(cfg.timezone ?? DEFAULT_TIMEZONE),
+          // O que o passo declarou ganha; senão, o fuso da conta (066).
+          // Ver `account-timezone.ts` para o porquê da ordem.
+          timezone: await resolveTimeZone(
+            supabaseAdmin(),
+            args.automation.account_id,
+            cfg.timezone
+          ),
         };
         const target = await contactDateWake(
           args.automation,

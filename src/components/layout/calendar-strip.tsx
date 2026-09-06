@@ -9,6 +9,7 @@ import {
   Cake,
   ChevronLeft,
   ChevronRight,
+  ListChecks,
   Radio,
   RefreshCw,
   Zap,
@@ -35,10 +36,7 @@ import {
   type AgendaTone,
 } from '@/lib/dashboard/agenda';
 import { cn } from '@/lib/utils';
-import {
-  Popover,
-  PopoverContent,
-} from '@/components/ui/popover';
+import { Popover, PopoverContent } from '@/components/ui/popover';
 
 /**
  * The week, in the bar, beside the search.
@@ -67,6 +65,7 @@ const KIND_ICON: Record<
   AgendaKind,
   React.ComponentType<{ className?: string }>
 > = {
+  task: ListChecks,
   deal: Briefcase,
   repurchase: RefreshCw,
   occurrence: AlertTriangle,
@@ -102,7 +101,7 @@ export function CalendarStrip({ className }: { className?: string }) {
   const t = useTranslations('Today.agenda');
   const tStrip = useTranslations('Header.calendar');
   const locale = useLocale();
-  const { accountId, defaultCurrency } = useAuth();
+  const { accountId, defaultCurrency, accountTimeZone } = useAuth();
 
   const weekStart = useMemo(() => firstDayOfWeek(locale), [locale]);
   const today = useMemo(() => {
@@ -132,13 +131,18 @@ export function CalendarStrip({ className }: { className?: string }) {
       to.setHours(23, 59, 59, 999);
       // `loadAgenda` swallows a failing source rather than throwing, so a
       // missing migration costs that source's rows and nothing else.
-      const loaded = await loadAgenda(createClient(), from, to);
+      const loaded = await loadAgenda(
+        createClient(),
+        from,
+        to,
+        accountTimeZone
+      );
       if (!cancelled) setItems(loaded);
     })();
     return () => {
       cancelled = true;
     };
-  }, [accountId, days]);
+  }, [accountId, days, accountTimeZone]);
 
   const byDay = useMemo(() => groupByDay(items), [items]);
   const selectedItems = byDay.get(toISO(selected)) ?? [];

@@ -10,6 +10,7 @@ import { formatDistanceToNow } from 'date-fns';
 import {
   Bell,
   CheckCheck,
+  ListChecks,
   Loader2,
   MessageSquare,
   UserPlus,
@@ -41,6 +42,7 @@ import { sectionHref } from '@/components/settings/settings-sections';
 const TYPE_ICON: Record<Notification['type'], typeof Bell> = {
   conversation_assigned: UserPlus,
   new_message: MessageSquare,
+  task_due: ListChecks,
 };
 
 /** Enough to answer "anything new?" without becoming a page. */

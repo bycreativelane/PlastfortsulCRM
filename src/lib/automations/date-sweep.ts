@@ -9,6 +9,7 @@ import {
   parseHHmm,
   safeTimeZone,
 } from './local-time';
+import { accountTimeZone } from './account-timezone';
 
 /**
  * The one sweep the official flow actually needs: "whose date is today".
@@ -58,6 +59,13 @@ export async function runDateFieldSweeps(
   if (automations.length === 0) return result;
   result.automations = automations.length;
 
+  // The account's zone, once per account rather than once per automation
+  // (066). Ten birthday automations on one account is one lookup.
+  const zones = new Map<string, string>();
+  for (const accountId of new Set(automations.map((a) => a.account_id))) {
+    zones.set(accountId, await accountTimeZone(db, accountId));
+  }
+
   // One query per (account, field, zone, time) rather than per automation:
   // two birthday automations on one account read the contacts once, and
   // the engine matches each of them by field on dispatch.
@@ -66,7 +74,11 @@ export async function runDateFieldSweeps(
     const cfg = (a.trigger_config ??
       {}) as Partial<DateFieldReachedTriggerConfig>;
     if (!cfg.field) continue;
-    const timeZone = safeTimeZone(cfg.timezone ?? DEFAULT_TIMEZONE);
+    // What the automation declared wins; failing that, the account's zone;
+    // and only then the constant. See `account-timezone.ts` for the order.
+    const timeZone = cfg.timezone
+      ? safeTimeZone(cfg.timezone)
+      : (zones.get(a.account_id) ?? DEFAULT_TIMEZONE);
     const atMinutes = parseHHmm(cfg.at) ?? 9 * 60;
     const key = `${a.account_id}|${cfg.field}|${timeZone}|${atMinutes}`;
     if (!groups.has(key)) {

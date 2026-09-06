@@ -311,7 +311,11 @@ export interface Conversation {
  * the table are assignments (027). See that migration for why a customer
  * writing never produced a notification at all.
  */
-export type NotificationType = 'conversation_assigned' | 'new_message';
+export type NotificationType =
+  | 'conversation_assigned'
+  | 'new_message'
+  /** Um lembrete de tarefa, escrito pela varredura do cron (068). */
+  | 'task_due';
 
 export interface Notification {
   id: string;
@@ -331,6 +335,8 @@ export interface Notification {
    */
   conversation_id?: string | null;
   contact_id?: string | null;
+  /** The task this reminder is about, for `type = 'task_due'` (068). */
+  task_id?: string | null;
   /** Who triggered it. Null when an automation/system assigned it. */
   actor_user_id?: string | null;
   title: string | null;
@@ -597,6 +603,67 @@ export interface DealStageEvent {
   changed_by: string | null;
   changed_at: string;
   dispatched_at: string | null;
+}
+
+/**
+ * The six kinds of task the interface offers (migration 068).
+ *
+ * A constant and not an enum in the database, the same call `042` made for
+ * occurrence kinds: this is one company's vocabulary, it will grow, and
+ * adding "Cobrança" should be a decision rather than a migration. The
+ * column is TEXT and accepts whatever the account writes.
+ */
+export const TASK_KINDS = [
+  'call',
+  'meeting',
+  'visit',
+  'followup',
+  'quote',
+  'todo',
+] as const;
+
+export type TaskKind = (typeof TASK_KINDS)[number];
+
+/**
+ * `cancelled` and not a DELETE.
+ *
+ * Same rule the queue (065) and occurrences (042) follow: a task that was
+ * called off is not a task that never existed, and "we already decided not
+ * to chase this one" is exactly what somebody needs before chasing it.
+ */
+export type TaskStatus = 'open' | 'done' | 'cancelled';
+
+export interface Task {
+  id: string;
+  account_id: string;
+  title: string;
+  description?: string | null;
+  /** One of `TASK_KINDS`, but TEXT in the database — see the note above. */
+  kind: string;
+  status: TaskStatus;
+  /**
+   * `YYYY-MM-DD` in the ACCOUNT's zone (`accounts.timezone`, migration
+   * 066), and a DATE column rather than half of a timestamp. See the
+   * header of 068 for why the day and the clock are separate.
+   */
+  due_on?: string | null;
+  /** `HH:MM`. Null means "that day, no time set" — which is information. */
+  due_time?: string | null;
+  duration_minutes?: number | null;
+  /** Minutes BEFORE the deadline. Moving the task moves the reminder. */
+  remind_minutes_before?: number | null;
+  /** Stamped when the sweep sends it; the guard against a double send. */
+  reminded_at?: string | null;
+  /** Auth user id, not `profiles.id` — see the column comment in 068. */
+  assigned_to?: string | null;
+  created_by?: string | null;
+  contact_id?: string | null;
+  deal_id?: string | null;
+  conversation_id?: string | null;
+  completed_at?: string | null;
+  completion_note?: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 /**

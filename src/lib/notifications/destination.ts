@@ -16,6 +16,11 @@ import type { Notification } from '@/types';
  */
 export function destinationFor(n: Notification): string | null {
   if (n.conversation_id) return `/inbox?c=${n.conversation_id}`;
+  // Uma tarefa ainda não tem página própria: a Fase 3 do
+  // `docs/spec-tarefas-e-agendas.md` cria `/agenda`, e aí este ramo passa a
+  // ser `/agenda?task=${n.task_id}`. Até lá, a ficha do contato é onde a
+  // tarefa aparece de verdade — e um lembrete de tarefa sem contato leva a
+  // lugar nenhum, que é a resposta que o comentário acima defende.
   if (n.contact_id) return `/contacts?id=${n.contact_id}`;
   return null;
 }

@@ -6,6 +6,7 @@ import { resumePendingExecution } from '@/lib/automations/engine';
 import type { AutomationContext } from '@/lib/automations/engine';
 import { drainDealStageEvents } from '@/lib/automations/stage-events';
 import { runDateFieldSweeps } from '@/lib/automations/date-sweep';
+import { runTaskReminderSweep } from '@/lib/tasks/reminders';
 
 /**
  * The automation engine's clock. Meant to be hit EVERY MINUTE by a
@@ -116,11 +117,28 @@ export async function GET(request: Request) {
     return { scanned: 0, handed: [] };
   });
 
+  /**
+   * 5. Task reminders (migration 068).
+   *
+   * Last, and cheap: one indexed query over open tasks with a reminder
+   * that has not fired. It rides this tick rather than getting its own
+   * schedule because a reminder is only as punctual as the tick anyway —
+   * a second cron would be a second thing to forget to provision.
+   *
+   * Caught like the others: a reminder that fails must not turn the
+   * automations run into a 500 the scheduler retries.
+   */
+  const reminders = await runTaskReminderSweep().catch((err) => {
+    console.error('[cron] task reminder sweep failed:', err);
+    return { due: 0, notified: 0 };
+  });
+
   return NextResponse.json({
     processed,
     stageEvents: stageEvents.dispatched,
     stageEventsSuppressed: stageEvents.suppressed,
     dateDispatches: sweeps.dispatched,
     handedOver: sweep.handed.length,
+    taskReminders: reminders.notified,
   });
 }

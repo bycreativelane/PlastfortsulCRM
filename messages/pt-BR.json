@@ -162,6 +162,11 @@
     "previousMonth": "Mês anterior",
     "nextMonth": "Próximo mês"
   },
+  "TimeField": {
+    "placeholder": "hh:mm",
+    "openList": "Abrir lista de horários",
+    "clear": "Sem hora"
+  },
   "AccountAccess": {
     "unlinkedTitle": "Este usuário não está vinculado a nenhuma conta",
     "unlinkedBody": "Nada do que você alterar será salvo enquanto isso não for resolvido — o banco recusa toda escrita de um usuário sem conta ou sem papel. Se você foi convidado para uma equipe, peça ao proprietário para reenviar o convite. Numa instalação própria, verifique se a migração que cria a conta rodou para este usuário.",
@@ -280,7 +285,8 @@
         "occurrence": "Ocorrência em aberto",
         "automation": "Automação agendada",
         "broadcast": "Campanha",
-        "birthday": "Aniversário"
+        "birthday": "Aniversário",
+        "task": "Tarefa"
       },
       "kindShort": {
         "deal": "Fechamentos",
@@ -288,7 +294,8 @@
         "occurrence": "Ocorrências",
         "automation": "Automações",
         "broadcast": "Campanhas",
-        "birthday": "Aniversários"
+        "birthday": "Aniversários",
+        "task": "Tarefas"
       },
       "reschedule": "Remarcar",
       "presetToday": "Hoje",
@@ -900,6 +907,7 @@
         "details": "Dados",
         "activity": "Histórico",
         "notes": "Notas",
+        "tasks": "Tarefas",
         "custom": "Campos personalizados",
         "deals": "Oportunidades",
         "tags": "Etiquetas",
@@ -1074,7 +1082,67 @@
       "cancel": "Cancelar",
       "save": "Salvar registro",
       "saved": "Ligação registrada",
-      "failed": "Não foi possível registrar a ligação"
+      "failed": "Não foi possível registrar a ligação",
+      "followUpLabel": "Criar tarefa de retorno",
+      "followUpHint": "Uma ligação marcada para {day}, no horário de atendimento.",
+      "followUpTaskTitle": "Retornar ligação para {name}",
+      "followUpFailed": "A ligação foi registrada, mas a tarefa não foi criada"
+    }
+  },
+  "Tasks": {
+    "sectionTitle": "Tarefas",
+    "new": "Nova",
+    "newTitle": "Nova tarefa",
+    "editTitle": "Editar tarefa",
+    "empty": "Nenhuma tarefa por aqui",
+    "titleLabel": "O que precisa ser feito",
+    "titlePlaceholder": "Ligar para confirmar o pedido",
+    "kindLabel": "Tipo",
+    "assigneeLabel": "Responsável",
+    "unassigned": "Sem responsável",
+    "dueLabel": "Prazo",
+    "timeLabel": "Hora",
+    "noReminder": "Sem lembrete",
+    "reminderNoTimeHint": "Sem hora marcada, o lembrete sai às {time}.",
+    "notesLabel": "Detalhes",
+    "notesPlaceholder": "O que precisa ser combinado, o que ficou pendente...",
+    "save": "Salvar",
+    "cancel": "Cancelar",
+    "delete": "Excluir",
+    "complete": "Concluir",
+    "reopen": "Reabrir",
+    "created": "Tarefa criada",
+    "updated": "Tarefa atualizada",
+    "deleted": "Tarefa excluída",
+    "saveFailed": "Não foi possível salvar a tarefa",
+    "deleteFailed": "Não foi possível excluir a tarefa",
+    "overdueCount": "{count} atrasada(s)",
+    "doneCount": "{count} concluída(s)",
+    "dueToday": "Hoje",
+    "dueTodayAt": "Hoje {time}",
+    "dueOverdue": "Atrasada · {day}",
+    "kind": {
+      "call": "Ligação",
+      "meeting": "Reunião",
+      "visit": "Visita",
+      "followup": "Follow-up",
+      "quote": "Orçamento",
+      "todo": "Outro"
+    },
+    "preset": {
+      "today": "Hoje",
+      "tomorrow": "Amanhã",
+      "in3days": "Em 3 dias",
+      "nextWeek": "Semana que vem",
+      "none": "Sem prazo"
+    },
+    "reminder": {
+      "0": "Na hora",
+      "15": "15 minutos antes",
+      "30": "30 minutos antes",
+      "60": "1 hora antes",
+      "120": "2 horas antes",
+      "1440": "1 dia antes"
     }
   },
   "Pipelines": {
@@ -2033,7 +2101,10 @@
           "topics": {
             "text": "Como posso ajudar você hoje?",
             "button_label": "Ver assuntos",
-            "sections": ["Perguntas frequentes", "Outros"],
+            "sections": [
+              "Perguntas frequentes",
+              "Outros"
+            ],
             "options": {
               "hours": "Horário de atendimento",
               "pricing": "Preços",
@@ -2635,6 +2706,7 @@
       "ai": "Agente IA",
       "fields": "Campos e etiquetas",
       "deals": "Oportunidades e moeda",
+      "hours": "Horários",
       "members": "Equipe",
       "api": "Chaves de API",
       "whats-new": "Novidades",
@@ -2809,6 +2881,40 @@
       "saving": "Salvando...",
       "saveFailed": "Não foi possível salvar a moeda padrão",
       "saveSuccess": "Moeda padrão atualizada"
+    },
+    "hours": {
+      "title": "Horários",
+      "description": "Em que fuso esta conta trabalha, e em que dias e horas ela atende. A agenda, os lembretes de tarefa e as automações por data leem daqui.",
+      "adminOnlyHint": "Só admins da conta podem mudar os horários.",
+      "clock": "Fuso e semana",
+      "clockDesc": "O fuso decide a que horas uma data acontece; o resto é como o calendário se desenha.",
+      "timezone": "Fuso horário",
+      "otherZones": "Outros fusos",
+      "weekStart": "A semana começa em",
+      "slot": "Divisão da grade",
+      "slotMinutes": "{minutes} minutos",
+      "week": "Expediente",
+      "weekDesc": "Um intervalo por linha. Manhã e tarde são dois intervalos do mesmo dia — é assim que se marca o almoço.",
+      "closed": "Fechado",
+      "opensAt": "Abre às",
+      "closesAt": "Fecha às",
+      "to": "até",
+      "addInterval": "Adicionar intervalo",
+      "removeInterval": "Remover intervalo",
+      "invalidRange": "Fecha antes de abrir",
+      "exceptions": "Feriados e dias diferentes",
+      "exceptionsDesc": "O que foge da semana, por data. Um dia marcado aqui substitui o expediente normal.",
+      "noExceptions": "Nenhum dia cadastrado.",
+      "exceptionDate": "Data",
+      "exceptionLabel": "Nome do dia (opcional)",
+      "exceptionOpen": "Aberto",
+      "addException": "Adicionar dia",
+      "removeException": "Remover dia",
+      "save": "Salvar",
+      "saving": "Salvando...",
+      "saveFailed": "Não foi possível salvar os horários",
+      "saveSuccess": "Horários atualizados",
+      "fixBeforeSave": "Corrija os horários marcados antes de salvar."
     },
     "aiConfig": {
       "title": "Configuração do agente",
@@ -3012,6 +3118,7 @@
         "contactsView": "Ver contatos",
         "contactsExport": "Exportar a lista de contatos",
         "pipelinesView": "Ver o funil",
+        "tasksView": "Ver a agenda e as tarefas",
         "broadcastsSend": "Enviar disparos",
         "automationsManage": "Mexer nas automações",
         "flowsManage": "Mexer nos fluxos",
@@ -3265,7 +3372,9 @@
     "assignedBody": "{actor} atribuiu a você uma conversa com {contact}",
     "assignedActorSystem": "O sistema",
     "assignedContactUnknown": "um contato",
-    "newMessageNoText": "Mandou um anexo"
+    "newMessageNoText": "Mandou um anexo",
+    "taskDueFallbackTitle": "Tarefa",
+    "taskDueBody": "Uma tarefa sua está chegando na hora."
   },
   "Routes": {
     "loading": "Carregando…",
@@ -3495,6 +3604,48 @@
       "deadTriggersHidden": "Gatilhos que nunca disparavam (Por horário, Conversa atribuída) saíram do menu."
     },
     "seeIt": "Ver na prática"
+  },
+  "Docs": {
+    "badge": "Documentação",
+    "search": "Buscar…",
+    "clearSearch": "Limpar busca",
+    "navAria": "Documentação",
+    "navDescription": "Guias e referência da API",
+    "noResults": "Nada encontrado para “{query}”.",
+    "onThisPage": "Nesta página",
+    "copy": "Copiar",
+    "copied": "Copiado",
+    "required": "obrigatório",
+    "optional": "opcional",
+    "default": "Padrão",
+    "example": "Exemplo",
+    "values": "Valores",
+    "authorization": "Autorização",
+    "pathParams": "Parâmetros de caminho",
+    "queryParams": "Parâmetros de consulta",
+    "body": "Corpo",
+    "response": "Resposta",
+    "scopeRequired": "Chave de API com o escopo {scope}, enviada como bearer token.",
+    "noScopeRequired": "Qualquer chave viva. Esta rota não exige escopo.",
+    "tryIt": "Testar",
+    "close": "Fechar",
+    "playgroundWarnRead": "Roda contra esta instância, com a chave que você colar abaixo.",
+    "playgroundWarnWrite": "Esta executa de verdade: grava — ou envia — nesta instância.",
+    "playgroundToken": "Chave de API",
+    "playgroundTokenHint": "Fica só nesta aba. Nunca é armazenada, nem enviada para outro lugar.",
+    "playgroundBody": "Corpo da requisição",
+    "playgroundRun": "Executar {method}",
+    "playgroundBadJson": "O corpo não é um JSON válido.",
+    "previous": "Anterior",
+    "next": "Próximo",
+    "releasesTitle": "Releases",
+    "openNav": "Abrir navegação",
+    "toggleMode": "Alternar claro e escuro",
+    "backToApp": "Voltar ao CRM",
+    "linkTitle": "Documentação da API",
+    "linkHint": "Rotas, escopos, exemplos e webhooks — em /developers.",
+    "hookLinkTitle": "Como chamar um hook de fora",
+    "hookLinkHint": "O payload, o token e o que as automações fazem com ele."
   },
   "Presence": {
     "onlineCountAria": "{count} pessoas online na equipe",

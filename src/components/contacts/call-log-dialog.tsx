@@ -1,13 +1,17 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Info, Loader2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
+import { useBusinessHours } from '@/hooks/use-business-hours';
+import { localParts } from '@/lib/automations/local-time';
+import { createTask, presetDue } from '@/lib/tasks/mutations';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
@@ -37,11 +41,20 @@ function todayIso(): string {
 /**
  * A call that ALREADY HAPPENED.
  *
- * The prototype says this in the dialog itself and it is the whole design:
+ * The prototype says this in the dialog itself and it is half the design:
  * "o CRM não disca nem agenda ligações. Aqui você só registra uma que já
- * aconteceu." Nothing here dials, schedules, or creates a task — half the
+ * aconteceu." Nothing here dials, and nothing here ever will — half the
  * value of writing it down is that the next person to open the thread knows
  * a phone call happened at all, because on WhatsApp it leaves no trace.
+ *
+ * THE OTHER HALF CHANGED. This comment used to end "...or creates a task",
+ * because there were no tasks: `spec-automacoes-fluxo.md` decided (decision
+ * 2) that moving the deal to the Ligação stage WAS the task. Migration 068
+ * gives the product a real one, and "ligou, não atendeu, retorna quinta" is
+ * the exact case that decision could not express — the stage says somebody
+ * should call, and cannot say who, or when, or that it already happened
+ * once. So the dialog now offers to book the return call, checked by
+ * default on precisely the two outcomes that imply one.
  *
  * It lands as an internal note (`contact_notes`), which is the app's existing
  * shared memory of a customer: account-scoped since migration 017, already
@@ -69,7 +82,27 @@ export function CallLogDialog({
   const [duration, setDuration] = useState('');
   const [outcome, setOutcome] = useState<Outcome>('spoke');
   const [notes, setNotes] = useState('');
+  const [followUp, setFollowUp] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  const { hours } = useBusinessHours();
+
+  /**
+   * O retorno cai no próximo dia útil, em horário comercial.
+   *
+   * `presetDue` lê o expediente da conta (066), então "amanhã" numa sexta à
+   * noite é segunda às 08:00 — e não sábado à meia-noite, que é o que um
+   * `+1 dia` ingênuo marcaria.
+   */
+  const followUpDue = useMemo(
+    () =>
+      presetDue(
+        'tomorrow',
+        hours,
+        localParts(new Date(), hours.timezone).dateKey
+      ),
+    [hours]
+  );
 
   useEffect(() => {
     if (!open) return;
@@ -78,6 +111,7 @@ export function CallLogDialog({
     setDuration('');
     setOutcome('spoke');
     setNotes('');
+    setFollowUp(false);
   }, [open]);
 
   async function save() {
@@ -121,6 +155,23 @@ export function CallLogDialog({
       toast.error(t('failed'));
       return;
     }
+    // A tarefa é secundária à nota: se ela falhar, a ligação continua
+    // registrada e o aviso diz o que não aconteceu. O contrário — desfazer
+    // a nota porque a tarefa falhou — perderia o fato para salvar o plano.
+    if (followUp) {
+      const created = await createTask(supabase, accountId, userId, {
+        title: t('followUpTaskTitle', {
+          name: contact.name || contact.phone,
+        }),
+        kind: 'call',
+        contact_id: contact.id,
+        assigned_to: userId,
+        due_on: followUpDue.due_on,
+        due_time: followUpDue.due_time,
+      });
+      if (!created) toast.error(t('followUpFailed'));
+    }
+
     toast.success(t('saved'));
     onOpenChange(false);
     onSaved();
@@ -170,7 +221,15 @@ export function CallLogDialog({
                   key={value}
                   type="button"
                   data-slot="button"
-                  onClick={() => setOutcome(value)}
+                  onClick={() => {
+                    setOutcome(value);
+                    // "Não atendeu" e "retornar depois" SÃO um próximo
+                    // passo; "falei" e "caixa postal" não são
+                    // necessariamente. Pré-marcar os dois primeiros é a
+                    // diferença entre a tarefa existir e alguém lembrar de
+                    // criá-la.
+                    setFollowUp(value === 'noAnswer' || value === 'callBack');
+                  }}
                   aria-pressed={outcome === value}
                   className={cn(
                     'h-7 rounded-md border px-2.5 text-xs font-semibold transition-colors',
@@ -195,6 +254,22 @@ export function CallLogDialog({
               className="min-h-20"
             />
           </div>
+
+          <label className="flex cursor-pointer items-start gap-2">
+            <Checkbox
+              checked={followUp}
+              onCheckedChange={(next) => setFollowUp(Boolean(next))}
+              className="mt-0.5"
+            />
+            <span className="min-w-0">
+              <span className="text-foreground block text-sm">
+                {t('followUpLabel')}
+              </span>
+              <span className="text-muted-foreground text-2xs block leading-relaxed">
+                {t('followUpHint', { day: followUpDue.due_on })}
+              </span>
+            </span>
+          </label>
         </div>
 
         <DialogFooter>

@@ -16,6 +16,7 @@ import {
 import { dateLocale } from '@/lib/i18n/dates';
 import { formatDistanceToNow } from 'date-fns';
 import { SettingsPanelHead } from '@/components/settings/settings-panel-head';
+import { ApiDocsLink } from '@/components/settings/api-docs-link';
 import { Button } from '@/components/ui/button';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import { FieldLabel } from '@/components/ui/field';
@@ -91,7 +92,9 @@ export function HooksPanel() {
    * it again — the panel below says so, because somebody who closes
    * this card without copying has to create another hook.
    */
-  const [fresh, setFresh] = useState<{ id: string; token: string } | null>(null);
+  const [fresh, setFresh] = useState<{ id: string; token: string } | null>(
+    null
+  );
   const [copied, setCopied] = useState(false);
   /**
    * Which hook's deliveries are open. One at a time: the panel fetches
@@ -222,6 +225,7 @@ export function HooksPanel() {
     <div className="space-y-4">
       <SettingsPanelHead title={t('title')} description={description} />
 
+      <ApiDocsLink variant="hooks" />
       {/* The token, once. Above everything else while it is on screen,
           because it is the only thing here that cannot be recovered. */}
       {fresh && (
@@ -311,7 +315,10 @@ export function HooksPanel() {
             </div>
             {allowMessages && (
               <p className="text-human-ink mt-2 flex items-start gap-1.5 text-xs">
-                <AlertTriangle className="mt-px size-3.5 shrink-0" aria-hidden />
+                <AlertTriangle
+                  className="mt-px size-3.5 shrink-0"
+                  aria-hidden
+                />
                 <span>{t('messagesWarning')}</span>
               </p>
             )}
@@ -339,54 +346,54 @@ export function HooksPanel() {
             {hooks.map((hook) => (
               <div key={hook.id} className="border-border rounded-lg border">
                 <div className="flex flex-wrap items-center gap-3 p-3">
-                <div className="min-w-0 flex-1">
-                  <p className="text-foreground truncate text-sm font-medium">
-                    {hook.name}
-                  </p>
-                  <p className="text-muted-foreground truncate font-mono text-2xs">
-                    {hook.token_hint}…
-                  </p>
-                  <p className="text-muted-foreground mt-1 text-2xs">
-                    {/* "Nunca usado" is the answer to "did I paste the
+                  <div className="min-w-0 flex-1">
+                    <p className="text-foreground truncate text-sm font-medium">
+                      {hook.name}
+                    </p>
+                    <p className="text-muted-foreground text-2xs truncate font-mono">
+                      {hook.token_hint}…
+                    </p>
+                    <p className="text-muted-foreground text-2xs mt-1">
+                      {/* "Nunca usado" is the answer to "did I paste the
                         right URL?", and it is the first thing somebody
                         looks for when an integration is quiet. */}
-                    {hook.last_used_at
-                      ? t('lastUsed', {
-                          when: formatDistanceToNow(
-                            new Date(hook.last_used_at),
-                            { addSuffix: true, locale: dateLocale }
-                          ),
-                        })
-                      : t('neverUsed')}
-                    {hook.allowed_ips.length > 0
-                      ? ` · ${t('ipCount', { count: hook.allowed_ips.length })}`
-                      : ` · ${t('anyIp')}`}
-                  </p>
-                </div>
+                      {hook.last_used_at
+                        ? t('lastUsed', {
+                            when: formatDistanceToNow(
+                              new Date(hook.last_used_at),
+                              { addSuffix: true, locale: dateLocale }
+                            ),
+                          })
+                        : t('neverUsed')}
+                      {hook.allowed_ips.length > 0
+                        ? ` · ${t('ipCount', { count: hook.allowed_ips.length })}`
+                        : ` · ${t('anyIp')}`}
+                    </p>
+                  </div>
 
-                {hook.scopes.includes('messages') && (
-                  <span className="bg-human-soft text-human-ink rounded-full px-2 py-0.5 text-2xs font-semibold">
-                    {t('canSend')}
-                  </span>
-                )}
+                  {hook.scopes.includes('messages') && (
+                    <span className="bg-human-soft text-human-ink text-2xs rounded-full px-2 py-0.5 font-semibold">
+                      {t('canSend')}
+                    </span>
+                  )}
 
-                <div className="flex items-center gap-2">
-                  <Switch
-                    checked={hook.enabled}
-                    disabled={busyId === hook.id}
-                    onCheckedChange={(v) => patch(hook, { enabled: v })}
-                    aria-label={t('enabled')}
-                  />
-                  <Button
-                    variant="ghost"
-                    size="icon-xs"
-                    disabled={busyId === hook.id}
-                    onClick={() => revoke(hook)}
-                    aria-label={t('revoke')}
-                    className="text-muted-foreground hover:text-destructive"
-                  >
-                    <Trash2 className="size-3.5" />
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={hook.enabled}
+                      disabled={busyId === hook.id}
+                      onCheckedChange={(v) => patch(hook, { enabled: v })}
+                      aria-label={t('enabled')}
+                    />
+                    <Button
+                      variant="ghost"
+                      size="icon-xs"
+                      disabled={busyId === hook.id}
+                      onClick={() => revoke(hook)}
+                      aria-label={t('revoke')}
+                      className="text-muted-foreground hover:text-destructive"
+                    >
+                      <Trash2 className="size-3.5" />
+                    </Button>
                   </div>
                 </div>
 

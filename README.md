@@ -134,6 +134,7 @@ de segredo nenhum.
 | [docs/spec-automacoes-fluxo.md](./docs/spec-automacoes-fluxo.md) | Automações comerciais: o fluxo oficial contra o código, decisões e plano por fases |
 | [docs/configuracao-env.md](./docs/configuracao-env.md)           | Cada variável de ambiente: o que faz, onde achar o valor, o que quebra se faltar   |
 | [docs/public-api.md](./docs/public-api.md)                       | A API REST pública                                                                 |
+| [`/developers`](./src/lib/api-docs/)                             | A mesma API, como página no produto: guias, referência, playground e releases      |
 | [docs/mcp.md](./docs/mcp.md)                                     | O servidor MCP                                                                     |
 | [docs/docker.md](./docs/docker.md)                               | Docker e Docker Compose                                                            |
 | [docs/deploy.md](./docs/deploy.md)                               | Produção: Vercel, VPS, o que é Releases vs Packages                                |

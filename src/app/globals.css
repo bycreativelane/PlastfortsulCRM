@@ -1746,3 +1746,43 @@ html[data-mode='dark'] {
   animation: rise-in var(--dur-3) var(--ease-out) backwards;
   animation-delay: var(--enter-delay, 0ms);
 }
+
+/* ============================================================
+ * Realce de sintaxe — só a documentação pública (/developers) usa.
+ *
+ * Seis papéis, não seis cores bonitas: chave, string, número, palavra
+ * reservada, comentário e pontuação. É o mínimo para que um JSON se
+ * leia de relance, e o máximo que um bloco de código deve gastar de
+ * atenção numa página cujo assunto é o texto ao lado dele.
+ *
+ * Variáveis próprias em vez dos tokens de estado (--ok-ink e afins)
+ * porque aqueles significam UMA coisa neste produto — "confirmado",
+ * "falhou", "alguém precisa agir" — e um `true` verde dentro de um
+ * exemplo não está confirmando nada. Ver a doutrina no topo de
+ * `status-badge.tsx`.
+ *
+ * As duas listas são escuras/claras o suficiente para passar em AA
+ * sobre --code-bg, que é uma superfície do próprio tema (e não um
+ * painel escuro fixo): uma doc que fica preta no meio de um app claro
+ * parece um pedaço de outro site.
+ * ============================================================ */
+:root,
+html[data-mode='light'] {
+  --code-bg: oklch(0.985 0 0);
+  --code-punc: oklch(0.55 0.01 258);
+  --code-key: oklch(0.45 0.14 262);
+  --code-str: oklch(0.47 0.11 152);
+  --code-num: oklch(0.52 0.12 62);
+  --code-kw: oklch(0.48 0.16 305);
+  --code-com: oklch(0.6 0.01 258);
+}
+
+html[data-mode='dark'] {
+  --code-bg: oklch(0.19 0.006 258);
+  --code-punc: oklch(0.63 0.01 258);
+  --code-key: oklch(0.76 0.11 262);
+  --code-str: oklch(0.79 0.11 152);
+  --code-num: oklch(0.82 0.1 68);
+  --code-kw: oklch(0.78 0.12 305);
+  --code-com: oklch(0.58 0.01 258);
+}

@@ -4,6 +4,13 @@ The public API lets you drive your wacrm instance from your own
 scripts and automations — send messages, manage contacts, launch
 broadcasts — without going through the dashboard UI.
 
+> **Reading this as an integrator?** The same reference is rendered
+> in-product, in Portuguese, at **`/developers`** on your instance —
+> with generated cURL/JavaScript/Python samples, response examples and
+> a playground that runs the call against your own account. This file
+> is the engineering copy; the spec behind the page lives in
+> `src/lib/api-docs/`.
+
 > **Status:** stable. Authentication, scopes, rate limiting, the
 > messages / contacts / conversations / broadcasts endpoints, and
 > outbound event [webhooks](#webhooks) all ship now.

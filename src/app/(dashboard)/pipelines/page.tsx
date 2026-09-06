@@ -51,6 +51,7 @@ import {
 import { toast } from 'sonner';
 import { useCan } from '@/hooks/use-can';
 import { useAuth } from '@/hooks/use-auth';
+import { useContactRealtime } from '@/hooks/use-contact-realtime';
 import { GatedButton } from '@/components/ui/gated-button';
 import { useTranslations } from 'next-intl';
 import { formatCurrency } from '@/lib/currency';
@@ -322,6 +323,24 @@ function PipelinesPageInner() {
     // only thing that tells the truth in either direction.
     onDone: refreshDeals,
   });
+
+  /**
+   * O quadro também é tela de automação. `move_deal_stage`,
+   * `create_deal` e `update_deal` são passos do motor (os passos 6 e 7 do
+   * fluxo comercial), e até a 067 o card só andava depois do F5.
+   *
+   * A guarda existe porque o diálogo de ganho/perda é o único momento em
+   * que a tela está DE PROPÓSITO à frente do banco: o card já foi
+   * animado para a coluna nova e a escrita só acontece quando alguém
+   * confirma. Recarregar aí jogaria o card de volta embaixo do diálogo
+   * aberto — `onDone` acima já faz a releitura na hora certa.
+   */
+  const pendingOutcome = outcome.dialogProps.pending;
+  const refreshBoardQuietly = useCallback(() => {
+    if (pendingOutcome) return;
+    void refreshDeals();
+  }, [pendingOutcome, refreshDeals]);
+  useContactRealtime({ onChange: refreshBoardQuietly });
 
   const handleDealMoved = useCallback(
     async (dealId: string, newStageId: string) => {

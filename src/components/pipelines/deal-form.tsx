@@ -36,6 +36,7 @@ import {
 import { DateField } from '@/components/ui/date-field';
 import { OptionSelect } from '@/components/ui/option-select';
 import { PlaybookChecklist } from './playbook-checklist';
+import { TaskList } from '@/components/tasks/task-list';
 import { FieldLabel } from '@/components/ui/field';
 import { Textarea } from '@/components/ui/textarea';
 import { Check, X, Trash2, MessageSquare, Loader2 } from 'lucide-react';
@@ -526,6 +527,19 @@ export function DealForm({
                   stages.find((s) => s.id === deal.stage_id)?.name ?? ''
                 }
                 onProgressChanged={onSaved}
+              />
+            )}
+
+            {/* As tarefas desta oportunidade, logo abaixo do roteiro da
+                etapa — e a distinção entre as duas é o que justifica as
+                duas existirem. O roteiro é o que SEMPRE se faz nesta etapa,
+                igual para toda oportunidade que passa por ela; a tarefa é o
+                que se combinou com ESTA pessoa, com dia, hora e dono.
+                Só numa oportunidade que já existe: uma tarefa precisa de um
+                `deal_id` para pendurar. */}
+            {deal && (
+              <TaskList
+                target={{ deal_id: deal.id, contact_id: deal.contact_id }}
               />
             )}
 

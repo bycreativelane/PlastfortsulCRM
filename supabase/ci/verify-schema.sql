@@ -798,6 +798,78 @@ BEGIN
     RAISE EXCEPTION 'contacts_with_birthday_on() is missing — the birthday sweep has nothing to call (migration 065)';
   END IF;
 
+  -- ---- 066: o relógio da conta -------------------------------------
+  --
+  -- O fuso deixou de ser constante de código. Sem a coluna, o motor e a
+  -- agenda voltam a DEFAULT_TIMEZONE sem avisar — que é o comportamento
+  -- correto no app e um silêncio inaceitável no CI.
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+     WHERE table_schema = 'public'
+       AND table_name = 'accounts'
+       AND column_name = 'timezone'
+  ) THEN
+    RAISE EXCEPTION 'accounts.timezone is missing — migration 066 did not apply';
+  END IF;
+
+  IF to_regclass('public.business_hours') IS NULL THEN
+    RAISE EXCEPTION 'public.business_hours is missing — migration 066 did not apply';
+  END IF;
+  IF to_regclass('public.business_hours_exceptions') IS NULL THEN
+    RAISE EXCEPTION 'public.business_hours_exceptions is missing — migration 066 did not apply';
+  END IF;
+
+  -- A semente é um INSERT guardado por NOT EXISTS: exatamente o tipo de
+  -- comando que aplica limpo e não faz nada. Uma conta sem expediente é
+  -- uma conta cuja agenda não sabe entre que linhas se desenhar.
+  IF EXISTS (SELECT 1 FROM accounts) AND NOT EXISTS (
+    SELECT 1 FROM business_hours WHERE user_id IS NULL
+  ) THEN
+    RAISE EXCEPTION 'business_hours has no account rows — the 066 seed did not run';
+  END IF;
+
+  -- ---- 067: as três superfícies que a automação toca ----------------
+  --
+  -- A 067 é um DO guardado por NOT EXISTS: a forma exata que aplica
+  -- limpo e não faz nada. Sem estas três na publicação, add_tag,
+  -- update_contact_field e create_deal continuam invisíveis até o F5 —
+  -- e do lado de quem usa isso se lê como "a automação não rodou".
+  IF EXISTS (
+    SELECT unnest(ARRAY['contacts', 'contact_tags', 'deals'])
+    EXCEPT
+    SELECT tablename FROM pg_publication_tables
+     WHERE pubname = 'supabase_realtime' AND schemaname = 'public'
+  ) THEN
+    RAISE EXCEPTION 'contacts, contact_tags or deals is not published on supabase_realtime — the automation surface never updates without a reload (migration 067)';
+  END IF;
+
+  -- ---- 068: a entidade tarefa ----------------------------------------
+  IF to_regclass('public.tasks') IS NULL THEN
+    RAISE EXCEPTION 'public.tasks is missing — migration 068 did not apply';
+  END IF;
+
+  -- O lembrete é uma notificação, e o CHECK de `type` é o que decide se ela
+  -- pode ser escrita. Sem esta linha a varredura falha uma vez por tique,
+  -- em silêncio, e ninguém é lembrado de nada.
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint c
+      JOIN pg_class t ON t.oid = c.conrelid
+     WHERE t.relname = 'notifications'
+       AND c.conname = 'notifications_type_check'
+       AND pg_get_constraintdef(c.oid) LIKE '%task_due%'
+  ) THEN
+    RAISE EXCEPTION 'notifications does not accept type = task_due — migration 068 did not apply';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+     WHERE table_schema = 'public'
+       AND table_name = 'notifications'
+       AND column_name = 'task_id'
+  ) THEN
+    RAISE EXCEPTION 'notifications.task_id is missing — migration 068 did not apply';
+  END IF;
+
   RAISE NOTICE 'schema verification passed';
 END
 $$;

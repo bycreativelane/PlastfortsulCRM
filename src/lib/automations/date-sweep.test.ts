@@ -40,6 +40,11 @@ function fakeDb(
         select: () => b,
         eq: (k: string, v: unknown) => (filters.push([k, v]), b),
         limit: () => b,
+        // The sweep asks `accounts` for the zone since 066. `resolve()`
+        // answers `{ data: [] }` for it, which is the "column is not there
+        // yet" path — the sweep then falls back to DEFAULT_TIMEZONE, which
+        // is exactly the pre-066 behaviour these tests assert.
+        maybeSingle: async () => ({ data: null, error: null }),
         then: (onF: (v: unknown) => unknown, onR?: (e: unknown) => unknown) =>
           Promise.resolve(resolve()).then(onF, onR),
       });

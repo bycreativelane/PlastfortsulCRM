@@ -162,6 +162,11 @@
     "previousMonth": "이전 달",
     "nextMonth": "다음 달"
   },
+  "TimeField": {
+    "placeholder": "hh:mm",
+    "openList": "시간 목록 열기",
+    "clear": "시간 없음"
+  },
   "AccountAccess": {
     "unlinkedTitle": "이 사용자가 계정에 연결되어 있지 않음",
     "unlinkedBody": "이 문제가 해결되기 전에는 변경 사항이 저장되지 않습니다. 계정이나 역할이 없는 사용자의 모든 쓰기 요청은 데이터베이스가 거부합니다. 팀에 초대된 경우 소유자에게 초대를 다시 보내달라고 요청하세요. 자체 호스팅 환경이라면 이 사용자에 대해 계정 부트스트랩 마이그레이션이 실행되었는지 확인하세요.",
@@ -280,7 +285,8 @@
         "occurrence": "미해결 이슈",
         "automation": "예약된 자동화",
         "broadcast": "캠페인",
-        "birthday": "생일"
+        "birthday": "생일",
+        "task": "작업"
       },
       "kindShort": {
         "deal": "마감",
@@ -288,7 +294,8 @@
         "occurrence": "이슈",
         "automation": "자동화",
         "broadcast": "캠페인",
-        "birthday": "생일"
+        "birthday": "생일",
+        "task": "작업"
       },
       "reschedule": "날짜 변경",
       "presetToday": "오늘",
@@ -900,6 +907,7 @@
         "details": "상세 정보",
         "activity": "활동",
         "notes": "메모",
+        "tasks": "작업",
         "custom": "커스텀 필드",
         "deals": "딜",
         "tags": "태그",
@@ -1074,7 +1082,67 @@
       "cancel": "취소",
       "save": "기록 저장",
       "saved": "통화가 기록되었습니다",
-      "failed": "통화를 기록하지 못했습니다"
+      "failed": "통화를 기록하지 못했습니다",
+      "followUpLabel": "회신 전화 작업 만들기",
+      "followUpHint": "영업시간 내 {day}로 예정된 전화입니다.",
+      "followUpTaskTitle": "{name}에게 회신 전화",
+      "followUpFailed": "통화는 기록되었지만 작업은 생성되지 않았습니다"
+    }
+  },
+  "Tasks": {
+    "sectionTitle": "작업",
+    "new": "새 작업",
+    "newTitle": "새 작업",
+    "editTitle": "작업 편집",
+    "empty": "작업이 없습니다",
+    "titleLabel": "할 일",
+    "titlePlaceholder": "주문 확인 전화",
+    "kindLabel": "유형",
+    "assigneeLabel": "담당자",
+    "unassigned": "담당자 없음",
+    "dueLabel": "기한",
+    "timeLabel": "시간",
+    "noReminder": "알림 없음",
+    "reminderNoTimeHint": "시간을 지정하지 않으면 {time}에 알림이 발송됩니다.",
+    "notesLabel": "세부 내용",
+    "notesPlaceholder": "합의한 내용, 남은 사항...",
+    "save": "저장",
+    "cancel": "취소",
+    "delete": "삭제",
+    "complete": "완료",
+    "reopen": "다시 열기",
+    "created": "작업이 생성되었습니다",
+    "updated": "작업이 업데이트되었습니다",
+    "deleted": "작업이 삭제되었습니다",
+    "saveFailed": "작업을 저장하지 못했습니다",
+    "deleteFailed": "작업을 삭제하지 못했습니다",
+    "overdueCount": "지연 {count}건",
+    "doneCount": "완료 {count}건",
+    "dueToday": "오늘",
+    "dueTodayAt": "오늘 {time}",
+    "dueOverdue": "지연 · {day}",
+    "kind": {
+      "call": "전화",
+      "meeting": "회의",
+      "visit": "방문",
+      "followup": "후속 조치",
+      "quote": "견적",
+      "todo": "기타"
+    },
+    "preset": {
+      "today": "오늘",
+      "tomorrow": "내일",
+      "in3days": "3일 후",
+      "nextWeek": "다음 주",
+      "none": "기한 없음"
+    },
+    "reminder": {
+      "0": "정시",
+      "15": "15분 전",
+      "30": "30분 전",
+      "60": "1시간 전",
+      "120": "2시간 전",
+      "1440": "1일 전"
     }
   },
   "Pipelines": {
@@ -2033,7 +2101,10 @@
           "topics": {
             "text": "무엇을 도와드릴까요?",
             "button_label": "주제 보기",
-            "sections": ["자주 묻는 질문", "기타"],
+            "sections": [
+              "자주 묻는 질문",
+              "기타"
+            ],
             "options": {
               "hours": "운영 시간",
               "pricing": "가격",
@@ -2635,6 +2706,7 @@
       "ai": "AI 에이전트",
       "fields": "필드 & 태그",
       "deals": "딜 & 통화",
+      "hours": "영업시간",
       "members": "팀원",
       "api": "API 키",
       "whats-new": "새 소식",
@@ -2809,6 +2881,40 @@
       "saving": "저장 중...",
       "saveFailed": "기본 통화를 저장하지 못했습니다",
       "saveSuccess": "기본 통화가 업데이트되었습니다"
+    },
+    "hours": {
+      "title": "영업시간",
+      "description": "이 계정이 사용하는 시간대와 영업하는 요일 및 시간입니다. 일정, 작업 알림, 날짜 기반 자동화가 모두 여기를 참조합니다.",
+      "adminOnlyHint": "계정 관리자만 영업시간을 변경할 수 있습니다.",
+      "clock": "시간대 및 주",
+      "clockDesc": "시간대는 날짜가 몇 시에 일어나는지를 결정하고, 나머지는 달력이 그려지는 방식입니다.",
+      "timezone": "시간대",
+      "otherZones": "기타 시간대",
+      "weekStart": "주 시작 요일",
+      "slot": "격자 간격",
+      "slotMinutes": "{minutes}분",
+      "week": "영업시간",
+      "weekDesc": "한 행에 한 구간씩. 오전과 오후는 같은 날의 두 구간이며, 점심시간은 이렇게 표현합니다.",
+      "closed": "휴무",
+      "opensAt": "시작",
+      "closesAt": "종료",
+      "to": "~",
+      "addInterval": "구간 추가",
+      "removeInterval": "구간 삭제",
+      "invalidRange": "종료가 시작보다 빠릅니다",
+      "exceptions": "공휴일 및 예외일",
+      "exceptionsDesc": "주간 일정에서 벗어나는 날짜입니다. 여기에 지정한 날은 평소 영업시간을 대체합니다.",
+      "noExceptions": "지정된 날이 없습니다.",
+      "exceptionDate": "날짜",
+      "exceptionLabel": "이름 (선택)",
+      "exceptionOpen": "영업",
+      "addException": "날짜 추가",
+      "removeException": "날짜 삭제",
+      "save": "저장",
+      "saving": "저장 중...",
+      "saveFailed": "영업시간을 저장하지 못했습니다",
+      "saveSuccess": "영업시간이 업데이트되었습니다",
+      "fixBeforeSave": "저장하기 전에 표시된 시간을 수정하세요."
     },
     "aiConfig": {
       "title": "에이전트 설정",
@@ -3012,6 +3118,7 @@
         "contactsView": "연락처 보기",
         "contactsExport": "연락처 목록 내보내기",
         "pipelinesView": "파이프라인 보기",
+        "tasksView": "일정 및 작업 보기",
         "broadcastsSend": "브로드캐스트 발송",
         "automationsManage": "자동화 관리",
         "flowsManage": "플로우 관리",
@@ -3265,7 +3372,9 @@
     "assignedBody": "{actor}님이 {contact}님과의 대화를 배정했습니다",
     "assignedActorSystem": "시스템",
     "assignedContactUnknown": "연락처",
-    "newMessageNoText": "첨부 파일을 보냈습니다"
+    "newMessageNoText": "첨부 파일을 보냈습니다",
+    "taskDueFallbackTitle": "작업",
+    "taskDueBody": "담당 작업의 기한이 다가옵니다."
   },
   "Routes": {
     "loading": "불러오는 중…",
@@ -3495,6 +3604,48 @@
       "deadTriggersHidden": "실행되지 않던 트리거(예약, 대화 배정)가 메뉴에서 빠졌습니다."
     },
     "seeIt": "보러 가기"
+  },
+  "Docs": {
+    "badge": "API 문서",
+    "search": "검색…",
+    "clearSearch": "검색 지우기",
+    "navAria": "문서",
+    "navDescription": "가이드와 API 레퍼런스",
+    "noResults": "“{query}”에 대한 결과가 없습니다.",
+    "onThisPage": "이 페이지에서",
+    "copy": "복사",
+    "copied": "복사됨",
+    "required": "필수",
+    "optional": "선택",
+    "default": "기본값",
+    "example": "예시",
+    "values": "허용값",
+    "authorization": "인증",
+    "pathParams": "경로 매개변수",
+    "queryParams": "쿼리 매개변수",
+    "body": "본문",
+    "response": "응답",
+    "scopeRequired": "{scope} 스코프를 가진 API 키를 베어러 토큰으로 보냅니다.",
+    "noScopeRequired": "유효한 API 키면 됩니다. 이 경로는 스코프가 필요 없습니다.",
+    "tryIt": "실행해 보기",
+    "close": "닫기",
+    "playgroundWarnRead": "아래에 입력한 키로 이 인스턴스에 실제 요청을 보냅니다.",
+    "playgroundWarnWrite": "실제로 실행됩니다. 이 인스턴스에 기록하거나 메시지를 보냅니다.",
+    "playgroundToken": "API 키",
+    "playgroundTokenHint": "이 탭에만 남습니다. 저장되지 않으며 이 인스턴스 외에는 전송되지 않습니다.",
+    "playgroundBody": "요청 본문",
+    "playgroundRun": "{method} 실행",
+    "playgroundBadJson": "본문이 올바른 JSON이 아닙니다.",
+    "previous": "이전",
+    "next": "다음",
+    "releasesTitle": "릴리스",
+    "openNav": "내비게이션 열기",
+    "toggleMode": "라이트/다크 전환",
+    "backToApp": "CRM으로 돌아가기",
+    "linkTitle": "API 문서",
+    "linkHint": "경로, 스코프, 예제, 웹훅 — /developers 에 있습니다.",
+    "hookLinkTitle": "외부에서 훅을 호출하는 방법",
+    "hookLinkHint": "페이로드와 토큰, 그리고 자동화가 그것으로 하는 일."
   },
   "Presence": {
     "onlineCountAria": "팀원 {count}명 접속 중",

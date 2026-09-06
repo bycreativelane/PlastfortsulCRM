@@ -11,6 +11,7 @@ import {
   CalendarClock,
   CalendarDays,
   ChevronRight,
+  ListChecks,
   Loader2,
   Radio,
   RefreshCw,
@@ -95,6 +96,7 @@ const KIND_ICON: Record<
   AgendaKind,
   React.ComponentType<{ className?: string }>
 > = {
+  task: ListChecks,
   deal: Briefcase,
   repurchase: RefreshCw,
   occurrence: AlertTriangle,
@@ -130,7 +132,7 @@ const TONE_CHIP: Record<AgendaTone, string> = {
 export function AgendaCalendar() {
   const t = useTranslations('Today.agenda');
   const locale = useLocale();
-  const { defaultCurrency } = useAuth();
+  const { defaultCurrency, accountTimeZone } = useAuth();
   const canEdit = useCan('send-messages');
 
   const [month, setMonth] = React.useState(() => startOfMonth(new Date()));
@@ -158,14 +160,17 @@ export function AgendaCalendar() {
     let cancelled = false;
 
     setItems(null);
-    loadAgenda(db, range.from, range.to).then((data) => {
+    // The account's zone, not the reader's — see `dayOf` in the agenda
+    // module. A campaign that went out at 23:40 in São Paulo belongs to
+    // that day for everybody looking at this calendar.
+    loadAgenda(db, range.from, range.to, accountTimeZone).then((data) => {
       if (!cancelled) setItems(data);
     });
 
     return () => {
       cancelled = true;
     };
-  }, [range, reloads]);
+  }, [range, reloads, accountTimeZone]);
 
   const visible = React.useMemo(
     () => (items ?? []).filter((item) => !hidden.has(item.kind)),

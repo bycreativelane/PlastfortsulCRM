@@ -1,6 +1,7 @@
 import type { ComponentType } from 'react';
 import {
   Bot,
+  CalendarClock,
   Coins,
   FileText,
   KeyRound,
@@ -110,6 +111,11 @@ export const SETTINGS_SECTIONS = [
   // ---- The account's own shape -------------------------------------
   'fields',
   'deals',
+  // Logo depois de Oportunidades, porque é a outra metade da mesma
+  // pergunta: aquela diz em que MOEDA a conta negocia, esta em que FUSO
+  // e em que horas ela trabalha. Antes da 066 a segunda resposta era uma
+  // constante em `lib/automations/local-time.ts`.
+  'hours',
   'members',
   // Right after the roster, because it is the roster's other half: the
   // Team tab answers "who is here", this one answers "what may they do"
@@ -250,6 +256,13 @@ export const SECTION_META: Record<SettingsSection, SectionMeta> = {
     id: 'deals',
     label: 'Deals & currency',
     icon: Coins,
+    group: 'workspace',
+    capability: 'settings.manage',
+  },
+  hours: {
+    id: 'hours',
+    label: 'Business hours',
+    icon: CalendarClock,
     group: 'workspace',
     capability: 'settings.manage',
   },

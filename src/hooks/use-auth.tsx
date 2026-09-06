@@ -15,6 +15,10 @@ import { isUnknownColumn } from "@/lib/supabase/pg-errors";
 import type { User } from "@supabase/supabase-js";
 import { DEFAULT_CURRENCY } from "@/lib/currency";
 import {
+  DEFAULT_TIMEZONE,
+  safeTimeZone,
+} from "@/lib/automations/local-time";
+import {
   canEditSettings as canEditSettingsFor,
   canManageMembers as canManageMembersFor,
   canSendMessages as canSendMessagesFor,
@@ -54,6 +58,12 @@ interface AccountSummary {
   /** Default deal currency (ISO-4217). NOT NULL DEFAULT 'USD' in the
    *  DB (migration 021); narrowed to DEFAULT_CURRENCY when absent. */
   default_currency: string;
+  /**
+   * IANA zone the account works in (migration 066). Null on a schema
+   * that predates it — every reader falls back to DEFAULT_TIMEZONE,
+   * which is what the whole product assumed before the column existed.
+   */
+  timezone: string | null;
 }
 
 /**
@@ -134,6 +144,15 @@ interface AuthContextValue {
    *  while loading or when no account is resolved, so callers can use
    *  it unconditionally. */
   defaultCurrency: string;
+  /**
+   * The IANA zone this account works in (migration 066), already
+   * narrowed to one the runtime knows — DEFAULT_TIMEZONE while loading,
+   * on an older schema, or when the column holds nonsense. Every
+   * surface that turns a timestamp into a DAY should bucket by this and
+   * not by the reader's own zone: a commercial calendar is about the
+   * company's day, not the day of whoever happens to be looking.
+   */
+  accountTimeZone: string;
   /** True if `accountRole === 'owner'`. */
   isOwner: boolean;
   /** True if `accountRole === 'admin'` (does NOT include owner — use canManageMembers for "admin or above"). */
@@ -277,25 +296,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // account name lookup itself can't.
         let accountRow: AccountSummary | null = null;
         if (data.account_id) {
-          const { data: account, error: accountErr } = await supabase
+          // `timezone` arrived in 066 and the migrations here are applied
+          // by hand, so ask for it and retry without it on a 42703 — the
+          // same shape as the profile fetch above, and for the same
+          // reason: this row establishes the account, and losing it whole
+          // over one missing column would blank the account name and the
+          // currency too.
+          let account: {
+            id: string;
+            name: string;
+            default_currency: string | null;
+            timezone?: string | null;
+          } | null = null;
+          let accountErr = null as { message?: string } | null;
+
+          const withZone = await supabase
             .from("accounts")
-            // default_currency added in migration 021; narrowed to the
-            // USD fallback below for older schemas where it reads null.
-            .select("id, name, default_currency")
+            .select("id, name, default_currency, timezone")
             .eq("id", data.account_id)
             .maybeSingle();
+
+          if (withZone.error && isUnknownColumn(withZone.error)) {
+            // default_currency added in migration 021; narrowed to the
+            // USD fallback below for older schemas where it reads null.
+            const legacy = await supabase
+              .from("accounts")
+              .select("id, name, default_currency")
+              .eq("id", data.account_id)
+              .maybeSingle();
+            account = legacy.data;
+            accountErr = legacy.error;
+          } else {
+            account = withZone.data;
+            accountErr = withZone.error;
+          }
+
           if (accountErr) {
-            console.error("[AuthProvider] fetchAccount error:", {
-              message: accountErr.message,
-              details: accountErr.details,
-              hint: accountErr.hint,
-              code: accountErr.code,
-            });
+            console.error("[AuthProvider] fetchAccount error:", accountErr);
           } else if (account) {
             accountRow = {
               id: account.id,
               name: account.name,
               default_currency: account.default_currency ?? DEFAULT_CURRENCY,
+              timezone: account.timezone ?? null,
             };
           }
         }
@@ -514,6 +557,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         refreshProfile,
         account,
         defaultCurrency: account?.default_currency ?? DEFAULT_CURRENCY,
+        accountTimeZone: safeTimeZone(account?.timezone),
         accountStatus,
         accountStatusDetail: statusDetail,
         ...derived,
@@ -546,6 +590,7 @@ export function useAuth(): AuthContextValue {
       refreshProfile: async () => {},
       account: null,
       defaultCurrency: DEFAULT_CURRENCY,
+      accountTimeZone: DEFAULT_TIMEZONE,
       // Outside the provider there is nothing to resolve yet — 'loading'
       // keeps the access alert from firing on, say, the login page.
       accountStatus: "loading",

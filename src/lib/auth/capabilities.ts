@@ -51,6 +51,8 @@ export type Capability =
   | 'products.view'
   /** The commercial reference: scripts, objections, operating rules. */
   | 'playbook.view'
+  /** The agenda and the tasks on it (migration 068). */
+  | 'tasks.view'
   /** Compose and send a broadcast. */
   | 'broadcasts.send'
   /** Create, edit and activate automations. */
@@ -107,6 +109,17 @@ export const CAPABILITIES: Record<Capability, CapabilityMeta> = {
     minRole: 'viewer',
     rlsBacked: true,
     labelKey: 'playbookView',
+  },
+  // Ver a agenda é de todo mundo, inclusive de um viewer: "quem ficou de
+  // ligar para o Marcos" é a pergunta que a tela existe para responder, e
+  // esconder a resposta de alguém só faz essa pessoa perguntar. CRIAR e
+  // CONCLUIR é outra coisa, e não é desta capacidade — a 068 põe
+  // INSERT/UPDATE atrás de `agent` na RLS, então os botões são barrados
+  // pelo banco e não por esta linha. Mesma divisão de `playbook.view`.
+  'tasks.view': {
+    minRole: 'viewer',
+    rlsBacked: true,
+    labelKey: 'tasksView',
   },
   'contacts.export': {
     minRole: 'agent',

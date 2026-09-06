@@ -12,6 +12,7 @@ import {
   AlertTriangle,
   Bell,
   CheckCheck,
+  ListChecks,
   Loader2,
   MessageSquare,
   UserPlus,
@@ -39,6 +40,7 @@ type NotificationRow = Notification & {
 const TYPE_ICON: Record<Notification['type'], typeof Bell> = {
   conversation_assigned: UserPlus,
   new_message: MessageSquare,
+  task_due: ListChecks,
 };
 
 export default function NotificationsPage() {

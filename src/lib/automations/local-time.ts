@@ -8,7 +8,19 @@
  * process zone; every answer is computed for the zone it was asked in.
  */
 
-/** The installation's zone. There is no per-account zone in the schema. */
+/**
+ * The last-resort zone.
+ *
+ * This used to be the installation's only answer — "there is no per-account
+ * zone in the schema", said the line that stood here. Migration 066 put one
+ * in `accounts.timezone`, so this is now what `accountTimeZone()` falls back
+ * to when the column is not there yet, when the row cannot be read, or when
+ * whatever is in it is not a zone this runtime knows.
+ *
+ * It stays São Paulo rather than UTC on purpose: a wrong guess that is the
+ * right one for every account this product has is better than a right guess
+ * that is wrong for all of them.
+ */
 export const DEFAULT_TIMEZONE = 'America/Sao_Paulo';
 
 export interface LocalParts {

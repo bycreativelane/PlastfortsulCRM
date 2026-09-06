@@ -78,6 +78,16 @@ export function notificationText(
     };
   }
 
+  if (notification.type === 'task_due') {
+    return {
+      // O título É a linha da tarefa — as palavras de quem a marcou, como o
+      // preview de mensagem acima. Compor "Lembrete: ligar para o Marcos"
+      // aqui seria traduzir metade de uma frase cuja outra metade é dado.
+      title: notification.title?.trim() || t('taskDueFallbackTitle'),
+      body: t('taskDueBody'),
+    };
+  }
+
   return {
     title: notification.title?.trim() || t('assignedContactUnknown'),
     body: notification.body ?? null,

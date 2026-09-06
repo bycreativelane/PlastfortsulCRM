@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   birthdaysInRange,
+  loadAgenda,
   countByKind,
   groupByDay,
   isoInDays,
@@ -193,5 +194,117 @@ describe('isoInDays', () => {
     expect(isoInDays(7)).toBe(
       `${expected.getFullYear()}-${String(expected.getMonth() + 1).padStart(2, '0')}-${String(expected.getDate()).padStart(2, '0')}`
     );
+  });
+});
+
+/**
+ * O dia é o da EMPRESA, não o de quem está olhando.
+ *
+ * Antes da 066 a agenda agrupava com `Date#getHours` — o fuso do navegador.
+ * Enquanto todo mundo estava no mesmo fuso, invisível; assim que a conta
+ * declarou o dela, é a diferença entre uma campanha das 23:40 em São Paulo
+ * aparecer no dia 10 para o comercial e no dia 11 para quem lê de Lisboa.
+ * Um calendário comercial que mostra dias diferentes para pessoas diferentes
+ * não é um calendário compartilhado.
+ */
+describe('loadAgenda — fuso da conta', () => {
+  /**
+   * Um `SupabaseClient` de mentira: qualquer encadeamento de filtros
+   * devolve as linhas da tabela pedida. O que se testa aqui é o mapeamento,
+   * não o PostgREST.
+   */
+  function fakeDb(tables: Record<string, unknown[]>) {
+    const from = (table: string) => {
+      const result = { data: tables[table] ?? [], error: null };
+      const chain: Record<string | symbol, unknown> = {};
+      const proxy = new Proxy(chain, {
+        get(_target, prop) {
+          if (prop === 'then') {
+            return (
+              resolve: (value: typeof result) => unknown,
+              reject?: (reason: unknown) => unknown
+            ) => Promise.resolve(result).then(resolve, reject);
+          }
+          return () => proxy;
+        },
+      });
+      return proxy;
+    };
+    return { from } as unknown as Parameters<typeof loadAgenda>[0];
+  }
+
+  const broadcast = {
+    id: 'b1',
+    name: 'Promoção de setembro',
+    status: 'sent',
+    // 11/09/2026, 02:40 UTC — ainda dia 10 às 23:40 em São Paulo.
+    scheduled_at: '2026-09-11T02:40:00.000Z',
+    created_at: '2026-09-11T02:40:00.000Z',
+    total_recipients: 10,
+  };
+
+  const window = { from: new Date(2026, 8, 1), to: new Date(2026, 8, 30) };
+
+  it('coloca a campanha no dia da conta, não no do leitor', async () => {
+    const originalFetch = globalThis.fetch;
+    // A fonte de automações passa por rota; aqui não há servidor.
+    globalThis.fetch = (async () =>
+      new Response(JSON.stringify({ items: [] }), {
+        status: 200,
+      })) as typeof fetch;
+
+    try {
+      const db = fakeDb({ broadcasts: [broadcast] });
+
+      const sp = await loadAgenda(
+        db,
+        window.from,
+        window.to,
+        'America/Sao_Paulo'
+      );
+      expect(sp).toHaveLength(1);
+      expect(sp[0]).toMatchObject({ day: '2026-09-10', time: '23:40' });
+
+      const lisbon = await loadAgenda(
+        db,
+        window.from,
+        window.to,
+        'Europe/Lisbon'
+      );
+      expect(lisbon[0]).toMatchObject({ day: '2026-09-11', time: '03:40' });
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it('uma coluna DATE não passa por `new Date()` em fuso nenhum', async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (async () =>
+      new Response(JSON.stringify({ items: [] }), {
+        status: 200,
+      })) as typeof fetch;
+
+    try {
+      const db = fakeDb({
+        deals: [
+          {
+            id: 'd1',
+            title: 'Bobina 50µ',
+            value: 1000,
+            currency: 'BRL',
+            expected_close_date: '2026-09-30',
+            pipeline_id: 'p1',
+            contact: { name: 'Maria', phone: '55519' },
+          },
+        ],
+      });
+
+      for (const zone of ['America/Sao_Paulo', 'Pacific/Kiritimati']) {
+        const items = await loadAgenda(db, window.from, window.to, zone);
+        expect(items[0]).toMatchObject({ day: '2026-09-30', time: null });
+      }
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
   });
 });

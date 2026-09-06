@@ -162,6 +162,11 @@
     "previousMonth": "Previous month",
     "nextMonth": "Next month"
   },
+  "TimeField": {
+    "placeholder": "hh:mm",
+    "openList": "Open time list",
+    "clear": "No time"
+  },
   "AccountAccess": {
     "unlinkedTitle": "This user is not linked to an account",
     "unlinkedBody": "Nothing you change will be saved while this is unresolved — the database rejects every write from a user with no account or role. If you were invited to a team, ask the owner to re-send the invitation. On a self-hosted install, check that the account-bootstrap migration ran for this user.",
@@ -280,7 +285,8 @@
         "occurrence": "Open occurrence",
         "automation": "Scheduled automation",
         "broadcast": "Campaign",
-        "birthday": "Birthday"
+        "birthday": "Birthday",
+        "task": "Task"
       },
       "kindShort": {
         "deal": "Closes",
@@ -288,7 +294,8 @@
         "occurrence": "Occurrences",
         "automation": "Automations",
         "broadcast": "Campaigns",
-        "birthday": "Birthdays"
+        "birthday": "Birthdays",
+        "task": "Tasks"
       },
       "reschedule": "Reschedule",
       "presetToday": "Today",
@@ -900,6 +907,7 @@
         "details": "Details",
         "activity": "Activity",
         "notes": "Notes",
+        "tasks": "Tasks",
         "custom": "Custom Fields",
         "deals": "Deals",
         "tags": "Tags",
@@ -1074,7 +1082,67 @@
       "cancel": "Cancel",
       "save": "Save record",
       "saved": "Call recorded",
-      "failed": "Could not record the call"
+      "failed": "Could not record the call",
+      "followUpLabel": "Book a return call",
+      "followUpHint": "A call set for {day}, within business hours.",
+      "followUpTaskTitle": "Call {name} back",
+      "followUpFailed": "The call was logged, but the task was not created"
+    }
+  },
+  "Tasks": {
+    "sectionTitle": "Tasks",
+    "new": "New",
+    "newTitle": "New task",
+    "editTitle": "Edit task",
+    "empty": "No tasks here",
+    "titleLabel": "What needs doing",
+    "titlePlaceholder": "Call to confirm the order",
+    "kindLabel": "Type",
+    "assigneeLabel": "Owner",
+    "unassigned": "Nobody",
+    "dueLabel": "Due",
+    "timeLabel": "Time",
+    "noReminder": "No reminder",
+    "reminderNoTimeHint": "With no time set, the reminder goes out at {time}.",
+    "notesLabel": "Details",
+    "notesPlaceholder": "What was agreed, what is still open...",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "complete": "Complete",
+    "reopen": "Reopen",
+    "created": "Task created",
+    "updated": "Task updated",
+    "deleted": "Task deleted",
+    "saveFailed": "Could not save the task",
+    "deleteFailed": "Could not delete the task",
+    "overdueCount": "{count} overdue",
+    "doneCount": "{count} done",
+    "dueToday": "Today",
+    "dueTodayAt": "Today {time}",
+    "dueOverdue": "Overdue · {day}",
+    "kind": {
+      "call": "Call",
+      "meeting": "Meeting",
+      "visit": "Visit",
+      "followup": "Follow-up",
+      "quote": "Quote",
+      "todo": "Other"
+    },
+    "preset": {
+      "today": "Today",
+      "tomorrow": "Tomorrow",
+      "in3days": "In 3 days",
+      "nextWeek": "Next week",
+      "none": "No date"
+    },
+    "reminder": {
+      "0": "At the time",
+      "15": "15 minutes before",
+      "30": "30 minutes before",
+      "60": "1 hour before",
+      "120": "2 hours before",
+      "1440": "1 day before"
     }
   },
   "Pipelines": {
@@ -2033,7 +2101,10 @@
           "topics": {
             "text": "What can I help you with?",
             "button_label": "View topics",
-            "sections": ["Common questions", "Other"],
+            "sections": [
+              "Common questions",
+              "Other"
+            ],
             "options": {
               "hours": "Opening hours",
               "pricing": "Pricing",
@@ -2635,6 +2706,7 @@
       "ai": "AI agent",
       "fields": "Fields & tags",
       "deals": "Deals & currency",
+      "hours": "Business hours",
       "members": "Team members",
       "api": "API keys",
       "whats-new": "What's new",
@@ -2809,6 +2881,40 @@
       "saving": "Saving...",
       "saveFailed": "Failed to save default currency",
       "saveSuccess": "Default currency updated"
+    },
+    "hours": {
+      "title": "Business hours",
+      "description": "The zone this account works in, and the days and hours it is open. The agenda, task reminders and date-based automations all read from here.",
+      "adminOnlyHint": "Only account admins can change business hours.",
+      "clock": "Zone and week",
+      "clockDesc": "The zone decides what time a date happens at; the rest is how the calendar draws itself.",
+      "timezone": "Time zone",
+      "otherZones": "Other zones",
+      "weekStart": "Week starts on",
+      "slot": "Grid step",
+      "slotMinutes": "{minutes} minutes",
+      "week": "Opening hours",
+      "weekDesc": "One interval per row. Morning and afternoon are two intervals of the same day — that is how lunch is expressed.",
+      "closed": "Closed",
+      "opensAt": "Opens at",
+      "closesAt": "Closes at",
+      "to": "to",
+      "addInterval": "Add interval",
+      "removeInterval": "Remove interval",
+      "invalidRange": "Closes before it opens",
+      "exceptions": "Holidays and different days",
+      "exceptionsDesc": "What departs from the week, by date. A day set here replaces the normal hours.",
+      "noExceptions": "No days set.",
+      "exceptionDate": "Date",
+      "exceptionLabel": "Day name (optional)",
+      "exceptionOpen": "Open",
+      "addException": "Add day",
+      "removeException": "Remove day",
+      "save": "Save",
+      "saving": "Saving...",
+      "saveFailed": "Failed to save business hours",
+      "saveSuccess": "Business hours updated",
+      "fixBeforeSave": "Fix the highlighted hours before saving."
     },
     "aiConfig": {
       "title": "Agent setup",
@@ -3012,6 +3118,7 @@
         "contactsView": "See contacts",
         "contactsExport": "Export the contact list",
         "pipelinesView": "See the pipeline board",
+        "tasksView": "See the agenda and its tasks",
         "broadcastsSend": "Send broadcasts",
         "automationsManage": "Manage automations",
         "flowsManage": "Manage flows",
@@ -3265,7 +3372,9 @@
     "assignedBody": "{actor} assigned you a conversation with {contact}",
     "assignedActorSystem": "The system",
     "assignedContactUnknown": "a contact",
-    "newMessageNoText": "Sent an attachment"
+    "newMessageNoText": "Sent an attachment",
+    "taskDueFallbackTitle": "Task",
+    "taskDueBody": "One of your tasks is coming due."
   },
   "Routes": {
     "loading": "Loading…",
@@ -3495,6 +3604,48 @@
       "deadTriggersHidden": "Triggers that never fired (Schedule, Conversation assigned) left the menu."
     },
     "seeIt": "See it"
+  },
+  "Docs": {
+    "badge": "API docs",
+    "search": "Search…",
+    "clearSearch": "Clear search",
+    "navAria": "Documentation",
+    "navDescription": "Guides and API reference",
+    "noResults": "Nothing found for “{query}”.",
+    "onThisPage": "On this page",
+    "copy": "Copy",
+    "copied": "Copied",
+    "required": "required",
+    "optional": "optional",
+    "default": "Default",
+    "example": "Example",
+    "values": "Values",
+    "authorization": "Authorization",
+    "pathParams": "Path parameters",
+    "queryParams": "Query parameters",
+    "body": "Body",
+    "response": "Response",
+    "scopeRequired": "API key carrying the {scope} scope, sent as a bearer token.",
+    "noScopeRequired": "Any live API key. This route requires no scope.",
+    "tryIt": "Try it",
+    "close": "Close",
+    "playgroundWarnRead": "Runs against this instance, with the key you paste below.",
+    "playgroundWarnWrite": "This one runs for real: it writes to — or sends from — this instance.",
+    "playgroundToken": "API key",
+    "playgroundTokenHint": "Kept in this tab only. Never stored, never sent anywhere but this instance.",
+    "playgroundBody": "Request body",
+    "playgroundRun": "Run {method}",
+    "playgroundBadJson": "The body is not valid JSON.",
+    "previous": "Previous",
+    "next": "Next",
+    "releasesTitle": "Releases",
+    "openNav": "Open navigation",
+    "toggleMode": "Switch light and dark",
+    "backToApp": "Back to the CRM",
+    "linkTitle": "API documentation",
+    "linkHint": "Routes, scopes, examples and webhooks — at /developers.",
+    "hookLinkTitle": "How to call a hook from outside",
+    "hookLinkHint": "The payload, the token and what the automations do with it."
   },
   "Presence": {
     "onlineCountAria": "{count} teammates online",

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, type ComponentProps } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { TaskList } from '@/components/tasks/task-list';
 import { useAuth } from '@/hooks/use-auth';
 import type { Contact, Deal, ContactNote, Tag } from '@/types';
 import {
@@ -168,7 +169,8 @@ export function ContactSidebar({
    * remember to clear it, and switching between two contacts cannot flash
    * the previous one's catalogue.
    */
-  const shownInterest = (contact?.product_interest?.length ?? 0) > 0 ? interest : [];
+  const shownInterest =
+    (contact?.product_interest?.length ?? 0) > 0 ? interest : [];
 
   // The names behind `product_interest`. Skipped entirely when the
   // contact has none, which is most of them - and silent on a pre-054
@@ -194,9 +196,13 @@ export function ContactSidebar({
         : wide;
       if (cancelled || res.error) return;
       setInterest(
-        (res.data as { id: string; name: string; size_label?: string | null }[]).map(
-          (r) => ({ id: r.id, name: r.name, size_label: r.size_label ?? null })
-        )
+        (
+          res.data as { id: string; name: string; size_label?: string | null }[]
+        ).map((r) => ({
+          id: r.id,
+          name: r.name,
+          size_label: r.size_label ?? null,
+        }))
       );
     })();
     return () => {
@@ -477,6 +483,15 @@ export function ContactSidebar({
           )}
         </Section>
 
+        {/* O que ficou combinado com esta pessoa.
+            Acima da oportunidade e abaixo das ocorrências de propósito: a
+            ordem do painel é o que muda a próxima frase do atendente. Um
+            problema em aberto muda o tom; uma promessa em aberto ("retorno
+            na quinta") muda o conteúdo; o valor do negócio é contexto. */}
+        <Section>
+          <TaskList target={{ contact_id: contact.id }} />
+        </Section>
+
         {/* What is being negotiated right now. */}
         <Section>
           <SidePanelLabel className="justify-between">
@@ -611,7 +626,7 @@ export function ContactSidebar({
                 <Link
                   key={p.id}
                   href={`/products?q=${encodeURIComponent(p.name)}`}
-                  className="border-border bg-card-2 text-secondary-foreground hover:border-primary/50 hover:text-foreground max-w-full truncate rounded-md border px-2 py-1 text-2xs transition-colors"
+                  className="border-border bg-card-2 text-secondary-foreground hover:border-primary/50 hover:text-foreground text-2xs max-w-full truncate rounded-md border px-2 py-1 transition-colors"
                 >
                   {[p.name, p.size_label].filter(Boolean).join(' · ')}
                 </Link>

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { addContactTag, deleteContactTag } from '@/lib/contacts/tag-api';
+import { useContactRealtime } from '@/hooks/use-contact-realtime';
 import { withManualName } from '@/lib/contacts/name-source';
 import { PhoneInput } from '@/components/ui/phone-input';
 import { formatPhone, toE164 } from '@/lib/whatsapp/phone-format';
@@ -31,6 +32,7 @@ import {
   SheetDescription,
 } from '@/components/ui/sheet';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { TaskList } from '@/components/tasks/task-list';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { FieldLabel } from '@/components/ui/field';
@@ -111,25 +113,35 @@ export function ContactDetailView({
   const [deals, setDeals] = useState<Deal[]>([]);
   const [loadingDeals, setLoadingDeals] = useState(false);
 
-  const fetchContact = useCallback(async () => {
-    if (!contactId) return;
-    setLoading(true);
+  /**
+   * `silent`: a releitura de fundo (realtime, ou a automação que acabou
+   * de rodar) não acende o carregando. Aqui isso importa mais do que
+   * parece — `loading` troca o CORPO INTEIRO do registro pelo esqueleto,
+   * e piscar a ficha inteira porque uma etiqueta mudou é pior do que o
+   * dado velho que se está corrigindo.
+   */
+  const fetchContact = useCallback(
+    async (opts?: { silent?: boolean }) => {
+      if (!contactId) return;
+      if (!opts?.silent) setLoading(true);
 
-    const { data } = await supabase
-      .from('contacts')
-      .select('*')
-      .eq('id', contactId)
-      .single();
+      const { data } = await supabase
+        .from('contacts')
+        .select('*')
+        .eq('id', contactId)
+        .single();
 
-    if (data) {
-      setContact(data);
-      setEditName(data.name ?? '');
-      setEditPhone(data.phone);
-      setEditEmail(data.email ?? '');
-      setEditCompany(data.company ?? '');
-    }
-    setLoading(false);
-  }, [contactId, supabase]);
+      if (data) {
+        setContact(data);
+        setEditName(data.name ?? '');
+        setEditPhone(data.phone);
+        setEditEmail(data.email ?? '');
+        setEditCompany(data.company ?? '');
+      }
+      setLoading(false);
+    },
+    [contactId, supabase]
+  );
 
   const fetchTags = useCallback(async () => {
     if (!contactId) return;
@@ -185,17 +197,20 @@ export function ContactDetailView({
     setLoadingCustom(false);
   }, [contactId, supabase]);
 
-  const fetchDeals = useCallback(async () => {
-    if (!contactId) return;
-    setLoadingDeals(true);
-    const { data } = await supabase
-      .from('deals')
-      .select('*, stage:pipeline_stages(*, pipeline:pipelines(name))')
-      .eq('contact_id', contactId)
-      .order('created_at', { ascending: false });
-    setDeals((data ?? []) as Deal[]);
-    setLoadingDeals(false);
-  }, [contactId, supabase]);
+  const fetchDeals = useCallback(
+    async (opts?: { silent?: boolean }) => {
+      if (!contactId) return;
+      if (!opts?.silent) setLoadingDeals(true);
+      const { data } = await supabase
+        .from('deals')
+        .select('*, stage:pipeline_stages(*, pipeline:pipelines(name))')
+        .eq('contact_id', contactId)
+        .order('created_at', { ascending: false });
+      setDeals((data ?? []) as Deal[]);
+      setLoadingDeals(false);
+    },
+    [contactId, supabase]
+  );
 
   useEffect(() => {
     if (open && contactId) {
@@ -214,6 +229,25 @@ export function ContactDetailView({
     fetchCustomFields,
     fetchDeals,
   ]);
+
+  /**
+   * E se a automação disparar de outro lugar — uma mensagem que chegou,
+   * o cron, uma etapa de funil que mudou — com este registro aberto na
+   * frente do operador? Nada aqui pediu nada, e mesmo assim o que está
+   * na tela envelheceu. Só enquanto aberto: um diálogo fechado não
+   * segura websocket.
+   */
+  const refetchOpenRecord = useCallback(() => {
+    void Promise.all([
+      fetchContact({ silent: true }),
+      fetchTags(),
+      fetchDeals({ silent: true }),
+    ]);
+  }, [fetchContact, fetchTags, fetchDeals]);
+  useContactRealtime({
+    onChange: refetchOpenRecord,
+    enabled: open && !!contactId,
+  });
 
   async function copyPhone() {
     if (!contact) return;
@@ -285,6 +319,21 @@ export function ContactDetailView({
     setSavingDetails(false);
   }
 
+  /**
+   * Marcar a etiqueta é o começo, não o fim.
+   *
+   * Pendurar uma etiqueta dispara `tag_added` (ver
+   * `lib/contacts/tag-events.ts`), e a rota SÓ RESPONDE depois que o
+   * motor rodou — de modo que, no instante em que este `await` volta, o
+   * contato pode já ter outra etiqueta, um campo escrito e uma
+   * oportunidade aberta pela automação. O patch otimista abaixo conhece
+   * exatamente uma dessas coisas: a que o operador clicou.
+   *
+   * Daí a ordem: patch primeiro, para o clique responder na hora, e
+   * depois a releitura, que traz o resto. Sem ela, "a automação não
+   * rodou" era o que a tela dizia, e o F5 era a única forma de
+   * desmentir.
+   */
   async function toggleTag(tagId: string) {
     if (!contactId) return;
     setSavingTags(true);
@@ -293,11 +342,23 @@ export function ContactDetailView({
 
     try {
       if (isSelected) {
+        // Tirar não dispara nada — `tag_added` é o único gatilho de
+        // etiqueta —, então o patch acima já é a verdade inteira.
         await deleteContactTag(contactId, tagId);
         setContactTagIds((prev) => prev.filter((id) => id !== tagId));
       } else {
-        await addContactTag(contactId, tagId);
+        const result = await addContactTag(contactId, tagId);
         setContactTagIds((prev) => [...prev, tagId]);
+        // O motor rodou dentro desta requisição: releia tudo que um
+        // passo dele sabe escrever. Etiqueta repetida ou corrente no
+        // limite não despacham nada, e aí uma consulta basta.
+        await (result.dispatched
+          ? Promise.all([
+              fetchTags(),
+              fetchContact({ silent: true }),
+              fetchDeals({ silent: true }),
+            ])
+          : fetchTags());
       }
       onUpdated();
     } catch (error) {
@@ -637,6 +698,12 @@ export function ContactDetailView({
                     {t('tabs.notes')}
                   </TabsTrigger>
                   <TabsTrigger
+                    value="tasks"
+                    className="data-active:bg-muted data-active:text-primary text-muted-foreground h-7"
+                  >
+                    {t('tabs.tasks')}
+                  </TabsTrigger>
+                  <TabsTrigger
                     value="deals"
                     className="data-active:bg-muted data-active:text-primary text-muted-foreground h-7"
                   >
@@ -904,6 +971,23 @@ export function ContactDetailView({
                       ))
                     )}
                   </div>
+                </TabsContent>
+
+                {/* Tasks Tab — o que ficou combinado com esta pessoa.
+                    Ao lado das notas de propósito: uma nota registra o que
+                    foi dito, uma tarefa registra o que falta fazer, e
+                    misturar as duas é como o "vou ligar na quinta" some
+                    dentro de um parágrafo. */}
+                <TabsContent
+                  value="tasks"
+                  className="flex-1 overflow-y-auto px-4 py-3"
+                >
+                  {/* Só `contact_id`. Amarrar sozinho à oportunidade aberta
+                      seria o formulário decidir uma coisa que ninguém pediu —
+                      e uma tarefa criada da ficha do cliente é sobre o
+                      cliente. Quem quer uma tarefa da oportunidade a cria de
+                      dentro dela. */}
+                  <TaskList target={{ contact_id: contact?.id ?? null }} />
                 </TabsContent>
 
                 {/* Deals Tab */}

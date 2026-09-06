@@ -43,6 +43,7 @@ import {
 } from '@/lib/api-keys/scopes';
 import { useTranslations } from 'next-intl';
 import { SettingsPanelHead } from './settings-panel-head';
+import { ApiDocsLink } from './api-docs-link';
 import { APP_LOCALE } from '@/lib/i18n/locale';
 
 interface ApiKey {
@@ -159,6 +160,8 @@ export function ApiKeysSettings() {
           </RequireRole>
         }
       />
+
+      <ApiDocsLink />
 
       {keys.length === 0 ? (
         <StatePanel

@@ -83,6 +83,7 @@ import { ContactDetailView } from '@/components/contacts/contact-detail-view';
 import { ImportModal } from '@/components/contacts/import-modal';
 import { CustomFieldsManager } from '@/components/contacts/custom-fields-manager';
 import { useCan } from '@/hooks/use-can';
+import { useContactRealtime } from '@/hooks/use-contact-realtime';
 import { GatedButton } from '@/components/ui/gated-button';
 import { useTranslations } from 'next-intl';
 import { PageHeader } from '@/components/layout/page-header';
@@ -204,13 +205,23 @@ function ContactsPageInner() {
     }
   }, [supabase]);
 
-  const fetchContacts = useCallback(async () => {
+  /**
+   * `silent` é a recarga que ninguém pediu — a do realtime. Ela traz o
+   * dado novo sem os dois efeitos colaterais que uma recarga PEDIDA tem
+   * todo direito de ter: o esqueleto de carregando (que aqui seria um
+   * piscar do nada) e a limpeza da seleção. Perder vinte linhas marcadas
+   * porque uma automação pendurou uma etiqueta noutro contato seria uma
+   * troca ruim.
+   */
+  const fetchContacts = useCallback(async (opts?: { silent?: boolean }) => {
     const seq = ++fetchSeq.current;
-    setLoading(true);
-    // The visible rows are about to change — drop any selection that
-    // referred to the old page/search results so the bulk bar can't
-    // act on rows the user can no longer see.
-    setSelected(new Set());
+    if (!opts?.silent) {
+      setLoading(true);
+      // The visible rows are about to change — drop any selection that
+      // referred to the old page/search results so the bulk bar can't
+      // act on rows the user can no longer see.
+      setSelected(new Set());
+    }
 
     const from = page * PAGE_SIZE;
     const to = from + PAGE_SIZE - 1;
@@ -335,6 +346,18 @@ function ContactsPageInner() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchContacts();
   }, [fetchContacts]);
+
+  /**
+   * A lista não é só desta aba. Uma automação que pendura etiqueta,
+   * escreve um campo ou cria oportunidade mexe nas mesmas linhas que
+   * estão desenhadas aqui — e antes da 067 isso só aparecia no F5.
+   * `fetchContacts` já respeita busca, página e segmentação, então
+   * recarregar é seguro: a tela volta como estava, com o dado novo.
+   */
+  const refreshContactsQuietly = useCallback(() => {
+    void fetchContacts({ silent: true });
+  }, [fetchContacts]);
+  useContactRealtime({ onChange: refreshContactsQuietly });
 
   function openAddForm() {
     setEditContact(null);

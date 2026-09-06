@@ -17,6 +17,7 @@ import type {
   PipelineStage,
 } from '@/types';
 import { useRealtime } from '@/hooks/use-realtime';
+import { useContactRealtime } from '@/hooks/use-contact-realtime';
 import { ConversationList } from '@/components/inbox/conversation-list';
 import { TeamChannel } from '@/components/inbox/team-channel';
 import { MessageThread } from '@/components/inbox/message-thread';
@@ -574,6 +575,17 @@ function InboxPageInner() {
     onConversationEvent: handleConversationEvent,
     enabled: true,
   });
+
+  /**
+   * O outro lado do motor de automações. `useRealtime` acima cobre
+   * `messages` e `conversations` — a mensagem que a automação manda já
+   * caía sozinha na thread. O que ela faz com o CONTATO (etiqueta,
+   * campo, oportunidade) não caía, e é exatamente o que o painel e a
+   * linha da lista desenham. Mesmo `refreshContactViews` dos diálogos:
+   * o painel e a lista, juntos, porque metade da tela atualizando lê
+   * como "não salvou".
+   */
+  useContactRealtime({ onChange: refreshContactViews });
 
   /**
    * Bump `resyncToken` whenever the realtime channel transitions from

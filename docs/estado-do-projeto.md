@@ -11,11 +11,15 @@
 
 ## Onde o código está
 
-**Branch `feature/tarefas-e-horarios`**, 13 commits à frente da `main`,
-no [PR #1](https://github.com/bycreativelane/PlastfortsulCRM/pull/1),
-`MERGEABLE / CLEAN`, com a CI passando nas duas checagens.
+**A `main` está na v0.10.0**, cortada em 7 de setembro de 2026. O
+[PR #1](https://github.com/bycreativelane/PlastfortsulCRM/pull/1) foi
+mesclado por rebase — os 15 commits foram preservados, e a `main` continua
+linear, com 25 no total.
 
-A `main` continua na **v0.9.0**. Nada da 0.10.0 foi mesclado ainda.
+A tag `v0.10.0` está publicada e a
+[release](https://github.com/bycreativelane/PlastfortsulCRM/releases/tag/v0.10.0)
+saiu pelo workflow, com as notas de `docs/releases/v0.10.0.md`. A branch
+`release/0.10.0` aponta para o mesmo commit, como as anteriores.
 
 | Verificação | Estado |
 | --- | --- |

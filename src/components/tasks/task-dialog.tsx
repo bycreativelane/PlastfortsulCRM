@@ -8,6 +8,7 @@ import { Loader2, Trash2 } from 'lucide-react';
 import type { Task } from '@/types';
 import { TASK_KINDS } from '@/types';
 import { createClient } from '@/lib/supabase/client';
+import { publishTask } from '@/lib/calendar-sync/publish-client';
 import { useAuth } from '@/hooks/use-auth';
 import { useBusinessHours } from '@/hooks/use-business-hours';
 import { useMemberDirectory } from '@/hooks/use-member-directory';
@@ -168,9 +169,10 @@ export function TaskDialog({
     };
 
     const db = createClient();
-    const ok = task
-      ? await updateTask(db, task.id, input)
-      : Boolean(await createTask(db, accountId, user?.id ?? null, input));
+    const created = task
+      ? null
+      : await createTask(db, accountId, user?.id ?? null, input);
+    const ok = task ? await updateTask(db, task.id, input) : Boolean(created);
 
     setSaving(false);
     if (!ok) {
@@ -180,6 +182,11 @@ export function TaskDialog({
     toast.success(task ? t('updated') : t('created'));
     onOpenChange(false);
     onSaved?.();
+
+    // Depois de fechar, e sem `await`: a tarefa já está salva, e a agenda
+    // externa é um destino a mais — não uma condição do salvamento.
+    const savedId = task?.id ?? created?.id;
+    if (savedId) void publishTask(savedId);
   }
 
   async function handleDelete() {

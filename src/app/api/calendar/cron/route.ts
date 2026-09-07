@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 
 import { supabaseAdmin } from '@/lib/calendar-sync/admin-client';
 import {
+  drainPending,
   loadImportableSources,
   runSync,
 } from '@/lib/calendar-sync/google/run';
@@ -17,11 +18,13 @@ import type { ConnectionRow } from '@/lib/calendar-sync/google/events';
  * rota que responde 503 para sempre sem que ninguém perceba.
  *
  * ------------------------------------------------------------------
- * PUXAR SÓ, POR ENQUANTO
+ * AS DUAS METADES, NUM TIQUE SÓ
  * ------------------------------------------------------------------
  *
- * A drenagem dos `task_calendar_links` pendentes é a fase 5. Esta rota já
- * nasce com o nome certo para receber as duas metades, mas hoje só importa.
+ * As duas metades: puxar o que mudou na Google e drenar o que este lado
+ * ainda deve escrever. O dreno roda mesmo quando não há fonte vencida — um
+ * envio que falhou não deve esperar o relógio de importação de OUTRA
+ * agenda para ser tentado de novo.
  *
  * `events.watch` (tempo real) fica para depois, e é decisão do §D6 e não
  * esquecimento: exige endpoint público, tabela de canais e renovação antes
@@ -55,22 +58,37 @@ export async function GET(request: Request) {
     .eq('status', 'connected')
     .limit(200);
 
-  const totals = { accounts: 0, synced: 0, failed: 0, imported: 0, removed: 0 };
+  const totals = {
+    accounts: 0,
+    synced: 0,
+    failed: 0,
+    imported: 0,
+    removed: 0,
+    drained: 0,
+  };
 
   for (const connection of (connections ?? []) as ConnectionRow[]) {
+    totals.accounts += 1;
+
     // Só as vencidas: sem isto, cada tique reimportaria toda agenda
     // habilitada de toda conta, a cada cinco minutos, para sempre.
     const sources = await loadImportableSources(admin, connection.id, {
       onlyDue: true,
     });
-    if (sources.length === 0) continue;
+    if (sources.length > 0) {
+      const outcome = await runSync(admin, connection, sources);
+      totals.synced += outcome.synced;
+      totals.failed += outcome.failed;
+      totals.imported += outcome.imported;
+      totals.removed += outcome.removed;
+    }
 
-    totals.accounts += 1;
-    const outcome = await runSync(admin, connection, sources);
-    totals.synced += outcome.synced;
-    totals.failed += outcome.failed;
-    totals.imported += outcome.imported;
-    totals.removed += outcome.removed;
+    const drain = await drainPending(admin, connection).catch((error) => {
+      console.error('[calendar] dreno falhou:', error);
+      return { drained: 0, failed: 0 };
+    });
+    totals.drained += drain.drained;
+    totals.failed += drain.failed;
   }
 
   return NextResponse.json(totals);

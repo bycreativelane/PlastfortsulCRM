@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import {
+  UserPlus,
   Zap,
   Plus,
   MoreVertical,
@@ -88,6 +89,7 @@ const TEMPLATE_ICON: Record<TemplateSlug, typeof Zap> = {
   lead_qualifier: Users,
   follow_up_reminder: PhoneCall,
   funnel_quote_sent: Send,
+  funnel_new_lead: UserPlus,
   funnel_open_24h: Hourglass,
   funnel_followup: Repeat,
   funnel_customer_replied: MessageCircle,

@@ -1704,6 +1704,10 @@
       "funnel_birthday": {
         "name": "Aniversário",
         "description": "Envia o template de aniversário no dia, uma vez."
+      },
+      "funnel_new_lead": {
+        "name": "Nova conversa → Novo Lead",
+        "description": "Toda conversa aberta — pelo cliente, pela equipe ou à mão — abre uma oportunidade em Novo Lead. Uma por conversa."
       }
     },
     "edit": {
@@ -1815,6 +1819,10 @@
         "task_completed": {
           "label": "Tarefa concluída",
           "hint": "Quando alguém marca uma tarefa como feita. Sem escolher o tipo, vale para qualquer uma — que é o caso mais comum: \"quando terminarem algo para este cliente\"."
+        },
+        "conversation_created": {
+          "label": "Conversa criada",
+          "hint": "Quando uma conversa é aberta, não importa quem escreveu primeiro — o cliente, alguém da equipe, ou você criando à mão. É o gatilho que põe a oportunidade em Novo Lead."
         }
       },
       "trigger": "Gatilho",

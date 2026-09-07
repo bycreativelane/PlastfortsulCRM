@@ -30,6 +30,14 @@ export interface ResolvedConversation {
   contactId: string;
   /** True if this call created the contact (vs matched an existing one). */
   contactCreated: boolean;
+  /**
+   * True quando ESTA chamada abriu a conversa.
+   *
+   * É o que dispara o gatilho `conversation_created`, e por isso uma
+   * corrida perdida reporta `false`: quem ganhou já vai disparar, e dois
+   * disparos abririam duas oportunidades para a mesma conversa.
+   */
+  conversationCreated: boolean;
 }
 
 /**
@@ -142,14 +150,19 @@ export async function resolveConversationByPhone(
   // `.maybeSingle()`, which errors on ≥2 rows: if duplicates predate the
   // unique index (migration 036), we resolve to the canonical survivor
   // instead of falling through and creating yet another (issue #363).
-  const conversationId = await findOrCreateConversationRow(
+  const conversation = await findOrCreateConversationRow(
     db,
     accountId,
     contactId,
     ownerUserId
   );
 
-  return { conversationId, contactId, contactCreated };
+  return {
+    conversationId: conversation.id,
+    contactId,
+    contactCreated,
+    conversationCreated: conversation.created,
+  };
 }
 
 /**
@@ -163,7 +176,7 @@ async function findOrCreateConversationRow(
   accountId: string,
   contactId: string,
   ownerUserId: string
-): Promise<string> {
+): Promise<{ id: string; created: boolean }> {
   const { data: existing, error: findErr } = await db
     .from('conversations')
     .select('id')
@@ -178,7 +191,7 @@ async function findOrCreateConversationRow(
   }
 
   if (existing && existing.length > 0) {
-    return existing[0].id;
+    return { id: existing[0].id, created: false };
   }
 
   const { data: newConv, error: convErr } = await db
@@ -200,13 +213,16 @@ async function findOrCreateConversationRow(
         .eq('contact_id', contactId)
         .order('created_at', { ascending: true })
         .limit(1);
+      // Perdeu a corrida: a conversa existe, e quem a criou foi a outra
+      // chamada — que também vai disparar o gatilho. Reportar `created`
+      // aqui abriria duas oportunidades para a mesma conversa.
       if (raced && raced.length > 0) {
-        return raced[0].id;
+        return { id: raced[0].id, created: false };
       }
     }
     console.error('[resolve-conversation] conversation create error:', convErr);
     throw new SendMessageError('db_error', 'Failed to create conversation', 500);
   }
 
-  return newConv.id;
+  return { id: newConv.id, created: true };
 }

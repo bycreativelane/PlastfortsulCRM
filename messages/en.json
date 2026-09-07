@@ -1704,6 +1704,10 @@
       "funnel_birthday": {
         "name": "Birthday",
         "description": "Sends the birthday template on the day, once."
+      },
+      "funnel_new_lead": {
+        "name": "New conversation → New Lead",
+        "description": "Every conversation opened — by the customer, by the team, or by hand — creates a deal in New Lead. One per conversation."
       }
     },
     "edit": {
@@ -1815,6 +1819,10 @@
         "task_completed": {
           "label": "Task completed",
           "hint": "When somebody marks a task as done. With no kind chosen it matches any task, which is the common case: \"when somebody finishes something for this customer\"."
+        },
+        "conversation_created": {
+          "label": "Conversation created",
+          "hint": "When a conversation is opened, no matter who wrote first — the customer, someone on the team, or you creating it by hand."
         }
       },
       "trigger": "Trigger",

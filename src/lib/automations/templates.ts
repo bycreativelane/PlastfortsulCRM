@@ -13,6 +13,7 @@ export type TemplateSlug =
   | 'follow_up_reminder'
   // The official sales flow (docs/spec-automacoes-fluxo.md, Parte E).
   | 'funnel_quote_sent'
+  | 'funnel_new_lead'
   | 'funnel_open_24h'
   | 'funnel_followup'
   | 'funnel_customer_replied'
@@ -37,6 +38,17 @@ export interface TemplateRefs {
   tag?: string;
   /** A quick reply, by SHORTCUT (without the slash). */
   quick_reply?: string;
+  /**
+   * Preencher `pipeline_id` com o funil do próprio modelo.
+   *
+   * Só o `create_deal` precisa: os outros passos de oportunidade agem
+   * sobre a oportunidade da execução, que já sabe em que funil está. Sem
+   * isto, um `create_deal` vindo de modelo nascia com `pipeline_id: ''` —
+   * e uma automação assim é recusada na ativação com "Cannot keep
+   * automation active with invalid configuration", que foi metade do bug
+   * que o item 3 do pacote reportou.
+   */
+  pipeline?: boolean;
 }
 
 export interface TemplateStepSeed {
@@ -245,6 +257,50 @@ export const AUTOMATION_TEMPLATES: Record<
   },
 
   /** §2 — 24 h in Em Aberto without a reply → Follow-up. */
+  /**
+   * §1 — toda conversa nova vira oportunidade em Novo Lead.
+   *
+   * A PORTA DE ENTRADA DO FUNIL, que faltava. As outras dez automações
+   * reagem a uma oportunidade que já existe — entrar numa etapa, receber
+   * um atalho, vencer uma data. Nenhuma criava a primeira, então o funil
+   * oficial começava numa coluna que só enchia à mão.
+   *
+   * O gatilho é `conversation_created` e não `first_inbound_message`
+   * porque o item 4 do pacote é explícito: vale para conversa iniciada
+   * pelo cliente, pela equipe, ou criada à mão. O `first_inbound_message`
+   * só pega a primeira dessas três.
+   *
+   * `once_per_conversation` é a idempotência que o item 4 pede. Sem ela o
+   * gatilho abriria uma oportunidade por mensagem.
+   *
+   * Sem etiqueta `Lead`: o item 17 recusa isso explicitamente, e a etapa
+   * já representa o estado.
+   */
+  funnel_new_lead: {
+    slug: 'funnel_new_lead',
+    group: 'funnel',
+    trigger_type: 'conversation_created',
+    trigger_config: {},
+    steps: [
+      {
+        step_type: 'create_deal',
+        step_config: {
+          pipeline_id: '',
+          stage_id: '',
+          // Em branco de propósito: o motor nomeia pelo contato.
+          title: '',
+          value: 0,
+          once_per_conversation: true,
+        },
+        refs: { pipeline: true, stage: FUNNEL.newLead },
+      },
+    ],
+    rules: {
+      pipeline: FUNNEL.pipeline,
+      reentry_policy: 'always',
+    },
+  },
+
   funnel_open_24h: {
     slug: 'funnel_open_24h',
     group: 'funnel',
@@ -806,6 +862,7 @@ export function resolveTemplateReferences(
       ...(seed.step_config as Record<string, unknown>),
     };
     if (seed.refs.stage) config.stage_id = stageId(seed.refs.stage);
+    if (seed.refs.pipeline) config.pipeline_id = pipelineId ?? '';
     if (seed.refs.stages) {
       config.stage_ids = seed.refs.stages
         .map((name) => stageId(name))

@@ -30,6 +30,7 @@ const KNOWN_TRIGGERS: Record<AutomationTriggerType, true> = {
   team_message_sent: true,
   date_field_reached: true,
   task_completed: true,
+  conversation_created: true,
 };
 
 /**

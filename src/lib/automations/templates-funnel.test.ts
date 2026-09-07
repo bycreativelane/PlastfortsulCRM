@@ -24,8 +24,31 @@ const funnel = TEMPLATE_SLUGS.filter(
 const t = (key: string) => key;
 
 describe('the funnel templates', () => {
-  it('are the ten automations of the official flow', () => {
-    expect(funnel).toHaveLength(10);
+  it('are the eleven automations of the official flow', () => {
+    // Onze desde 2026-09-07: a porta de entrada (`funnel_new_lead`)
+    // faltava. As outras dez reagem a uma oportunidade que já existe, e
+    // nenhuma criava a primeira — o funil começava numa coluna que só
+    // enchia à mão.
+    expect(funnel).toHaveLength(11);
+  });
+
+  it('has exactly one automation that opens the funnel', () => {
+    const entradas = funnel.filter((slug) =>
+      AUTOMATION_TEMPLATES[slug].steps.some((s) => s.step_type === 'create_deal')
+    );
+    expect(entradas).toEqual(['funnel_new_lead']);
+  });
+
+  it('the funnel entry is idempotent per conversation', () => {
+    // Sem isto o gatilho abriria uma oportunidade por mensagem, que o
+    // item 35 do pacote lista sob "não fazer".
+    const step = AUTOMATION_TEMPLATES.funnel_new_lead.steps.find(
+      (s) => s.step_type === 'create_deal'
+    );
+    expect(
+      (step?.step_config as { once_per_conversation?: boolean })
+        .once_per_conversation
+    ).toBe(true);
   });
 
   it('only send templates approved on the account', () => {

@@ -1005,6 +1005,7 @@ async function processMessage(
     | 'new_message_received'
     | 'keyword_match'
     | 'interactive_reply'
+    | 'conversation_created'
   )[] = [];
   // Content-level triggers are suppressed when a flow consumed the
   // message — see the comment block above.
@@ -1029,6 +1030,16 @@ async function processMessage(
       automationTriggers.unshift('new_contact_created');
     if (isFirstInboundMessage)
       automationTriggers.unshift('first_inbound_message');
+    // A conversa acabou de ser aberta. Vem PRIMEIRO de todos: é ele que
+    // põe a oportunidade em Novo Lead, e os gatilhos de conteúdo que
+    // rodam depois já encontram o funil com onde escrever.
+    //
+    // `first_inbound_message` não serve para isso — ele só pega o cliente
+    // escrevendo primeiro, e o item 4 do pacote pede que valha também para
+    // conversa iniciada pela equipe.
+    if (convResult.created) {
+      automationTriggers.unshift('conversation_created');
+    }
   }
   // Awaited — not fire-and-forget. We're inside the route's `after()`
   // block, which only keeps the function alive for promises it can see, so

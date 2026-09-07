@@ -149,6 +149,7 @@ describe('resolveConversationByPhone', () => {
       conversationId: 'cv1',
       contactId: 'c1',
       contactCreated: false,
+      conversationCreated: false,
     });
   });
 
@@ -170,6 +171,9 @@ describe('resolveConversationByPhone', () => {
       conversationId: 'cv2',
       contactId: 'c2',
       contactCreated: true,
+      // Abriu a conversa: é isto que dispara `conversation_created`, e o
+      // que faz a oportunidade nascer em Novo Lead.
+      conversationCreated: true,
     });
   });
 
@@ -205,6 +209,10 @@ describe('resolveConversationByPhone', () => {
       conversationId: 'cv-raced',
       contactId: 'c1',
       contactCreated: false,
+      // FALSE mesmo tendo tentado inserir: quem ganhou a corrida já vai
+      // disparar o gatilho, e dois disparos abririam duas oportunidades
+      // para a mesma conversa.
+      conversationCreated: false,
     });
   });
 });

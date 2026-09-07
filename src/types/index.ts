@@ -764,6 +764,15 @@ export interface BroadcastRecipient {
 
 export type AutomationTriggerType =
   /**
+   * Uma conversa foi aberta — por quem quer que seja.
+   *
+   * `first_inbound_message` só pega o cliente escrevendo primeiro, e o
+   * pedido de 7 de setembro é explícito: vale para conversa iniciada pelo
+   * cliente, pela equipe, ou criada à mão no CRM. É o gatilho que põe a
+   * oportunidade em Novo Lead, e sem ele o funil oficial não tem entrada.
+   */
+  | 'conversation_created'
+  /**
    * Uma tarefa foi concluída (068). O outro lado da `create_task`: o
    * pós-venda que só começa depois que a ligação de fato aconteceu, e não
    * depois que alguém arrastou um cartão.
@@ -958,8 +967,26 @@ export interface UpdateContactFieldStepConfig {
 export interface CreateDealStepConfig {
   pipeline_id: string;
   stage_id: string;
-  title: string;
+  /**
+   * Em branco, o motor nomeia pelo contato — ver `resolveDealTitle`.
+   * Deixou de ser obrigatório em 7 de setembro de 2026.
+   */
+  title?: string;
   value?: number;
+  /**
+   * Uma oportunidade ABERTA por conversa.
+   *
+   * O item 4 do pacote de correções pede idempotência: receber mais
+   * mensagens na mesma conversa não pode abrir oportunidade de novo. A
+   * trava é por conversa e não por contato porque um cliente antigo pode
+   * legitimamente abrir um novo ciclo comercial.
+   *
+   * "Aberta" e não "qualquer uma": este produto tem UMA conversa por
+   * contato, então travar em qualquer oportunidade já vinculada impediria
+   * para sempre a segunda venda ao mesmo cliente — que é o oposto do que o
+   * funil de recompra existe para fazer.
+   */
+  once_per_conversation?: boolean;
 }
 
 /**

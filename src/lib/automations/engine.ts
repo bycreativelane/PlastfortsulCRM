@@ -982,6 +982,29 @@ async function runStep(
       const cfg = step.step_config as CreateDealStepConfig;
       if (!cfg.pipeline_id || !cfg.stage_id)
         throw new Error('create_deal needs pipeline + stage');
+
+      // IDEMPOTÊNCIA POR CONVERSA (item 4 do pacote de 2026-09-07).
+      //
+      // Sem isto, a automação de "toda conversa nova vira oportunidade"
+      // abriria uma a cada mensagem — o item 35 lista "criar oportunidade
+      // duplicada a cada mensagem" sob "não fazer", e é o modo de falha
+      // óbvio de um gatilho que dispara em evento de conversa.
+      //
+      // ABERTA, e não "qualquer uma": este produto tem uma conversa por
+      // contato, então travar em qualquer oportunidade já vinculada
+      // impediria para sempre a segunda venda ao mesmo cliente — o oposto
+      // do que o funil de recompra existe para fazer.
+      if (cfg.once_per_conversation && args.context.conversation_id) {
+        const { data: already } = await db
+          .from('deals')
+          .select('id')
+          .eq('conversation_id', args.context.conversation_id)
+          .eq('status', 'open')
+          .limit(1);
+        if ((already ?? []).length > 0) {
+          return 'deal already open for this conversation';
+        }
+      }
       // Match the account's configured default currency rather than
       // the static `deals.currency` DB default — keeps automation-
       // created deals consistent with the one-currency-per-account
@@ -1001,6 +1024,9 @@ async function runStep(
           pipeline_id: cfg.pipeline_id,
           stage_id: cfg.stage_id,
           contact_id: args.contactId,
+          // Sem gravar a conversa, a trava acima nunca casaria e a
+          // idempotência seria uma consulta que sempre volta vazia.
+          conversation_id: args.context.conversation_id ?? null,
           title: await resolveDealTitle(db, cfg.title, args),
           value: cfg.value ?? 0,
           currency: acct?.default_currency ?? 'USD',

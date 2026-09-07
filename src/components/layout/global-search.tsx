@@ -8,6 +8,7 @@ import { Loader2, Package, Search, User } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { formatCurrency } from '@/lib/currency';
 import { cn } from '@/lib/utils';
+import { IconTile } from '@/components/ui/icon-tile';
 
 /**
  * Find a customer from anywhere, with the keyboard.
@@ -295,13 +296,13 @@ export function GlobalSearch({
                 {/* The mark tells the two kinds apart before the text is
                     read. Without it a product called "Ana" and a customer
                     called "Ana" are the same row twice. */}
-                <span className="bg-muted text-muted-foreground grid size-7 shrink-0 place-items-center rounded-md">
+                <IconTile size="sm">
                   {hit.kind === 'product' ? (
-                    <Package className="size-3.5" />
+                    <Package />
                   ) : (
                     <User className="size-3.5" />
                   )}
-                </span>
+                </IconTile>
                 <span className="min-w-0 flex-1">
                   <span className="text-foreground block truncate text-sm font-medium">
                     {hit.kind === 'product' ? hit.name : hit.name || hit.phone}

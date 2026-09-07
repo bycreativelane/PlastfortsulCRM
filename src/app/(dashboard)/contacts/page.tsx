@@ -88,6 +88,7 @@ import { GatedButton } from '@/components/ui/gated-button';
 import { useTranslations } from 'next-intl';
 import { PageHeader } from '@/components/layout/page-header';
 import { OptionSelect } from '@/components/ui/option-select';
+import { CountBadge } from '@/components/ui/count-badge';
 import { APP_LOCALE } from '@/lib/i18n/locale';
 import { cn } from '@/lib/utils';
 
@@ -557,9 +558,9 @@ function ContactsPageInner() {
                 // 18px, the dense chip height. It had no height at all, so
                 // the counter sat a pixel or two off every other chip in the
                 // app and changed size with the button's line-height.
-                <span className="bg-primary text-primary-foreground text-3xs ml-1 inline-flex h-4.5 min-w-4.5 items-center justify-center rounded-full px-1.5 font-semibold">
+                <CountBadge tone="primary" className="ml-1">
                   {selectedTagIds.length}
-                </span>
+                </CountBadge>
               )}
             </PopoverTrigger>
             <PopoverContent align="start" className="w-64 p-0">
@@ -697,9 +698,7 @@ function ContactsPageInner() {
             // Same 18px counter chip the tag filter above uses. It is the
             // whole reason a collapsed filter is safe: a list narrowed by
             // conditions you cannot see is a list that looks broken.
-            <span className="bg-primary text-primary-foreground text-3xs inline-flex h-4.5 min-w-4.5 shrink-0 items-center justify-center rounded-full px-1.5 font-semibold">
-              {segFilterCount}
-            </span>
+            <CountBadge tone="primary">{segFilterCount}</CountBadge>
           )}
           <ChevronDown
             aria-hidden

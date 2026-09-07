@@ -31,6 +31,7 @@ import {
 import { CurrencyInput } from '@/components/ui/currency-input';
 import { FieldLabel } from '@/components/ui/field';
 import { Textarea } from '@/components/ui/textarea';
+import { IconTile } from '@/components/ui/icon-tile';
 import { cn } from '@/lib/utils';
 import { formatCurrency } from '@/lib/currency';
 import {
@@ -202,9 +203,9 @@ function ValueGate({
     >
       <DialogContent className="bg-popover border-border text-popover-foreground sm:max-w-md">
         <DialogHeader>
-          <div className="bg-ok-soft text-ok-ink mb-1 grid size-9 place-items-center rounded-lg">
-            <Trophy className="size-4.5" />
-          </div>
+          <IconTile size="lg" tone="ok" className="mb-1">
+            <Trophy />
+          </IconTile>
           <DialogTitle className="text-popover-foreground">
             {t('valueTitle')}
           </DialogTitle>
@@ -324,9 +325,9 @@ function LossGate({
     >
       <DialogContent className="bg-popover border-border text-popover-foreground sm:max-w-lg">
         <DialogHeader>
-          <div className="bg-danger-soft text-danger-ink mb-1 grid size-9 place-items-center rounded-lg">
-            <Ban className="size-4.5" />
-          </div>
+          <IconTile size="lg" tone="danger" className="mb-1">
+            <Ban />
+          </IconTile>
           <DialogTitle className="text-popover-foreground">
             {t('lossTitle')}
           </DialogTitle>

@@ -41,6 +41,7 @@ import {
 } from '@/components/ui/panel';
 import { Skeleton } from '@/components/dashboard/skeleton';
 import { StatePanel } from '@/components/ui/state-panel';
+import { IconTile } from '@/components/ui/icon-tile';
 
 /**
  * The rooms the team talks in.
@@ -358,9 +359,9 @@ export function RoomsPanel() {
                   key={room.id}
                   className="flex items-center gap-3 px-4 py-2.5"
                 >
-                  <span className="bg-muted text-muted-foreground grid size-8 shrink-0 place-items-center rounded-md">
-                    <Archive className="size-4" />
-                  </span>
+                  <IconTile size="md">
+                    <Archive />
+                  </IconTile>
                   <div className="min-w-0 flex-1">
                     <p className="text-muted-foreground truncate text-sm">
                       {roomName(room, tTeam('title'))}

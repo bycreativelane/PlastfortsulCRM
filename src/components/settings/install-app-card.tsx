@@ -5,6 +5,7 @@ import { Check, MonitorSmartphone, Share } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
 import { Button } from '@/components/ui/button';
+import { IconTile } from '@/components/ui/icon-tile';
 
 /**
  * "Install this on your phone", and the three different answers the
@@ -150,13 +151,13 @@ export function InstallAppCard() {
     // section would leave 24px of hole where it never rendered.
     <div className="border-border bg-card mb-6 rounded-lg border p-4">
       <div className="flex items-start gap-3">
-        <div className="bg-muted text-primary grid size-9 shrink-0 place-items-center rounded-lg">
+        <IconTile size="lg" className="text-primary">
           {surface === 'installed' ? (
-            <Check className="size-4" />
+            <Check />
           ) : (
             <MonitorSmartphone className="size-4" />
           )}
-        </div>
+        </IconTile>
         <div className="min-w-0 flex-1">
           <p className="text-foreground text-sm font-semibold">
             {surface === 'installed' ? t('installedTitle') : t('title')}

@@ -46,6 +46,7 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { SegBar } from '@/components/ui/seg-bar';
 import { Tag as TagChip } from '@/components/ui/tag';
+import { CountBadge } from '@/components/ui/count-badge';
 import { DARK_SURFACE, LIGHT_SURFACE, stageChip } from '@/lib/stage-color';
 import { AlertTriangle } from 'lucide-react';
 import { dateLocale } from '@/lib/i18n/dates';
@@ -577,9 +578,7 @@ export function ConversationList({
                         <span className="min-w-0 flex-1 truncate">
                           {option.label}
                         </span>
-                        <span className="bg-muted text-secondary-foreground text-2xs ml-auto grid h-4.5 min-w-4.5 place-items-center rounded-full px-1.5 font-bold">
-                          {option.count}
-                        </span>
+                        <CountBadge className="ml-auto">{option.count}</CountBadge>
                       </DropdownMenuItem>
                     ))}
                   </div>
@@ -997,9 +996,7 @@ function ConversationItem({
                 : t('noMessagesYet'))}
           </p>
           {conversation.unread_count > 0 && (
-            <span className="bg-human-strong text-2xs grid h-4.5 min-w-4.5 shrink-0 place-items-center rounded-full px-1.5 font-bold text-white">
-              {conversation.unread_count}
-            </span>
+            <CountBadge tone="human">{conversation.unread_count}</CountBadge>
           )}
         </div>
 

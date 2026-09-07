@@ -26,6 +26,7 @@ import { destinationFor } from '@/lib/notifications/destination';
 import { PageActions } from '@/components/layout/page-actions';
 import { PageHeader } from '@/components/layout/page-header';
 import { StatePanel } from '@/components/ui/state-panel';
+import { IconTile } from '@/components/ui/icon-tile';
 import { dateLocale } from '@/lib/i18n/dates';
 import { useMemberNames } from '@/hooks/use-member-names';
 import { notificationText } from '@/lib/notifications/text';
@@ -247,9 +248,9 @@ export default function NotificationsPage() {
           // owns the hover and the transition.
           className="surface-interactive border-border bg-card text-human-ink flex items-start gap-3 rounded-lg border p-4"
         >
-          <span className="bg-muted text-human grid size-8 shrink-0 place-items-center rounded-lg">
-            <WifiOff className="size-4" />
-          </span>
+          <IconTile size="md" className="text-human">
+            <WifiOff />
+          </IconTile>
           <span className="min-w-0 flex-1">
             <span className="block text-sm font-medium">
               {tWhatsApp('notConnected')}

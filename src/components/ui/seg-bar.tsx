@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { cn } from '@/lib/utils';
+import { CountBadge } from '@/components/ui/count-badge';
 
 /**
  * A two-or-three way segmented control with counts.
@@ -69,9 +70,15 @@ function SegBar<T extends string>({
           >
             {segment.label}
             {segment.count !== undefined && (
-              <span
+              <CountBadge
+                // A GEOMETRIA vem do `CountBadge`; a COR fica aqui.
+                //
+                // Os dois tons de baixo não são semântica de contagem, são
+                // estado de segmento — ativo e inativo desta barra. Promovê-los
+                // a variantes do componente inflaria o átomo com casos que só
+                // esta tela tem. O que valia unificar era a medida, e é ela
+                // que vem de lá.
                 className={cn(
-                  'grid h-4.5 min-w-4.5 place-items-center rounded-full px-1.5 text-2xs font-bold',
                   segment.tone === 'human'
                     ? 'bg-human-strong text-white'
                     : active
@@ -80,7 +87,7 @@ function SegBar<T extends string>({
                 )}
               >
                 {segment.count}
-              </span>
+              </CountBadge>
             )}
           </button>
         );

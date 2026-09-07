@@ -27,6 +27,7 @@ import {
 } from '@/components/ui/panel';
 import { Skeleton } from '@/components/dashboard/skeleton';
 import { Switch } from '@/components/ui/switch';
+import { IconTile } from '@/components/ui/icon-tile';
 import { sectionHref } from '@/components/settings/settings-sections';
 
 /**
@@ -354,9 +355,9 @@ function ToolRow({
 }) {
   return (
     <div className="flex items-start gap-2">
-      <span className="bg-muted text-muted-foreground mt-3 grid size-7 shrink-0 place-items-center rounded-md">
+      <IconTile size="sm" className="mt-3">
         {icon}
-      </span>
+      </IconTile>
       <div className="min-w-0 flex-1 space-y-1.5">
         <SwitchRow {...rest} />
         {warning ? (

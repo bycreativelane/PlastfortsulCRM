@@ -36,6 +36,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import { IconTile } from '@/components/ui/icon-tile';
 import { sectionHref } from '@/components/settings/settings-sections';
 
 /** One icon per type. New ones are a line each. */
@@ -270,12 +271,9 @@ export function NotificationsMenu({ className }: { className?: string }) {
             {/* The same 24px tile every notification row wears below, so the
                 banner shares the panel's skeleton instead of being a bare
                 icon floating at a different x. */}
-            <span
-              aria-hidden
-              className="bg-muted text-human mt-0.5 grid size-6 shrink-0 place-items-center rounded-md"
-            >
-              <WifiOff className="size-3.5" />
-            </span>
+            <IconTile size="xs" className="text-human mt-0.5">
+              <WifiOff />
+            </IconTile>
             <span className="min-w-0 flex-1">
               <span className="text-2xs block leading-snug font-medium">
                 {tWhatsApp('notConnected')}

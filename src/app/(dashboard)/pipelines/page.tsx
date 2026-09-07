@@ -57,6 +57,7 @@ import { useTranslations } from 'next-intl';
 import { formatCurrency } from '@/lib/currency';
 import { SegBar } from '@/components/ui/seg-bar';
 import { StatusDot } from '@/components/ui/status-badge';
+import { CountBadge } from '@/components/ui/count-badge';
 
 // Pipeline creation is admin-class (settings-tier write under
 // the new RLS); deal creation is operational and only requires
@@ -612,9 +613,7 @@ function PipelinesPageInner() {
               <SlidersHorizontal className="size-3.5" />
               {t('filters')}
               {ownerFilter !== null && (
-                <span className="bg-foreground text-background text-2xs grid h-4.5 min-w-4.5 place-items-center rounded-full px-1 font-bold">
-                  1
-                </span>
+                <CountBadge tone="inverse">1</CountBadge>
               )}
             </Button>
           )}

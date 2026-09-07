@@ -55,6 +55,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { IconTile } from '@/components/ui/icon-tile';
 import { type TemplateSlug } from '@/lib/automations/templates';
 import {
   triggerLabelKey,
@@ -229,9 +230,9 @@ export default function AutomationsPage() {
         onClick={() => startFromTemplate(slug)}
         className="surface-interactive group border-border bg-card flex flex-col items-start rounded-lg border p-4 text-left"
       >
-        <div className="bg-auto-soft text-auto-ink mb-3 grid size-8 place-items-center rounded-lg">
-          <Icon className="size-4" />
-        </div>
+        <IconTile size="md" tone="auto" className="mb-3">
+          <Icon />
+        </IconTile>
         <div className="text-foreground text-sm font-semibold">
           {tpl(`${slug}.name`)}
         </div>
@@ -382,12 +383,9 @@ function AutomationCard({
   return (
     <li className="surface-interactive border-border bg-card rounded-lg border">
       <div className="flex items-center gap-4 p-4">
-        <div
-          className="bg-auto-soft text-auto-ink grid size-9 shrink-0 place-items-center rounded-lg"
-          aria-hidden
-        >
-          <Zap className="size-4" />
-        </div>
+        <IconTile size="lg" tone="auto">
+          <Zap />
+        </IconTile>
 
         <button
           type="button"

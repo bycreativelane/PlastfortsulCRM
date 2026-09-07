@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/button';
 import { FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { OptionSelect } from '@/components/ui/option-select';
+import { IconTile } from '@/components/ui/icon-tile';
 
 /**
  * What the opportunity actually contains.
@@ -163,9 +164,9 @@ export function DealItemsEditor({
                   stacked they are a form — and a table at 360px is a
                   horizontal scrollbar inside a dialog. */}
               <div className="flex items-start gap-2">
-                <span className="bg-muted text-muted-foreground mt-1 grid size-6 shrink-0 place-items-center rounded">
-                  <Package className="size-3" />
-                </span>
+                <IconTile size="xs" className="mt-1">
+                  <Package />
+                </IconTile>
                 <div className="min-w-0 flex-1 space-y-2">
                   <OptionSelect
                     value={item.productId ?? ''}

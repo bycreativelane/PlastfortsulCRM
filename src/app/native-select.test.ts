@@ -60,11 +60,18 @@ const ALLOWED = new Set([
  * contra a varredura virar vazia sem ninguém notar.
  */
 function stripComments(source: string): string {
-  return source
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .split('\n')
-    .map((line) => line.replace(/\/\/.*$/, ''))
-    .join('\n');
+  return (
+    source
+      // As quebras de linha do bloco são PRESERVADAS — ver a nota igual em
+      // `atoms.test.ts`. Sem isto o número da linha reportada não é a do
+      // problema.
+      .replace(/\/\*[\s\S]*?\*\//g, (block) =>
+        '\n'.repeat((block.match(/\n/g) ?? []).length)
+      )
+      .split('\n')
+      .map((line) => line.replace(/\/\/.*$/, ''))
+      .join('\n')
+  );
 }
 
 function sourceFiles(dir: string): string[] {

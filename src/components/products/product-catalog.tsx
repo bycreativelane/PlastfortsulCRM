@@ -45,6 +45,7 @@ import {
 import { Skeleton } from '@/components/dashboard/skeleton';
 import { StatePanel } from '@/components/ui/state-panel';
 import { Textarea } from '@/components/ui/textarea';
+import { IconTile } from '@/components/ui/icon-tile';
 
 /**
  * The catalogue, as a place you go rather than a setting you change.
@@ -482,9 +483,9 @@ export function ProductCatalog() {
                     !product.active && 'opacity-60'
                   )}
                 >
-                  <span className="bg-muted text-muted-foreground grid size-8 shrink-0 place-items-center rounded-md">
-                    <Package className="size-4" />
-                  </span>
+                  <IconTile size="md">
+                    <Package />
+                  </IconTile>
                   <div className="min-w-0 flex-1">
                     <p className="text-foreground truncate text-sm font-medium">
                       {product.name}

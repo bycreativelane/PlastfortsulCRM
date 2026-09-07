@@ -82,6 +82,7 @@ import {
 } from '@/lib/automations/builder-tree';
 import { cn } from '@/lib/utils';
 import { OptionSelect } from '@/components/ui/option-select';
+import { IconTile } from '@/components/ui/icon-tile';
 
 // ------------------------------------------------------------
 // Types (builder-local — mirror the flattened rows we POST)
@@ -1329,9 +1330,9 @@ function TriggerCard({
           onClick={() => setOpen((v) => !v)}
           className="flex w-full items-center gap-3 px-4 py-3 text-left"
         >
-          <div className="bg-primary-soft text-primary grid size-8 shrink-0 place-items-center rounded-md">
-            <Zap className="size-4" />
-          </div>
+          <IconTile size="md" tone="primary">
+            <Zap />
+          </IconTile>
           <div className="min-w-0 flex-1">
             <div className="text-primary eyebrow">{t('trigger')}</div>
             <div className="text-foreground truncate text-sm font-medium">
@@ -1530,9 +1531,9 @@ function RulesCard({
           onClick={() => setOpen((v) => !v)}
           className="flex w-full items-center gap-3 px-4 py-3 text-left"
         >
-          <div className="bg-muted text-secondary-foreground grid size-8 shrink-0 place-items-center rounded-md">
-            <ShieldCheck className="size-4" />
-          </div>
+          <IconTile size="md" className="text-secondary-foreground">
+            <ShieldCheck />
+          </IconTile>
           <div className="min-w-0 flex-1">
             <div className="text-secondary-foreground eyebrow">
               {t('rules.title')}

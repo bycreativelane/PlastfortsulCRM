@@ -57,6 +57,7 @@ import {
 import { Skeleton } from '@/components/dashboard/skeleton';
 import { StatePanel } from '@/components/ui/state-panel';
 import { StatusBadge } from '@/components/ui/status-badge';
+import { IconTile } from '@/components/ui/icon-tile';
 
 /**
  * The month, and what is on it.
@@ -227,9 +228,9 @@ export function AgendaCalendar() {
   return (
     <Panel>
       <PanelHeader>
-        <span className="bg-muted text-primary grid size-7 shrink-0 place-items-center rounded-md">
-          <CalendarDays className="size-3.5" />
-        </span>
+        <IconTile size="sm" className="text-primary">
+          <CalendarDays />
+        </IconTile>
         <div className="min-w-0">
           <PanelTitle>{t('title')}</PanelTitle>
           <PanelSub>{t('subtitle')}</PanelSub>

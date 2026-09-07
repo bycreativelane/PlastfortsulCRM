@@ -2876,7 +2876,9 @@
         "webhooksManage": "Registrar e gerenciar webhooks de saída",
         "fieldsRead": "Ler a definição dos campos personalizados (nome, tipo e o id que as automações usam)",
         "dealsRead": "Ler funis, etapas e oportunidades",
-        "dealsWrite": "Criar oportunidade e mover de etapa"
+        "dealsWrite": "Criar oportunidade e mover de etapa",
+        "tasksRead": "Ler as tarefas da conta.",
+        "tasksWrite": "Criar, alterar e apagar tarefas."
       }
     },
     "deals": {
@@ -3526,6 +3528,18 @@
       "shortcutsMove": {
         "title": "/aberto, /andamento e /atendido movem a oportunidade",
         "body": "A resposta rápida que você usa no Atendimento vira gatilho. O CRM registra qual atalho saiu e move a etapa por você."
+      },
+      "agendaPage": {
+        "title": "O calendário virou um lugar",
+        "body": "A nova tela Agenda tem mês, semana e dia — com eixo de horas desenhado entre os limites do expediente da sua conta, não das 00h às 24h. Filtre por tipo e por responsável; \"Minhas\" é o padrão."
+      },
+      "tasks": {
+        "title": "Tarefas, com dono e prazo",
+        "body": "\"Ligar para o Marcos na quinta às 14h\" agora é uma coisa que existe no CRM, com responsável, hora e desfecho. Aparece na ficha do contato, no painel da caixa de entrada, na oportunidade e no registro de ligação."
+      },
+      "googleCalendar": {
+        "title": "A agenda da empresa, dos dois lados",
+        "body": "Conecte a conta Google em Configurações › Agendas: o que já está marcado lá aparece aqui, e as tarefas criadas aqui vão para lá. Você escolhe agenda por agenda o que importa e o que publica."
       }
     },
     "items": {
@@ -3610,7 +3624,17 @@
       "logsReasons": "O histórico mostra a oportunidade e por que a execução terminou; cancelada e pulada viraram status.",
       "lossReasons": "Os motivos de perda são os oito do fluxo oficial; “Parou de responder” saiu da lista.",
       "wonStage": "Em Andamento passa a ser a venda e pede o valor ao entrar; Venda Perdida pede o motivo.",
-      "deadTriggersHidden": "Gatilhos que nunca disparavam (Por horário, Conversa atribuída) saíram do menu."
+      "deadTriggersHidden": "Gatilhos que nunca disparavam (Por horário, Conversa atribuída) saíram do menu.",
+      "tasks": "Tarefas com responsável, prazo, hora e lembrete — na ficha do contato, na caixa de entrada, na oportunidade e no registro de ligação.",
+      "agendaPage": "Tela /agenda com mês, semana e dia, eixo de horas e filtros por tipo e responsável.",
+      "businessHours": "Configurações › Horários: fuso da conta, expediente por dia da semana e exceções para feriados.",
+      "googleCalendar": "Integração com a Google Agenda: importar eventos e publicar tarefas, escolhendo a direção agenda por agenda.",
+      "createTaskStep": "Ação \"Criar tarefa\" nas automações, com prazo relativo em dias úteis e responsável fixo ou o dono da oportunidade.",
+      "taskCompletedTrigger": "Gatilho \"Tarefa concluída\", com filtro opcional por tipo de tarefa.",
+      "tasksApi": "/api/v1/tasks na API pública, com os escopos tasks:read e tasks:write.",
+      "developersPage": "Página /developers com a documentação da API e as notas de versão.",
+      "realtimeContacts": "Etiquetas, campos de contato e oportunidades mudados por automação aparecem sem recarregar a página.",
+      "callFollowUp": "O registro de ligação oferece criar a tarefa de retorno, já marcada em \"não atendeu\" e \"retornar depois\"."
     },
     "seeIt": "Ver na prática"
   },

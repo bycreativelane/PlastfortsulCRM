@@ -12,8 +12,14 @@
 > expediente semeadas, exceções vazias). A **Fase 2 está no código**, na
 > `068_tasks.sql` — **aplicada em 3 de setembro de 2026** e conferida
 > contra o projeto em 6 de setembro (tabela `tasks` respondendo, vazia). As
-> **fase 3 foi entregue em 6 de setembro de 2026**; as fases 4 a 7 não
-> começaram.
+> **as sete fases foram entregues** — 1 e 2 em 3 de setembro de 2026, 3 em
+> 6 de setembro, e 4 a 7 em 7 de setembro. O plano está fechado; o que
+> segue é história de como foi decidido.
+>
+> **Duas ressalvas registradas na entrega.** A `069` foi escrita e validada
+> pela CI contra um banco limpo, mas **não foi aplicada** ao projeto de
+> desenvolvimento. E o fluxo OAuth **não foi exercitado contra a Google
+> real** — falta um app no Cloud Console, que é trabalho de credencial.
 >
 > **Numeração.** A `066_business_hours.sql` foi aplicada em 3 de setembro de
 > 2026, junto com a 065 e a 067. A **067 é de outra entrega**
@@ -678,7 +684,7 @@ contas, mas ver a grade desenhada exige uma sessão autenticada.
 
 **Fica pronto:** o calendário deixa de ser um painel e vira um lugar.
 
-## Fase 4 — Conectar e importar da Google · migração `069` — (G)
+## Fase 4 — Conectar e importar da Google · migração `069` — (G) — ✅ ENTREGUE
 
 - Banco: `calendar_connections`, `calendar_sources`, `calendar_events`,
   `task_calendar_links` (a tabela nasce aqui, é usada na fase 5).
@@ -695,7 +701,7 @@ contas, mas ver a grade desenhada exige uma sessão autenticada.
 
 **Fica pronto:** o que já está agendado no Google aparece no CRM.
 
-## Fase 5 — Publicar tarefas na Google — (M)
+## Fase 5 — Publicar tarefas na Google — (M) — ✅ ENTREGUE
 
 - Envio síncrono ao salvar, com id determinístico e drenagem no cron.
 - Seletor "publicar em" no diálogo de tarefa (agendas com `direction`
@@ -706,7 +712,7 @@ contas, mas ver a grade desenhada exige uma sessão autenticada.
 
 **Fica pronto:** o pedido inteiro está atendido.
 
-## Fase 6 — Automação e tarefa (fecha a decisão 2 do spec anterior) — (M)
+## Fase 6 — Automação e tarefa (fecha a decisão 2 do spec anterior) — (M) — ✅ ENTREGUE
 
 `automations.trigger_type` e `step_type` **não têm CHECK** no banco, então
 isto é só código:
@@ -718,7 +724,7 @@ isto é só código:
 
 Isto preenche as duas linhas ❌ das tabelas §A15/§A16 do spec anterior.
 
-## Fase 7 — Documentação e entrega — (P)
+## Fase 7 — Documentação e entrega — (P) — ✅ ENTREGUE
 
 - `src/lib/releases.ts` + `WhatsNew` nos três idiomas.
 - `docs/releases/v0.10.0.md`.

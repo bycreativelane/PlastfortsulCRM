@@ -1723,6 +1723,51 @@ html[data-mode='dark'] {
 }
 
 /* ============================================================
+ * The horizontal rail of a board.
+ *
+ * On touch the peek/snap layout already says "there is more to swipe", so
+ * the scrollbar is hidden and the surface stays clean. On desktop there is
+ * no peek hint and a board with many columns overflows silently, so a thin
+ * themed bar stays visible to make the overflow discoverable.
+ *
+ * This lived as a `<style jsx>` block inside `pipeline-board.tsx`, which
+ * meant the tasks board — the same layout, the same problem — simply had no
+ * scrollbar styling at all. A rule that two boards need is a utility, not a
+ * component's private stylesheet.
+ * ============================================================ */
+@utility board-scroll {
+  scroll-behavior: smooth;
+
+  @media (hover: none), (pointer: coarse) {
+    scrollbar-width: none;
+
+    &::-webkit-scrollbar {
+      height: 0;
+      display: none;
+    }
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+
+    &::-webkit-scrollbar {
+      height: 8px;
+    }
+    &::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    &::-webkit-scrollbar-thumb {
+      background-color: var(--border);
+      border-radius: 9999px;
+    }
+    &::-webkit-scrollbar-thumb:hover {
+      background-color: var(--muted-foreground);
+    }
+  }
+}
+
+/* ============================================================
  * Page and section entrances.
  *
  * `.page-enter` is stamped on the body of every dashboard route by

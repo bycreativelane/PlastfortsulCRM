@@ -3924,6 +3924,7 @@
       "cancelled": "취소됨"
     },
     "dragHandle": "다른 열로 끌기",
-    "columnEmpty": "없음."
+    "columnEmpty": "없음.",
+    "contactLink": "연락처"
   }
 }

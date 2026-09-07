@@ -46,6 +46,11 @@ import { cn } from '@/lib/utils';
 const APP_SHAPED = [
   /^\/inbox(\/|$)/,
   /^\/pipelines(\/|$)/,
+  // Tarefas tem um quadro, e um quadro que cresce além da dobra deixou de
+  // ser um quadro — a mesma razão de `/pipelines` estar aqui. As outras duas
+  // visões da tela ganham junto o que elas também querem: cabeçalho e
+  // filtros parados enquanto só a lista rola.
+  /^\/tasks(\/|$)/,
   // The two builders — but NOT their siblings: `/automations/[id]/logs`
   // and `/flows/[id]/runs` are ordinary tables.
   /^\/automations\/new$/,

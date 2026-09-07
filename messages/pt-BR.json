@@ -3924,6 +3924,7 @@
       "cancelled": "Canceladas"
     },
     "dragHandle": "Arrastar para outra coluna",
-    "columnEmpty": "Nada por aqui."
+    "columnEmpty": "Nada por aqui.",
+    "contactLink": "contato"
   }
 }

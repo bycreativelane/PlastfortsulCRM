@@ -3924,6 +3924,7 @@
       "cancelled": "Cancelled"
     },
     "dragHandle": "Drag to another column",
-    "columnEmpty": "Nothing here."
+    "columnEmpty": "Nothing here.",
+    "contactLink": "contact"
   }
 }

@@ -31,7 +31,12 @@ import {
 import { loadAllTasks } from '@/lib/tasks/queries';
 import { cancelTask, completeTask, reopenTask } from '@/lib/tasks/mutations';
 import { notifyTaskCompleted, publishTask } from '@/lib/tasks/notify-client';
-import { TASK_KINDS, type Task, type TaskStatus } from '@/types';
+import {
+  TASK_KINDS,
+  TASK_STATUSES,
+  type Task,
+  type TaskStatus,
+} from '@/types';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { MemberAvatar } from '@/components/presence/member-avatar';
@@ -43,6 +48,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { TaskDialog } from '@/components/tasks/task-dialog';
+import { Skeleton } from '@/components/dashboard/skeleton';
 import { TasksBoard } from '@/components/tasks/tasks-board';
 import { TasksCalendar } from '@/components/tasks/tasks-calendar';
 
@@ -214,8 +220,19 @@ export function TasksPage() {
   }
 
   return (
-    <div className="flex flex-col gap-4 p-4 md:p-6">
-      <header className="flex flex-wrap items-center gap-3">
+    // UM SHELL CONTIDO, e não fluxo normal.
+    //
+    // A rota entrou em `APP_SHAPED` (ver `dashboard-shell.tsx`), então o
+    // `<main>` para de rolar e esta tela passa a ser dona da própria altura.
+    // Sem isso o quadro crescia para baixo e a PÁGINA rolava — que é
+    // exatamente o que a doutrina do quadro do funil proíbe: "um Kanban que
+    // cresce além da dobra deixou de ser um quadro".
+    //
+    // As outras duas visões ganham junto o que elas também queriam: o
+    // cabeçalho e os filtros ficam parados e só o conteúdo rola, que é como
+    // toda lista de trabalho séria se comporta.
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <header className="flex shrink-0 flex-wrap items-center gap-3 px-4 pt-4 md:px-6 md:pt-6">
         <div>
           <h1 className="text-lg font-semibold">{t('title')}</h1>
           <p className="text-muted-foreground text-xs">
@@ -286,11 +303,14 @@ export function TasksPage() {
           </Select>
 
           {/*
-            Lista ou calendário — a mesma tarefa, duas perguntas. A lista
-            responde "o que eu tenho para fazer", em ordem de urgência; o
-            calendário responde "como está a minha semana". Uma lista não
-            mostra que a quinta está livre, e um calendário não mostra sete
-            atrasadas sem espalhá-las por sete dias passados.
+            Três visões, três perguntas sobre a mesma tarefa:
+            a LISTA responde "o que eu faço agora", em ordem de urgência;
+            o QUADRO responde "em que pé está cada coisa";
+            o CALENDÁRIO responde "como está a minha semana".
+
+            Uma lista não mostra que a quinta está livre, um calendário não
+            mostra sete atrasadas sem espalhá-las por sete dias passados, e
+            nenhum dos dois mostra quantas ficaram pelo caminho.
           */}
           <div className="bg-muted flex rounded-md p-0.5">
             {(['list', 'board', 'calendar'] as const).map((option) => (
@@ -318,7 +338,7 @@ export function TasksPage() {
         </div>
       </header>
 
-      <div className="flex flex-wrap gap-1.5">
+      <div className="flex shrink-0 flex-wrap gap-1.5 px-4 pt-3 md:px-6">
         {TASK_KINDS.map((kind) => {
           const on = !hiddenKinds.has(kind);
           return (
@@ -338,12 +358,25 @@ export function TasksPage() {
         })}
       </div>
 
+      {/*
+        A região de conteúdo é a única que rola, e o QUE rola muda com a
+        visão: o quadro rola de lado (cada coluna rola por dentro), a lista e
+        o calendário rolam para baixo. Um `overflow` só para as três faria o
+        quadro ganhar barra vertical e a lista perder a dela.
+      */}
+      <div
+        className={cn(
+          'flex min-h-0 flex-1 flex-col px-4 pt-3 pb-4 md:px-6 md:pb-6',
+          mode === 'board' ? 'overflow-hidden' : 'overflow-y-auto'
+        )}
+      >
       {tasks === null ? (
-        <p className="text-muted-foreground p-8 text-sm">{t('loading')}</p>
+        <BoardSkeleton mode={mode} />
       ) : mode === 'board' ? (
         <TasksBoard
           tasks={visible}
           todayIso={todayIso}
+          busyId={busy}
           onChangeStatus={changeStatus}
           onOpen={setEditing}
           onCreate={() => setCreating(true)}
@@ -389,6 +422,7 @@ export function TasksPage() {
                     }
                     dueLabel={dueLabel(task, format)}
                     kindLabel={tk(`kind.${task.kind}`)}
+                    contactLabel={t('contactLink')}
                   />
                 ))}
               </ul>
@@ -425,6 +459,7 @@ export function TasksPage() {
                       }
                       dueLabel={dueLabel(task, format)}
                       kindLabel={tk(`kind.${task.kind}`)}
+                      contactLabel={t('contactLink')}
                     />
                   ))}
                 </ul>
@@ -433,6 +468,7 @@ export function TasksPage() {
           ) : null}
         </div>
       )}
+      </div>
 
       <TaskDialog
         open={Boolean(editing) || creating}
@@ -449,6 +485,44 @@ export function TasksPage() {
   );
 }
 
+/**
+ * O esqueleto, com a forma da visão que vai chegar.
+ *
+ * Uma frase "Carregando..." não reserva espaço, então a tela pulava de uma
+ * linha de texto para um quadro inteiro. O esqueleto ocupa a mesma geometria
+ * que o conteúdo real — três colunas ou uma pilha de linhas — e o que muda
+ * quando os dados chegam é o conteúdo, não o layout.
+ *
+ * A régua de 2px sem cor no topo das colunas é a mesma que o esqueleto do
+ * funil desenha, pela mesma razão: é o que o quadro real mantém rente à
+ * borda superior.
+ */
+function BoardSkeleton({ mode }: { mode: 'list' | 'board' | 'calendar' }) {
+  if (mode === 'board') {
+    return (
+      <div className="flex min-h-0 flex-1 gap-3">
+        {TASK_STATUSES.map((status) => (
+          <div
+            key={status}
+            className="flex max-w-[320px] min-w-[260px] flex-1 flex-col overflow-hidden rounded-b-lg"
+          >
+            <div className="bg-muted h-0.5 shrink-0" />
+            <div className="bg-muted/50 flex-1 animate-pulse" />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      {[1, 2, 3, 4, 5].map((i) => (
+        <Skeleton key={i} className="h-12 w-full" />
+      ))}
+    </div>
+  );
+}
+
 function Row({
   task,
   bucket,
@@ -458,6 +532,7 @@ function Row({
   memberName,
   dueLabel: due,
   kindLabel,
+  contactLabel,
 }: {
   task: Task;
   bucket: TaskBucket;
@@ -467,6 +542,11 @@ function Row({
   memberName: string | null;
   dueLabel: string | null;
   kindLabel: string;
+  /* O rótulo vem por prop e não de um `useTranslations` local: o arquivo já
+     liga `t` ao namespace da página lá em cima, e um segundo `t` aqui faria
+     o teste de chaves conferir contra o namespace errado — ele monta o mapa
+     de tradutores por ARQUIVO. */
+  contactLabel: string;
 }) {
   const done = task.status !== 'open';
 
@@ -533,7 +613,7 @@ function Row({
           className="text-muted-foreground hover:text-foreground text-2xs shrink-0 underline-offset-2 hover:underline"
           onClick={(e) => e.stopPropagation()}
         >
-          contato
+          {contactLabel}
         </Link>
       ) : null}
     </li>

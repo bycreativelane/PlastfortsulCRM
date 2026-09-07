@@ -5,6 +5,7 @@ import type { PointerEvent as ReactPointerEvent } from 'react';
 import { useFormatter, useTranslations } from 'next-intl';
 import {
   DndContext,
+  DragOverlay,
   KeyboardSensor,
   PointerSensor,
   closestCorners,
@@ -18,6 +19,7 @@ import { GripVertical, Plus } from 'lucide-react';
 
 import { useMemberDirectory } from '@/hooks/use-member-directory';
 import { MemberAvatar } from '@/components/presence/member-avatar';
+import { StatePanel } from '@/components/ui/state-panel';
 import { fromISO } from '@/lib/calendar';
 import { bucketOf } from '@/lib/tasks/board';
 import { TASK_STATUSES, type Task, type TaskStatus } from '@/types';
@@ -68,16 +70,20 @@ const STATUS_RULE: Record<TaskStatus, string> = {
 export function TasksBoard({
   tasks,
   todayIso,
+  busyId,
   onChangeStatus,
   onOpen,
   onCreate,
 }: {
   tasks: Task[];
   todayIso: string;
+  /** A tarefa cuja mudança de estado ainda está no ar. */
+  busyId: string | null;
   onChangeStatus: (task: Task, status: TaskStatus) => void;
   onOpen: (task: Task) => void;
   onCreate: () => void;
 }) {
+  const [activeId, setActiveId] = React.useState<string | null>(null);
   const sensors = useSensors(
     // 5px para que um clique não vire arrasto — o mesmo do quadro do funil.
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -100,6 +106,7 @@ export function TasksBoard({
   }, [tasks]);
 
   function handleDragEnd(event: DragEndEvent) {
+    setActiveId(null);
     const { active, over } = event;
     if (!over) return;
 
@@ -111,25 +118,53 @@ export function TasksBoard({
     onChangeStatus(task, target);
   }
 
+  const activeTask = activeId
+    ? (tasks.find((x) => x.id === activeId) ?? null)
+    : null;
+
   return (
     <DndContext
       sensors={sensors}
       collisionDetection={closestCorners}
+      onDragStart={(event) => setActiveId(String(event.active.id))}
       onDragEnd={handleDragEnd}
+      onDragCancel={() => setActiveId(null)}
     >
-      {/* Rola de lado, e no telefone cada coluna encaixa. */}
-      <div className="flex snap-x snap-mandatory items-stretch gap-3 overflow-x-auto pb-1 lg:snap-none">
+      {/* `min-h-0 flex-1`: o trilho toma a altura que sobra e rola de lado
+          DENTRO dela. Sem isso as colunas cresciam para caber os cartões e
+          quem rolava era a página — a única direção em que um quadro não
+          pode rolar. */}
+      <div className="board-scroll flex min-h-0 flex-1 snap-x snap-mandatory items-stretch gap-3 overflow-x-auto pb-1 lg:snap-none">
         {TASK_STATUSES.map((status) => (
           <Column
             key={status}
             status={status}
             tasks={columns.get(status) ?? []}
             todayIso={todayIso}
+            busyId={busyId}
             onOpen={onOpen}
             onCreate={onCreate}
           />
         ))}
       </div>
+
+      {/*
+        O clone que acompanha o ponteiro. Sem ele o arrasto era invisível:
+        o cartão original desbotava e nada mais acontecia.
+
+        180ms e `cubic-bezier(0.2, 0, 0, 1)` escritos à mão porque o dnd-kit
+        recebe número e string, não variável CSS — são o `--dur-2` e o
+        `--ease-out` da casa. Duração 2 porque algo se MOVEU.
+      */}
+      <DragOverlay
+        dropAnimation={{ duration: 180, easing: 'cubic-bezier(0.2, 0, 0, 1)' }}
+      >
+        {activeTask ? (
+          <div className="opacity-90">
+            <Card task={activeTask} todayIso={todayIso} onOpen={() => {}} isOverlay />
+          </div>
+        ) : null}
+      </DragOverlay>
     </DndContext>
   );
 }
@@ -138,12 +173,14 @@ function Column({
   status,
   tasks,
   todayIso,
+  busyId,
   onOpen,
   onCreate,
 }: {
   status: TaskStatus;
   tasks: Task[];
   todayIso: string;
+  busyId: string | null;
   onOpen: (task: Task) => void;
   onCreate: () => void;
 }) {
@@ -168,11 +205,14 @@ function Column({
         </div>
       </div>
 
+      {/* `overflow-y-auto`: a COLUNA rola, não a página. E o `ref` do
+          droppable fica aqui e não na raiz, para que um arrasto sobre o
+          cabeçalho não acenda a coluna inteira — mesma decisão do funil. */}
       <div
         ref={setNodeRef}
         className={cn(
-          'flex min-h-24 flex-1 flex-col gap-2 px-2 pb-2 transition-colors',
-          isOver && 'bg-primary-soft/40'
+          'flex min-h-24 flex-1 flex-col gap-2 overflow-y-auto px-2 pb-2 transition-colors duration-(--dur-1)',
+          isOver && 'bg-primary-soft'
         )}
       >
         {tasks.map((task) => (
@@ -180,6 +220,7 @@ function Column({
             key={task.id}
             task={task}
             todayIso={todayIso}
+            busy={busyId === task.id}
             onOpen={() => onOpen(task)}
           />
         ))}
@@ -197,9 +238,10 @@ function Column({
             {tPage('new')}
           </button>
         ) : tasks.length === 0 ? (
-          <p className="text-muted-foreground/60 px-2 py-3 text-xs">
-            {tPage('columnEmpty')}
-          </p>
+          // O frame único de vazio da casa, o mesmo que o funil usa para
+          // "solte uma oportunidade aqui". Um parágrafo cru à esquerda não
+          // parecia um alvo de soltura.
+          <StatePanel title={tPage('columnEmpty')} framed size="sm" className="flex-1" />
         ) : null}
       </div>
     </div>
@@ -209,10 +251,12 @@ function Column({
 function DraggableCard({
   task,
   todayIso,
+  busy,
   onOpen,
 }: {
   task: Task;
   todayIso: string;
+  busy: boolean;
   onOpen: () => void;
 }) {
   const tPage = useTranslations('TasksPage');
@@ -238,7 +282,7 @@ function DraggableCard({
       className="relative touch-manipulation"
       style={{ opacity: isDragging ? 0.3 : 1 }}
     >
-      <Card task={task} todayIso={todayIso} onOpen={onOpen} />
+      <Card task={task} todayIso={todayIso} busy={busy} onOpen={onOpen} />
 
       {/* A polegada quadrada do cartão que não rola. Só em ponteiro grosso:
           com mouse o cartão inteiro já é a alça. */}
@@ -258,10 +302,15 @@ function DraggableCard({
 function Card({
   task,
   todayIso,
+  busy = false,
+  isOverlay = false,
   onOpen,
 }: {
   task: Task;
   todayIso: string;
+  busy?: boolean;
+  /** O clone que segue o ponteiro: levantado, e sem hover nem foco. */
+  isOverlay?: boolean;
   onOpen: () => void;
 }) {
   const tTask = useTranslations('Tasks');
@@ -277,7 +326,16 @@ function Card({
     <button
       type="button"
       onClick={onOpen}
-      className="border-border bg-card hover:border-input w-full cursor-grab rounded-lg border px-2.5 py-2.5 text-left transition-colors duration-(--dur-1) hover:shadow-sm pointer-coarse:pr-10"
+      className={cn(
+        // `surface-interactive` é a receita única de hover da casa: a borda
+        // esquenta, o cartão sobe 1px e o `:active` cancela o lift. Estava
+        // escrita à mão aqui, sem o lift — que é justamente o que dá a
+        // sensação de que o cartão é pegável.
+        'border-border bg-card w-full cursor-grab rounded-lg border px-2.5 py-2.5 text-left pointer-coarse:pr-10',
+        'focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none',
+        isOverlay ? 'cursor-grabbing shadow-lg' : 'surface-interactive',
+        busy && 'opacity-60'
+      )}
     >
       <span
         className={cn(

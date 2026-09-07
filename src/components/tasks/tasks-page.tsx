@@ -43,6 +43,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { TaskDialog } from '@/components/tasks/task-dialog';
+import { TasksCalendar } from '@/components/tasks/tasks-calendar';
 
 /**
  * Tarefas — a fila, e não o tempo.
@@ -97,6 +98,7 @@ export function TasksPage() {
   const [search, setSearch] = React.useState('');
   const [busy, setBusy] = React.useState<string | null>(null);
   const [showClosed, setShowClosed] = React.useState(false);
+  const [mode, setMode] = React.useState<'list' | 'calendar'>('list');
   const [editing, setEditing] = React.useState<Task | null>(null);
   const [creating, setCreating] = React.useState(false);
 
@@ -126,6 +128,19 @@ export function TasksPage() {
     [visible, todayIso]
   );
   const closed = React.useMemo(() => closedTasks(visible), [visible]);
+  // As mesmas linhas que o painel desenha, na mesma ordem.
+  const ownerOptions = React.useMemo(
+    () => [
+      { value: 'mine', label: t('ownerMine') },
+      { value: 'all', label: t('ownerAll') },
+      ...[...members.values()].map((m) => ({
+        value: m.user_id,
+        label: m.full_name,
+      })),
+    ],
+    [t, members]
+  );
+
   const counts = React.useMemo(
     () => summarize(visible, todayIso),
     [visible, todayIso]
@@ -209,6 +224,11 @@ export function TasksPage() {
           <Select
             value={owner}
             onValueChange={(next) => setOwner(next ?? 'mine')}
+            // `items` é o que o `<SelectValue>` lê para traduzir o valor
+            // guardado de volta no rótulo. Sem ele o campo FECHADO mostra
+            // o valor cru — "mine" no lugar de "Minhas" — enquanto a lista
+            // aberta continua certa, que é o jeito mais confuso de errar.
+            items={ownerOptions}
           >
             <SelectTrigger
               className="h-8 w-auto min-w-36 text-xs"
@@ -233,6 +253,32 @@ export function TasksPage() {
               ))}
             </SelectContent>
           </Select>
+
+          {/*
+            Lista ou calendário — a mesma tarefa, duas perguntas. A lista
+            responde "o que eu tenho para fazer", em ordem de urgência; o
+            calendário responde "como está a minha semana". Uma lista não
+            mostra que a quinta está livre, e um calendário não mostra sete
+            atrasadas sem espalhá-las por sete dias passados.
+          */}
+          <div className="bg-muted flex rounded-md p-0.5">
+            {(['list', 'calendar'] as const).map((option) => (
+              <button
+                key={option}
+                type="button"
+                onClick={() => setMode(option)}
+                aria-pressed={mode === option}
+                className={cn(
+                  'rounded px-2.5 py-1 text-xs font-medium',
+                  mode === option
+                    ? 'bg-background shadow-sm'
+                    : 'text-muted-foreground'
+                )}
+              >
+                {t(`mode.${option}`)}
+              </button>
+            ))}
+          </div>
 
           <Button size="sm" onClick={() => setCreating(true)}>
             <Plus className="size-4" />
@@ -263,6 +309,8 @@ export function TasksPage() {
 
       {tasks === null ? (
         <p className="text-muted-foreground p-8 text-sm">{t('loading')}</p>
+      ) : mode === 'calendar' ? (
+        <TasksCalendar tasks={visible} onSelectTask={setEditing} />
       ) : groups.length === 0 && closed.length === 0 ? (
         <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed p-10 text-center">
           <ListChecks className="text-muted-foreground size-6" />

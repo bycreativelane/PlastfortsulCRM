@@ -12,7 +12,6 @@ import type { Capability } from '@/lib/auth/capabilities';
 import { useTotalUnread } from '@/hooks/use-total-unread';
 import {
   BarChart3,
-  CalendarDays,
   ChevronLeft,
   ChevronRight,
   ChevronsUpDown,
@@ -161,27 +160,24 @@ const navGroups: NavGroup[] = [
       // consultar a própria agenda antes de ver se alguém falou com a
       // empresa. Mas vem antes do funil, porque um compromisso marcado
       // para hoje é mais urgente que uma oportunidade que fecha no mês.
-      // TAREFAS E AGENDA, NESTA ORDEM, E SÃO DUAS TELAS DE PROPÓSITO.
+      // TAREFAS, E A AGENDA NÃO ESTÁ AQUI.
       //
-      // A lista responde "o que eu tenho para fazer"; a agenda responde
-      // "como está a minha semana". Um calendário não sabe mostrar sete
-      // atrasadas sem espalhá-las por sete dias passados, e uma lista não
-      // sabe mostrar que a quinta está livre.
+      // A `/agenda` continua existindo como rota — é a visão COMPLETA, com
+      // os sete tipos de linha datada — mas saiu do menu em 7 de setembro
+      // de 2026. Duas entradas vizinhas levando a calendários parecidos
+      // obrigavam a pessoa a lembrar qual mostrava o quê.
       //
-      // A lista vem primeiro porque é a pergunta que se faz ao abrir o CRM
-      // de manhã — a agenda é a que se faz ao marcar alguma coisa.
+      // O que ficou: uma entrada, e as visões por dentro. A tela de
+      // Tarefas tem lista e calendário; de dentro do calendário há o link
+      // para a agenda completa, que é onde a diferença fica óbvia porque
+      // se vê o que ela acrescenta.
       {
         href: '/tasks',
         labelKey: 'tasks',
         icon: ListChecks,
         capability: 'tasks.view',
       },
-      {
-        href: '/agenda',
-        labelKey: 'agenda',
-        icon: CalendarDays,
-        capability: 'tasks.view',
-      },
+
       {
         href: '/pipelines',
         labelKey: 'pipelines',

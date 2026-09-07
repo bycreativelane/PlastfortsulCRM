@@ -3,6 +3,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { addDays, fromISO, toISO } from '@/lib/calendar';
 import { DEFAULT_TIMEZONE, localParts } from '@/lib/automations/local-time';
 import { loadTasksInRange } from '@/lib/tasks/queries';
+import { tasksAsAgendaItems } from '@/lib/tasks/to-agenda';
+import type { Task } from '@/types';
 import { rescheduleTask } from '@/lib/tasks/mutations';
 
 /**
@@ -299,35 +301,10 @@ function compareItems(a: AgendaItem, b: AgendaItem): number {
  */
 async function loadTasks(db: DB, from: Date, to: Date): Promise<AgendaItem[]> {
   const rows = await loadTasksInRange(db, from, to);
-
-  return rows.flatMap((row) => {
-    const day = dayOf(row.due_on);
-    if (!day) return [];
-    return [
-      {
-        id: `task:${row.id}`,
-        kind: 'task' as const,
-        day,
-        // Já é hora de parede no fuso da conta: uma coluna TIME não passa
-        // por fuso nenhum, então não vai para `timeOf`.
-        time: row.due_time ? row.due_time.slice(0, 5) : null,
-        title: row.title,
-        contact: null,
-        value: null,
-        currency: null,
-        status: row.kind,
-        // O §C2 do plano: a tarefa abre na agenda, não na ficha do contato.
-        // Enquanto `/agenda` não existia isto apontava para `/contacts`, que
-        // levava a pessoa ao lugar CERTO pela razão errada — a ficha mostra o
-        // contato, não a tarefa, e uma tarefa sem contato não tinha para onde
-        // ir. Agora abre a própria tarefa, e as sem contato também.
-        href: `/agenda?task=${row.id}`,
-        owner: row.assigned_to ?? null,
-        reschedule: 'task' as const,
-        rowId: row.id,
-      },
-    ];
-  });
+  // O mapeamento mora em `lib/tasks/to-agenda.ts` porque a tela de Tarefas
+  // também precisa dele — ela tem as tarefas em mãos e desenha o mesmo
+  // calendário. Duas cópias divergiriam em silêncio.
+  return tasksAsAgendaItems(rows as unknown as Task[]);
 }
 
 async function loadDeals(db: DB, from: Date, to: Date): Promise<AgendaItem[]> {

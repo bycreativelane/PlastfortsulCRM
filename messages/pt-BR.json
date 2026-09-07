@@ -3903,6 +3903,19 @@
       "later": "Depois",
       "someday": "Sem prazo",
       "closed": "Concluídas"
-    }
+    },
+    "mode": {
+      "list": "Lista",
+      "calendar": "Calendário"
+    },
+    "range": {
+      "month": "Mês",
+      "week": "Semana",
+      "day": "Dia"
+    },
+    "previous": "Período anterior",
+    "next": "Próximo período",
+    "today": "Hoje",
+    "fullAgenda": "Agenda completa"
   }
 }

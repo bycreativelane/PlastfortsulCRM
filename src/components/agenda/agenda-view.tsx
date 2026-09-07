@@ -152,6 +152,19 @@ export function AgendaPage() {
     setParam({ d: toISO(next) });
   };
 
+  // As mesmas linhas que o painel desenha, na mesma ordem.
+  const ownerOptions = React.useMemo(
+    () => [
+      { value: 'mine', label: t('ownerMine') },
+      { value: 'all', label: t('ownerAll') },
+      ...[...members.values()].map((m) => ({
+        value: m.user_id,
+        label: m.full_name,
+      })),
+    ],
+    [t, members]
+  );
+
   const todayIso = toISO(new Date());
   const visible = React.useMemo(
     () => filterAgenda(items ?? [], { hidden, owner, me }),
@@ -237,6 +250,11 @@ export function AgendaPage() {
           <Select
             value={owner}
             onValueChange={(next) => setOwner(next ?? 'mine')}
+            // `items` é o que o `<SelectValue>` lê para traduzir o valor
+            // guardado de volta no rótulo. Sem ele o campo FECHADO mostra
+            // o valor cru — "mine" no lugar de "Minhas" — enquanto a lista
+            // aberta continua certa, que é o jeito mais confuso de errar.
+            items={ownerOptions}
           >
             <SelectTrigger
               className="h-8 w-auto min-w-36 text-xs"

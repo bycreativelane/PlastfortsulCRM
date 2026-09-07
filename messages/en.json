@@ -3903,6 +3903,19 @@
       "later": "Later",
       "someday": "No due date",
       "closed": "Completed"
-    }
+    },
+    "mode": {
+      "list": "List",
+      "calendar": "Calendar"
+    },
+    "range": {
+      "month": "Month",
+      "week": "Week",
+      "day": "Day"
+    },
+    "previous": "Previous period",
+    "next": "Next period",
+    "today": "Today",
+    "fullAgenda": "Full agenda"
   }
 }

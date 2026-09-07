@@ -631,7 +631,16 @@ export type TaskKind = (typeof TASK_KINDS)[number];
  * called off is not a task that never existed, and "we already decided not
  * to chase this one" is exactly what somebody needs before chasing it.
  */
-export type TaskStatus = 'open' | 'done' | 'cancelled';
+/**
+ * Os três estados, na ordem em que o quadro os desenha.
+ *
+ * A lista existe além do tipo porque o quadro precisa ITERAR sobre eles —
+ * e um array escrito à mão numa tela divergiria do tipo em silêncio no dia
+ * em que um quarto estado aparecesse.
+ */
+export const TASK_STATUSES = ['open', 'done', 'cancelled'] as const;
+
+export type TaskStatus = (typeof TASK_STATUSES)[number];
 
 export interface Task {
   id: string;

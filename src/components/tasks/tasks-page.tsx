@@ -29,9 +29,9 @@ import {
   type TaskBucket,
 } from '@/lib/tasks/board';
 import { loadAllTasks } from '@/lib/tasks/queries';
-import { completeTask, reopenTask } from '@/lib/tasks/mutations';
+import { cancelTask, completeTask, reopenTask } from '@/lib/tasks/mutations';
 import { notifyTaskCompleted, publishTask } from '@/lib/tasks/notify-client';
-import { TASK_KINDS, type Task } from '@/types';
+import { TASK_KINDS, type Task, type TaskStatus } from '@/types';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { MemberAvatar } from '@/components/presence/member-avatar';
@@ -43,6 +43,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { TaskDialog } from '@/components/tasks/task-dialog';
+import { TasksBoard } from '@/components/tasks/tasks-board';
 import { TasksCalendar } from '@/components/tasks/tasks-calendar';
 
 /**
@@ -98,7 +99,9 @@ export function TasksPage() {
   const [search, setSearch] = React.useState('');
   const [busy, setBusy] = React.useState<string | null>(null);
   const [showClosed, setShowClosed] = React.useState(false);
-  const [mode, setMode] = React.useState<'list' | 'calendar'>('list');
+  const [mode, setMode] = React.useState<'list' | 'board' | 'calendar'>(
+    'list'
+  );
   const [editing, setEditing] = React.useState<Task | null>(null);
   const [creating, setCreating] = React.useState(false);
 
@@ -153,6 +156,34 @@ export function TasksPage() {
       task.status === 'done'
         ? await reopenTask(db, task.id)
         : await completeTask(db, task.id);
+    setBusy(null);
+    if (!ok) {
+      toast.error(tk('saveFailed'));
+      return;
+    }
+    void publishTask(task.id);
+    void notifyTaskCompleted(task.id);
+    await load();
+  }
+
+  /**
+   * Arrastar entre colunas do quadro.
+   *
+   * Cada destino tem a sua mutação — não é um `update` genérico de
+   * `status` — porque cada uma carimba um campo diferente: concluir grava
+   * `completed_at`, cancelar não. Um update cru deixaria a tarefa concluída
+   * sem data de conclusão, e ela sumiria dos relatórios que contam por
+   * período.
+   */
+  async function changeStatus(task: Task, status: TaskStatus) {
+    setBusy(task.id);
+    const db = createClient();
+    const ok =
+      status === 'done'
+        ? await completeTask(db, task.id)
+        : status === 'cancelled'
+          ? await cancelTask(db, task.id)
+          : await reopenTask(db, task.id);
     setBusy(null);
     if (!ok) {
       toast.error(tk('saveFailed'));
@@ -262,7 +293,7 @@ export function TasksPage() {
             atrasadas sem espalhá-las por sete dias passados.
           */}
           <div className="bg-muted flex rounded-md p-0.5">
-            {(['list', 'calendar'] as const).map((option) => (
+            {(['list', 'board', 'calendar'] as const).map((option) => (
               <button
                 key={option}
                 type="button"
@@ -309,6 +340,13 @@ export function TasksPage() {
 
       {tasks === null ? (
         <p className="text-muted-foreground p-8 text-sm">{t('loading')}</p>
+      ) : mode === 'board' ? (
+        <TasksBoard
+          tasks={visible}
+          todayIso={todayIso}
+          onChangeStatus={changeStatus}
+          onOpen={setEditing}
+        />
       ) : mode === 'calendar' ? (
         <TasksCalendar tasks={visible} onSelectTask={setEditing} />
       ) : groups.length === 0 && closed.length === 0 ? (

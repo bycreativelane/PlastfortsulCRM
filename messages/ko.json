@@ -101,7 +101,8 @@
     "primaryNav": "기본 탐색",
     "products": "제품",
     "more": "더보기",
-    "playbook": "플레이북"
+    "playbook": "플레이북",
+    "agenda": "일정"
   },
   "Roadmap": {
     "regionLabel": "다음 업데이트",
@@ -3770,5 +3771,32 @@
     "onRequest": "문의",
     "copySheet": "사양 복사",
     "emptyProducts": "제품에 등록된 항목이 여기에 참고용으로 표시됩니다."
+  },
+  "Agenda": {
+    "allDay": "종일",
+    "more": "+{count}",
+    "previous": "이전 기간",
+    "next": "다음 기간",
+    "today": "오늘",
+    "loading": "일정을 불러오는 중...",
+    "ownerLabel": "담당자",
+    "ownerMine": "내 일정",
+    "ownerAll": "전체",
+    "newTask": "새 작업",
+    "view": {
+      "month": "월",
+      "week": "주",
+      "day": "일"
+    },
+    "itemCount": "{count, plural, other {#개}}",
+    "kind": {
+      "deal": "예상 마감",
+      "repurchase": "다음 구매",
+      "occurrence": "미해결 이슈",
+      "automation": "예약된 자동화",
+      "broadcast": "캠페인",
+      "birthday": "생일",
+      "task": "작업"
+    }
   }
 }

@@ -118,6 +118,24 @@ export interface AgendaItem {
   /** Source status, where it changes the reading (a campaign that failed). */
   status: string | null;
   href: string | null;
+  /**
+   * Quem é responsável, como **id de usuário do auth** — o mesmo espaço de
+   * `useMemberDirectory`, e o que o filtro "Minhas" compara.
+   *
+   * Null em quase tudo, de propósito. Só a tarefa é um trabalho ATRIBUÍDO;
+   * um aniversário, uma campanha que saiu e uma automação agendada não são
+   * de ninguém, e um filtro por responsável que os escondesse estaria
+   * respondendo "de quem é isto" com "de ninguém, então some" em vez de
+   * "de ninguém, então fica". Por isso `null` nunca é filtrado.
+   *
+   * A oportunidade FICA de fora, e não por esquecimento: `deals.assigned_to`
+   * referencia `profiles.id` (migração 002) enquanto `tasks.assigned_to`
+   * referencia `auth.users` (migração 068, e o comentário lá explica por
+   * quê). São dois espaços de identificador, e compará-los sem o `join`
+   * de `profiles` filtraria errado em silêncio — que é pior do que não
+   * filtrar. Quando a oportunidade entrar aqui, ela entra pelo `user_id`.
+   */
+  owner: string | null;
   /** Null when the date is not a person's to move. See the note above. */
   reschedule: RescheduleTarget | null;
   /** Row id in its own table — what a reschedule updates. */
@@ -208,7 +226,13 @@ async function loadTasks(db: DB, from: Date, to: Date): Promise<AgendaItem[]> {
         value: null,
         currency: null,
         status: row.kind,
-        href: row.contact_id ? `/contacts?id=${row.contact_id}` : null,
+        // O §C2 do plano: a tarefa abre na agenda, não na ficha do contato.
+        // Enquanto `/agenda` não existia isto apontava para `/contacts`, que
+        // levava a pessoa ao lugar CERTO pela razão errada — a ficha mostra o
+        // contato, não a tarefa, e uma tarefa sem contato não tinha para onde
+        // ir. Agora abre a própria tarefa, e as sem contato também.
+        href: `/agenda?task=${row.id}`,
+        owner: row.assigned_to ?? null,
         reschedule: 'task' as const,
         rowId: row.id,
       },
@@ -244,6 +268,7 @@ async function loadDeals(db: DB, from: Date, to: Date): Promise<AgendaItem[]> {
         href: row.pipeline_id
           ? `/pipelines?p=${row.pipeline_id}`
           : '/pipelines',
+        owner: null,
         reschedule: 'deal' as const,
         rowId: row.id,
       },
@@ -279,6 +304,7 @@ async function loadRepurchases(
         currency: null,
         status: null,
         href: `/contacts?id=${row.id}`,
+        owner: null,
         reschedule: 'repurchase' as const,
         rowId: row.id,
       },
@@ -341,6 +367,7 @@ export function birthdaysInRange(
         currency: null,
         status: null,
         href: `/contacts?id=${row.id}`,
+        owner: null,
         reschedule: null,
         rowId: row.id,
       });
@@ -406,6 +433,7 @@ async function loadBroadcasts(
         currency: null,
         status: row.status ?? null,
         href: `/broadcasts/${row.id}`,
+        owner: null,
         reschedule: null,
         rowId: row.id,
       },
@@ -455,6 +483,7 @@ async function loadOccurrences(
         currency: null,
         status: 'open',
         href: row.contact_id ? `/contacts?id=${row.contact_id}` : '/contacts',
+        owner: null,
         reschedule: null,
         rowId: row.id,
       },
@@ -502,6 +531,7 @@ async function loadScheduledAutomations(
         currency: null,
         status: 'pending',
         href: row.automation_id ? `/automations/${row.automation_id}` : null,
+        owner: null,
         reschedule: null,
         rowId: row.id,
       },

@@ -101,7 +101,8 @@
     "primaryNav": "Primary navigation",
     "products": "Products",
     "more": "More",
-    "playbook": "Playbook"
+    "playbook": "Playbook",
+    "agenda": "Agenda"
   },
   "Roadmap": {
     "regionLabel": "Coming next",
@@ -3770,5 +3771,32 @@
     "onRequest": "On request",
     "copySheet": "Copy sheet",
     "emptyProducts": "Products added under Products show up here for reference."
+  },
+  "Agenda": {
+    "allDay": "All day",
+    "more": "+{count}",
+    "previous": "Previous period",
+    "next": "Next period",
+    "today": "Today",
+    "loading": "Loading the agenda...",
+    "ownerLabel": "Owner",
+    "ownerMine": "Mine",
+    "ownerAll": "Everyone's",
+    "newTask": "New task",
+    "view": {
+      "month": "Month",
+      "week": "Week",
+      "day": "Day"
+    },
+    "itemCount": "{count, plural, =1 {1 item} other {# items}}",
+    "kind": {
+      "deal": "Expected close",
+      "repurchase": "Next purchase",
+      "occurrence": "Open occurrence",
+      "automation": "Scheduled automation",
+      "broadcast": "Campaign",
+      "birthday": "Birthday",
+      "task": "Task"
+    }
   }
 }

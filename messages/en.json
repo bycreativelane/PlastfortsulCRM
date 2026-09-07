@@ -2876,7 +2876,9 @@
         "webhooksManage": "Register and manage outbound event webhooks",
         "fieldsRead": "Read custom field definitions (name, type and the id automations use)",
         "dealsRead": "Read pipelines, stages and deals",
-        "dealsWrite": "Create a deal and move it between stages"
+        "dealsWrite": "Create a deal and move it between stages",
+        "tasksRead": "Read the account tasks.",
+        "tasksWrite": "Create, change and delete tasks."
       }
     },
     "deals": {
@@ -3526,6 +3528,18 @@
       "shortcutsMove": {
         "title": "/aberto, /andamento and /atendido move the deal",
         "body": "The quick reply you use in the inbox becomes a trigger. The CRM records which shortcut went out and moves the stage for you."
+      },
+      "agendaPage": {
+        "title": "The calendar became a place",
+        "body": "The new Agenda screen has month, week and day views — with an hour axis drawn between your account’s business hours, not from midnight to midnight. Filter by kind and owner; \"Mine\" is the default."
+      },
+      "tasks": {
+        "title": "Tasks, with an owner and a deadline",
+        "body": "\"Call Marcos on Thursday at 2pm\" is now a thing the CRM knows about, with an assignee, a time and an outcome. It shows on the contact, the inbox panel, the deal and the call log."
+      },
+      "googleCalendar": {
+        "title": "The company calendar, both ways",
+        "body": "Connect the Google account in Settings › Calendars: what is already scheduled there shows up here, and tasks created here are published there. You choose per calendar what imports and what publishes."
       }
     },
     "items": {
@@ -3610,7 +3624,17 @@
       "logsReasons": "The history shows the deal and why the run ended; cancelled and skipped became statuses.",
       "lossReasons": "Loss reasons are the eight of the official flow; “Stopped replying” left the list.",
       "wonStage": "Em Andamento is now the sale and asks for the value on entry; Venda Perdida asks for the reason.",
-      "deadTriggersHidden": "Triggers that never fired (Schedule, Conversation assigned) left the menu."
+      "deadTriggersHidden": "Triggers that never fired (Schedule, Conversation assigned) left the menu.",
+      "tasks": "Tasks with an assignee, due date, time and reminder — on the contact, the inbox, the deal and the call log.",
+      "agendaPage": "An /agenda screen with month, week and day views, an hour axis and filters by kind and owner.",
+      "businessHours": "Settings › Business hours: account time zone, weekly opening hours and holiday exceptions.",
+      "googleCalendar": "Google Calendar integration: import events and publish tasks, choosing the direction per calendar.",
+      "createTaskStep": "A \"Create task\" automation action, with a relative deadline in business days and a fixed or deal-owner assignee.",
+      "taskCompletedTrigger": "A \"Task completed\" trigger, with an optional filter by task kind.",
+      "tasksApi": "/api/v1/tasks in the public API, with the tasks:read and tasks:write scopes.",
+      "developersPage": "A /developers page with the API reference and the release notes.",
+      "realtimeContacts": "Tags, contact fields and deals changed by an automation now appear without reloading the page.",
+      "callFollowUp": "The call log offers to create the follow-up task, pre-ticked on \"no answer\" and \"call back later\"."
     },
     "seeIt": "See it"
   },

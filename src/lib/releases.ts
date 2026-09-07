@@ -61,6 +61,27 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: '0.10.0',
+    date: '2026-09-07',
+    highlights: [
+      { key: 'agendaPage', href: '/agenda' },
+      { key: 'tasks', href: '/agenda' },
+      { key: 'googleCalendar', href: '/settings?section=calendars' },
+    ],
+    changes: [
+      { kind: 'new', key: 'tasks' },
+      { kind: 'new', key: 'agendaPage' },
+      { kind: 'new', key: 'businessHours' },
+      { kind: 'new', key: 'googleCalendar' },
+      { kind: 'new', key: 'createTaskStep' },
+      { kind: 'new', key: 'taskCompletedTrigger' },
+      { kind: 'new', key: 'tasksApi' },
+      { kind: 'new', key: 'developersPage' },
+      { kind: 'improved', key: 'realtimeContacts' },
+      { kind: 'improved', key: 'callFollowUp' },
+    ],
+  },
+  {
     version: '0.9.0',
     date: '2026-09-02',
     highlights: [

@@ -27,6 +27,11 @@ export const API_SCOPES = [
   'fields:read',
   'deals:read',
   'deals:write',
+  // Chegaram com a 068. `tasks:write` cria e atualiza, mas não CONCLUI por
+  // um caminho separado: concluir é um `PATCH` de `status`, e um verbo
+  // próprio seria uma segunda porta para a mesma transição.
+  'tasks:read',
+  'tasks:write',
 ] as const;
 
 export type ApiScope = (typeof API_SCOPES)[number];
@@ -49,6 +54,8 @@ export const SCOPE_DESCRIPTION_KEYS: Record<ApiScope, string> = {
   'fields:read': 'fieldsRead',
   'deals:read': 'dealsRead',
   'deals:write': 'dealsWrite',
+  'tasks:read': 'tasksRead',
+  'tasks:write': 'tasksWrite',
 };
 
 /** Type-narrow an unknown value into a valid `ApiScope`. */

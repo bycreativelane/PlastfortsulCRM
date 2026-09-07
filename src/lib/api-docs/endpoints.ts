@@ -1328,7 +1328,200 @@ const DELETE_WEBHOOK: Endpoint = {
 // A lista, na ordem em que a barra lateral a mostra.
 // ------------------------------------------------------------------
 
+// ------------------------------------------------------------------
+// Tarefas
+// ------------------------------------------------------------------
+
+const LIST_TASKS: Endpoint = {
+  slug: 'listar-tarefas',
+  title: 'Listar tarefas',
+  summary: 'O que está marcado, com dono e prazo.',
+  method: 'GET',
+  path: '/api/v1/tasks',
+  scope: 'tasks:read',
+  query: [
+    ...LIST_QUERY,
+    { name: 'contact_id', type: 'string', description: 'Só as deste contato.' },
+    { name: 'deal_id', type: 'string', description: 'Só as desta oportunidade.' },
+    {
+      name: 'status',
+      type: 'string',
+      description: 'Estado da tarefa.',
+      values: ['open', 'done', 'cancelled'],
+    },
+    {
+      name: 'assigned_to',
+      type: 'string',
+      description: 'Id de usuário do responsável.',
+    },
+    { name: 'kind', type: 'string', description: 'Tipo da tarefa.' },
+    {
+      name: 'due_from',
+      type: 'string',
+      description: 'Prazo a partir desta data, `YYYY-MM-DD`.',
+    },
+    {
+      name: 'due_to',
+      type: 'string',
+      description: 'Prazo até esta data, `YYYY-MM-DD`.',
+    },
+  ],
+  responses: [
+    {
+      status: 200,
+      json: `{
+  "data": [
+    {
+      "id": "aa11…",
+      "title": "Ligar para confirmar o pedido",
+      "kind": "call",
+      "status": "open",
+      "due_on": "2026-09-10",
+      "due_time": "14:30",
+      "assigned_to": "77ff…",
+      "contact_id": "55ee…",
+      "deal_id": null,
+      "completed_at": null,
+      "created_at": "2026-09-07T12:00:00.000Z"
+    }
+  ],
+  "next_cursor": null
+}`,
+    },
+    forbidden('tasks:read'),
+  ],
+  notes: [
+    {
+      kind: 'h2',
+      id: 'dia-e-hora',
+      text: 'O dia e a hora são campos separados',
+    },
+    {
+      kind: 'p',
+      text: '`due_on` é uma data (`YYYY-MM-DD`) e `due_time` é uma hora de parede (`HH:MM`) no fuso da conta. Eles **não** são um timestamp partido ao meio: uma tarefa com `due_time: null` é do DIA, e isso é informação — "ligar hoje" não é "ligar às 00:00".',
+    },
+    {
+      kind: 'p',
+      text: 'Se você precisa de um instante, componha os dois com o fuso da conta, que sai em `GET /api/v1/me`. Assumir UTC devolve o dia anterior para quem está a oeste de Greenwich.',
+    },
+  ],
+};
+
+const CREATE_TASK: Endpoint = {
+  slug: 'criar-tarefa',
+  title: 'Criar tarefa',
+  summary: 'Marcar algo para alguém fazer, com prazo.',
+  method: 'POST',
+  path: '/api/v1/tasks',
+  scope: 'tasks:write',
+  body: [
+    { name: 'title', type: 'string', required: true, description: 'O que precisa ser feito.' },
+    { name: 'description', type: 'string', description: 'Detalhes.' },
+    { name: 'kind', type: 'string', description: 'Tipo da tarefa. Padrão `todo`.' },
+    { name: 'due_on', type: 'string', description: 'Prazo, `YYYY-MM-DD`.' },
+    { name: 'due_time', type: 'string', description: 'Hora, `HH:MM`. Exige `due_on`.' },
+    { name: 'assigned_to', type: 'string', description: 'Id de usuário do responsável.' },
+    { name: 'contact_id', type: 'string', description: 'A quem a tarefa se refere.' },
+    { name: 'deal_id', type: 'string', description: 'A oportunidade relacionada.' },
+    {
+      name: 'remind_minutes_before',
+      type: 'number',
+      description: 'Minutos antes do prazo para o lembrete.',
+    },
+  ],
+  requestExample: `{
+  "title": "Ligar para confirmar o pedido",
+  "kind": "call",
+  "due_on": "2026-09-10",
+  "due_time": "14:30",
+  "contact_id": "55ee…",
+  "remind_minutes_before": 30
+}`,
+  responses: [
+    {
+      status: 201,
+      json: `{
+  "data": {
+    "id": "aa11…",
+    "title": "Ligar para confirmar o pedido",
+    "status": "open",
+    "due_on": "2026-09-10",
+    "due_time": "14:30"
+  }
+}`,
+    },
+    {
+      status: 400,
+      json: `{ "error": { "code": "due_time_without_due_on", "message": "due_time requires due_on" } }`,
+    },
+    forbidden('tasks:write'),
+  ],
+};
+
+const UPDATE_TASK: Endpoint = {
+  slug: 'atualizar-tarefa',
+  title: 'Atualizar tarefa',
+  summary: 'Mudar prazo, responsável — ou concluir.',
+  method: 'PATCH',
+  path: '/api/v1/tasks/{id}',
+  scope: 'tasks:write',
+  body: [
+    {
+      name: 'status',
+      type: 'string',
+      description: 'Concluir é `done`. Também aceita `open` e `cancelled`.',
+    },
+    { name: 'title', type: 'string', description: 'Novo título.' },
+    { name: 'due_on', type: 'string', description: 'Novo prazo. `null` limpa (e limpa a hora junto).' },
+    { name: 'due_time', type: 'string', description: 'Nova hora.' },
+    { name: 'assigned_to', type: 'string', description: 'Novo responsável. `null` desatribui.' },
+  ],
+  requestExample: `{
+  "status": "done"
+}`,
+  responses: [
+    {
+      status: 200,
+      json: `{
+  "data": {
+    "id": "aa11…",
+    "status": "done",
+    "completed_at": "2026-09-10T17:32:00.000Z"
+  }
+}`,
+    },
+    forbidden('tasks:write'),
+  ],
+  notes: [
+    { kind: 'h2', id: 'concluir', text: 'Concluir é um `PATCH`, não um verbo próprio' },
+    {
+      kind: 'p',
+      text: 'Não existe `POST /tasks/{id}/complete`. Um verbo separado seria uma segunda porta para a mesma transição, com uma segunda regra para manter em sincronia. `status: "done"` carimba `completed_at` do mesmo jeito que a tela carimba.',
+    },
+  ],
+};
+
+const DELETE_TASK: Endpoint = {
+  slug: 'remover-tarefa',
+  title: 'Remover tarefa',
+  summary: 'Apagar de vez — para o que foi erro de escrita.',
+  method: 'DELETE',
+  path: '/api/v1/tasks/{id}',
+  scope: 'tasks:write',
+  responses: [
+    { status: 200, json: `{ "data": { "id": "aa11…", "deleted": true } }` },
+    forbidden('tasks:write'),
+  ],
+  notes: [
+    {
+      kind: 'p',
+      text: 'Uma tarefa concluída normalmente **fica** — o CRM guarda status e motivo em vez de apagar, porque "já ligamos na semana passada" é o que se quer saber antes de ligar de novo. Este endpoint existe para o outro caso: a tarefa que uma integração criou por engano e que nunca deveria ter existido. Para o que foi decidido e não vai acontecer, use `status: "cancelled"`.',
+    },
+  ],
+};
+
 export const ENDPOINTS: Endpoint[] = [
+
   ME,
   SEND_MESSAGE,
   LIST_MESSAGES,
@@ -1346,6 +1539,10 @@ export const ENDPOINTS: Endpoint[] = [
   LIST_PIPELINES,
   LIST_DEALS,
   CREATE_DEAL,
+  LIST_TASKS,
+  CREATE_TASK,
+  UPDATE_TASK,
+  DELETE_TASK,
   LIST_WEBHOOKS,
   CREATE_WEBHOOK,
   GET_WEBHOOK,
@@ -1374,6 +1571,15 @@ export const ENDPOINT_GROUPS: { label: string; slugs: string[] }[] = [
   {
     label: 'Funil',
     slugs: ['listar-funis', 'listar-negocios', 'criar-negocio'],
+  },
+  {
+    label: 'Tarefas',
+    slugs: [
+      'listar-tarefas',
+      'criar-tarefa',
+      'atualizar-tarefa',
+      'remover-tarefa',
+    ],
   },
   {
     label: 'Webhooks',

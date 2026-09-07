@@ -33,6 +33,7 @@ import {
   ArrowUp,
   MousePointerClick,
   List,
+  ListChecks,
   ArrowRightToLine,
   FilePenLine,
   OctagonX,
@@ -218,6 +219,10 @@ const STEP_META: Record<AutomationStepType, StepMeta> = {
     icon: PencilLine,
     kind: 'action',
   },
+  // `human` e não `action`: o bloco desenha em âmbar porque o que ele
+  // produz é trabalho para uma PESSOA fazer. Um `send_message` a máquina
+  // termina sozinha; uma tarefa ela só começa.
+  create_task: { label: 'create_task', icon: ListChecks, kind: 'human' },
   create_deal: { label: 'create_deal', icon: Briefcase, kind: 'action' },
   wait: { label: 'wait', icon: Hourglass, kind: 'wait' },
   condition: { label: 'condition', icon: GitBranch, kind: 'branch' },

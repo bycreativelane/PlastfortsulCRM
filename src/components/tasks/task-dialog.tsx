@@ -8,7 +8,7 @@ import { Loader2, Trash2 } from 'lucide-react';
 import type { Task } from '@/types';
 import { TASK_KINDS } from '@/types';
 import { createClient } from '@/lib/supabase/client';
-import { publishTask } from '@/lib/calendar-sync/publish-client';
+import { publishTask } from '@/lib/tasks/notify-client';
 import { useAuth } from '@/hooks/use-auth';
 import { useBusinessHours } from '@/hooks/use-business-hours';
 import { useMemberDirectory } from '@/hooks/use-member-directory';

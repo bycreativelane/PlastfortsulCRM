@@ -29,7 +29,7 @@ import {
   sortTasks,
 } from '@/lib/tasks/queries';
 import { completeTask, reopenTask } from '@/lib/tasks/mutations';
-import { publishTask } from '@/lib/calendar-sync/publish-client';
+import { notifyTaskCompleted, publishTask } from '@/lib/tasks/notify-client';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { StatePanel } from '@/components/ui/state-panel';
@@ -115,6 +115,7 @@ export function TaskList({
     // Regra 4 do §D5: concluir não apaga o evento — marca o título com um
     // visto. Reabrir tira o visto. As duas passam pela mesma reconciliação.
     void publishTask(task.id);
+    void notifyTaskCompleted(task.id);
     await load();
   }
 

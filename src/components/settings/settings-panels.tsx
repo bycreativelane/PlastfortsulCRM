@@ -12,6 +12,7 @@ import { AssignmentPanel } from '@/components/settings/assignment-panel';
 import { DealsSettings } from '@/components/settings/deals-settings';
 import { FieldsAndTagsPanel } from '@/components/settings/fields-and-tags-panel';
 import { HooksPanel } from '@/components/settings/hooks-panel';
+import { CalendarsPanel } from '@/components/settings/calendars-panel';
 import { HoursPanel } from '@/components/settings/hours-panel';
 import { MembersTab } from '@/components/settings/members-tab';
 import { ProfileForm } from '@/components/settings/profile-form';
@@ -65,6 +66,8 @@ export function panelFor(
       return <DealsSettings />;
     case 'hours':
       return <HoursPanel />;
+    case 'calendars':
+      return <CalendarsPanel />;
     case 'members':
       return <MembersTab />;
     case 'access':

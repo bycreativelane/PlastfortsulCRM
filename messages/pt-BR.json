@@ -287,7 +287,8 @@
         "automation": "Automação agendada",
         "broadcast": "Campanha",
         "birthday": "Aniversário",
-        "task": "Tarefa"
+        "task": "Tarefa",
+        "external": "Agenda externa"
       },
       "kindShort": {
         "deal": "Fechamentos",
@@ -296,7 +297,8 @@
         "automation": "Automações",
         "broadcast": "Campanhas",
         "birthday": "Aniversários",
-        "task": "Tarefas"
+        "task": "Tarefas",
+        "external": "Externo"
       },
       "reschedule": "Remarcar",
       "presetToday": "Hoje",
@@ -2715,7 +2717,8 @@
       "assignment": "Atribuição",
       "rooms": "Salas da equipe",
       "ai-tools": "Ferramentas de IA",
-      "hooks": "Webhooks"
+      "hooks": "Webhooks",
+      "calendars": "Agendas"
     },
     "groups": {
       "account": "Conta",
@@ -3796,7 +3799,46 @@
       "automation": "Automação agendada",
       "broadcast": "Campanha",
       "birthday": "Aniversário",
-      "task": "Tarefa"
+      "task": "Tarefa",
+      "external": "Agenda externa"
     }
+  },
+  "Calendars": {
+    "title": "Agendas",
+    "description": "Conecte a conta Google da empresa para trazer o que já está agendado lá e publicar aqui as tarefas.",
+    "connect": "Conectar com a Google",
+    "connectHint": "Um admin autoriza a conta principal da empresa. Todos os membros passam a ver as agendas escolhidas.",
+    "connectedTo": "Conectado a {email}",
+    "loading": "Carregando...",
+    "loadFailed": "Não foi possível carregar as agendas",
+    "syncNow": "Sincronizar agora",
+    "syncDone": "{count, plural, =0 {Nada novo} =1 {1 evento importado} other {# eventos importados}}",
+    "syncPartial": "{imported} importados, {failed} agendas com erro",
+    "syncFailed": "Não foi possível sincronizar",
+    "disconnect": "Desconectar",
+    "disconnected": "Agenda desconectada",
+    "disconnectFailed": "Não foi possível desconectar",
+    "saveFailed": "Não foi possível salvar",
+    "noSources": "Nenhuma agenda nesta conta.",
+    "primary": "principal",
+    "enabled": "Ativa",
+    "directionLabel": "O que esta agenda faz",
+    "direction": {
+      "in": "Só importar",
+      "out": "Só publicar",
+      "both": "Importar e publicar"
+    },
+    "status": {
+      "revoked": "A autorização foi revogada na Google. Conecte novamente.",
+      "error": "A última sincronização falhou."
+    },
+    "error": {
+      "denied": "A autorização foi cancelada",
+      "invalid_state": "A autorização não pôde ser verificada. Tente de novo.",
+      "not_configured": "A integração com a Google não está configurada neste servidor",
+      "no_refresh_token": "A Google não devolveu um token de longa duração. Remova o acesso do CRM na sua Conta Google e conecte de novo.",
+      "save_failed": "Não foi possível gravar a conexão"
+    },
+    "connected": "Agenda conectada"
   }
 }

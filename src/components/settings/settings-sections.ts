@@ -2,6 +2,7 @@ import type { ComponentType } from 'react';
 import {
   Bot,
   CalendarClock,
+  CalendarSync,
   Coins,
   FileText,
   KeyRound,
@@ -116,6 +117,11 @@ export const SETTINGS_SECTIONS = [
   // e em que horas ela trabalha. Antes da 066 a segunda resposta era uma
   // constante em `lib/automations/local-time.ts`.
   'hours',
+  // Logo depois de Horários, e é a continuação da mesma conversa: aquela
+  // diz em que horas a empresa trabalha, esta diz com qual agenda ela
+  // combina isso. Quem conecta a Google acabou de terminar de configurar
+  // o expediente.
+  'calendars',
   'members',
   // Right after the roster, because it is the roster's other half: the
   // Team tab answers "who is here", this one answers "what may they do"
@@ -263,6 +269,13 @@ export const SECTION_META: Record<SettingsSection, SectionMeta> = {
     id: 'hours',
     label: 'Business hours',
     icon: CalendarClock,
+    group: 'workspace',
+    capability: 'settings.manage',
+  },
+  calendars: {
+    id: 'calendars',
+    label: 'Calendars',
+    icon: CalendarSync,
     group: 'workspace',
     capability: 'settings.manage',
   },

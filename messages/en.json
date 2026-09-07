@@ -287,7 +287,8 @@
         "automation": "Scheduled automation",
         "broadcast": "Campaign",
         "birthday": "Birthday",
-        "task": "Task"
+        "task": "Task",
+        "external": "External calendar"
       },
       "kindShort": {
         "deal": "Closes",
@@ -296,7 +297,8 @@
         "automation": "Automations",
         "broadcast": "Campaigns",
         "birthday": "Birthdays",
-        "task": "Tasks"
+        "task": "Tasks",
+        "external": "External"
       },
       "reschedule": "Reschedule",
       "presetToday": "Today",
@@ -2715,7 +2717,8 @@
       "assignment": "Assignment",
       "rooms": "Team rooms",
       "ai-tools": "AI tools",
-      "hooks": "Webhooks"
+      "hooks": "Webhooks",
+      "calendars": "Calendars"
     },
     "groups": {
       "account": "Account",
@@ -3796,7 +3799,46 @@
       "automation": "Scheduled automation",
       "broadcast": "Campaign",
       "birthday": "Birthday",
-      "task": "Task"
+      "task": "Task",
+      "external": "External calendar"
     }
+  },
+  "Calendars": {
+    "title": "Calendars",
+    "description": "Connect the company's Google account to pull in what is already scheduled there and publish tasks from here.",
+    "connect": "Connect with Google",
+    "connectHint": "An admin authorizes the company account. Every member then sees the calendars you choose.",
+    "connectedTo": "Connected to {email}",
+    "loading": "Loading...",
+    "loadFailed": "Could not load the calendars",
+    "syncNow": "Sync now",
+    "syncDone": "{count, plural, =0 {Nothing new} =1 {1 event imported} other {# events imported}}",
+    "syncPartial": "{imported} imported, {failed} calendars failed",
+    "syncFailed": "Could not sync",
+    "disconnect": "Disconnect",
+    "disconnected": "Calendar disconnected",
+    "disconnectFailed": "Could not disconnect",
+    "saveFailed": "Could not save",
+    "noSources": "No calendars on this account.",
+    "primary": "primary",
+    "enabled": "Active",
+    "directionLabel": "What this calendar does",
+    "direction": {
+      "in": "Import only",
+      "out": "Publish only",
+      "both": "Import and publish"
+    },
+    "status": {
+      "revoked": "Access was revoked on Google. Connect again.",
+      "error": "The last sync failed."
+    },
+    "error": {
+      "denied": "Authorization was cancelled",
+      "invalid_state": "The authorization could not be verified. Try again.",
+      "not_configured": "The Google integration is not configured on this server",
+      "no_refresh_token": "Google did not return a long-lived token. Remove the CRM from your Google Account access and connect again.",
+      "save_failed": "Could not save the connection"
+    },
+    "connected": "Calendar connected"
   }
 }

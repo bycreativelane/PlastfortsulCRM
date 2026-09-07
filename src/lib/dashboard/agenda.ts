@@ -62,7 +62,15 @@ export type AgendaKind =
   /** `contacts.birthday`, recurring. */
   | 'birthday'
   /** An open occurrence, on the day the problem happened. */
-  | 'occurrence';
+  | 'occurrence'
+  /**
+   * Um evento espelhado de uma agenda externa (migração 069).
+   *
+   * É a única linha desta agenda que o CRM não comanda: veio da Google,
+   * volta para a Google, e daqui só se OLHA. Por isso `reschedule: null` e
+   * `href` apontando para fora — arrastá-la mentiria sobre quem manda nela.
+   */
+  | 'external';
 
 /** Which half of the product the row belongs to. Drives its colour. */
 export type AgendaTone = 'human' | 'auto' | 'danger' | 'neutral';
@@ -77,6 +85,10 @@ export const AGENDA_KINDS: readonly AgendaKind[] = [
   'deal',
   'repurchase',
   'occurrence',
+  // Depois do que é comandado daqui e antes do que a máquina faz sozinha:
+  // um compromisso importado é trabalho humano de verdade, só que de um
+  // sistema que não é este.
+  'external',
   'automation',
   'broadcast',
   'birthday',
@@ -92,6 +104,7 @@ export const AGENDA_TONE: Record<AgendaKind, AgendaTone> = {
   deal: 'human',
   repurchase: 'human',
   occurrence: 'danger',
+  external: 'neutral',
   automation: 'auto',
   broadcast: 'auto',
   birthday: 'neutral',
@@ -142,6 +155,82 @@ export interface AgendaItem {
   rowId: string;
 }
 
+/**
+ * Os eventos espelhados de agendas externas (069).
+ *
+ * Os DOIS modelos da Google vivem em colunas separadas — `start_date` para
+ * o dia inteiro, `starts_at` para o marcado — e a leitura tem que consultar
+ * os dois: um `or` e não dois `gte`, porque um evento tem um OU outro
+ * preenchido, nunca ambos.
+ *
+ * `dayOf` recebe o valor certo conforme o caso, e é aqui que a regra de
+ * `lib/calendar.ts` se paga: uma `DATE` volta como `YYYY-MM-DD` e passa
+ * direto, sem tocar em `new Date()`, que a leria como meia-noite UTC e
+ * devolveria o dia anterior no fuso de São Paulo.
+ */
+async function loadExternalEvents(
+  db: DB,
+  from: Date,
+  to: Date,
+  zone: string
+): Promise<AgendaItem[]> {
+  const fromKey = toISO(from);
+  const toKey = toISO(to);
+
+  const { data, error } = await db
+    .from('calendar_events')
+    .select(
+      'id, summary, html_link, all_day, start_date, starts_at, ' +
+        'status, location, contact_id'
+    )
+    .or(
+      `and(start_date.gte.${fromKey},start_date.lte.${toKey}),` +
+        `and(starts_at.gte.${from.toISOString()},starts_at.lte.${to.toISOString()})`
+    )
+    .limit(500);
+
+  if (error) return [];
+
+  return ((data ?? []) as unknown as RawExternalEvent[]).flatMap((row) => {
+    const day = row.all_day ? dayOf(row.start_date) : dayOf(row.starts_at, zone);
+    if (!day) return [];
+
+    return [
+      {
+        id: `external:${row.id}`,
+        kind: 'external' as const,
+        day,
+        time: row.all_day ? null : timeOf(row.starts_at, zone),
+        // Um evento sem título na Google aparece como "(sem título)" lá
+        // também; repetir o vazio aqui seria uma linha em branco na agenda.
+        title: row.summary || 'Evento',
+        contact: null,
+        value: null,
+        currency: null,
+        status: row.status,
+        // Para FORA: o dono deste evento é a Google, e o lugar de editá-lo
+        // é lá. Um link interno prometeria uma tela que não existe.
+        href: row.html_link,
+        owner: null,
+        reschedule: null,
+        rowId: row.id,
+      },
+    ];
+  });
+}
+
+interface RawExternalEvent {
+  id: string;
+  summary: string | null;
+  html_link: string | null;
+  all_day: boolean;
+  start_date: string | null;
+  starts_at: string | null;
+  status: string | null;
+  location: string | null;
+  contact_id: string | null;
+}
+
 // ------------------------------------------------------------
 // Loading
 // ------------------------------------------------------------
@@ -170,6 +259,7 @@ export async function loadAgenda(
     safe(() => loadBroadcasts(db, from, to, zone)),
     safe(() => loadOccurrences(db, from, to)),
     safe(() => loadScheduledAutomations(from, to, zone)),
+    safe(() => loadExternalEvents(db, from, to, zone)),
   ]);
 
   return groups.flat().sort(compareItems);
@@ -607,6 +697,7 @@ export function countByKind(items: AgendaItem[]): Record<AgendaKind, number> {
     deal: 0,
     repurchase: 0,
     occurrence: 0,
+    external: 0,
     automation: 0,
     broadcast: 0,
     birthday: 0,

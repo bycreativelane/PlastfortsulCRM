@@ -215,6 +215,41 @@ em silêncio.
 
 ---
 
+## Google Agenda — opcional
+
+Três variáveis, e as três juntas ou nenhuma. Faltando qualquer uma, a tela
+Configurações › Agendas diz que a integração não está configurada e o resto
+do CRM funciona igual.
+
+| Variável | O que é |
+| --- | --- |
+| `GOOGLE_CLIENT_ID` | O ID do cliente OAuth, do Google Cloud Console |
+| `GOOGLE_CLIENT_SECRET` | O segredo do mesmo cliente |
+| `GOOGLE_OAUTH_REDIRECT_URI` | Para onde a Google devolve a autorização |
+
+No Google Cloud Console: criar um projeto, ativar a **Google Calendar API**,
+configurar a tela de consentimento (tipo "Interno" se a empresa usa
+Workspace) e criar uma credencial **ID do cliente OAuth → Aplicativo da
+Web**.
+
+O `GOOGLE_OAUTH_REDIRECT_URI` precisa estar registrado no Console
+**exatamente** como aqui — a Google compara caractere por caractere, e uma
+barra a mais no fim vira `redirect_uri_mismatch`, um erro que não diz qual
+dos dois lados está errado. Em produção precisa ser `https`; a Google só
+aceita `http` em `localhost`.
+
+Em desenvolvimento:
+
+```
+GOOGLE_OAUTH_REDIRECT_URI=http://localhost:3000/api/calendar/google/callback
+```
+
+A cifragem dos tokens usa o `ENCRYPTION_KEY` que já existe — não há chave
+nova. E a importação precisa do agendador chamando
+`GET /api/calendar/cron` a cada cinco minutos com o mesmo
+`AUTOMATION_CRON_SECRET` das automações; sem ele, só o botão
+"sincronizar agora" traz eventos.
+
 ## Conferindo
 
 Depois de preencher:

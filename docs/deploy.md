@@ -42,6 +42,11 @@ Nunca commite `.env.local`. No host de produção as variáveis vão no **painel
 8. Agendador chamando **a cada minuto**, com o header `x-cron-secret`:
    - `GET https://seu-dominio/api/automations/cron`
    - `GET https://seu-dominio/api/flows/cron`
+   - `GET https://seu-dominio/api/calendar/cron` — **a cada 5 minutos**, e
+     só se a Google Agenda estiver conectada. Usa o MESMO
+     `AUTOMATION_CRON_SECRET`: um segundo segredo para o mesmo agendador
+     seria mais uma variável para alguém esquecer, e o modo de falha disso
+     é uma rota respondendo 503 para sempre sem ninguém perceber.
 
    A cada minuto porque é este tique que leva as mudanças de etapa ao
    motor de automações (`/aberto` → Em Aberto, o cancelamento por

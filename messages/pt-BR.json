@@ -102,7 +102,8 @@
     "products": "Produtos",
     "more": "Mais",
     "playbook": "Playbook",
-    "agenda": "Agenda"
+    "agenda": "Agenda",
+    "tasks": "Tarefas"
   },
   "Roadmap": {
     "regionLabel": "Próximas novidades",
@@ -3869,5 +3870,27 @@
       "save_failed": "Não foi possível gravar a conexão"
     },
     "connected": "Agenda conectada"
+  },
+  "TasksPage": {
+    "title": "Tarefas",
+    "new": "Nova tarefa",
+    "loading": "Carregando...",
+    "searchPlaceholder": "Buscar tarefa",
+    "ownerLabel": "Responsável",
+    "ownerMine": "Minhas",
+    "ownerAll": "De todos",
+    "summary": "{open, plural, =0 {Nada em aberto} =1 {1 tarefa em aberto} other {# tarefas em aberto}} · {today} para hoje",
+    "summaryOverdue": "{overdue, plural, =1 {1 atrasada} other {# atrasadas}} · {today} para hoje",
+    "empty": "Nenhuma tarefa por aqui",
+    "emptyHint": "Crie a primeira, ou tire os filtros para ver as dos colegas.",
+    "bucket": {
+      "overdue": "Atrasadas",
+      "today": "Hoje",
+      "tomorrow": "Amanhã",
+      "week": "Próximos 7 dias",
+      "later": "Depois",
+      "someday": "Sem prazo",
+      "closed": "Concluídas"
+    }
   }
 }

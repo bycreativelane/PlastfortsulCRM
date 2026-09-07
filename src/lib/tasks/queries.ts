@@ -66,6 +66,29 @@ export async function loadTasksFor(
 }
 
 /**
+ * Todas as tarefas da conta — o que a tela de Tarefas desenha.
+ *
+ * Traz as concluídas junto, e o limite é generoso porque a filtragem é do
+ * lado do cliente: a tela tem busca por texto, filtro por tipo e por
+ * responsável, e três dessas quatro coisas o PostgREST faria com uma ida ao
+ * banco a cada tecla. Uma conta com mais de mil tarefas abertas tem um
+ * problema que paginação não resolve.
+ *
+ * A RLS já limita à conta de quem pergunta — não há `account_id` aqui pela
+ * mesma razão que não há em `loadTasksInRange`.
+ */
+export async function loadAllTasks(db: SupabaseClient): Promise<Task[]> {
+  const { data, error } = await db
+    .from('tasks')
+    .select(COLUMNS)
+    .order('due_on', { ascending: true, nullsFirst: false })
+    .limit(1000);
+
+  if (error) return [];
+  return (data ?? []) as unknown as Task[];
+}
+
+/**
  * Uma tarefa, pelo id — o que o link `/agenda?task=<id>` precisa saber.
  *
  * Existe porque um link profundo chega SEM contexto: a pessoa veio de uma

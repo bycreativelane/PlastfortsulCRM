@@ -18,6 +18,7 @@ import {
   ChevronsUpDown,
   Crown,
   KanbanSquare,
+  ListChecks,
   LayoutDashboard,
   Loader2,
   LogOut,
@@ -160,6 +161,21 @@ const navGroups: NavGroup[] = [
       // consultar a própria agenda antes de ver se alguém falou com a
       // empresa. Mas vem antes do funil, porque um compromisso marcado
       // para hoje é mais urgente que uma oportunidade que fecha no mês.
+      // TAREFAS E AGENDA, NESTA ORDEM, E SÃO DUAS TELAS DE PROPÓSITO.
+      //
+      // A lista responde "o que eu tenho para fazer"; a agenda responde
+      // "como está a minha semana". Um calendário não sabe mostrar sete
+      // atrasadas sem espalhá-las por sete dias passados, e uma lista não
+      // sabe mostrar que a quinta está livre.
+      //
+      // A lista vem primeiro porque é a pergunta que se faz ao abrir o CRM
+      // de manhã — a agenda é a que se faz ao marcar alguma coisa.
+      {
+        href: '/tasks',
+        labelKey: 'tasks',
+        icon: ListChecks,
+        capability: 'tasks.view',
+      },
       {
         href: '/agenda',
         labelKey: 'agenda',
@@ -333,6 +349,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
     'flows.manage': useCapability('flows.manage'),
     'reports.view': useCapability('reports.view'),
     'playbook.view': useCapability('playbook.view'),
+    'tasks.view': useCapability('tasks.view'),
   };
   /**
    * Um item sem capability aparece; com capability, só se o mapa acima

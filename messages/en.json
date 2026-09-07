@@ -102,7 +102,8 @@
     "products": "Products",
     "more": "More",
     "playbook": "Playbook",
-    "agenda": "Agenda"
+    "agenda": "Agenda",
+    "tasks": "Tasks"
   },
   "Roadmap": {
     "regionLabel": "Coming next",
@@ -3869,5 +3870,27 @@
       "save_failed": "Could not save the connection"
     },
     "connected": "Calendar connected"
+  },
+  "TasksPage": {
+    "title": "Tasks",
+    "new": "New task",
+    "loading": "Loading...",
+    "searchPlaceholder": "Search tasks",
+    "ownerLabel": "Owner",
+    "ownerMine": "Mine",
+    "ownerAll": "Everyone's",
+    "summary": "{open, plural, =0 {Nothing open} =1 {1 open task} other {# open tasks}} · {today} due today",
+    "summaryOverdue": "{overdue, plural, =1 {1 overdue} other {# overdue}} · {today} due today",
+    "empty": "No tasks here",
+    "emptyHint": "Create the first one, or clear the filters to see your colleagues’.",
+    "bucket": {
+      "overdue": "Overdue",
+      "today": "Today",
+      "tomorrow": "Tomorrow",
+      "week": "Next 7 days",
+      "later": "Later",
+      "someday": "No due date",
+      "closed": "Completed"
+    }
   }
 }

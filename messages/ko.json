@@ -102,7 +102,8 @@
     "products": "제품",
     "more": "더보기",
     "playbook": "플레이북",
-    "agenda": "일정"
+    "agenda": "일정",
+    "tasks": "작업"
   },
   "Roadmap": {
     "regionLabel": "다음 업데이트",
@@ -3869,5 +3870,27 @@
       "save_failed": "연결을 저장하지 못했습니다"
     },
     "connected": "캘린더가 연결되었습니다"
+  },
+  "TasksPage": {
+    "title": "작업",
+    "new": "새 작업",
+    "loading": "불러오는 중...",
+    "searchPlaceholder": "작업 검색",
+    "ownerLabel": "담당자",
+    "ownerMine": "내 작업",
+    "ownerAll": "전체",
+    "summary": "{open, plural, other {열린 작업 #개}} · 오늘 {today}개",
+    "summaryOverdue": "{overdue, plural, other {지연 #개}} · 오늘 {today}개",
+    "empty": "작업이 없습니다",
+    "emptyHint": "첫 작업을 만들거나 필터를 해제해 동료의 작업을 보세요.",
+    "bucket": {
+      "overdue": "지연",
+      "today": "오늘",
+      "tomorrow": "내일",
+      "week": "다음 7일",
+      "later": "나중",
+      "someday": "기한 없음",
+      "closed": "완료"
+    }
   }
 }

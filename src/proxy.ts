@@ -36,6 +36,7 @@ export const PROTECTED_PATHS = [
   '/products',
   '/reports',
   '/settings',
+  '/tasks',
 ];
 
 export async function proxy(request: NextRequest) {

@@ -1,5 +1,26 @@
 # Automações comerciais — o fluxo oficial contra o código
 
+> ## ⚠️ CORRIGIDO EM 7 DE SETEMBRO DE 2026
+>
+> Este documento descreve o desenho da **0.9.0**. Os testes reais de uso
+> produziram um pacote de correções que muda parte dele —
+> [spec-correcoes-2026-09.md](./spec-correcoes-2026-09.md) é o que vale
+> hoje. O que mudou:
+>
+> | Aqui está escrito | O certo é |
+> | --- | --- |
+> | Follow-up `d1 → d3 → d10 → d30` | `followup_orcamento_d1 → d2 → d3 → d30` |
+> | `posvenda_d20`, `compra_futura`, `aniversario_cliente` | `posvenda20d`, `comprafutura`, `aniversario` |
+> | Segundo envio de `recompra_60d` no D120 | `recompra_120d` |
+> | Espera de 24 h antes da Geladeira 30D | move imediatamente |
+> | Geladeira 30D só move de coluna | manda `reativacao30dgeladeira30d` |
+> | Dez automações no funil | **onze** — faltava a porta de entrada |
+> | Oportunidade nasce por `first_inbound_message` | `conversation_created`, que cobre também a equipe iniciando |
+>
+> A `065` **foi aplicada** em 3 de setembro de 2026, ao contrário do que o
+> bloco abaixo diz.
+
+
 > **Estado na 0.8.5 (2 de setembro de 2026).** Revisão do documento
 > `PlastfortSul_CRM_Automacoes_Fluxo_Correto.md` (daqui em diante, "o MD"),
 > conferido contra o código em **2 de setembro de 2026**. O MD passa a ser a

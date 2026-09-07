@@ -66,7 +66,8 @@ Oportunidade aberta — orçamento enviado ou atendimento que ainda não avanço
 Envie o orçamento com o atalho `/aberto` (ou o template
 `orcamento_enviado`): o CRM move para **Em Aberto** sozinho. Se em 24 horas
 o cliente não responder, ele vai para **Follow-up** e a sequência
-`followup_d1 → d3 → d10 → d30` roda sozinha.
+`followup_orcamento_d1 → d2 → d3 → d30` roda sozinha — três toques na
+primeira semana e um último no fim do mês.
 
 ---
 

@@ -21,6 +21,11 @@ A tag `v0.10.0` está publicada e a
 saiu pelo workflow, com as notas de `docs/releases/v0.10.0.md`. A branch
 `release/0.10.0` aponta para o mesmo commit, como as anteriores.
 
+**Depois da tag**, a `main` recebeu o pacote de correções de 7 de setembro —
+cinco dos seis P0 de [spec-correcoes-2026-09.md](./spec-correcoes-2026-09.md),
+que vieram de testes reais de uso. Esses commits ainda **não estão em
+nenhuma versão publicada**.
+
 | Verificação | Estado |
 | --- | --- |
 | `npm test` | 1781 testes, 146 arquivos |
@@ -36,9 +41,9 @@ commitados estão todos em LF. A CI não roda esse comando. Não "conserte".
 
 ---
 
-## Pendências — duas, das três originais
+## Pendências
 
-A primeira foi resolvida em 7 de setembro. As duas que restam dependem de
+A migração `069` foi resolvida em 7 de setembro. As duas que restam dependem de
 uma conta na Google e de olhar uma tela, e nenhuma bloqueia o produto: sem
 as credenciais, a integração fica dormente e o resto funciona igual.
 
@@ -67,7 +72,18 @@ configurada e **o resto do CRM funciona igual**.
 Todo o código da fase 4 e 5 está escrito e testado contra dublês. O que
 nunca aconteceu foi uma chamada real.
 
-### 3. A `/agenda` nunca foi vista desenhada
+### 3. Sincronizar os templates da Meta
+
+`message_templates` está **vazia** no ambiente de desenvolvimento. As
+automações apontam para os onze nomes aprovados
+(`src/lib/whatsapp/approved-templates.ts`), mas nada foi exercitado contra
+corpos reais — e é o corpo real que decide quantas variáveis um envio leva.
+
+A correção do `#132000` fez o envio tolerar valor sobrando, então o modo de
+falha que restou é o contrário: um template com MAIS variáveis do que a
+automação configurou. Isso só aparece com os templates sincronizados.
+
+### 4. A `/agenda` nunca foi vista desenhada
 
 A rota exige sessão autenticada — redireciona para `/login`, o que
 confirma que a proteção funciona e impede a verificação visual. O build

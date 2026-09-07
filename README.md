@@ -129,6 +129,7 @@ de segredo nenhum.
 | ---------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
 | [docs/ux-overhaul/](./docs/ux-overhaul/)                         | A reforma de UX/UI: worklog, decisões, defeitos, verificação                       |
 | [docs/revisao-0.10.0/](./docs/revisao-0.10.0/00-README.md)       | Revisão 0.10.0: tarefas, a página /agenda e a ponte com a Google Agenda            |
+| [docs/spec-correcoes-2026-09.md](./docs/spec-correcoes-2026-09.md)   | O pacote de correções vindo de testes reais: 59 itens, o que foi feito e o que não     |
 | [docs/estado-do-projeto.md](./docs/estado-do-projeto.md)         | O estado atual: onde a branch está, o que está pendente e as armadilhas conhecidas |
 | [docs/revisao-0.9.0/](./docs/revisao-0.9.0/00-README.md)         | Revisão 0.9.0: o fluxo comercial oficial no motor de automações                    |
 | [docs/revisao-0.8.5/](./docs/revisao-0.8.5/00-README.md)         | Revisão 0.8.5: Relatórios, Visão geral, anexos da equipe, Playbook                 |

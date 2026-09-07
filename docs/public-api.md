@@ -60,6 +60,8 @@ it. Grant the minimum.
 | `fields:read`        | Read custom field definitions         |
 | `deals:read`         | Read pipelines, stages and deals      |
 | `deals:write`        | Create a deal                         |
+| `tasks:read`         | List and read tasks                   |
+| `tasks:write`        | Create, update and delete tasks       |
 
 A key with **no scopes** still authenticates and can call
 `GET /api/v1/me` — useful for verifying a key works.
@@ -277,6 +279,52 @@ Invalid phone numbers are dropped and counted as `rejected`. Response
 Broadcast status + counts. Scope: `broadcasts:send`. `status` moves
 `sending` → `sent`; `delivered_count` / `read_count` keep climbing as
 Meta delivery webhooks arrive. `404` for another account's broadcast.
+
+### `GET /api/v1/tasks`
+
+Scope `tasks:read`. Keyset-paginated. Filters: `contact_id`, `deal_id`,
+`status` (`open` | `done` | `cancelled`), `assigned_to`, `kind`, and the
+pair `due_from` / `due_to` (both `YYYY-MM-DD`).
+
+**`due_on` and `due_time` are separate fields, on purpose.** `due_on` is a
+date; `due_time` is a wall-clock `HH:MM` in the account's time zone, and it
+is `null` when the task is for the DAY rather than for a moment. "Call today"
+is not "call at 00:00", and a contract that cannot say the difference forces
+every integration to invent its own convention.
+
+To build an instant, combine the two with the account time zone from
+`GET /api/v1/me`. Assuming UTC returns the previous day west of Greenwich.
+
+### `POST /api/v1/tasks`
+
+Scope `tasks:write`. `title` is required. `due_time` without `due_on` is
+rejected (`due_time_without_due_on`) rather than silently dropped — an hour
+with no day is not a deadline, and the reminder sweep looks for `due_on`.
+
+```json
+{
+  "title": "Call to confirm the order",
+  "kind": "call",
+  "due_on": "2026-09-10",
+  "due_time": "14:30",
+  "contact_id": "55ee…",
+  "remind_minutes_before": 30
+}
+```
+
+### `GET` / `PATCH` / `DELETE /api/v1/tasks/{id}`
+
+Completing a task is `PATCH {"status": "done"}` — there is no
+`/complete` verb. A separate verb would be a second door onto the same
+transition, with a second rule to keep in sync with the first. The PATCH
+stamps `completed_at` exactly as the UI does.
+
+`DELETE` really deletes, and it is the only operation in this API that
+does. A completed task normally **stays** — the CRM keeps status and reason
+instead of removing rows, because "we already called them last week" is what
+you want to know before calling again. `DELETE` is for the other case: a task
+an integration created by mistake. For work that was decided and will not
+happen, use `status: "cancelled"`.
 
 ## Pagination
 

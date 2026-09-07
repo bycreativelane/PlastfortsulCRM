@@ -3923,6 +3923,7 @@
       "done": "Concluídas",
       "cancelled": "Canceladas"
     },
-    "dragHandle": "Arrastar para outra coluna"
+    "dragHandle": "Arrastar para outra coluna",
+    "columnEmpty": "Nada por aqui."
   }
 }

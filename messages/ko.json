@@ -3923,6 +3923,7 @@
       "done": "완료",
       "cancelled": "취소됨"
     },
-    "dragHandle": "다른 열로 끌기"
+    "dragHandle": "다른 열로 끌기",
+    "columnEmpty": "없음."
   }
 }

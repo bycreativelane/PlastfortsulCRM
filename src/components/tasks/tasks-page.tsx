@@ -346,6 +346,7 @@ export function TasksPage() {
           todayIso={todayIso}
           onChangeStatus={changeStatus}
           onOpen={setEditing}
+          onCreate={() => setCreating(true)}
         />
       ) : mode === 'calendar' ? (
         <TasksCalendar tasks={visible} onSelectTask={setEditing} />

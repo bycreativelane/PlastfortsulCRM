@@ -3923,6 +3923,7 @@
       "done": "Completed",
       "cancelled": "Cancelled"
     },
-    "dragHandle": "Drag to another column"
+    "dragHandle": "Drag to another column",
+    "columnEmpty": "Nothing here."
   }
 }

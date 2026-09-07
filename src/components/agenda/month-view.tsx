@@ -27,12 +27,10 @@ export function MonthView({
   cursor,
   items,
   onPickDay,
-  onSelectTask,
 }: {
   cursor: Date;
   items: AgendaItem[];
   onPickDay: (date: Date) => void;
-  onSelectTask: (item: AgendaItem) => void;
 }) {
   const t = useTranslations('Agenda');
 
@@ -62,13 +60,20 @@ export function MonthView({
         const rest = list.length - shown.length;
         return (
           <div className={cn('mt-0.5 space-y-0.5', day.outside && 'opacity-50')}>
+            {/*
+              SEM `onSelect` AQUI, e não é esquecimento.
+
+              A `MonthGrid` desenha cada dia como um `<button>`. Um chip
+              clicável dentro dele é botão dentro de botão: HTML inválido,
+              erro de hidratação, e — o que se vê — um clique na tarefa
+              disparando também o clique do dia.
+
+              A célula do mês já é o alvo, e leva para a tela do dia. É a
+              divisão que o resto desta pasta assume: o mês responde EM QUE
+              DIAS tem coisa, o dia responde o quê e a que horas.
+            */}
             {shown.map((item) => (
-              <AgendaChip
-                key={item.id}
-                item={item}
-                density="tight"
-                onSelect={item.kind === 'task' ? onSelectTask : undefined}
-              />
+              <AgendaChip key={item.id} item={item} density="tight" />
             ))}
             {rest > 0 ? (
               <div className="text-muted-foreground px-1 text-3xs">

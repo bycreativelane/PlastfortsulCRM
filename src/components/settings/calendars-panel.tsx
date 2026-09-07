@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { CalendarClock, RefreshCw, Unplug } from 'lucide-react';
 
 import { Button, buttonVariants } from '@/components/ui/button';
+import { OptionSelect } from '@/components/ui/option-select';
 import { cn } from '@/lib/utils';
 
 interface Connection {
@@ -218,21 +219,21 @@ export function CalendarsPanel() {
                 ) : null}
               </div>
 
-              <select
+              <OptionSelect
                 value={source.direction}
-                onChange={(e) =>
+                onValueChange={(next) =>
                   patchSource(source.id, {
-                    direction: e.target.value as Source['direction'],
+                    direction: next as Source['direction'],
                   })
                 }
                 aria-label={t('directionLabel')}
                 disabled={!source.enabled}
-                className="border-input bg-background h-8 rounded-md border px-2 text-xs disabled:opacity-50"
+                className="h-8 text-xs"
               >
                 <option value="in">{t('direction.in')}</option>
                 <option value="out">{t('direction.out')}</option>
                 <option value="both">{t('direction.both')}</option>
-              </select>
+              </OptionSelect>
 
               <label className="flex items-center gap-1.5 text-xs">
                 <input

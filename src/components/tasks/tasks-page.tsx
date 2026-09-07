@@ -34,6 +34,14 @@ import { notifyTaskCompleted, publishTask } from '@/lib/tasks/notify-client';
 import { TASK_KINDS, type Task } from '@/types';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { MemberAvatar } from '@/components/presence/member-avatar';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { TaskDialog } from '@/components/tasks/task-dialog';
 
 /**
@@ -186,20 +194,45 @@ export function TasksPage() {
             />
           </div>
 
-          <select
+          {/*
+            As partes do `Select` e não o `OptionSelect`: aqui cada linha
+            leva a FOTO do colega, e o atalho só aceita `<option>` de texto.
+            A foto não é enfeite — numa equipe, reconhecer quem é pelo rosto
+            é mais rápido do que ler o nome, e é o mesmo avatar que a caixa
+            de entrada e a sala da equipe já desenham.
+          */}
+          {/*
+            O `Select` pode devolver `null` quando a escolha é limpa. Aqui
+            isso não deve virar filtro nenhum: cair em "Minhas" é o padrão
+            da tela e o único estado que responde à pergunta que ela faz.
+          */}
+          <Select
             value={owner}
-            onChange={(e) => setOwner(e.target.value)}
-            aria-label={t('ownerLabel')}
-            className="border-input bg-background h-8 rounded-md border px-2 text-xs"
+            onValueChange={(next) => setOwner(next ?? 'mine')}
           >
-            <option value="mine">{t('ownerMine')}</option>
-            <option value="all">{t('ownerAll')}</option>
-            {[...members.values()].map((m) => (
-              <option key={m.user_id} value={m.user_id}>
-                {m.full_name}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger
+              className="h-8 w-auto min-w-36 text-xs"
+              aria-label={t('ownerLabel')}
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="mine">{t('ownerMine')}</SelectItem>
+              <SelectItem value="all">{t('ownerAll')}</SelectItem>
+              {[...members.values()].map((m) => (
+                <SelectItem key={m.user_id} value={m.user_id}>
+                  <span className="flex items-center gap-2">
+                    <MemberAvatar
+                      name={m.full_name}
+                      avatarUrl={m.avatar_url}
+                      size="2xs"
+                    />
+                    {m.full_name}
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
           <Button size="sm" onClick={() => setCreating(true)}>
             <Plus className="size-4" />

@@ -90,8 +90,10 @@ O `~/.claude/projects/` também trata as duas pastas como **projetos
 diferentes**, com memórias separadas. Elas foram sincronizadas à mão em
 2026-09-07.
 
-O `.mcp.json` **não está versionado** — é decisão em aberto se deveria
-estar, já que aponta o `project_ref` do banco de teste.
+O `.mcp.json` **não é versionado, e isso está decidido** (Gabriel,
+2026-09-07): ele aponta o `project_ref` do banco e é infraestrutura de quem
+desenvolve, não do produto. Está no `.gitignore` para que um `git add -A`
+não o varra para dentro. Quem clonar o repositório precisa criar o seu.
 
 ---
 

@@ -53,3 +53,15 @@ __pycache__/
 # local agent / editor state
 .claude/
 .cursor/
+
+# Configuração de MCP — deliberadamente FORA do repositório.
+#
+# O arquivo declara o servidor MCP do Supabase com o `project_ref` do
+# banco. É infraestrutura de quem desenvolve, não do produto: cada pessoa
+# aponta para o próprio projeto, e um ref versionado manda todo mundo
+# para o mesmo banco por padrão — inclusive quem clonou para experimentar.
+#
+# A regra existe porque o arquivo fica permanentemente como untracked no
+# `git status`, e um `git add -A` o varreria para dentro sem que ninguém
+# reparasse. Decidido pelo Gabriel em 2026-09-07.
+.mcp.json

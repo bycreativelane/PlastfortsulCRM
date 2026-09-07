@@ -87,8 +87,6 @@ afirmava que a migração `065` não tinha sido aplicada.
 
 ## 4. Em aberto, sem decisão
 
-- **Versionar o `.mcp.json`?** Ele aponta o `project_ref` do banco de teste.
-  Versionar facilita a vida de quem clona; é uma escolha sua e ficou parada.
 - **Os três documentos de 4 de setembro.** `spec-acoes-de-agente.md`,
   `pesquisa-plataformas-de-agente.md` e `spec-transporte-secundario.md` —
   nenhum implementado, nenhum com "ok" de execução. Os dois specs

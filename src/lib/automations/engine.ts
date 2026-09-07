@@ -8,6 +8,7 @@ import type {
   ConditionStepConfig,
   DateFieldReachedTriggerConfig,
   DealStageEnteredTriggerConfig,
+  TaskCompletedTriggerConfig,
   EndStepConfig,
   KeywordMatchTriggerConfig,
   InteractiveReplyTriggerConfig,
@@ -24,6 +25,7 @@ import type {
   UpdateDealStepConfig,
   WaitStepConfig,
   CreateDealStepConfig,
+  CreateTaskStepConfig,
   AssignConversationStepConfig,
 } from '@/types';
 import { supabaseAdmin } from './admin-client';
@@ -45,7 +47,10 @@ import { isUnknownColumn } from '@/lib/supabase/pg-errors';
 import { isLostStage, isWonStage } from '@/lib/deals/outcome';
 import { cancelPendingByStep } from './cancel';
 import { checkReentry } from './reentry';
-import { parseHHmm, zonedTimeToUtc } from './local-time';
+import { localParts, parseHHmm, zonedTimeToUtc } from './local-time';
+import { addBusinessDays } from '@/lib/hours';
+import { loadBusinessHours } from '@/lib/hours-db';
+import { addDays, fromISO, toISO } from '@/lib/calendar';
 import { resolveTimeZone } from './account-timezone';
 
 // ------------------------------------------------------------
@@ -97,6 +102,8 @@ export interface AutomationContext {
    * the automation declared — and travels with the run: onto the parked
    * row, onto the log, into every step that needs it. */
   deal_id?: string;
+  /** Para task_completed: o tipo da tarefa que acabou de ser concluída. */
+  task_kind?: string;
   /** For deal_stage_entered: the stage the deal just entered. */
   stage_id?: string;
   from_stage_id?: string;
@@ -654,6 +661,41 @@ async function executeStepsFrom(args: ExecuteArgs): Promise<ScopeOutcome> {
   return 'done';
 }
 
+/**
+ * Quem cuida da oportunidade desta execução, como id de auth.
+ *
+ * `deals.assigned_to` referencia `profiles.id` e `tasks.assigned_to`
+ * referencia `auth.users` — dois espaços de identificador, e é por isso que
+ * há um `join` aqui em vez de uma cópia direta. Passar o id de perfil para
+ * a coluna de tarefa gravaria um responsável que não existe, e a tarefa
+ * apareceria sem dono sem que nada tivesse falhado.
+ */
+async function resolveDealOwner(
+  db: ReturnType<typeof supabaseAdmin>,
+  args: ExecuteArgs
+): Promise<string | null> {
+  const dealId = args.context.deal_id;
+  if (!dealId) return null;
+
+  const { data: deal } = await db
+    .from('deals')
+    .select('assigned_to')
+    .eq('id', dealId)
+    .maybeSingle();
+
+  const profileId = (deal as { assigned_to?: string | null } | null)
+    ?.assigned_to;
+  if (!profileId) return null;
+
+  const { data: profile } = await db
+    .from('profiles')
+    .select('user_id')
+    .eq('id', profileId)
+    .maybeSingle();
+
+  return (profile as { user_id?: string } | null)?.user_id ?? null;
+}
+
 async function runStep(
   step: AutomationStep,
   args: ExecuteArgs
@@ -1083,6 +1125,57 @@ async function runStep(
       return `cancelled ${cancelled} pending run${cancelled === 1 ? '' : 's'} (${scope})`;
     }
 
+    case 'create_task': {
+      const cfg = step.step_config as CreateTaskStepConfig;
+      if (!cfg.title) throw new Error('create_task needs title');
+
+      // O prazo em dias ÚTEIS por padrão, lendo o §B da 066. Uma automação
+      // que dispara numa sexta e marca "+2 dias" em dias corridos põe a
+      // ligação no domingo, quando ninguém vai ligar — e o sintoma é uma
+      // tarefa vencida na segunda que ninguém entende por que nasceu
+      // vencida.
+      const { hours } = await loadBusinessHours(db, args.automation.account_id);
+      const today = localParts(new Date(), hours.timezone).dateKey;
+      const days = cfg.due_in_days ?? 0;
+      const dueOn =
+        cfg.due_in_business_days === false
+          ? toISO(addDays(fromISO(today) ?? new Date(), days))
+          : addBusinessDays(hours, today, days);
+
+      // `deal_owner` resolve para quem cuida da oportunidade desta
+      // execução. É o valor que se usa de verdade: "quem cuida deste
+      // cliente liga para ele" não precisa saber o nome de ninguém, e
+      // continua certo depois que a equipe muda.
+      let assignedTo: string | null = cfg.assign_to ?? null;
+      if (cfg.assign_to === 'deal_owner') {
+        assignedTo = await resolveDealOwner(db, args);
+      }
+
+      const { data: created } = await db
+        .from('tasks')
+        .insert({
+          account_id: args.automation.account_id,
+          created_by: args.automation.user_id,
+          title: await interpolate(cfg.title, args),
+          description: cfg.description
+            ? await interpolate(cfg.description, args)
+            : null,
+          kind: cfg.kind ?? 'todo',
+          status: 'open',
+          due_on: dueOn,
+          due_time: cfg.due_time ?? null,
+          remind_minutes_before: cfg.remind_minutes_before ?? null,
+          assigned_to: assignedTo,
+          contact_id: args.contactId,
+          deal_id: args.context.deal_id ?? null,
+        })
+        .select('id')
+        .maybeSingle();
+
+      if (!created) throw new Error('create_task: insert failed');
+      return `task created for ${dueOn}`;
+    }
+
     case 'send_webhook': {
       const cfg = step.step_config as SendWebhookStepConfig;
       if (!cfg.url) throw new Error('send_webhook needs url');
@@ -1424,6 +1517,17 @@ export function triggerMatches(
     if (wantQr && ctx?.quick_reply_id === wantQr) return true;
     if (wantTpl && ctx?.template_name === wantTpl) return true;
     return false;
+  }
+
+  // O TIPO da tarefa concluída, quando a automação nomeia um. Sem filtro,
+  // qualquer tarefa serve — e é o padrão certo: "quando alguém terminar
+  // algo para este cliente" é uma regra legítima, e exigir um tipo faria a
+  // automação mais comum precisar de configuração para dizer "tanto faz".
+  if (automation.trigger_type === 'task_completed') {
+    const cfg = automation.trigger_config as TaskCompletedTriggerConfig;
+    const want = (cfg?.task_kind ?? '').trim();
+    if (!want) return true;
+    return ctx?.task_kind === want;
   }
 
   // Which contact date is today — so a birthday automation does not fire

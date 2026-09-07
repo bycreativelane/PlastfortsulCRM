@@ -763,6 +763,12 @@ export interface BroadcastRecipient {
 // ============================================================
 
 export type AutomationTriggerType =
+  /**
+   * Uma tarefa foi concluída (068). O outro lado da `create_task`: o
+   * pós-venda que só começa depois que a ligação de fato aconteceu, e não
+   * depois que alguém arrastou um cartão.
+   */
+  | 'task_completed'
   | 'new_message_received'
   | 'first_inbound_message'
   | 'keyword_match'
@@ -822,6 +828,13 @@ export type AutomationStepType =
   | 'update_deal'
   /** Cancel pending waits of other automations for this deal or contact. */
   | 'cancel_automations'
+  /**
+   * Marcar uma tarefa para alguém (migração 068, fase 6 do plano de
+   * agendas). Fecha a decisão 2 do `spec-automacoes-fluxo.md`: até aqui o
+   * motor sabia mover a oportunidade para a etapa "Ligação", o que diz QUE
+   * alguém deve ligar e não diz quem, nem quando, nem se já ligou.
+   */
+  | 'create_task'
   /** Stop the run here, inside a branch too, with a reason for the log. */
   | 'end';
 
@@ -949,6 +962,48 @@ export interface CreateDealStepConfig {
   value?: number;
 }
 
+/**
+ * A tarefa que uma automação marca.
+ *
+ * O prazo é RELATIVO e em dias ÚTEIS por padrão, e essa é a decisão que
+ * carrega o resto: uma automação que dispara numa sexta e marca "+2 dias"
+ * em dias corridos põe a ligação no domingo, quando ninguém vai ligar. O
+ * §B da 066 já sabe que dias a empresa atende — `addBusinessDays` lê isso.
+ *
+ * `assign_to` aceita um id fixo ou a palavra `deal_owner`, que resolve para
+ * o dono da oportunidade da execução. A segunda é a que se usa de verdade:
+ * "quem cuida deste cliente liga para ele" não precisa saber o nome de
+ * ninguém, e continua certo depois que a equipe muda.
+ */
+/**
+ * O filtro do gatilho `task_completed`.
+ *
+ * Vazio significa "qualquer tarefa", e é o padrão de propósito: "quando
+ * alguém terminar algo para este cliente" é uma regra legítima, e exigir um
+ * tipo faria a automação mais comum precisar de configuração para dizer
+ * "tanto faz".
+ */
+export interface TaskCompletedTriggerConfig {
+  /** Um de `TASK_KINDS`, ou vazio para qualquer um. */
+  task_kind?: string;
+}
+
+export interface CreateTaskStepConfig {
+  title: string;
+  description?: string;
+  /** Um de `TASK_KINDS`. Padrão `todo`. */
+  kind?: string;
+  /** Id de usuário do auth, ou `deal_owner`. Vazio deixa sem responsável. */
+  assign_to?: string;
+  /** Quantos dias a partir de hoje. Zero é "hoje". */
+  due_in_days?: number;
+  /** Dias úteis (padrão) ou corridos. */
+  due_in_business_days?: boolean;
+  /** `HH:MM`. Sem isto a tarefa é do DIA, que é informação e não ausência. */
+  due_time?: string;
+  remind_minutes_before?: number;
+}
+
 export interface WaitStepConfig {
   amount: number;
   unit: 'minutes' | 'hours' | 'days';
@@ -1033,6 +1088,7 @@ export type AutomationStepConfig =
   | AssignConversationStepConfig
   | UpdateContactFieldStepConfig
   | CreateDealStepConfig
+  | CreateTaskStepConfig
   | WaitStepConfig
   | ConditionStepConfig
   | SendWebhookStepConfig

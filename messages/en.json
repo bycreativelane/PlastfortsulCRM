@@ -1757,7 +1757,8 @@
         "move_deal_stage": "Move deal to stage",
         "update_deal": "Update deal",
         "cancel_automations": "Cancel automations",
-        "end": "End automation"
+        "end": "End automation",
+        "create_task": "Create task"
       },
       "triggers": {
         "new_message_received": {
@@ -1807,6 +1808,10 @@
         "date_field_reached": {
           "label": "Contact date is today",
           "hint": "Once a day, for every contact whose birthday or purchase date is today. Never twice for the same contact and day."
+        },
+        "task_completed": {
+          "label": "Task completed",
+          "hint": "When somebody marks a task as done. With no kind chosen it matches any task, which is the common case: \"when somebody finishes something for this customer\"."
         }
       },
       "trigger": "Trigger",

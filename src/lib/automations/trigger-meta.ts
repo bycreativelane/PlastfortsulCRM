@@ -29,6 +29,7 @@ const KNOWN_TRIGGERS: Record<AutomationTriggerType, true> = {
   deal_stage_entered: true,
   team_message_sent: true,
   date_field_reached: true,
+  task_completed: true,
 };
 
 /**

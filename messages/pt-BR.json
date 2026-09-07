@@ -1757,7 +1757,8 @@
         "move_deal_stage": "Mover oportunidade de etapa",
         "update_deal": "Atualizar oportunidade",
         "cancel_automations": "Cancelar automações",
-        "end": "Encerrar automação"
+        "end": "Encerrar automação",
+        "create_task": "Criar tarefa"
       },
       "triggers": {
         "new_message_received": {
@@ -1807,6 +1808,10 @@
         "date_field_reached": {
           "label": "Data do contato chegou",
           "hint": "Uma vez por dia, para cada contato cujo aniversário ou data de compra é hoje. Nunca duas vezes para o mesmo contato no mesmo dia."
+        },
+        "task_completed": {
+          "label": "Tarefa concluída",
+          "hint": "Quando alguém marca uma tarefa como feita. Sem escolher o tipo, vale para qualquer uma — que é o caso mais comum: \"quando terminarem algo para este cliente\"."
         }
       },
       "trigger": "Gatilho",

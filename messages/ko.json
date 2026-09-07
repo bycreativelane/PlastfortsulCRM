@@ -1757,7 +1757,8 @@
         "move_deal_stage": "거래 단계 이동",
         "update_deal": "거래 업데이트",
         "cancel_automations": "자동화 취소",
-        "end": "자동화 종료"
+        "end": "자동화 종료",
+        "create_task": "작업 만들기"
       },
       "triggers": {
         "new_message_received": {
@@ -1807,6 +1808,10 @@
         "date_field_reached": {
           "label": "연락처 날짜 도래",
           "hint": "하루에 한 번, 생일이나 구매 날짜가 오늘인 모든 연락처에 대해. 같은 연락처와 날짜에 두 번 실행되지 않습니다."
+        },
+        "task_completed": {
+          "label": "작업 완료",
+          "hint": "누군가 작업을 완료로 표시할 때. 종류를 고르지 않으면 모든 작업에 적용됩니다."
         }
       },
       "trigger": "트리거",

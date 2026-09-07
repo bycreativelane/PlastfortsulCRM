@@ -12,7 +12,8 @@
 > expediente semeadas, exceções vazias). A **Fase 2 está no código**, na
 > `068_tasks.sql` — **aplicada em 3 de setembro de 2026** e conferida
 > contra o projeto em 6 de setembro (tabela `tasks` respondendo, vazia). As
-> fases 3 a 7 não começaram.
+> **fase 3 foi entregue em 6 de setembro de 2026**; as fases 4 a 7 não
+> começaram.
 >
 > **Numeração.** A `066_business_hours.sql` foi aplicada em 3 de setembro de
 > 2026, junto com a 065 e a 067. A **067 é de outra entrega**
@@ -646,7 +647,7 @@ coisa: um contrato para fora.
 setembro: `tasks` e `notifications.task_id` respondendo. A fase está
 fechada.
 
-## Fase 3 — `/agenda`, com eixo de horas — (M)
+## Fase 3 — `/agenda`, com eixo de horas — (M) — ✅ ENTREGUE
 
 - `src/app/(dashboard)/agenda/page.tsx` + entrada na `sidebar.tsx` e na
   `mobile-tab-bar.tsx`.
@@ -654,6 +655,26 @@ fechada.
   `MonthGrid`; as de semana e dia desenham entre os limites do §B.
 - Filtros por tipo e por responsável; "Minhas" como padrão.
 - Deep link `?task=<id>` e `?d=<YYYY-MM-DD>`.
+
+**Entregue em 6 de setembro de 2026.** `lib/agenda/view.ts` com as contas
+puras (20 testes), `components/agenda/` com a grade compartilhada
+(`time-grid.tsx`) e os três modos, `/agenda` na barra lateral atrás de
+`tasks.view` e em `PROTECTED_PATHS`, e i18n nos três idiomas.
+
+Três coisas apareceram no caminho e ficaram resolvidas:
+
+- O `href` da tarefa apontava para `/contacts` e não para `/agenda?task=`
+  como o §C2 manda — a fase 2 desviou porque a página não existia.
+- `AgendaItem` ganhou `owner` (id de auth), obrigatório para que cada fonte
+  decida em vez de herdar `undefined`. A oportunidade fica de fora:
+  `deals.assigned_to` referencia `profiles.id` e `tasks.assigned_to`
+  referencia `auth.users`, e comparar os dois sem o `join` filtraria errado
+  em silêncio. Quando a oportunidade entrar, entra pelo `user_id`.
+- `KIND_ICON`, `TONE_DOT` e `TONE_CHIP` estavam duplicados nos dois
+  calendários; viraram `components/agenda/tokens.ts`.
+
+**Não verificado em tela.** O build prerenderiza a rota e os testes cobrem as
+contas, mas ver a grade desenhada exige uma sessão autenticada.
 
 **Fica pronto:** o calendário deixa de ser um painel e vira um lugar.
 

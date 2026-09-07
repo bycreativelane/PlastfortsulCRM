@@ -6,6 +6,8 @@ import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 
 import { createClient } from '@/lib/supabase/client';
+import { useAuth } from '@/hooks/use-auth';
+import { moveContactToFuturePurchase } from '@/lib/deals/future-purchase';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -44,10 +46,14 @@ function isoInDays(days: number): string {
  * also the column the repurchase automation reads, so a date set here is not a
  * note — it is the thing that will eventually make the CRM speak.
  *
- * What this deliberately does NOT do is the prototype's second half: choosing
- * the template to send on the day, and promising that the funnel moves itself.
- * Neither exists yet. A dialog that says the machine will take it from here,
- * when nothing will, is worse than a date field.
+ * Desde 7 de setembro de 2026 ele também MOVE a oportunidade para
+ * VENDAS → Compra Futura (item 5 do pacote de correções). Antes disso o
+ * comentário aqui dizia que o funil não se movia sozinho, e dizia a verdade
+ * — que era o problema: o vendedor registrava a compra futura na conversa e
+ * a oportunidade ficava parada até alguém abrir o Kanban e arrastá-la.
+ *
+ * O que continua fora: escolher o template a enviar no dia. Isso é da
+ * automação de Compra Futura, e não deste diálogo.
  */
 export function FuturePurchaseDialog({
   open,
@@ -61,6 +67,7 @@ export function FuturePurchaseDialog({
   onSaved: () => void;
 }) {
   const t = useTranslations('Contacts.futurePurchase');
+  const { user, accountId } = useAuth();
   const [date, setDate] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -88,6 +95,30 @@ export function FuturePurchaseDialog({
       toast.error(t('toastFailed'));
       return;
     }
+    // Só quando há data: limpar a compra futura não é o mesmo que marcar
+    // uma, e mover a oportunidade ao apagar a data faria o desfazer ter um
+    // efeito que ninguém pediu.
+    if (date && accountId && user?.id) {
+      const outcome = await moveContactToFuturePurchase(
+        createClient(),
+        contact.id,
+        accountId,
+        user.id
+      );
+      // Falhar em mover NÃO desfaz a data. A data é o que a automação de
+      // recompra lê, e ela é a parte que sempre funcionou; perder o
+      // registro porque o funil não tem a etapa seria trocar um problema
+      // por um pior.
+      if (outcome.action === 'skipped') {
+        toast.warning(t('toastStageSkipped'));
+      } else {
+        toast.success(t('toastSavedAndMoved'));
+        onOpenChange(false);
+        onSaved();
+        return;
+      }
+    }
+
     toast.success(date ? t('toastSaved') : t('toastCleared'));
     onOpenChange(false);
     onSaved();

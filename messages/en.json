@@ -1044,7 +1044,9 @@
       "confirm": "Confirm",
       "toastSaved": "Future purchase scheduled",
       "toastCleared": "Future purchase cleared",
-      "toastFailed": "Could not save the future purchase"
+      "toastFailed": "Could not save the future purchase",
+      "toastSavedAndMoved": "Date saved and deal moved to Future Purchase",
+      "toastStageSkipped": "Date saved. The deal was not moved — check that the Sales pipeline has a Future Purchase stage."
     },
     "occurrences": {
       "title": "Occurrence history",

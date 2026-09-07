@@ -1044,7 +1044,9 @@
       "confirm": "Confirmar",
       "toastSaved": "Compra futura registrada",
       "toastCleared": "Compra futura removida",
-      "toastFailed": "Não foi possível salvar a compra futura"
+      "toastFailed": "Não foi possível salvar a compra futura",
+      "toastSavedAndMoved": "Data salva e oportunidade movida para Compra Futura",
+      "toastStageSkipped": "Data salva. A oportunidade não foi movida — confira se o funil Vendas tem a etapa Compra Futura."
     },
     "occurrences": {
       "title": "Histórico de ocorrências",

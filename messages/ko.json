@@ -1044,7 +1044,9 @@
       "confirm": "확인",
       "toastSaved": "향후 구매가 등록되었습니다",
       "toastCleared": "향후 구매가 삭제되었습니다",
-      "toastFailed": "향후 구매를 저장하지 못했습니다"
+      "toastFailed": "향후 구매를 저장하지 못했습니다",
+      "toastSavedAndMoved": "날짜가 저장되고 영업기회가 향후 구매로 이동했습니다",
+      "toastStageSkipped": "날짜가 저장되었습니다. 영업기회는 이동하지 않았습니다 — 파이프라인에 해당 단계가 있는지 확인하세요."
     },
     "occurrences": {
       "title": "이슈 이력",

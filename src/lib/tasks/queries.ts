@@ -65,6 +65,32 @@ export async function loadTasksFor(
   return sortTasks((data ?? []) as unknown as Task[]);
 }
 
+/**
+ * Uma tarefa, pelo id — o que o link `/agenda?task=<id>` precisa saber.
+ *
+ * Existe porque um link profundo chega SEM contexto: a pessoa veio de uma
+ * notificação de lembrete, de um e-mail, ou de um endereço que ela mesma
+ * guardou, e nenhuma dessas rotas passou pela lista de onde a tarefa
+ * poderia ser lida. Procurar na janela já carregada da agenda quase
+ * funciona, e o "quase" é o problema — uma tarefa de outro mês, ou uma já
+ * concluída, não está lá, e o diálogo abriria vazio em vez de abrir.
+ *
+ * Devolve `null` em vez de erro: a tarefa pode ter sido excluída depois que
+ * o link foi guardado, e isso é um desfecho normal, não uma falha.
+ */
+export async function loadTask(
+  db: SupabaseClient,
+  id: string
+): Promise<Task | null> {
+  const { data, error } = await db
+    .from('tasks')
+    .select(COLUMNS)
+    .eq('id', id)
+    .maybeSingle();
+  if (error || !data) return null;
+  return data as unknown as Task;
+}
+
 // ------------------------------------------------------------
 // A parte pura
 // ------------------------------------------------------------

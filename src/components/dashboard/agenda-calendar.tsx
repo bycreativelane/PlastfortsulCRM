@@ -5,17 +5,10 @@ import Link from 'next/link';
 import { useLocale, useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import {
-  AlertTriangle,
-  Briefcase,
-  Cake,
   CalendarClock,
   CalendarDays,
   ChevronRight,
-  ListChecks,
   Loader2,
-  Radio,
-  RefreshCw,
-  Zap,
 } from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/client';
@@ -42,8 +35,12 @@ import {
   tonesOf,
   type AgendaItem,
   type AgendaKind,
-  type AgendaTone,
 } from '@/lib/dashboard/agenda';
+import {
+  KIND_ICON,
+  TONE_CHIP,
+  TONE_DOT,
+} from '@/components/agenda/tokens';
 import { MonthGrid, MonthNav } from '@/components/ui/month-grid';
 import {
   Popover,
@@ -92,18 +89,6 @@ import { StatusBadge } from '@/components/ui/status-badge';
  * is in charge of what.
  */
 
-const KIND_ICON: Record<
-  AgendaKind,
-  React.ComponentType<{ className?: string }>
-> = {
-  task: ListChecks,
-  deal: Briefcase,
-  repurchase: RefreshCw,
-  occurrence: AlertTriangle,
-  automation: Zap,
-  broadcast: Radio,
-  birthday: Cake,
-};
 
 /**
  * The dot on a day cell, and the ink of an active filter chip.
@@ -115,19 +100,7 @@ const KIND_ICON: Record<
  * channel left once the hue is spent, and it is the right one — a birthday
  * is the quietest thing on this calendar.
  */
-const TONE_DOT: Record<AgendaTone, string> = {
-  human: 'bg-human',
-  auto: 'bg-auto',
-  danger: 'bg-danger',
-  neutral: 'bg-muted-foreground/40',
-};
 
-const TONE_CHIP: Record<AgendaTone, string> = {
-  human: 'bg-human-soft text-human-ink',
-  auto: 'bg-auto-soft text-auto-ink',
-  danger: 'bg-danger-soft text-danger-ink',
-  neutral: 'bg-muted text-muted-foreground',
-};
 
 export function AgendaCalendar() {
   const t = useTranslations('Today.agenda');

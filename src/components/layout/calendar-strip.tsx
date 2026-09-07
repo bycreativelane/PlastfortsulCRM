@@ -4,15 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useLocale, useTranslations } from 'next-intl';
 import {
-  AlertTriangle,
-  Briefcase,
-  Cake,
   ChevronLeft,
   ChevronRight,
-  ListChecks,
-  Radio,
-  RefreshCw,
-  Zap,
 } from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/client';
@@ -32,9 +25,12 @@ import {
   loadAgenda,
   tonesOf,
   type AgendaItem,
-  type AgendaKind,
-  type AgendaTone,
 } from '@/lib/dashboard/agenda';
+import {
+  KIND_ICON,
+  TONE_CHIP,
+  TONE_DOT,
+} from '@/components/agenda/tokens';
 import { cn } from '@/lib/utils';
 import { Popover, PopoverContent } from '@/components/ui/popover';
 
@@ -61,33 +57,9 @@ import { Popover, PopoverContent } from '@/components/ui/popover';
  * what is on screen, unlike the panel's month.
  */
 
-const KIND_ICON: Record<
-  AgendaKind,
-  React.ComponentType<{ className?: string }>
-> = {
-  task: ListChecks,
-  deal: Briefcase,
-  repurchase: RefreshCw,
-  occurrence: AlertTriangle,
-  automation: Zap,
-  broadcast: Radio,
-  birthday: Cake,
-};
 
 /** Same palette as the dashboard's calendar, deliberately — see its note. */
-const TONE_DOT: Record<AgendaTone, string> = {
-  human: 'bg-human',
-  auto: 'bg-auto',
-  danger: 'bg-danger',
-  neutral: 'bg-muted-foreground/40',
-};
 
-const TONE_CHIP: Record<AgendaTone, string> = {
-  human: 'bg-human-soft text-human-ink',
-  auto: 'bg-auto-soft text-auto-ink',
-  danger: 'bg-danger-soft text-danger-ink',
-  neutral: 'bg-muted text-muted-foreground',
-};
 
 /** Start of the week `date` falls in, for this locale's first day. */
 function startOfWeek(date: Date, weekStart: number): Date {

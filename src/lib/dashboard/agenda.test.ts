@@ -30,6 +30,7 @@ function item(
     contact: null,
     value: null,
     currency: null,
+    owner: null,
     status: null,
     href: null,
     reschedule: null,

@@ -12,6 +12,7 @@ import type { Capability } from '@/lib/auth/capabilities';
 import { useTotalUnread } from '@/hooks/use-total-unread';
 import {
   BarChart3,
+  CalendarDays,
   ChevronLeft,
   ChevronRight,
   ChevronsUpDown,
@@ -150,6 +151,20 @@ const navGroups: NavGroup[] = [
         labelKey: 'inbox',
         icon: MessageSquare,
         capability: 'inbox.view',
+      },
+      // LOGO DEPOIS DA CAIXA DE ENTRADA, e não antes dela.
+      //
+      // As duas respondem à mesma metade do dia por dois lados: a caixa
+      // diz o que CHEGOU, a agenda diz o que foi PROMETIDO. A ordem entre
+      // elas é a ordem em que a pergunta aparece — ninguém abre o CRM para
+      // consultar a própria agenda antes de ver se alguém falou com a
+      // empresa. Mas vem antes do funil, porque um compromisso marcado
+      // para hoje é mais urgente que uma oportunidade que fecha no mês.
+      {
+        href: '/agenda',
+        labelKey: 'agenda',
+        icon: CalendarDays,
+        capability: 'tasks.view',
       },
       {
         href: '/pipelines',

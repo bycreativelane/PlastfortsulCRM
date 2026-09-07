@@ -23,6 +23,7 @@ import { NextResponse, type NextRequest } from 'next/server';
  * this file ever sees it, and `/settings` is guarded below.
  */
 export const PROTECTED_PATHS = [
+  '/agenda',
   '/automations',
   '/broadcasts',
   '/contacts',

@@ -101,7 +101,8 @@
     "primaryNav": "Navegação principal",
     "products": "Produtos",
     "more": "Mais",
-    "playbook": "Playbook"
+    "playbook": "Playbook",
+    "agenda": "Agenda"
   },
   "Roadmap": {
     "regionLabel": "Próximas novidades",
@@ -3770,5 +3771,32 @@
     "onRequest": "Sob consulta",
     "copySheet": "Copiar ficha",
     "emptyProducts": "Os produtos cadastrados em Produtos aparecem aqui para consulta."
+  },
+  "Agenda": {
+    "allDay": "Dia todo",
+    "more": "+{count}",
+    "previous": "Período anterior",
+    "next": "Próximo período",
+    "today": "Hoje",
+    "loading": "Carregando a agenda...",
+    "ownerLabel": "Responsável",
+    "ownerMine": "Minhas",
+    "ownerAll": "De todos",
+    "newTask": "Nova tarefa",
+    "view": {
+      "month": "Mês",
+      "week": "Semana",
+      "day": "Dia"
+    },
+    "itemCount": "{count, plural, =1 {1 item} other {# itens}}",
+    "kind": {
+      "deal": "Fechamento previsto",
+      "repurchase": "Compra futura",
+      "occurrence": "Ocorrência em aberto",
+      "automation": "Automação agendada",
+      "broadcast": "Campanha",
+      "birthday": "Aniversário",
+      "task": "Tarefa"
+    }
   }
 }

@@ -282,7 +282,20 @@ export const AUTOMATION_TEMPLATES: Record<
     },
   },
 
-  /** §3–§4 — D1, D3, D10, then D30, then 24 h → Geladeira 30D. */
+  /**
+   * §3–§4 — D1 → D2 → D3 → D30, e daí direto para a Geladeira 30D.
+   *
+   * A sequência foi corrigida em 7 de setembro de 2026 contra o pacote de
+   * testes reais (item 20). O modelo anterior era D1 → D3 → D10 → D30 com
+   * esperas de 2, 7 e 20 dias, e o fluxo oficial não usa mais o D10 nem o
+   * D15 — o desenho atual concentra três toques na primeira semana e um
+   * último no fim do mês.
+   *
+   * O `wait` de 24 h antes de mover para a Geladeira também saiu: o item 20
+   * diz "mover imediatamente". Aquela espera criava uma janela em que a
+   * oportunidade já tinha recebido a última mensagem e ainda aparecia em
+   * Follow-up, que é onde ela não está mais.
+   */
   funnel_followup: {
     slug: 'funnel_followup',
     group: 'funnel',
@@ -293,39 +306,41 @@ export const AUTOMATION_TEMPLATES: Record<
       {
         step_type: 'send_template',
         step_config: {
-          template_name: 'followup_d1',
+          template_name: 'followup_orcamento_d1',
           language: PT_BR,
           variables: { '1': '{{contact.first_name}}', '2': '{{deal.title}}' },
         },
       },
-      { step_type: 'wait', step_config: { amount: 2, unit: 'days' } },
+      { step_type: 'wait', step_config: { amount: 1, unit: 'days' } },
       {
         step_type: 'send_template',
         step_config: {
-          template_name: 'followup_d3',
+          template_name: 'followup_orcamento_d2',
           language: PT_BR,
           variables: { '1': '{{contact.first_name}}', '2': '{{deal.title}}' },
         },
       },
-      { step_type: 'wait', step_config: { amount: 7, unit: 'days' } },
+      { step_type: 'wait', step_config: { amount: 1, unit: 'days' } },
       {
         step_type: 'send_template',
         step_config: {
-          template_name: 'followup_d10',
+          template_name: 'followup_orcamento_d3',
+          language: PT_BR,
+          variables: { '1': '{{contact.first_name}}', '2': '{{deal.title}}' },
+        },
+      },
+      // 27 e não 30: as três esperas somam 1 + 1 + 27 = 29 dias desde a
+      // entrada em Follow-up, e o D30 sai no trigésimo. Contar 30 aqui
+      // mandaria a última mensagem no dia 33.
+      { step_type: 'wait', step_config: { amount: 27, unit: 'days' } },
+      {
+        step_type: 'send_template',
+        step_config: {
+          template_name: 'followup_orcamento_d30',
           language: PT_BR,
           variables: { '1': '{{contact.first_name}}' },
         },
       },
-      { step_type: 'wait', step_config: { amount: 20, unit: 'days' } },
-      {
-        step_type: 'send_template',
-        step_config: {
-          template_name: 'followup_d30',
-          language: PT_BR,
-          variables: { '1': '{{contact.first_name}}' },
-        },
-      },
-      { step_type: 'wait', step_config: { amount: 24, unit: 'hours' } },
       {
         step_type: 'move_deal_stage',
         step_config: { stage_id: '' },
@@ -385,6 +400,18 @@ export const AUTOMATION_TEMPLATES: Record<
     triggerRefs: { stage: FUNNEL.fridge30 },
     steps: [
       { step_type: 'wait', step_config: { amount: 30, unit: 'days' } },
+      // A reativação FALTAVA: o modelo esperava trinta dias e movia a
+      // oportunidade de Geladeira 30D para 60D sem falar com ninguém — uma
+      // automação cujo efeito visível era uma coluna mudando de nome. O
+      // item 22 do pacote é explícito sobre a mensagem.
+      {
+        step_type: 'send_template',
+        step_config: {
+          template_name: 'reativacao30dgeladeira30d',
+          language: PT_BR,
+          variables: { '1': '{{contact.first_name}}' },
+        },
+      },
       {
         step_type: 'move_deal_stage',
         step_config: { stage_id: '' },
@@ -461,7 +488,7 @@ export const AUTOMATION_TEMPLATES: Record<
       {
         step_type: 'send_template',
         step_config: {
-          template_name: 'posvenda_d20',
+          template_name: 'posvenda20d',
           language: PT_BR,
           variables: { '1': '{{contact.first_name}}' },
         },
@@ -484,9 +511,9 @@ export const AUTOMATION_TEMPLATES: Record<
       {
         step_type: 'send_template',
         step_config: {
-          template_name: 'recompra_60d',
+          template_name: 'recompra_120d',
           language: PT_BR,
-          variables: { '1': '{{contact.first_name}}', '2': '120' },
+          variables: { '1': '{{contact.first_name}}' },
         },
       },
       { step_type: 'end', step_config: { reason: 'after_sale_complete' } },
@@ -519,7 +546,7 @@ export const AUTOMATION_TEMPLATES: Record<
       {
         step_type: 'send_template',
         step_config: {
-          template_name: 'compra_futura',
+          template_name: 'comprafutura',
           language: PT_BR,
           variables: { '1': '{{contact.first_name}}' },
         },
@@ -548,7 +575,7 @@ export const AUTOMATION_TEMPLATES: Record<
       {
         step_type: 'send_template',
         step_config: {
-          template_name: 'aniversario_cliente',
+          template_name: 'aniversario',
           language: PT_BR,
           variables: { '1': '{{contact.first_name}}' },
         },

@@ -275,3 +275,47 @@ describe('buildSendComponents — end-to-end mix', () => {
     expect((components[2] as { index: string }).index).toBe('1');
   });
 });
+
+describe('(#132000) template sem variável', () => {
+  /**
+   * O bug real, de 7 de setembro de 2026: `aniversario` e `comprafutura`
+   * falhavam com "(#132000) Number of parameters does not match the
+   * expected number of params" em toda execução.
+   *
+   * A automação foi montada quando o template tinha `{{1}}` para o nome; o
+   * template foi recriado sem variável; a automação seguiu mandando o
+   * valor. A condição antiga (`varCount === 0 && body.length === 0`) só
+   * pulava o componente quando as DUAS coisas eram verdade, então com um
+   * valor sobrando ela emitia `parameters: []` — um componente de corpo
+   * vazio, que a Meta recusa.
+   */
+  const estatico = {
+    name: 'aniversario',
+    language: 'pt_BR',
+    body_text: 'Feliz aniversário! Nós da PlastfortSul desejamos tudo de bom.',
+  } as unknown as MessageTemplate;
+
+  it('não manda componente de corpo quando não há variável', () => {
+    expect(buildSendComponents(estatico, {})).toEqual([]);
+  });
+
+  it('IGNORA um valor sobrando em vez de mandar corpo vazio', () => {
+    const components = buildSendComponents(estatico, { body: ['Maria'] });
+    expect(components).toEqual([]);
+    // A regressão que isto tranca: um `{ type: 'body', parameters: [] }`
+    // aqui é o erro #132000 em produção, a cada envio.
+    expect(components.some((c) => c.type === 'body')).toBe(false);
+  });
+
+  it('com variável, continua mandando exatamente os N valores', () => {
+    const comVar = {
+      name: 'followup_orcamento_d1',
+      language: 'pt_BR',
+      body_text: 'Oi {{1}}, conseguiu ver o orçamento?',
+    } as unknown as MessageTemplate;
+
+    const components = buildSendComponents(comVar, { body: ['Maria'] });
+    const body = components.find((c) => c.type === 'body');
+    expect(body?.parameters).toEqual([{ type: 'text', text: 'Maria' }]);
+  });
+});

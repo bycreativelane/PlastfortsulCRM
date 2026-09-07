@@ -2,6 +2,10 @@ import { describe, expect, it } from 'vitest';
 
 import { PLASTFORTSUL_TEMPLATES } from '@/lib/whatsapp/plastfortsul-templates';
 import {
+  isApprovedTemplate,
+  isRetiredTemplate,
+} from '@/lib/whatsapp/approved-templates';
+import {
   AUTOMATION_TEMPLATES,
   FUNNEL,
   TEMPLATE_SLUGS,
@@ -24,19 +28,55 @@ describe('the funnel templates', () => {
     expect(funnel).toHaveLength(10);
   });
 
-  it('only send Meta templates that exist in the PlastfortSul set', () => {
-    const known = new Set(PLASTFORTSUL_TEMPLATES.map((x) => x.name));
+  it('only send templates approved on the account', () => {
+    // A referência mudou em 2026-09-07: era o catálogo do protótipo
+    // (`PLASTFORTSUL_TEMPLATES`), que descreve templates PROPOSTOS. Os que
+    // existem na conta têm outros nomes, e as automações apontavam para os
+    // propostos — o envio falhava em produção.
     for (const slug of funnel) {
       for (const step of AUTOMATION_TEMPLATES[slug].steps) {
         if (step.step_type !== 'send_template') continue;
         const name = (step.step_config as { template_name: string })
           .template_name;
-        expect(known.has(name), `${slug} sends ${name}`).toBe(true);
+        expect(isApprovedTemplate(name), `${slug} sends ${name}`).toBe(true);
       }
     }
   });
 
-  it('fill every template variable the Meta template declares', () => {
+  it('never send a retired template', () => {
+    // O item 35 do pacote lista os aposentados sob "não fazer". Estar fora
+    // da lista de aprovados já bastaria para reprovar; esta asserção existe
+    // para que a MENSAGEM do erro diga "aposentado" e não "desconhecido".
+    for (const slug of funnel) {
+      for (const step of AUTOMATION_TEMPLATES[slug].steps) {
+        if (step.step_type !== 'send_template') continue;
+        const name = (step.step_config as { template_name: string })
+          .template_name;
+        expect(isRetiredTemplate(name), `${slug} sends retired ${name}`).toBe(
+          false
+        );
+      }
+    }
+  });
+
+  it('fill every template variable the prototype catalogue declares', () => {
+    // SÓ OS QUE O CATÁLOGO AINDA DESCREVE.
+    //
+    // Este teste comparava a configuração da automação com o corpo do
+    // template no catálogo do protótipo. Depois de 2026-09-07 o catálogo
+    // deixou de descrever os templates em uso — eles foram recriados na
+    // Meta com outros nomes e, pelo menos alguns, sem a variável de nome, e
+    // o pacote de correções lista os nomes sem transcrever os textos.
+    //
+    // Inventar um corpo aqui para manter a asserção seria trocar uma
+    // referência velha por uma imaginada, que é pior porque parece verdade.
+    // A verificação real dessas variáveis está em `buildBodyComponent`, que
+    // conta o corpo VERDADEIRO vindo de `message_templates` e descarta
+    // valor sobrando — foi essa a correção do erro #132000.
+    //
+    // Quando a sincronização com a Meta preencher `message_templates`, o
+    // lugar certo desta asserção é contra aquela tabela, não contra um
+    // arquivo do repositório.
     for (const slug of funnel) {
       for (const step of AUTOMATION_TEMPLATES[slug].steps) {
         if (step.step_type !== 'send_template') continue;
@@ -46,7 +86,8 @@ describe('the funnel templates', () => {
         };
         const meta = PLASTFORTSUL_TEMPLATES.find(
           (x) => x.name === cfg.template_name
-        )!;
+        );
+        if (!meta) continue;
         const declared = new Set(
           (meta.body_text.match(/\{\{(\d+)\}\}/g) ?? []).map((m) =>
             m.replace(/[{}]/g, '')

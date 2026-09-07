@@ -129,7 +129,26 @@ function buildBodyComponent(
 ): MetaSendComponent | null {
   const varCount = extractVariableIndices(template.body_text).length;
   const body = params.body ?? [];
-  if (varCount === 0 && body.length === 0) return null;
+
+  // TEMPLATE SEM VARIÁVEL NÃO LEVA COMPONENTE DE CORPO. NENHUM.
+  //
+  // Isto antes era `varCount === 0 && body.length === 0`, e o `&&` era o
+  // bug: com zero variáveis e um valor sobrando, a função caía adiante,
+  // cortava o array para zero e devolvia `{ type: 'body', parameters: [] }`
+  // — um componente de corpo VAZIO, que a Meta recusa com
+  // `(#132000) Number of parameters does not match the expected number of
+  // params`.
+  //
+  // O caminho para chegar lá é banal e foi o que aconteceu: a automação foi
+  // montada quando o template tinha `{{1}}` para o nome, o template foi
+  // recriado sem variável nenhuma, e a automação seguiu mandando o valor. O
+  // envio passou a falhar sempre, e a mensagem de erro fala de contagem de
+  // parâmetros quando o problema é a existência do componente.
+  //
+  // Valor sobrando é descartado, que é a mesma tolerância que a linha do
+  // `slice` abaixo já tinha para o caso de sobrar demais.
+  if (varCount === 0) return null;
+
   if (body.length < varCount) {
     throw new Error(
       `Body has ${varCount} variable(s) but only ${body.length} value(s) were supplied.`,

@@ -24,8 +24,11 @@ import { normalizeEmail, toMirrorEvent, type MirrorEvent } from './map';
  * 1. **Evento vinculado não entra no espelho.** Senão a mesma tarefa
  *    aparece duas vezes na agenda — uma como tarefa e outra como evento
  *    importado — e a pessoa que a concluir vê a cópia continuar lá.
- * 3. **Apagar na Google não apaga a tarefa.** Aqui isso é a metade fácil:
- *    o evento sai do espelho; o vínculo é assunto da fase 5.
+ * 3. **Apagar na Google não apaga a tarefa.** O evento sai do espelho e o
+ *    vínculo vai para `deleted`, mas a tarefa segue viva com o aviso na
+ *    tela. Sumir com o compromisso do CRM porque alguém limpou a agenda é
+ *    perda de dado silenciosa — e quem limpa a agenda nem sempre é quem
+ *    criou a tarefa.
  * 5. **410 força reimportação completa.** É o comportamento documentado da
  *    própria API e a única forma de voltar a um estado consistente.
  */
@@ -244,6 +247,20 @@ async function applyEvents(
       .from('calendar_events')
       .delete()
       .eq('source_id', source.id)
+      .in('external_id', cancelled);
+
+    // Regra 3, a outra metade: o vínculo de uma tarefa cujo evento foi
+    // apagado lá. `external_id` some junto para que o próximo envio crie
+    // de novo em vez de tentar remendar um id que não existe mais.
+    await db
+      .from('task_calendar_links')
+      .update({
+        sync_state: 'deleted',
+        external_id: null,
+        etag: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('account_id', source.account_id)
       .in('external_id', cancelled);
   }
 

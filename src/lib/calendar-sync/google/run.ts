@@ -1,7 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+import type { Task } from '@/types';
+
 import { GoogleApiError } from './client';
 import { syncSource, type ConnectionRow, type SourceRow } from './events';
+import { loadPushTargets, reconcileTask } from './push';
 
 /**
  * Uma passada de importação — o miolo que o cron e o botão compartilham.
@@ -99,6 +102,51 @@ async function recordFailure(
   }
 
   console.error(`[calendar] fonte ${source.external_id} falhou:`, message);
+}
+
+/**
+ * A caixa de saída: reenvia o que ficou pendente.
+ *
+ * O envio ao salvar é síncrono porque é o que a pessoa espera ver, mas uma
+ * rede que cai não pode custar o vínculo. O que falhou fica `pending` (ou
+ * `error`, se o motivo não for transitório) com `retry_after`, e este
+ * dreno é o que fecha o ciclo.
+ *
+ * Sem ele, o padrão de caixa de saída seria só metade: alguém escreveria
+ * as linhas de falha e ninguém as leria — que é pior do que não ter caixa
+ * nenhuma, porque a tela mostraria "aguardando" para sempre.
+ */
+export async function drainPending(
+  db: SupabaseClient,
+  connection: ConnectionRow
+): Promise<{ drained: number; failed: number }> {
+  const { data: links } = await db
+    .from('task_calendar_links')
+    .select('task_id')
+    .eq('account_id', connection.account_id)
+    .in('sync_state', ['pending', 'error'])
+    .or(`retry_after.is.null,retry_after.lte.${new Date().toISOString()}`)
+    .limit(50);
+
+  const taskIds = [
+    ...new Set(
+      ((links ?? []) as Array<{ task_id: string }>).map((row) => row.task_id)
+    ),
+  ];
+  if (taskIds.length === 0) return { drained: 0, failed: 0 };
+
+  const { data: tasks } = await db.from('tasks').select('*').in('id', taskIds);
+  const targets = await loadPushTargets(db, connection.id);
+
+  let drained = 0;
+  let failed = 0;
+  for (const task of (tasks ?? []) as unknown as Task[]) {
+    const outcome = await reconcileTask(db, connection, task, targets);
+    drained += outcome.pushed + outcome.deleted;
+    failed += outcome.failed;
+  }
+
+  return { drained, failed };
 }
 
 /** A conexão de uma conta, com os campos que o sync precisa. */

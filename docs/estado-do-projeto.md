@@ -36,20 +36,24 @@ commitados estão todos em LF. A CI não roda esse comando. Não "conserte".
 
 ---
 
-## As três pendências, e as três são de credencial
+## Pendências — duas, das três originais
 
-Nenhuma bloqueia o merge. Nenhuma pode ser resolvida por um agente.
+A primeira foi resolvida em 7 de setembro. As duas que restam dependem de
+uma conta na Google e de olhar uma tela, e nenhuma bloqueia o produto: sem
+as credenciais, a integração fica dormente e o resto funciona igual.
 
-### 1. A migração `069` não foi aplicada
+### 1. ~~A migração `069`~~ — RESOLVIDO em 7 de setembro de 2026
 
-`supabase/migrations/069_google_calendar.sql` está escrita e a CI a valida
-aplicando as 69 do zero num banco limpo. Mas o **banco de desenvolvimento
-não tem as tabelas** — `calendar_connections`, `calendar_sources`,
-`calendar_events`, `task_calendar_links`.
+`069_google_calendar` **foi aplicada** e conferida: as quatro tabelas
+respondem, e `calendar_connections` está com RLS ligada e **zero
+políticas** — o desenho pretendido, porque a linha guarda o refresh token e
+nenhum navegador deve conseguir lê-la. As outras três têm uma política de
+leitura cada, por `is_account_member`.
 
-Aplicadas e conferidas: `066`, `067`, `068`.
+Conferido também o `UNIQUE (account_id, provider)`, que é a decisão §D0: a
+conexão é da conta e não do vendedor.
 
-O caminho é o MCP do Supabase (ver abaixo), ou o SQL editor do painel.
+**As 69 migrações estão aplicadas.**
 
 ### 2. O OAuth da Google nunca falou com a Google
 

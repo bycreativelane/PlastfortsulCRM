@@ -116,8 +116,21 @@ describe("validateStepsForActivation", () => {
     expect(issues.map((i) => i.path).sort()).toEqual([
       "steps[0].pipeline_id",
       "steps[0].stage_id",
-      "steps[0].title",
     ]);
+  });
+
+  it("does NOT require a deal title — the engine names it", () => {
+    // A UI nunca marcou este campo como obrigatório, e exigi-lo aqui
+    // recusava a automação mais comum do produto ("toda conversa nova vira
+    // oportunidade") com um erro que não dizia qual campo faltava. O motor
+    // nomeia pelo contato — ver `resolveDealTitle`.
+    const issues = validateStepsForActivation([
+      {
+        step_type: "create_deal",
+        step_config: { pipeline_id: "p1", stage_id: "s1" },
+      },
+    ]);
+    expect(issues).toEqual([]);
   });
 
   it("validates send_buttons / send_list interactive payloads", () => {

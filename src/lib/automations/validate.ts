@@ -137,9 +137,20 @@ function validateOne(
       if (!nonEmpty(c.stage_id)) {
         issues.push({ path: `${path}.stage_id`, message: 'stage is required' });
       }
-      if (!nonEmpty(c.title)) {
-        issues.push({ path: `${path}.title`, message: 'title is required' });
-      }
+      // O TÍTULO NÃO É OBRIGATÓRIO, e não é esquecimento.
+      //
+      // A UI sempre desenhou este campo como um input comum, sem marca de
+      // obrigatório — e o validador recusava a ativação quando ele vinha
+      // vazio, com "Cannot keep automation active with invalid
+      // configuration". Quem montava a automação mais comum do produto
+      // ("toda conversa nova vira oportunidade") batia nessa parede sem
+      // nada na tela dizendo qual campo faltava.
+      //
+      // Das duas saídas — marcar o campo como obrigatório na UI, ou parar
+      // de exigi-lo — a segunda é a certa: o motor SABE de quem é a
+      // oportunidade, então ele consegue nomeá-la sozinho. Ver
+      // `resolveDealTitle` no engine: nome do contato, depois telefone, e
+      // nunca um UUID.
       break;
     case 'wait':
       if (c.mode === 'until_contact_date') {

@@ -1965,7 +1965,9 @@
         "placeholderReason": "예: 고객 답장",
         "endHint": "분기 안에서도 여기서 실행을 멈추고 사유를 기록합니다.",
         "quickReplyLabel": "빠른 답장",
-        "templateOrLabel": "…또는 템플릿 이름"
+        "templateOrLabel": "…또는 템플릿 이름",
+        "titleAutoPlaceholder": "연락처 이름",
+        "titleAutoHint": "비워 두면 연락처 이름이 사용됩니다. 이름이 없으면 전화번호가 사용됩니다."
       },
       "kinds": {
         "action": "동작",

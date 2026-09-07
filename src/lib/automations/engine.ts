@@ -670,6 +670,38 @@ async function executeStepsFrom(args: ExecuteArgs): Promise<ScopeOutcome> {
  * a coluna de tarefa gravaria um responsável que não existe, e a tarefa
  * apareceria sem dono sem que nada tivesse falhado.
  */
+/**
+ * O nome de uma oportunidade criada por automação.
+ *
+ * O título deixou de ser obrigatório na configuração (ver `validate.ts`),
+ * então o motor precisa saber nomear sozinho. A ordem é a que o pedido
+ * define: **nome do contato, depois telefone, e nunca um UUID**.
+ *
+ * Um UUID como título é o pior desfecho aqui, e não é hipotético: é o que
+ * sai se alguém "resolver" isto usando `contactId` como fallback. Quem
+ * abre o funil vê uma coluna de identificadores e não reconhece nenhum
+ * cliente — a oportunidade existe e é inútil.
+ */
+async function resolveDealTitle(
+  db: ReturnType<typeof supabaseAdmin>,
+  configured: string | undefined,
+  args: ExecuteArgs
+): Promise<string> {
+  const written = configured ? (await interpolate(configured, args)).trim() : '';
+  if (written) return written;
+
+  if (!args.contactId) return 'Oportunidade';
+
+  const { data: contact } = await db
+    .from('contacts')
+    .select('name, phone')
+    .eq('id', args.contactId)
+    .maybeSingle();
+
+  const row = contact as { name?: string | null; phone?: string | null } | null;
+  return row?.name?.trim() || row?.phone?.trim() || 'Oportunidade';
+}
+
 async function resolveDealOwner(
   db: ReturnType<typeof supabaseAdmin>,
   args: ExecuteArgs
@@ -969,7 +1001,7 @@ async function runStep(
           pipeline_id: cfg.pipeline_id,
           stage_id: cfg.stage_id,
           contact_id: args.contactId,
-          title: await interpolate(cfg.title, args),
+          title: await resolveDealTitle(db, cfg.title, args),
           value: cfg.value ?? 0,
           currency: acct?.default_currency ?? 'USD',
           status: 'open',

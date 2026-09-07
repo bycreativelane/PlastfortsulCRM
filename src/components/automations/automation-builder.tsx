@@ -369,6 +369,16 @@ interface AutomationResources {
   quickReplies: QuickReply[];
   /** For the cancel_automations step. */
   automations: AutomationOption[];
+  /**
+   * As listas ainda estão vindo do banco.
+   *
+   * Existe porque uma lista VAZIA e uma lista QUE AINDA NÃO CHEGOU são
+   * estados diferentes que davam a mesma resposta: `pipelines.length === 0`
+   * é verdade nos dois, e o seletor de etapa caía no seu modo de emergência
+   * — dois campos de texto cru — durante o instante inicial de toda edição.
+   * Quem abria uma automação via UUID, e às vezes clicava neles.
+   */
+  loading: boolean;
 }
 
 interface PipelineOption {
@@ -397,6 +407,7 @@ const ResourcesContext = createContext<AutomationResources>({
   stages: [],
   quickReplies: [],
   automations: [],
+  loading: true,
 });
 
 function useResources(): AutomationResources {
@@ -412,6 +423,7 @@ function ResourcesProvider({ children }: { children: ReactNode }) {
   const [stages, setStages] = useState<PipelineStageOption[]>([]);
   const [quickReplies, setQuickReplies] = useState<QuickReply[]>([]);
   const [automations, setAutomations] = useState<AutomationOption[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -451,6 +463,9 @@ function ResourcesProvider({ children }: { children: ReactNode }) {
       setPipelines((pipelinesRes.data as PipelineOption[] | null) ?? []);
       setStages((stagesRes.data as PipelineStageOption[] | null) ?? []);
       setAutomations((automationsRes.data as AutomationOption[] | null) ?? []);
+      // Só aqui: é esta leva que traz funis e etapas, que são as listas
+      // cuja ausência tem consequência visível.
+      setLoading(false);
     })();
 
     // Quick replies go through their API, which is what the composer's
@@ -497,6 +512,7 @@ function ResourcesProvider({ children }: { children: ReactNode }) {
         stages,
         quickReplies,
         automations,
+        loading,
       }}
     >
       {children}
@@ -872,8 +888,31 @@ function DealPipelineFields({
   onChange: (patch: { pipeline_id: string; stage_id: string }) => void;
   t: ReturnType<typeof useTranslations>;
 }) {
-  const { pipelines, stages } = useResources();
+  const { pipelines, stages, loading } = useResources();
 
+  // AINDA CARREGANDO ≠ NÃO EXISTE.
+  //
+  // Sem esta porta, o instante inicial de toda edição desenhava os dois
+  // campos de UUID abaixo — e o pedido é explícito: nunca mostrar UUID a
+  // quem usa. Campos desabilitados dizem "espere"; campos de texto com um
+  // identificador dentro dizem "digite um UUID", que é uma instrução que
+  // ninguém deveria receber.
+  if (loading) {
+    return (
+      <>
+        <FieldBlock label={t('pipelines.pipelineLabel')}>
+          <Input disabled value="" placeholder="…" className="bg-muted" />
+        </FieldBlock>
+        <FieldBlock label={t('pipelines.stageLabel')}>
+          <Input disabled value="" placeholder="…" className="bg-muted" />
+        </FieldBlock>
+      </>
+    );
+  }
+
+  // Carregou e não há funil nenhum: aí sim os campos crus, que é o modo de
+  // emergência para uma conta que ainda não montou o funil e para quem
+  // edita uma automação importada.
   if (pipelines.length === 0) {
     return (
       <>
@@ -2153,12 +2192,22 @@ function StepEditor({
             onChange={(patch) => set(patch)}
             t={t}
           />
+          {/*
+            Em branco NÃO é erro: o motor nomeia pelo contato. O placeholder
+            diz isso, porque um campo vazio sem explicação parece um
+            esquecimento — e era exatamente o que fazia a automação mais
+            comum do produto ser recusada na ativação.
+          */}
           <FieldBlock label={t('config.titleLabel')}>
             <Input
               value={(cfg.title as string) ?? ''}
               onChange={(e) => set({ title: e.target.value })}
+              placeholder={t('config.titleAutoPlaceholder')}
               className="bg-muted text-foreground"
             />
+            <p className="text-muted-foreground text-2xs mt-1">
+              {t('config.titleAutoHint')}
+            </p>
           </FieldBlock>
           <FieldBlock label={t('config.valueLabel')}>
             <Input

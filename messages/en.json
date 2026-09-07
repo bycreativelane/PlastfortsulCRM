@@ -1965,7 +1965,9 @@
         "placeholderReason": "e.g. customer replied",
         "endHint": "Stops the run here, inside a branch too, and records the reason.",
         "quickReplyLabel": "Quick reply",
-        "templateOrLabel": "…or a template name"
+        "templateOrLabel": "…or a template name",
+        "titleAutoPlaceholder": "Contact name",
+        "titleAutoHint": "Left blank, the deal takes the contact’s name — or their phone number, if there is no name."
       },
       "kinds": {
         "action": "Action",

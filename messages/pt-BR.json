@@ -1965,7 +1965,9 @@
         "placeholderReason": "ex.: cliente respondeu",
         "endHint": "Para a execução aqui, inclusive dentro de um ramo, e registra o motivo.",
         "quickReplyLabel": "Resposta rápida",
-        "templateOrLabel": "…ou o nome de um template"
+        "templateOrLabel": "…ou o nome de um template",
+        "titleAutoPlaceholder": "Nome do contato",
+        "titleAutoHint": "Em branco, a oportunidade recebe o nome do contato — ou o telefone, se não houver nome."
       },
       "kinds": {
         "action": "Ação",

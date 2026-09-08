@@ -45,6 +45,7 @@ import { TasksCalendar } from '@/components/tasks/tasks-calendar';
 import { FilterChip } from '@/components/ui/filter-chip';
 import { PeriodPicker } from '@/components/dashboard/period-picker';
 import { periodFromPreset } from '@/lib/dashboard/period';
+import { CurrencyInput } from '@/components/ui/currency-input';
 import { PhoneInput } from '@/components/ui/phone-input';
 import { SegBar } from '@/components/ui/seg-bar';
 import { useTranslations } from 'next-intl';
@@ -728,6 +729,14 @@ export default function ChartLabPage() {
         <SectionTitle>Relatórios — período</SectionTitle>
         <PeriodPickerBench />
 
+        {/* O CAMPO DE DINHEIRO, irmão do telefone.
+            Os dois têm a mesma máquina de caret e o mesmo problema em
+            potencial: apagar um separador não muda os dígitos. Este aparece
+            no negócio, no desfecho, no produto e no ticket médio — quatro
+            telas, todas autenticadas. */}
+        <SectionTitle>Dinheiro — campo mascarado</SectionTitle>
+        <MoneyBench />
+
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <ResponseTimeChart data={RESPONSE} loading={false} />
           {/* The dashboard's density, at the dashboard's width. */}
@@ -801,6 +810,24 @@ function FieldsBench() {
             className="bg-muted border-border text-foreground"
           />
         </div>
+      </div>
+    </Panel>
+  );
+}
+
+function MoneyBench() {
+  const [value, setValue] = useState<number | null>(18400);
+  return (
+    <Panel className="p-4">
+      <div className="max-w-56 space-y-1.5">
+        <FieldLabel htmlFor="lab-money">Valor</FieldLabel>
+        <CurrencyInput
+          id="lab-money"
+          value={value}
+          onValueChange={setValue}
+          currency="BRL"
+          className="bg-muted border-border text-foreground"
+        />
       </div>
     </Panel>
   );

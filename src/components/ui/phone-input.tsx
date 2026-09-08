@@ -5,6 +5,10 @@ import * as React from 'react';
 import { Input } from '@/components/ui/input';
 import { normalizePhone } from '@/lib/whatsapp/phone-utils';
 import {
+  caretAfterDigits,
+  deleteAcrossSeparator,
+} from '@/components/ui/masked-caret';
+import {
   MAX_PHONE_DIGITS,
   formatPhone,
   toE164,
@@ -42,52 +46,6 @@ interface PhoneInputProps extends Omit<
  * DIGITS rather than characters — how many digits are to the left of the
  * caret is the one thing that survives re-formatting.
  */
-/**
- * O que apagar quando o caret está encostado num SEPARADOR.
- *
- * `null` quer dizer "não é comigo" — o caminho normal do navegador já apaga a
- * coisa certa, e é o caso da maioria esmagadora das teclas.
- *
- * A metade pura do conserto, separada para poder ser testada sem um DOM —
- * mesmo arranjo do `parseTimeInput` no `time-field`.
- *
- * A REGRA: separador não é conteúdo, é desenho. Backspace apaga o DÍGITO à
- * esquerda; Delete apaga o dígito à direita. É o que faz segurar Backspace
- * sumir com o número um dígito por vez, com as parênteses e o traço caindo
- * sozinhos no caminho.
- *
- * A posição sai em DÍGITOS e não em caracteres porque é a única medida que
- * sobrevive à reformatação: tirar um dígito no meio reescreve o resto da
- * string, e um índice de caractere aponta para outro lugar depois disso.
- */
-export function deleteAcrossSeparator(
-  text: string,
-  caret: number,
-  direction: 'back' | 'forward'
-): { digits: string; caretDigits: number } | null {
-  const back = direction === 'back';
-  const at = back ? caret - 1 : caret;
-
-  // Encostado num dígito é o caso comum, e aí o navegador acerta sozinho.
-  if (at < 0 || at >= text.length || /\d/.test(text[at])) return null;
-
-  const digits = normalizePhone(text);
-  const target = back
-    ? normalizePhone(text.slice(0, caret)).length - 1
-    : normalizePhone(text.slice(0, caret)).length;
-
-  // Só separador daquele lado — o `+` da esquerda de tudo, por exemplo.
-  // Não há dígito para apagar, e o certo é não apagar nada.
-  if (target < 0 || target >= digits.length) {
-    return { digits, caretDigits: normalizePhone(text.slice(0, caret)).length };
-  }
-
-  return {
-    digits: digits.slice(0, target) + digits.slice(target + 1),
-    caretDigits: target,
-  };
-}
-
 export function PhoneInput({
   value,
   onValueChange,
@@ -107,20 +65,9 @@ export function PhoneInput({
     caretDigitsRef.current = null;
     if (target === null || !el) return;
 
-    // Walk the formatted string until we have passed `target` digits; that
-    // character index is where the caret belongs.
-    let seen = 0;
-    let index = display.length;
-    for (let i = 0; i < display.length; i++) {
-      if (/\d/.test(display[i])) {
-        seen++;
-        if (seen === target) {
-          index = i + 1;
-          break;
-        }
-      }
-    }
-    if (target === 0) index = 0;
+    // Digits back to characters — o laço que fazia isto à mão aqui era o
+    // mesmo que o `currency-input` tinha, palavra por palavra.
+    const index = caretAfterDigits(display, target);
     el.setSelectionRange(index, index);
   }, [display]);
 

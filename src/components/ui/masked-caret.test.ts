@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { deleteAcrossSeparator } from './phone-input';
+import { caretAfterDigits, deleteAcrossSeparator } from './masked-caret';
 
 /**
  * O Backspace que não apagava nada.
@@ -106,5 +106,60 @@ describe('deleteAcrossSeparator', () => {
 
     expect(vistos).toEqual([12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0]);
     expect(digits).toBe('');
+  });
+});
+
+/**
+ * O mesmo defeito vivia nos DOIS campos mascarados, e é por isso que a decisão
+ * virou módulo. O dinheiro é o caso mais fácil de encontrar à mão: o ponto de
+ * milhar cai bem no meio de um valor de quatro dígitos.
+ */
+describe('deleteAcrossSeparator — o campo de dinheiro', () => {
+  it('Backspace sobre o ponto de milhar apaga o dígito da esquerda', () => {
+    // `18.400`, cursor logo depois do ponto. Antes: campo igual, cursor
+    // no fim, e o Backspace seguinte comia o último dígito — que num campo
+    // de dinheiro é a diferença entre 18.400 e 1.840.
+    expect(deleteAcrossSeparator('18.400', 3, 'back')).toEqual({
+      digits: '1400',
+      caretDigits: 1,
+    });
+  });
+
+  it('Delete sobre o ponto apaga o dígito da direita', () => {
+    // `18.400` com o cursor ANTES do ponto: o que está à direita dele é o
+    // `4`, não o último zero. Sai `1800`.
+    expect(deleteAcrossSeparator('18.400', 2, 'forward')).toEqual({
+      digits: '1800',
+      caretDigits: 2,
+    });
+  });
+
+  it('não se mete no meio de um grupo de dígitos', () => {
+    expect(deleteAcrossSeparator('18.400', 6, 'back')).toBeNull();
+    expect(deleteAcrossSeparator('18.400', 1, 'back')).toBeNull();
+  });
+});
+
+describe('caretAfterDigits', () => {
+  it('devolve o índice logo depois do n-ésimo dígito', () => {
+    //  1  8  .  4  0  0
+    //  0  1  2  3  4  5
+    expect(caretAfterDigits('18.400', 1)).toBe(1);
+    expect(caretAfterDigits('18.400', 2)).toBe(2);
+    // O terceiro dígito é o `4`, no índice 3 — o cursor vai para 4, pulando
+    // o ponto sozinho.
+    expect(caretAfterDigits('18.400', 3)).toBe(4);
+    expect(caretAfterDigits('+55 (51) 99000-0001', 4)).toBe(7);
+  });
+
+  it('zero dígitos é o começo da string, não o fim', () => {
+    // O caso que decide o campo esvaziado: sem isto o cursor ia para o fim
+    // de uma string vazia por um caminho e para o começo por outro.
+    expect(caretAfterDigits('18.400', 0)).toBe(0);
+    expect(caretAfterDigits('', 0)).toBe(0);
+  });
+
+  it('pede mais dígitos do que existem e cai no fim', () => {
+    expect(caretAfterDigits('18.400', 99)).toBe(6);
   });
 });

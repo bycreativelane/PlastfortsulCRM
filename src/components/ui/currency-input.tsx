@@ -5,6 +5,10 @@ import { useLocale } from 'next-intl';
 
 import { cn } from '@/lib/utils';
 import { CURRENCIES, DEFAULT_CURRENCY } from '@/lib/currency';
+import {
+  caretAfterDigits,
+  deleteAcrossSeparator,
+} from '@/components/ui/masked-caret';
 
 interface CurrencyInputProps extends Omit<
   React.ComponentProps<'input'>,
@@ -42,6 +46,10 @@ export function CurrencyInput({
   currency = DEFAULT_CURRENCY,
   className,
   disabled,
+  // Desestruturado e composto, e não deixado no `...rest`: o spread vem
+  // DEPOIS do `onKeyDown` no elemento, então um call site que passasse o seu
+  // derrubaria o do componente em silêncio — junto com o Backspace.
+  onKeyDown: onKeyDownProp,
   ...rest
 }: CurrencyInputProps) {
   const locale = useLocale();
@@ -72,6 +80,48 @@ export function CurrencyInput({
     caretRef.current = null;
   });
 
+  /*
+   * BACKSPACE EM CIMA DO PONTO DE MILHAR APAGA UM DÍGITO.
+   *
+   * Sem isto ele não apagava nada e ainda levava o cursor para o fim. Medido
+   * em `18.400` com o cursor logo depois do ponto: o campo continuava igual e
+   * o cursor ia de 3 para 6. O próximo Backspace apagava o último dígito do
+   * valor — que num campo de dinheiro é a diferença entre 18.400 e 1.840.
+   *
+   * O mesmo defeito que o telefone tinha, pela mesma razão, e a nota inteira
+   * está em `masked-caret.ts`. Aqui ele é ainda mais fácil de encontrar: o
+   * separador de milhar cai bem no meio de um valor de quatro dígitos.
+   */
+  function handleKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
+    onKeyDownProp?.(event);
+    if (event.defaultPrevented) return;
+
+    const direction =
+      event.key === 'Backspace'
+        ? 'back'
+        : event.key === 'Delete'
+          ? 'forward'
+          : null;
+    if (!direction) return;
+
+    const el = event.currentTarget;
+    const start = el.selectionStart;
+    // Uma seleção é um pedaço escolhido à mão: apagar exatamente aquilo é o
+    // certo, e o caminho normal já faz isso.
+    if (start === null || start !== el.selectionEnd) return;
+
+    const plan = deleteAcrossSeparator(el.value, start, direction);
+    if (!plan) return;
+
+    event.preventDefault();
+    const next = plan.digits === '' ? null : Number(plan.digits);
+    caretRef.current = caretAfterDigits(
+      next === null ? '' : format(next),
+      plan.caretDigits
+    );
+    onValueChange(next);
+  }
+
   function handleChange(event: React.ChangeEvent<HTMLInputElement>) {
     const raw = event.target.value;
     const selection = event.target.selectionStart ?? raw.length;
@@ -92,18 +142,7 @@ export function CurrencyInput({
     const next = Number(digits.slice(0, 15));
     const formatted = format(next);
 
-    let seen = 0;
-    let caret = formatted.length;
-    for (let i = 0; i < formatted.length; i++) {
-      if (/\d/.test(formatted[i])) {
-        seen += 1;
-        if (seen === digitsBeforeCaret) {
-          caret = i + 1;
-          break;
-        }
-      }
-    }
-    caretRef.current = digitsBeforeCaret === 0 ? 0 : caret;
+    caretRef.current = caretAfterDigits(formatted, digitsBeforeCaret);
     onValueChange(next);
   }
 
@@ -125,6 +164,7 @@ export function CurrencyInput({
         autoComplete="off"
         value={display}
         onChange={handleChange}
+        onKeyDown={handleKeyDown}
         disabled={disabled}
         className={cn(
           'border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:bg-field/30 h-8 w-full min-w-0 rounded-lg border bg-transparent py-1 pr-2.5 text-base tabular-nums transition-colors outline-none focus-visible:ring-3 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:ring-3 md:text-sm',

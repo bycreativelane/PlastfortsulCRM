@@ -8,6 +8,7 @@ import { CalendarClock, RefreshCw, Unplug } from 'lucide-react';
 
 import { Button, buttonVariants } from '@/components/ui/button';
 import { OptionSelect } from '@/components/ui/option-select';
+import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 
 interface Connection {
@@ -199,7 +200,10 @@ export function CalendarsPanel() {
           <p className="text-muted-foreground p-4 text-sm">{t('noSources')}</p>
         ) : (
           sources.map((source) => (
-            <div key={source.id} className="flex flex-wrap items-center gap-3 p-3">
+            <div
+              key={source.id}
+              className="flex flex-wrap items-center gap-3 p-3"
+            >
               <span
                 className="size-3 shrink-0 rounded-full border"
                 style={{ background: source.color ?? 'transparent' }}
@@ -209,13 +213,15 @@ export function CalendarsPanel() {
                 <p className="truncate text-sm font-medium">
                   {source.summary || source.external_id}
                   {source.is_primary ? (
-                    <span className="text-muted-foreground ml-2 text-2xs">
+                    <span className="text-muted-foreground text-2xs ml-2">
                       {t('primary')}
                     </span>
                   ) : null}
                 </p>
                 {source.last_error ? (
-                  <p className="text-danger-ink text-2xs">{source.last_error}</p>
+                  <p className="text-danger-ink text-2xs">
+                    {source.last_error}
+                  </p>
                 ) : null}
               </div>
 
@@ -235,12 +241,23 @@ export function CalendarsPanel() {
                 <option value="both">{t('direction.both')}</option>
               </OptionSelect>
 
-              <label className="flex items-center gap-1.5 text-xs">
-                <input
-                  type="checkbox"
+              {/* Um `Switch`, e não um checkbox nativo.
+
+                  Era um `<input type="checkbox">` sem className nenhuma — o
+                  quadradinho cru do sistema operacional, no meio de uma linha
+                  que tem um `OptionSelect` da casa ao lado.
+
+                  E a forma certa é a chavinha: `patchSource` grava na hora, e
+                  o comentário dele já chama isto de "chavinha" com todas as
+                  letras. Nesta casa checkbox é valor de formulário que ainda
+                  vai ser salvo; `Switch` é o ajuste que vale agora — que é o
+                  caso aqui, tanto que desligar já desabilita o seletor de
+                  direção ao lado. */}
+              <label className="flex items-center gap-2 text-xs">
+                <Switch
                   checked={source.enabled}
-                  onChange={(e) =>
-                    patchSource(source.id, { enabled: e.target.checked })
+                  onCheckedChange={(next) =>
+                    patchSource(source.id, { enabled: next })
                   }
                 />
                 {t('enabled')}

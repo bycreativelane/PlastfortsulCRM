@@ -23,6 +23,7 @@ import { notifyTaskCompleted, publishTask } from '@/lib/tasks/notify-client';
 import { TASK_KINDS, TASK_STATUSES, type Task, type TaskStatus } from '@/types';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { MemberAvatar } from '@/components/presence/member-avatar';
 import {
   Select,
@@ -250,12 +251,22 @@ export function TasksPage() {
         <div className="ml-auto flex flex-wrap items-center gap-2">
           <div className="relative">
             <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2" />
-            <input
+            {/* O `Input` da casa. O que estava aqui era um `<input>` cru com
+                a receita recopiada e errada em três pontos: `rounded-md` onde
+                a casa é `rounded-lg`, `text-xs` (12px, e abaixo de 16 o Safari
+                do iPhone dá zoom ao focar) e nenhum anel de foco — sobrava o
+                contorno do navegador, não o de 3px do app.
+
+                E, principalmente, sem `data-slot="input"`: é por ele que o
+                `globals.css` dá 44px no dedo, num campo que fica na barra de
+                uma tela feita para ser usada no celular. Mesma escrita da
+                busca da caixa de entrada. */}
+            <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder={t('searchPlaceholder')}
               aria-label={t('searchPlaceholder')}
-              className="border-input bg-background h-8 w-44 rounded-md border pr-2 pl-7 text-xs"
+              className="w-44 pl-7"
             />
           </div>
 

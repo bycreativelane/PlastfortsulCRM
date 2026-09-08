@@ -67,7 +67,15 @@ export function OccurrenceDialog({
   onChanged: () => void;
 }) {
   const t = useTranslations('Contacts.occurrences');
-  const { accountId } = useAuth();
+  /*
+   * `user` para gravar QUEM resolveu.
+   *
+   * `handled_by` foi defendido linha a linha na migração 042 — inclusive
+   * a escolha de apontar para `auth.users(id)` e não para `profiles(id)` —
+   * e nasceu sem escritor nenhum. O contexto já expõe o auth user, então
+   * não é preciso ir ao `getSession()`.
+   */
+  const { accountId, user } = useAuth();
 
   const [rows, setRows] = useState<ContactOccurrence[] | null>(null);
   const [pending, setPending] = useState(false);
@@ -123,14 +131,17 @@ export function OccurrenceDialog({
   async function register() {
     if (!contact || !accountId || !description.trim()) return;
     setSaving(true);
-    const { error } = await createClient().from('contact_occurrences').insert({
-      account_id: accountId,
-      contact_id: contact.id,
-      kind,
-      occurred_on: occurredOn,
-      description: description.trim(),
-      status: 'open',
-    });
+    const { error } = await createClient()
+      .from('contact_occurrences')
+      .insert({
+        account_id: accountId,
+        contact_id: contact.id,
+        kind,
+        occurred_on: occurredOn,
+        description: description.trim(),
+        status: 'open',
+        handled_by: user?.id ?? null,
+      });
     setSaving(false);
 
     if (error) {
@@ -151,6 +162,7 @@ export function OccurrenceDialog({
       .update({
         status: 'resolved',
         resolved_at: new Date().toISOString(),
+        handled_by: user?.id ?? null,
         updated_at: new Date().toISOString(),
       })
       .eq('id', row.id);
@@ -218,13 +230,34 @@ export function OccurrenceDialog({
                     <span className="text-muted-foreground text-2xs">
                       {/* `fromISO`: `occurred_on` é DATE, e `new Date`
                           sobre ela devolve o dia anterior no Brasil. */}
-                      {(fromISO(row.occurred_on) ?? new Date()).toLocaleDateString(
-                        APP_LOCALE,
-                        {
-                          day: '2-digit',
-                          month: '2-digit',
-                          year: 'numeric',
-                        }
+                      {(
+                        fromISO(row.occurred_on) ?? new Date()
+                      ).toLocaleDateString(APP_LOCALE, {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                      })}
+                      {/* QUANDO foi resolvida. O `resolved_at` era gravado e
+                          nunca lido — e sem ele "Resolvida" não distingue
+                          ontem de março. Aqui `new Date()` está certo:
+                          `resolved_at` é TIMESTAMPTZ, ao contrário do
+                          `occurred_on` logo acima, que é DATE. A CHECK
+                          `contact_occurrences_resolved_has_date` garante que
+                          toda linha resolvida tem a coluna preenchida. */}
+                      {row.status === 'resolved' && row.resolved_at && (
+                        <>
+                          {' · '}
+                          {t('resolvedOn', {
+                            date: new Date(row.resolved_at).toLocaleDateString(
+                              APP_LOCALE,
+                              {
+                                day: '2-digit',
+                                month: '2-digit',
+                                year: 'numeric',
+                              }
+                            ),
+                          })}
+                        </>
                       )}
                     </span>
                     {row.status === 'open' && (
@@ -248,11 +281,7 @@ export function OccurrenceDialog({
           <div className="space-y-3 border-t pt-3">
             <div className="space-y-1.5">
               <FieldLabel htmlFor="oc-kind">{t('kindLabel')}</FieldLabel>
-              <OptionSelect
-                id="oc-kind"
-                value={kind}
-                onValueChange={setKind}
-              >
+              <OptionSelect id="oc-kind" value={kind} onValueChange={setKind}>
                 {OCCURRENCE_KINDS.map((k) => (
                   <option key={k} value={k}>
                     {k}

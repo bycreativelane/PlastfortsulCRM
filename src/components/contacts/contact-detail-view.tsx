@@ -52,6 +52,7 @@ import {
   DollarSign,
   LayoutTemplate,
   StickyNote,
+  BellOff,
 } from 'lucide-react';
 import { Tag as TagChip } from '@/components/ui/tag';
 import { Badge } from '@/components/ui/badge';
@@ -73,6 +74,12 @@ export function ContactDetailView({
   onUpdated,
 }: ContactDetailViewProps) {
   const t = useTranslations('Contacts.detailView');
+  /*
+   * A faixa de descadastro é literalmente a mesma da barra lateral da
+   * caixa de entrada, e por isso lê as mesmas chaves. Repetir o texto num
+   * namespace novo seria duas traduções que só divergem com o tempo.
+   */
+  const tSidebar = useTranslations('Inbox.sidebar');
   const supabase = createClient();
   const { accountId, defaultCurrency } = useAuth();
 
@@ -642,6 +649,26 @@ export function ContactDetailView({
                         {tag.name}
                       </TagChip>
                     ))}
+                  </div>
+                )}
+
+                {/* O DESCADASTRO, na tela onde ele é EDITÁVEL.
+
+                    A caixa de entrada avisa; esta ficha, que tem o
+                    interruptor, não avisava — e logo abaixo há um botão de
+                    enviar template. Âmbar aqui é legítimo e na tabela não:
+                    aqui é uma pessoa na tela, lá seriam 25 chamados. */}
+                {contact.opted_out && (
+                  <div className="border-human-border bg-human-soft text-human-ink mt-3 flex items-start gap-2 rounded-md border px-2.5 py-2">
+                    <BellOff className="mt-0.5 size-4 shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold">
+                        {tSidebar('optedOut')}
+                      </p>
+                      <p className="text-2xs leading-relaxed">
+                        {tSidebar('optedOutHint')}
+                      </p>
+                    </div>
                   </div>
                 )}
 

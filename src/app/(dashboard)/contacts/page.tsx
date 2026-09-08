@@ -56,6 +56,8 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import {
+  AlertTriangle,
+  BellOff,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -89,6 +91,7 @@ import { useTranslations } from 'next-intl';
 import { PageHeader } from '@/components/layout/page-header';
 import { OptionSelect } from '@/components/ui/option-select';
 import { CountBadge } from '@/components/ui/count-badge';
+import { contactHasOccurrence } from '@/components/inbox/conversation-filters';
 import { APP_LOCALE } from '@/lib/i18n/locale';
 import { cn } from '@/lib/utils';
 
@@ -214,125 +217,131 @@ function ContactsPageInner() {
    * porque uma automação pendurou uma etiqueta noutro contato seria uma
    * troca ruim.
    */
-  const fetchContacts = useCallback(async (opts?: { silent?: boolean }) => {
-    const seq = ++fetchSeq.current;
-    if (!opts?.silent) {
-      setLoading(true);
-      // The visible rows are about to change — drop any selection that
-      // referred to the old page/search results so the bulk bar can't
-      // act on rows the user can no longer see.
-      setSelected(new Set());
-    }
+  const fetchContacts = useCallback(
+    async (opts?: { silent?: boolean }) => {
+      const seq = ++fetchSeq.current;
+      if (!opts?.silent) {
+        setLoading(true);
+        // The visible rows are about to change — drop any selection that
+        // referred to the old page/search results so the bulk bar can't
+        // act on rows the user can no longer see.
+        setSelected(new Set());
+      }
 
-    const from = page * PAGE_SIZE;
-    const to = from + PAGE_SIZE - 1;
-    const term = search.trim();
+      const from = page * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+      const term = search.trim();
 
-    let contactRows: Contact[];
-    let count: number;
+      let contactRows: Contact[];
+      let count: number;
 
-    if (selectedTagIds.length > 0) {
-      // Tag filter active — resolve it server-side (join + distinct +
-      // windowed total count + pagination) so a tag covering many
-      // contacts can't silently truncate the result or overflow an IN
-      // clause. See migration 025_filter_contacts_by_tags.
-      const { data, error } = await supabase.rpc('filter_contacts_by_tags', {
-        p_tag_ids: selectedTagIds,
-        p_search: term || null,
-        p_limit: PAGE_SIZE,
-        p_offset: from,
+      if (selectedTagIds.length > 0) {
+        // Tag filter active — resolve it server-side (join + distinct +
+        // windowed total count + pagination) so a tag covering many
+        // contacts can't silently truncate the result or overflow an IN
+        // clause. See migration 025_filter_contacts_by_tags.
+        const { data, error } = await supabase.rpc('filter_contacts_by_tags', {
+          p_tag_ids: selectedTagIds,
+          p_search: term || null,
+          p_limit: PAGE_SIZE,
+          p_offset: from,
+        });
+        if (seq !== fetchSeq.current) return; // superseded by a newer fetch
+        if (error) {
+          toast.error(t('toastFailedLoad'));
+          setLoading(false);
+          return;
+        }
+        const rows = (data ?? []) as {
+          contact: Contact;
+          total_count: number;
+        }[];
+        contactRows = rows.map((r) => r.contact);
+        count = rows.length > 0 ? Number(rows[0].total_count) : 0;
+      } else {
+        let query = supabase
+          .from('contacts')
+          .select('*', { count: 'exact' })
+          .order('created_at', { ascending: false })
+          .range(from, to);
+
+        // Scope to the account explicitly, even though RLS already does it.
+        // RLS uses `is_account_member(account_id)`, a SECURITY DEFINER SQL
+        // function, and Postgres refuses to inline those — so the planner never
+        // sees an equality on `account_id` and cannot seek on it. Every index
+        // migration 040 added is led by `account_id`, so without this line they
+        // are unreachable here and the segmentation degrades to a seq scan.
+        // Conditional because `accountId` is null on the first render; RLS keeps
+        // the result correct until it resolves.
+        if (accountId) query = query.eq('account_id', accountId);
+
+        if (term) {
+          const like = `%${term}%`;
+          query = query.or(
+            `name.ilike.${like},phone.ilike.${like},email.ilike.${like}`
+          );
+        }
+
+        // Segmentation composes into this query because every one of its
+        // filters lives on `contacts` itself. The tag path above cannot take
+        // them — it goes through an RPC with a fixed signature — which is why
+        // the card disables itself while a tag is selected.
+        query = applySegmentation(query, segmentation);
+
+        const { data, count: exactCount, error } = await query;
+        if (seq !== fetchSeq.current) return; // superseded by a newer fetch
+        if (error) {
+          toast.error(t('toastFailedLoad'));
+          setLoading(false);
+          return;
+        }
+        contactRows = data ?? [];
+        count = exactCount ?? 0;
+      }
+
+      setTotalCount(count);
+
+      if (contactRows.length === 0) {
+        setContacts([]);
+        setLoading(false);
+        return;
+      }
+
+      // Fetch tags for these contacts
+      const contactIds = contactRows.map((c) => c.id);
+      const { data: contactTags } = await supabase
+        .from('contact_tags')
+        .select('contact_id, tag_id')
+        .in('contact_id', contactIds);
+      if (seq !== fetchSeq.current) return; // superseded by a newer fetch
+
+      const tagsByContact: Record<string, string[]> = {};
+      contactTags?.forEach((ct) => {
+        if (!tagsByContact[ct.contact_id]) tagsByContact[ct.contact_id] = [];
+        tagsByContact[ct.contact_id].push(ct.tag_id);
       });
-      if (seq !== fetchSeq.current) return; // superseded by a newer fetch
-      if (error) {
-        toast.error(t('toastFailedLoad'));
-        setLoading(false);
-        return;
-      }
-      const rows = (data ?? []) as { contact: Contact; total_count: number }[];
-      contactRows = rows.map((r) => r.contact);
-      count = rows.length > 0 ? Number(rows[0].total_count) : 0;
-    } else {
-      let query = supabase
-        .from('contacts')
-        .select('*', { count: 'exact' })
-        .order('created_at', { ascending: false })
-        .range(from, to);
 
-      // Scope to the account explicitly, even though RLS already does it.
-      // RLS uses `is_account_member(account_id)`, a SECURITY DEFINER SQL
-      // function, and Postgres refuses to inline those — so the planner never
-      // sees an equality on `account_id` and cannot seek on it. Every index
-      // migration 040 added is led by `account_id`, so without this line they
-      // are unreachable here and the segmentation degrades to a seq scan.
-      // Conditional because `accountId` is null on the first render; RLS keeps
-      // the result correct until it resolves.
-      if (accountId) query = query.eq('account_id', accountId);
+      const enriched: ContactWithTags[] = contactRows.map((c) => ({
+        ...c,
+        tags: (tagsByContact[c.id] ?? [])
+          .map((tid) => tagsMap[tid])
+          .filter(Boolean),
+      }));
 
-      if (term) {
-        const like = `%${term}%`;
-        query = query.or(
-          `name.ilike.${like},phone.ilike.${like},email.ilike.${like}`
-        );
-      }
-
-      // Segmentation composes into this query because every one of its
-      // filters lives on `contacts` itself. The tag path above cannot take
-      // them — it goes through an RPC with a fixed signature — which is why
-      // the card disables itself while a tag is selected.
-      query = applySegmentation(query, segmentation);
-
-      const { data, count: exactCount, error } = await query;
-      if (seq !== fetchSeq.current) return; // superseded by a newer fetch
-      if (error) {
-        toast.error(t('toastFailedLoad'));
-        setLoading(false);
-        return;
-      }
-      contactRows = data ?? [];
-      count = exactCount ?? 0;
-    }
-
-    setTotalCount(count);
-
-    if (contactRows.length === 0) {
-      setContacts([]);
+      setContacts(enriched);
       setLoading(false);
-      return;
-    }
-
-    // Fetch tags for these contacts
-    const contactIds = contactRows.map((c) => c.id);
-    const { data: contactTags } = await supabase
-      .from('contact_tags')
-      .select('contact_id, tag_id')
-      .in('contact_id', contactIds);
-    if (seq !== fetchSeq.current) return; // superseded by a newer fetch
-
-    const tagsByContact: Record<string, string[]> = {};
-    contactTags?.forEach((ct) => {
-      if (!tagsByContact[ct.contact_id]) tagsByContact[ct.contact_id] = [];
-      tagsByContact[ct.contact_id].push(ct.tag_id);
-    });
-
-    const enriched: ContactWithTags[] = contactRows.map((c) => ({
-      ...c,
-      tags: (tagsByContact[c.id] ?? [])
-        .map((tid) => tagsMap[tid])
-        .filter(Boolean),
-    }));
-
-    setContacts(enriched);
-    setLoading(false);
-  }, [
-    supabase,
-    accountId,
-    page,
-    search,
-    selectedTagIds,
-    segmentation,
-    tagsMap,
-    t,
-  ]);
+    },
+    [
+      supabase,
+      accountId,
+      page,
+      search,
+      selectedTagIds,
+      segmentation,
+      tagsMap,
+      t,
+    ]
+  );
 
   // Load-once-on-mount-ish data fetches. Each setter inside runs
   // inside an async promise completion (Supabase await), not
@@ -1010,14 +1019,48 @@ function ContactsPageInner() {
                       were 12/14/14/12 in one colour, which is a size ramp
                       that encodes nothing. */}
                   <TableCell className="text-foreground font-semibold">
-                    <div
-                      className="max-w-[22ch] truncate"
-                      title={contact.name || undefined}
-                    >
-                      {contact.name || (
-                        <span className="text-muted-foreground font-normal italic">
-                          {t('unnamed')}
+                    {/* Os dois fatos que mudam como se fala com esta
+                        pessoa, ao lado do nome dela.
+
+                        A OCORRÊNCIA já é desenhada na caixa de entrada, e o
+                        docstring de `contactHasOccurrence` diz literalmente
+                        que "a barra lateral e a tabela de contatos têm um e
+                        não o outro". Nenhuma consulta nova: os dois
+                        caminhos de carga já trazem a linha inteira.
+
+                        O DESCADASTRO em NEUTRO, e não em âmbar. Âmbar é a
+                        única "venha aqui" do sistema — 25 selos âmbar numa
+                        tabela seriam 25 chamados e nenhum. Na ficha, onde é
+                        uma pessoa só, ele volta a ser âmbar. */}
+                    <div className="flex min-w-0 items-center gap-1.5">
+                      {contactHasOccurrence(contact) && (
+                        <span
+                          title={t('hasOccurrence')}
+                          aria-label={t('hasOccurrence')}
+                          className="bg-danger-soft text-danger-ink grid size-4.5 shrink-0 place-items-center rounded-full"
+                        >
+                          <AlertTriangle className="size-2.5" aria-hidden />
                         </span>
+                      )}
+                      <div
+                        className="max-w-[22ch] truncate"
+                        title={contact.name || undefined}
+                      >
+                        {contact.name || (
+                          <span className="text-muted-foreground font-normal italic">
+                            {t('unnamed')}
+                          </span>
+                        )}
+                      </div>
+                      {contact.opted_out && (
+                        <StatusBadge
+                          variant="neutral"
+                          size="sm"
+                          className="shrink-0"
+                        >
+                          <BellOff />
+                          {t('optedOut')}
+                        </StatusBadge>
                       )}
                     </div>
                   </TableCell>
@@ -1049,7 +1092,9 @@ function ContactsPageInner() {
                           </TagChip>
                         ))
                       ) : (
-                        <span className="text-muted-foreground text-xs">{EMPTY}</span>
+                        <span className="text-muted-foreground text-xs">
+                          {EMPTY}
+                        </span>
                       )}
                       {contact.tags && contact.tags.length > 3 && (
                         <span className="text-muted-foreground text-3xs self-center">

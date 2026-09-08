@@ -43,7 +43,12 @@ import {
 } from '@/lib/deals/outcome';
 import type { Deal, PipelineStage } from '@/types';
 
-const REASON_ICONS: Record<LossReason, LucideIcon> = {
+/**
+ * Exportado porque a FICHA do negócio desenha o mesmo motivo que este
+ * diálogo grava. Um segundo mapa nos dois lugares divergiria na primeira
+ * vez que um motivo mudasse de ícone.
+ */
+export const REASON_ICONS: Record<LossReason, LucideIcon> = {
   price: CircleDollarSign,
   freight: Truck,
   leadTime: Clock,

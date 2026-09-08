@@ -308,7 +308,10 @@
       "clearDate": "Sem data",
       "rescheduled": "Movido para {date}",
       "rescheduleCleared": "Data removida",
-      "rescheduleFailed": "Não foi possível mudar a data"
+      "rescheduleFailed": "Não foi possível mudar a data",
+      "overdue": "Em atraso",
+      "broadcastFailed": "Falhou",
+      "fullAgenda": "Agenda completa"
     }
   },
   "Reports": {
@@ -848,7 +851,9 @@
         "toBroadcast": "Criar campanha com este público",
         "blockedByTag": "Limpe o filtro de etiqueta para usar a segmentação — são consultas diferentes e ainda não combinam."
       },
-      "selectAllOnPage": "Selecionar todos os contatos desta página"
+      "selectAllOnPage": "Selecionar todos os contatos desta página",
+      "hasOccurrence": "Possui ocorrência",
+      "optedOut": "Não quer receber"
     },
     "form": {
       "addTitle": "Novo contato",
@@ -1071,7 +1076,8 @@
       "resolvedToast": "Ocorrência marcada como resolvida",
       "failed": "Não foi possível salvar a ocorrência",
       "pendingMigration": "O histórico de ocorrências precisa da migração 042, que ainda não foi aplicada no banco. O aviso na ficha continua funcionando pela etiqueta.",
-      "pendingToast": "Migração 042 ainda não aplicada"
+      "pendingToast": "Migração 042 ainda não aplicada",
+      "resolvedOn": "resolvida em {date}"
     },
     "callLog": {
       "title": "Registrar ligação",
@@ -1154,7 +1160,8 @@
       "60": "1 hora antes",
       "120": "2 horas antes",
       "1440": "1 dia antes"
-    }
+    },
+    "overdueBadge": "Atrasada"
   },
   "Pipelines": {
     "page": {
@@ -1289,7 +1296,8 @@
       "toastFailedDelete": "Não foi possível excluir a oportunidade",
       "toastDeleted": "Oportunidade excluída",
       "valueFromItems": "Somado a partir das linhas abaixo.",
-      "toastItemsFailed": "A oportunidade foi salva, mas as linhas dela não."
+      "toastItemsFailed": "A oportunidade foi salva, mas as linhas dela não.",
+      "expectedCloseOverdue": "Prazo vencido"
     },
     "settings": {
       "managePipeline": "Gerenciar pipeline",

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState, useEffect } from 'react';
+import { useCallback, useMemo, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
@@ -31,8 +31,13 @@ import { Input } from '@/components/ui/input';
 import { CurrencyInput } from '@/components/ui/currency-input';
 import {
   DealOutcomeDialogs,
+  REASON_ICONS,
   useDealOutcome,
 } from '@/components/pipelines/deal-outcome';
+import { LOSS_REASONS, type LossReason } from '@/lib/deals/outcome';
+import { StatusBadge } from '@/components/ui/status-badge';
+import { useBusinessHours } from '@/hooks/use-business-hours';
+import { localParts } from '@/lib/automations/local-time';
 import { DateField } from '@/components/ui/date-field';
 import { OptionSelect } from '@/components/ui/option-select';
 import { PlaybookChecklist } from './playbook-checklist';
@@ -42,6 +47,28 @@ import { Textarea } from '@/components/ui/textarea';
 import { Check, X, Trash2, MessageSquare, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
+
+/**
+ * Os motivos de perda que ainda sabemos escrever.
+ *
+ * `noReply` saiu de `LOSS_REASONS` quando o fluxo oficial mandou o cliente
+ * que não responde para a Geladeira, e continua no catálogo por causa das
+ * perdas antigas. Uma linha gravada com chave fora deste conjunto faria
+ * `t()` estourar, então ela simplesmente não é desenhada.
+ */
+const KNOWN_LOSS_REASONS = new Set<string>([...LOSS_REASONS, 'noReply']);
+
+/**
+ * O ícone do motivo, quando existe um.
+ *
+ * `noReply` está em `KNOWN_LOSS_REASONS` e não em `REASON_ICONS` — o mapa
+ * é indexado por `LossReason`, de onde a chave saiu. Sem esta guarda, uma
+ * perda antiga renderizaria `undefined` como componente.
+ */
+function LossReasonIcon({ reason }: { reason: string }) {
+  const Icon = REASON_ICONS[reason as LossReason];
+  return Icon ? <Icon className="size-3.5 shrink-0" /> : null;
+}
 
 interface DealFormProps {
   open: boolean;
@@ -73,8 +100,28 @@ export function DealForm({
 }: DealFormProps) {
   const t = useTranslations('Pipelines.form');
   const tMenu = useTranslations('Pipelines.menu');
+  // O selo Ganho/Perdido e o motivo da perda falam o mesmo vocabulário do
+  // cartão e do diálogo de desfecho. Nenhuma chave nova nos dois.
+  const tCard = useTranslations('Pipelines.card');
+  const tOutcome = useTranslations('Pipelines.outcome');
   const supabase = createClient();
   const { accountId, defaultCurrency } = useAuth();
+
+  /*
+   * HOJE no fuso da CONTA, para saber se a previsão de fechamento venceu.
+   *
+   * Cópia literal de `task-list.tsx`, que é o mesmo "hoje" da lista de
+   * tarefas renderizada a poucos pixels daqui dentro desta mesma sheet —
+   * duas noções de hoje na mesma tela seria o defeito.
+   *
+   * NÃO é o `todayIso()` de `deal-card.tsx`: aquele é o dia do
+   * DISPOSITIVO, e promovê-lo consagraria o segundo hoje.
+   */
+  const { hours } = useBusinessHours();
+  const todayIso = useMemo(
+    () => localParts(new Date(), hours.timezone).dateKey,
+    [hours.timezone]
+  );
   const outcome = useDealOutcome({
     defaultCurrency,
     onDone: () => {
@@ -506,6 +553,23 @@ export function DealForm({
                   disabled={!canWrite}
                   className="[&_input]:border-border [&_input]:bg-muted [&_input]:text-foreground"
                 />
+                {/* O PRAZO VENCIDO, na tela onde se muda a data.
+
+                    O cartão do quadro já pinta de vermelho a previsão
+                    atrasada; ao abrir a ficha para remarcar, o campo era
+                    igual ao de um fechamento da semana que vem. Pílula e
+                    não tinta, como em `task-row.tsx`. Só com o negócio
+                    aberto: um fechado não tem prazo a vencer.
+
+                    Comparação de strings ISO — `expected_close_date` é
+                    DATE, e `new Date()` sobre ela devolve ontem. */}
+                {deal?.status === 'open' &&
+                  expectedCloseDate &&
+                  expectedCloseDate < todayIso && (
+                    <StatusBadge variant="danger" size="sm" className="w-fit">
+                      {t('expectedCloseOverdue')}
+                    </StatusBadge>
+                  )}
               </div>
             </div>
 
@@ -598,7 +662,54 @@ export function DealForm({
 
             {deal && (
               <div className="border-border bg-muted/50 space-y-2 rounded-lg border p-3">
-                <p className="text-muted-foreground eyebrow">{t('status')}</p>
+                {/* O DESFECHO EM PALAVRA.
+
+                    A ficha dizia "ganho" e "perdido" só desabilitando
+                    botões — que é o mesmo desenho de "você não pode
+                    editar". Nada quando aberto: o estado normal não é
+                    notícia. Mesmo par que o cartão do quadro desenha. */}
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-muted-foreground eyebrow">{t('status')}</p>
+                  {deal.status && deal.status !== 'open' && (
+                    <StatusBadge
+                      variant={deal.status === 'won' ? 'ok' : 'danger'}
+                      size="sm"
+                    >
+                      {tCard(deal.status === 'won' ? 'won' : 'lost')}
+                    </StatusBadge>
+                  )}
+                </div>
+
+                {/* O MOTIVO DA PERDA.
+
+                    Marcar como perdido EXIGE um motivo, e ele não
+                    aparecia depois em superfície nenhuma do produto — nem
+                    aqui, nem no cartão, nem em relatório. Um campo
+                    obrigatório que ninguém relê é um formulário cobrando
+                    trabalho que não usa.
+
+                    O guard existe porque `noReply` saiu de `LOSS_REASONS`
+                    com o fluxo oficial e segue no catálogo, justamente
+                    para as perdas antigas: sem ele uma linha com chave
+                    desconhecida faz `t()` estourar. O ícone dessa mesma
+                    chave não existe mais, e por isso é opcional. */}
+                {deal.status === 'lost' &&
+                  (deal.lost_reason || deal.lost_note) && (
+                    <div className="text-secondary-foreground space-y-1 text-xs">
+                      {deal.lost_reason &&
+                        KNOWN_LOSS_REASONS.has(deal.lost_reason) && (
+                          <span className="flex items-center gap-1.5">
+                            <LossReasonIcon reason={deal.lost_reason} />
+                            {tOutcome(`reasons.${deal.lost_reason}`)}
+                          </span>
+                        )}
+                      {deal.lost_note && (
+                        <p className="text-muted-foreground whitespace-pre-wrap">
+                          {deal.lost_note}
+                        </p>
+                      )}
+                    </div>
+                  )}
                 {/* Stacked, not side by side. `Button` sets
                     `whitespace-nowrap`, so a pair of them in equal columns
                     cannot shrink past their own labels: the box got its half

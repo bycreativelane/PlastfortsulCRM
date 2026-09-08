@@ -308,7 +308,10 @@
       "clearDate": "날짜 없음",
       "rescheduled": "{date}(으)로 이동",
       "rescheduleCleared": "날짜가 삭제되었습니다",
-      "rescheduleFailed": "날짜를 변경하지 못했습니다"
+      "rescheduleFailed": "날짜를 변경하지 못했습니다",
+      "overdue": "지연",
+      "broadcastFailed": "실패",
+      "fullAgenda": "전체 일정"
     }
   },
   "Reports": {
@@ -848,7 +851,9 @@
         "toBroadcast": "이 대상으로 캠페인 만들기",
         "blockedByTag": "세그먼트를 쓰려면 태그 필터를 해제하세요 — 서로 다른 쿼리라 아직 함께 쓸 수 없습니다."
       },
-      "selectAllOnPage": "이 페이지의 고객 모두 선택"
+      "selectAllOnPage": "이 페이지의 고객 모두 선택",
+      "hasOccurrence": "기록된 문제 있음",
+      "optedOut": "수신 거부"
     },
     "form": {
       "addTitle": "연락처 추가",
@@ -1071,7 +1076,8 @@
       "resolvedToast": "이슈를 해결로 표시했습니다",
       "failed": "이슈를 저장하지 못했습니다",
       "pendingMigration": "이슈 이력에는 아직 적용되지 않은 042 마이그레이션이 필요합니다. 기록의 경고는 태그로 계속 작동합니다.",
-      "pendingToast": "042 마이그레이션이 아직 적용되지 않았습니다"
+      "pendingToast": "042 마이그레이션이 아직 적용되지 않았습니다",
+      "resolvedOn": "{date} 해결"
     },
     "callLog": {
       "title": "통화 기록",
@@ -1154,7 +1160,8 @@
       "60": "1시간 전",
       "120": "2시간 전",
       "1440": "1일 전"
-    }
+    },
+    "overdueBadge": "지연"
   },
   "Pipelines": {
     "page": {
@@ -1289,7 +1296,8 @@
       "toastFailedDelete": "딜을 삭제하지 못했습니다",
       "toastDeleted": "딜이 삭제되었습니다",
       "valueFromItems": "아래 항목의 합계입니다.",
-      "toastItemsFailed": "기회는 저장되었지만 항목은 저장되지 않았습니다."
+      "toastItemsFailed": "기회는 저장되었지만 항목은 저장되지 않았습니다.",
+      "expectedCloseOverdue": "기한 초과"
     },
     "settings": {
       "managePipeline": "파이프라인 관리",

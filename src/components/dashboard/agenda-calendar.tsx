@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import {
   CalendarClock,
   CalendarDays,
+  CalendarRange,
   ChevronRight,
   Loader2,
 } from 'lucide-react';
@@ -36,10 +37,7 @@ import {
   type AgendaItem,
   type AgendaKind,
 } from '@/lib/dashboard/agenda';
-import {
-  KIND_ICON,
-  TONE_DOT,
-} from '@/components/agenda/tokens';
+import { KIND_ICON, TONE_DOT } from '@/components/agenda/tokens';
 import { MonthGrid, MonthNav } from '@/components/ui/month-grid';
 import {
   Popover,
@@ -57,6 +55,12 @@ import { Skeleton } from '@/components/dashboard/skeleton';
 import { StatePanel } from '@/components/ui/state-panel';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { IconTile } from '@/components/ui/icon-tile';
+import {
+  useMemberDirectory,
+  type MemberDirectory,
+} from '@/hooks/use-member-directory';
+import { localParts } from '@/lib/automations/local-time';
+import { MemberAvatar } from '@/components/presence/member-avatar';
 
 /**
  * The month, and what is on it.
@@ -89,7 +93,6 @@ import { IconTile } from '@/components/ui/icon-tile';
  * is in charge of what.
  */
 
-
 /**
  * The dot on a day cell, and the ink of an active filter chip.
  *
@@ -101,11 +104,15 @@ import { IconTile } from '@/components/ui/icon-tile';
  * is the quietest thing on this calendar.
  */
 
-
 export function AgendaCalendar() {
   const t = useTranslations('Today.agenda');
   const locale = useLocale();
   const { defaultCurrency, accountTimeZone } = useAuth();
+  // Uma consulta por montagem do PAINEL, nao por linha desenhada.
+  const members = useMemberDirectory();
+  // Hoje no fuso da CONTA — o mesmo que `loadAgenda` usa para bucketizar os
+  // dias. O relogio do navegador diria outra coisa as 21h30 de Sao Paulo.
+  const todayKey = localParts(new Date(), accountTimeZone).dateKey;
   const canEdit = useCan('send-messages');
 
   const [month, setMonth] = React.useState(() => startOfMonth(new Date()));
@@ -260,6 +267,24 @@ export function AgendaCalendar() {
           >
             {t('today')}
           </button>
+
+          {/*
+            A SAÍDA. Este painel desenha seis semanas de agenda e não tinha
+            porta nenhuma para a agenda de verdade — a janela do mês era um
+            beco. O calendário de `/tasks` já leva para `/agenda` exatamente
+            assim; a visão geral era a única das três superfícies de
+            calendário sem essa linha.
+
+            Discreto de propósito: quem está na visão geral veio ver o dia,
+            não navegar. É link e não botão porque o destino é outra rota.
+          */}
+          <Link
+            href="/agenda"
+            className="text-muted-foreground hover:text-foreground text-2xs inline-flex items-center gap-1 underline-offset-2 hover:underline"
+          >
+            <CalendarRange className="size-3.5" />
+            {t('fullAgenda')}
+          </Link>
         </PanelActions>
       </PanelHeader>
 
@@ -351,6 +376,8 @@ export function AgendaCalendar() {
                     currency={defaultCurrency}
                     canEdit={canEdit}
                     busy={busy === item.id}
+                    todayKey={todayKey}
+                    members={members}
                     onReschedule={(iso) => reschedule(item, iso)}
                   />
                 </li>
@@ -375,12 +402,22 @@ function AgendaRow({
   currency,
   canEdit,
   busy,
+  todayKey,
+  members,
   onReschedule,
 }: {
   item: AgendaItem;
   currency: string;
   canEdit: boolean;
   busy: boolean;
+  /** Hoje no fuso da CONTA — o mesmo que bucketiza os dias da agenda. */
+  todayKey: string;
+  /**
+   * O diretório vem de cima, e isso é obrigatório: `useMemberDirectory`
+   * dispara um SELECT por montagem, e chamá-lo aqui seria uma consulta a
+   * `profiles` por LINHA desenhada.
+   */
+  members: MemberDirectory;
   onReschedule: (iso: string | null) => void;
 }) {
   const t = useTranslations('Today.agenda');
@@ -394,6 +431,41 @@ function AgendaRow({
   ]
     .filter(Boolean)
     .join(' · ');
+
+  /*
+   * O ATRASO, e só onde ele quer dizer atraso.
+   *
+   * A janela do painel são seis semanas e ela quase sempre contém o
+   * passado, então um fechamento que era para ter saído há três semanas
+   * ficava desenhado igual a um da semana que vem — no lugar do produto
+   * onde essa é a única pergunta.
+   *
+   * Só `task` e `deal`. A OCORRÊNCIA fica de fora porque ela é
+   * retrospectiva por desenho — `agenda.ts` escreve "backwards-looking and
+   * still the calendar's business" — e pintar de vermelho o estado normal
+   * de um tipo não informa nada.
+   */
+  const overdue =
+    (item.kind === 'task' || item.kind === 'deal') && item.day < todayKey;
+
+  /*
+   * A CAMPANHA QUE FALHOU não pode parecer a que saiu.
+   *
+   * Só `broadcast`, e a restrição é obrigatória: numa TAREFA o campo
+   * `status` carrega o TIPO, não um estado — o `to-agenda.ts` diz isso com
+   * todas as letras. Em campanha ele é o status cru da linha.
+   */
+  const failed = item.kind === 'broadcast' && item.status === 'failed';
+
+  /*
+   * O rosto de quem é dono, na minoria das linhas em que existe um.
+   *
+   * Só a tarefa tem dono: aniversário, campanha e automação não são de
+   * ninguém, e a oportunidade fica de fora porque `deals.assigned_to`
+   * aponta para `profiles` enquanto o diretório é indexado por auth user.
+   * O dado vinha carregado até aqui e era jogado fora.
+   */
+  const owner = item.owner ? (members.get(item.owner) ?? null) : null;
 
   const body = (
     <>
@@ -411,8 +483,18 @@ function AgendaRow({
             </span>
           )}
         </span>
-        <span className="text-secondary-foreground mt-0.5 block truncate text-xs">
-          {meta}
+        <span className="text-secondary-foreground mt-0.5 flex items-center gap-1.5 text-xs">
+          {overdue && (
+            <StatusBadge variant="danger" size="sm">
+              {t('overdue')}
+            </StatusBadge>
+          )}
+          {failed && (
+            <StatusBadge variant="danger" size="sm">
+              {t('broadcastFailed')}
+            </StatusBadge>
+          )}
+          <span className="truncate">{meta}</span>
         </span>
       </span>
     </>
@@ -430,6 +512,15 @@ function AgendaRow({
         </Link>
       ) : (
         <span className="flex min-w-0 flex-1 items-center gap-3">{body}</span>
+      )}
+
+      {owner && (
+        <MemberAvatar
+          size="2xs"
+          name={owner.full_name}
+          avatarUrl={owner.avatar_url}
+          className="shrink-0"
+        />
       )}
 
       {item.reschedule && canEdit && (

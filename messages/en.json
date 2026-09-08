@@ -308,7 +308,10 @@
       "clearDate": "No date",
       "rescheduled": "Moved to {date}",
       "rescheduleCleared": "Date removed",
-      "rescheduleFailed": "Could not change the date"
+      "rescheduleFailed": "Could not change the date",
+      "overdue": "Overdue",
+      "broadcastFailed": "Failed",
+      "fullAgenda": "Full agenda"
     }
   },
   "Reports": {
@@ -848,7 +851,9 @@
         "toBroadcast": "Create a broadcast with this audience",
         "blockedByTag": "Clear the tag filter to use segmentation — the two use different queries and can't combine yet."
       },
-      "selectAllOnPage": "Select all contacts on this page"
+      "selectAllOnPage": "Select all contacts on this page",
+      "hasOccurrence": "Has an occurrence on record",
+      "optedOut": "Opted out"
     },
     "form": {
       "addTitle": "Add Contact",
@@ -1071,7 +1076,8 @@
       "resolvedToast": "Occurrence marked as resolved",
       "failed": "Could not save the occurrence",
       "pendingMigration": "The occurrence history needs migration 042, which has not been applied to the database yet. The warning on the record still works from the tag.",
-      "pendingToast": "Migration 042 has not been applied yet"
+      "pendingToast": "Migration 042 has not been applied yet",
+      "resolvedOn": "resolved on {date}"
     },
     "callLog": {
       "title": "Log a call",
@@ -1154,7 +1160,8 @@
       "60": "1 hour before",
       "120": "2 hours before",
       "1440": "1 day before"
-    }
+    },
+    "overdueBadge": "Overdue"
   },
   "Pipelines": {
     "page": {
@@ -1289,7 +1296,8 @@
       "toastFailedDelete": "Failed to delete deal",
       "toastDeleted": "Deal deleted",
       "valueFromItems": "Added up from the lines below.",
-      "toastItemsFailed": "The opportunity was saved, but its lines were not."
+      "toastItemsFailed": "The opportunity was saved, but its lines were not.",
+      "expectedCloseOverdue": "Past due"
     },
     "settings": {
       "managePipeline": "Manage Pipeline",

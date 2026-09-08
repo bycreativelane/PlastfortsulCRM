@@ -14,6 +14,8 @@ import { useBusinessHours } from '@/hooks/use-business-hours';
 import { useMemberDirectory } from '@/hooks/use-member-directory';
 import { localParts } from '@/lib/automations/local-time';
 import { firstOpenTime } from '@/lib/hours';
+import { isOverdue } from '@/lib/tasks/queries';
+import { StatusBadge } from '@/components/ui/status-badge';
 import {
   createTask,
   deleteTask,
@@ -303,7 +305,22 @@ export function TaskDialog({
 
           {/* ---- O prazo ---- */}
           <div className="grid gap-2">
-            <FieldLabel>{t('dueLabel')}</FieldLabel>
+            {/* O ATRASO segue a tarefa para dentro do diálogo.
+
+                A fileira que abriu este diálogo desenha a pílula vermelha;
+                abrir para remarcar apagava exatamente o fato que motivou a
+                abertura. Pílula e não tinta, pela nota de `task-row.tsx`.
+
+                `task` e `todayIso` já estavam os dois aqui — o segundo no
+                fuso da CONTA — e nenhum dos dois era usado para isto. */}
+            <div className="flex items-center gap-2">
+              <FieldLabel>{t('dueLabel')}</FieldLabel>
+              {task && isOverdue(task, todayIso) && (
+                <StatusBadge variant="danger" size="sm">
+                  {t('overdueBadge')}
+                </StatusBadge>
+              )}
+            </div>
 
             <div className="flex flex-wrap gap-1.5">
               {(

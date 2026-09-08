@@ -220,3 +220,91 @@ sete. O `date-only.test.ts` varre as seis colunas DATE do schema e tem um
 segundo teste conferindo que cada coluna da lista ainda é declarada DATE em
 alguma migração, senão a lista envelhece em silêncio depois de um rename.
 Contra a versão anterior, ele acusa os sete.
+
+---
+
+## Fase 10 — o que o banco já sabia e a tela não dizia
+
+Onze achados, e o fio entre eles é um só: **uma coluna gravada com cuidado
+e nunca lida**. Nenhuma delas exigiu consulta nova — o dado já vinha
+carregado até o componente e era descartado ali.
+
+### A visão geral (A4, A5, A10, A12)
+
+A janela do painel são seis semanas e ela quase sempre contém o passado, o
+que significa que um fechamento atrasado três semanas era desenhado igual a
+um da semana que vem. Agora a linha carrega um selo `Em atraso` — e **só**
+para tarefa e negócio. A ocorrência fica de fora porque ela é retrospectiva
+por desenho, e pintar de vermelho o estado normal de um tipo não informa
+nada.
+
+A campanha que falhou ganhou o seu próprio selo, restrito a `broadcast`: numa
+TAREFA o campo `status` carrega o TIPO, não um estado, e o `to-agenda.ts` diz
+isso com todas as letras. Ler `status === 'failed'` sem a restrição não
+quebraria nada — simplesmente nunca seria verdade, que é pior.
+
+O rosto do responsável entrou onde há um: só a tarefa tem dono. O diretório
+de membros vem do PAI e não do componente da linha, e isso é obrigatório —
+`useMemberDirectory` dispara um SELECT por montagem, então chamá-lo na linha
+seria uma consulta a `profiles` por linha desenhada.
+
+E o painel ganhou saída: `Agenda completa`, a mesma linha que o calendário de
+`/tasks` já tinha. A visão geral era a única das três superfícies de
+calendário em que o mês era um beco.
+
+### A tabela de contatos (C8, C3)
+
+O disco de ocorrência existia na caixa de entrada e não na tabela — e o
+docstring do helper dizia literalmente que *"a barra lateral e a tabela de
+contatos têm um e não o outro"*. Agora tem.
+
+`opted_out` é **editável** na ficha e era ilegível nas duas telas. Entrou nas
+duas, em cores diferentes de propósito: **neutro** na tabela e **âmbar** na
+ficha. Âmbar é a única "venha aqui" do sistema; 25 selos âmbar numa tabela
+seriam 25 chamados e nenhum. Na ficha é uma pessoa na tela — e logo abaixo
+do aviso há um botão de enviar template.
+
+### A ficha do negócio (S6, S7, S8)
+
+Marcar como perdido **exige** um motivo, e ele não voltava em superfície
+nenhuma do produto. Um campo obrigatório que ninguém relê é um formulário
+cobrando trabalho que não usa. O motivo agora aparece na ficha, com o mesmo
+ícone do diálogo que o gravou — `REASON_ICONS` deixou de ser privado em vez
+de ser copiado.
+
+Há uma guarda em volta dele. `noReply` saiu de `LOSS_REASONS` quando o fluxo
+oficial mandou o cliente que não responde para a Geladeira, e continua no
+catálogo por causa das perdas antigas. Sem a guarda, uma linha com essa chave
+faria `t()` estourar; e como o mapa de ícones é indexado por `LossReason`, o
+ícone dela é `undefined` — daí o `LossReasonIcon` devolver `null` em vez de
+renderizar.
+
+O desfecho também virou palavra: a ficha dizia "ganho" e "perdido" apenas
+desabilitando botões, que é o mesmo desenho de "você não pode editar". Nada
+quando aberto — o estado normal não é notícia.
+
+E a previsão de fechamento vencida ganhou pílula na tela onde se muda a data.
+O `hoje` daqui é o da **conta**, cópia literal do `task-list.tsx`, que roda a
+poucos pixels daqui dentro desta mesma sheet: duas noções de hoje na mesma
+tela seria o defeito. Não é o `todayIso()` do `deal-card.tsx` — aquele é o
+dia do dispositivo, e promovê-lo a lib consagraria o segundo hoje.
+
+### O diálogo de tarefa (T9)
+
+Abrir uma tarefa atrasada para remarcar apagava exatamente o fato que
+motivou a abertura. `task` e `todayIso` já estavam ambos no componente, o
+segundo já no fuso da conta, e nenhum dos dois era usado para isto.
+
+### As ocorrências (R6)
+
+`resolved_at` era gravado e nunca lido — sem ele, "Resolvida" não distingue
+ontem de março. Aqui `new Date()` está certo, ao contrário da linha logo
+acima: `resolved_at` é TIMESTAMPTZ e `occurred_on` é DATE. É a distinção que
+o `date-only.test.ts` guarda.
+
+`handled_by` é o outro lado. Ele foi defendido linha a linha na migração 042
+— inclusive a escolha de apontar para `auth.users(id)` e não para
+`profiles(id)` — e nasceu **sem escritor nenhum**. Agora os dois caminhos
+gravam. Isso não muda nada na tela hoje; muda o que dá para mostrar daqui a
+um mês, e é a metade invisível que dá sentido à visível.
+

@@ -20,12 +20,12 @@ import { GripVertical, Plus } from 'lucide-react';
 import { useMemberDirectory } from '@/hooks/use-member-directory';
 import { MemberAvatar } from '@/components/presence/member-avatar';
 import { StatusBadge } from '@/components/ui/status-badge';
+import { BoardLane } from '@/components/pipelines/board-lane';
 import { formatDue } from '@/components/tasks/task-row';
 import { StatePanel } from '@/components/ui/state-panel';
 import { bucketOf } from '@/lib/tasks/board';
 import { TASK_STATUSES, type Task, type TaskStatus } from '@/types';
 import { cn } from '@/lib/utils';
-import { CountBadge } from '@/components/ui/count-badge';
 
 /**
  * O quadro de tarefas, por status.
@@ -63,7 +63,16 @@ import { CountBadge } from '@/components/ui/count-badge';
  */
 
 /** A cor de cada coluna, como a etapa do funil tem a sua. */
-const STATUS_RULE: Record<TaskStatus, string> = {
+/**
+ * A bolinha do cabeçalho de cada coluna.
+ *
+ * Era uma régua de 2px rente ao topo da raia. As nove referências fazem
+ * isto com uma bolinha ao lado do nome, sem exceção, e por um motivo: a
+ * régua respondia à mesma pergunta — "em que coluna eu estou" — e cobrava
+ * uma banda inteira por ela, além de prender a cor no canto mais distante
+ * do nome que ela qualifica.
+ */
+const STATUS_DOT: Record<TaskStatus, string> = {
   open: 'bg-human',
   done: 'bg-ok',
   cancelled: 'bg-muted-foreground/40',
@@ -190,31 +199,31 @@ function Column({
   const { setNodeRef, isOver } = useDroppable({ id: status });
 
   return (
-    <div className="bg-muted flex w-[85vw] max-w-[320px] min-w-[260px] shrink-0 snap-start flex-col overflow-hidden rounded-b-lg lg:w-auto lg:max-w-none lg:flex-1 lg:shrink lg:basis-[260px] lg:snap-none">
-      {/* Uma régua de 2px, quadrada e rente ao topo. Orientação, não
-          atenção — é o que deixa saber em que coluna se está sem ler o
-          título, e mantê-la fina é o que impede virar sinal. */}
-      <div className={cn('h-0.5 shrink-0', STATUS_RULE[status])} />
-
-      <div className="shrink-0 px-3 pt-2 pb-2.5">
-        <div className="flex items-center gap-2">
-          <h3 className="text-foreground min-w-0 flex-1 truncate text-sm font-bold tracking-tight">
-            {tPage(`status.${status}`)}
-          </h3>
-          <CountBadge tone="card">{tasks.length}</CountBadge>
-        </div>
-      </div>
-
-      {/* `overflow-y-auto`: a COLUNA rola, não a página. E o `ref` do
-          droppable fica aqui e não na raiz, para que um arrasto sobre o
-          cabeçalho não acenda a coluna inteira — mesma decisão do funil. */}
-      <div
-        ref={setNodeRef}
-        className={cn(
-          'flex min-h-24 flex-1 flex-col gap-2 overflow-y-auto px-2 pb-2 transition-colors duration-(--dur-1)',
-          isOver && 'bg-primary-soft'
-        )}
-      >
+    // A MESMA RAIA DO FUNIL, literalmente. Os dois quadros divergiram uma vez
+    // (foi o que abriu este redesenho) e a única forma de não divergirem de
+    // novo é não existirem duas colunas.
+    <BoardLane
+      colorClass={STATUS_DOT[status]}
+      name={tPage(`status.${status}`)}
+      count={tasks.length}
+      isOver={isOver}
+      bodyRef={setNodeRef}
+      footer={
+        // Só na coluna das abertas: criar uma tarefa já concluída não é uma
+        // ação que exista, e um botão que produz um estado impossível é pior
+        // que a ausência dele.
+        status === 'open' ? (
+          <button
+            type="button"
+            onClick={onCreate}
+            className="border-input text-muted-foreground hover:border-primary/40 hover:text-foreground mx-2 mb-2 flex h-8 shrink-0 items-center justify-center gap-1 rounded-lg border border-dashed text-xs font-medium transition-colors duration-(--dur-1)"
+          >
+            <Plus className="size-3.5" />
+            {tPage('new')}
+          </button>
+        ) : null
+      }
+    >
         {tasks.map((task) => (
           <DraggableCard
             key={task.id}
@@ -225,26 +234,18 @@ function Column({
           />
         ))}
 
-        {/* Só na coluna das abertas: criar uma tarefa já concluída não é
-            uma ação que exista, e um botão que produz um estado impossível
-            é pior que a ausência dele. */}
-        {status === 'open' ? (
-          <button
-            type="button"
-            onClick={onCreate}
-            className="text-muted-foreground hover:bg-card hover:text-foreground flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs transition-colors"
-          >
-            <Plus className="size-3.5" />
-            {tPage('new')}
-          </button>
-        ) : tasks.length === 0 ? (
+        {tasks.length === 0 && status !== 'open' ? (
           // O frame único de vazio da casa, o mesmo que o funil usa para
           // "solte uma oportunidade aqui". Um parágrafo cru à esquerda não
           // parecia um alvo de soltura.
-          <StatePanel title={tPage('columnEmpty')} framed size="sm" className="flex-1" />
+          <StatePanel
+            title={tPage('columnEmpty')}
+            framed
+            size="sm"
+            className="flex-1"
+          />
         ) : null}
-      </div>
-    </div>
+    </BoardLane>
   );
 }
 
@@ -327,13 +328,15 @@ function Card({
       type="button"
       onClick={onOpen}
       className={cn(
-        // `surface-interactive` é a receita única de hover da casa: a borda
-        // esquenta, o cartão sobe 1px e o `:active` cancela o lift. Estava
-        // escrita à mão aqui, sem o lift — que é justamente o que dá a
-        // sensação de que o cartão é pegável.
-        'border-border bg-card w-full cursor-grab rounded-lg border px-2.5 py-2.5 text-left pointer-coarse:pr-10',
+        // A MESMA SUPERFÍCIE DO CARTÃO DO FUNIL: sombra em vez de borda, o
+        // raio da casa e respiro de verdade. A borda continua no DOM,
+        // transparente, porque é o canal que o `surface-interactive`
+        // esquenta no ponteiro.
+        'bg-card w-full cursor-grab rounded-xl border border-transparent p-3.5 text-left pointer-coarse:pr-10',
         'focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none',
-        isOverlay ? 'cursor-grabbing shadow-lg' : 'surface-interactive',
+        isOverlay
+          ? 'cursor-grabbing shadow-lg'
+          : 'surface-interactive shadow-(--card-shadow)',
         busy && 'opacity-60'
       )}
     >
@@ -351,7 +354,7 @@ function Card({
         {task.title}
       </span>
 
-      <span className="border-muted mt-2 flex items-center gap-1.5 border-t pt-1.5">
+      <span className="border-muted mt-3 flex items-center gap-1.5 border-t pt-2.5">
         <span className="text-muted-foreground text-2xs">
           {tTask(`kind.${task.kind}`)}
         </span>

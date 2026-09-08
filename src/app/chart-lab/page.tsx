@@ -37,6 +37,9 @@ import {
 } from '@/components/ui/select';
 import { AttentionRow } from '@/components/dashboard/attention-row';
 import { StatTile } from '@/components/ui/stat-tile';
+import { BoardLane } from '@/components/pipelines/board-lane';
+import { DealCard } from '@/components/pipelines/deal-card';
+import type { Deal, PipelineStage } from '@/types';
 
 /**
  * A bench for the chart components, outside the login wall.
@@ -162,6 +165,128 @@ const RESPONSE: ResponseTimeSummary = {
  * not a pair worth having, even for a page that renders nothing but
  * fixtures. It renders nothing at all in a production build.
  */
+/**
+ * O funil, em fixtures.
+ *
+ * Cinco cartoes escolhidos para cobrir o que o desenho tem de decidir: nome
+ * curto e nome longo, com e sem empresa, titulo de uma e de duas linhas,
+ * playbook pela metade e playbook fechado, ganho e perdido, com e sem
+ * responsavel, e um negocio parado ha muito tempo — que e a informacao que a
+ * 065 guarda no banco e o cartao nunca mostrou.
+ */
+const LAB_STAGES: PipelineStage[] = [
+  {
+    id: 'st-1',
+    pipeline_id: 'p1',
+    name: 'Qualificação',
+    color: '#3b82f6',
+    position: 0,
+    created_at: '2026-01-01T00:00:00Z',
+  },
+  {
+    id: 'st-2',
+    pipeline_id: 'p1',
+    name: 'Proposta enviada',
+    color: '#f59e0b',
+    position: 1,
+    created_at: '2026-01-01T00:00:00Z',
+  },
+  {
+    id: 'st-3',
+    pipeline_id: 'p1',
+    name: 'Fechamento',
+    color: '#10b981',
+    position: 2,
+    created_at: '2026-01-01T00:00:00Z',
+  },
+];
+
+function labDeal(deal: Partial<Deal> & { id: string; title: string }): Deal {
+  return {
+    user_id: 'u1',
+    pipeline_id: 'p1',
+    stage_id: 'st-1',
+    contact_id: 'c1',
+    value: 0,
+    currency: 'BRL',
+    status: 'open',
+    created_at: '2026-08-01T00:00:00Z',
+    ...deal,
+  } as Deal;
+}
+
+const daysAgo = (n: number) =>
+  new Date(Date.now() - n * 86_400_000).toISOString();
+
+const LAB_DEALS: Record<string, Deal[]> = {
+  'st-1': [
+    labDeal({
+      id: 'd1',
+      title: 'Reposição de caixas plásticas 60L para o CD de Cachoeirinha',
+      value: 18400,
+      stage_entered_at: daysAgo(3),
+      expected_close_date: '2026-09-19',
+      contact: {
+        name: 'Marcos Andrade',
+        company: 'Distribuidora Sul Ltda.',
+      } as Deal['contact'],
+      assignee: { full_name: 'Gabriel Spencer' } as Deal['assignee'],
+    }),
+    labDeal({
+      id: 'd2',
+      title: 'Pallets PBR',
+      value: 6250,
+      stage_entered_at: daysAgo(0),
+      contact: { name: '+55 51 99812-4471' } as Deal['contact'],
+    }),
+  ],
+  'st-2': [
+    labDeal({
+      id: 'd3',
+      stage_id: 'st-2',
+      title: 'Contentor 1000L com dispensador — 12 unidades',
+      value: 47900,
+      stage_entered_at: daysAgo(41),
+      expected_close_date: '2026-09-30',
+      contact: {
+        name: 'Juliana Prestes',
+        company: 'Agroindustrial Vale Verde',
+      } as Deal['contact'],
+      assignee: { full_name: 'Marina Rocha' } as Deal['assignee'],
+    }),
+    labDeal({
+      id: 'd4',
+      stage_id: 'st-2',
+      title: 'Bombonas 200L',
+      value: 9800,
+      stage_entered_at: daysAgo(9),
+      contact: { name: 'Rafael Kunz', company: 'Kunz Transportes' } as Deal['contact'],
+      assignee: { full_name: 'Gabriel Spencer' } as Deal['assignee'],
+    }),
+  ],
+  'st-3': [
+    labDeal({
+      id: 'd5',
+      stage_id: 'st-3',
+      title: 'Engradados retornáveis — contrato anual',
+      value: 132000,
+      status: 'won',
+      stage_entered_at: daysAgo(2),
+      contact: {
+        name: 'Ana Beatriz Camargo',
+        company: 'Bebidas Serra Gaúcha',
+      } as Deal['contact'],
+      assignee: { full_name: 'Marina Rocha' } as Deal['assignee'],
+    }),
+  ],
+};
+
+const LAB_PLAYBOOK: Record<string, { done: number; total: number }> = {
+  d1: { done: 2, total: 5 },
+  d3: { done: 1, total: 6 },
+  d5: { done: 4, total: 4 },
+};
+
 const ENABLED = process.env.NODE_ENV !== 'production';
 
 export default function ChartLabPage() {
@@ -400,6 +525,50 @@ export default function ChartLabPage() {
           <div className="h-full min-w-0">
             <PipelineFunnel data={PIPELINE} loading={false} currency="BRL" />
           </div>
+        </div>
+
+        {/* O FUNIL, COM AS PECAS REAIS.
+            Este quadro e a tela que o Gabriel reprovou, e ela vive atras do
+            login — foi por isso que o redesenho dela vinha sendo discutido
+            sobre maquetes. `BoardLane` e `DealCard` sao os componentes que a
+            producao usa; so os dados sao fixtures. */}
+        <SectionTitle>Funil</SectionTitle>
+        <div className="bg-background flex gap-3 overflow-x-auto rounded-xl p-3">
+          {LAB_STAGES.map((stage) => (
+            <BoardLane
+              key={stage.id}
+              color={stage.color}
+              name={stage.name}
+              count={(LAB_DEALS[stage.id] ?? []).length}
+              subtitle={new Intl.NumberFormat('pt-BR', {
+                style: 'currency',
+                currency: 'BRL',
+                maximumFractionDigits: 0,
+              }).format(
+                (LAB_DEALS[stage.id] ?? []).reduce((n, d) => n + d.value, 0)
+              )}
+              className="h-100"
+              footer={
+                <button
+                  type="button"
+                  className="text-muted-foreground hover:text-foreground mx-2 mb-2 flex h-8 shrink-0 items-center justify-center gap-1 rounded-lg border border-dashed text-xs font-medium"
+                  style={{ borderColor: stage.color }}
+                >
+                  + Adicionar negócio
+                </button>
+              }
+            >
+              {(LAB_DEALS[stage.id] ?? []).map((deal) => (
+                <DealCard
+                  key={deal.id}
+                  deal={deal}
+                  stage={stage}
+                  onEdit={() => {}}
+                  playbook={LAB_PLAYBOOK[deal.id]}
+                />
+              ))}
+            </BoardLane>
+          ))}
         </div>
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">

@@ -1197,7 +1197,10 @@
       "noContact": "Sem contato",
       "won": "Ganho",
       "lost": "Perdido",
-      "playbook": "Passos da etapa"
+      "playbook": "Passos da etapa",
+      "inStage": "{days}d aqui",
+      "inStageTitle": "Dias nesta etapa",
+      "playbookProgress": "Playbook: {done} de {total}"
     },
     "menu": {
       "open": "Abrir oportunidade",

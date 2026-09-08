@@ -1197,7 +1197,10 @@
       "noContact": "No contact",
       "won": "Won",
       "lost": "Lost",
-      "playbook": "Stage steps"
+      "playbook": "Stage steps",
+      "inStage": "{days}d here",
+      "inStageTitle": "Days in this stage",
+      "playbookProgress": "Playbook: {done} of {total}"
     },
     "menu": {
       "open": "Open deal",

@@ -21,7 +21,7 @@ import {
 import type { Deal, PipelineStage } from '@/types';
 import { DealCard } from './deal-card';
 import { DealContextMenu } from './deal-context-menu';
-import { Button } from '@/components/ui/button';
+import { BoardLane } from './board-lane';
 import { StatePanel } from '@/components/ui/state-panel';
 import { GripVertical, Plus } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
@@ -31,7 +31,6 @@ import {
   usePlaybookProgress,
   type PlaybookProgress,
 } from '@/hooks/use-playbook-progress';
-import { CountBadge } from '@/components/ui/count-badge';
 
 interface PipelineBoardProps {
   stages: PipelineStage[];
@@ -226,48 +225,41 @@ function StageColumn({
   const { setNodeRef, isOver } = useDroppable({ id: stage.id });
 
   return (
-    // On mobile each column is `w-[85vw]` (with a reasonable min/max)
-    // so the next column's edge peeks in — a "there's more here" hint.
-    // snap-start lands each column cleanly when swiping. On lg+ we
-    // restore the flex-1 share-the-row behavior. The droppable ref is
-    // on the inner messages region below — intentionally NOT here, so
-    // a drag over the column header doesn't highlight the whole column.
-    // A recessed lane, not a card. The column is the container the cards sit
-    // IN, so it takes the muted surface and the cards take white — the
-    // opposite of a bordered box holding bordered boxes, which flattens the
-    // stack into one grey rectangle.
-    <div className="bg-muted flex w-[85vw] max-w-[320px] min-w-[260px] shrink-0 snap-start flex-col overflow-hidden rounded-b-lg lg:w-auto lg:max-w-none lg:flex-1 lg:shrink lg:basis-[260px] lg:snap-none">
-      {/* A 2px rule in the stage's colour, square-edged and flush to the top.
-          Orientation, not attention: with ten stages scrolling sideways you
-          need to know where you are without reading the title, and keeping it
-          to a hairline is what stops it becoming a signal.
-          It was 3px with rounded top corners, which turned the line into a
-          little coloured cap and made each column read as a boxed card. */}
-      <div
-        className="h-0.5 shrink-0"
-        style={{ backgroundColor: stage.color }}
-      />
-
-      {/* Stage name is the primary fact; the total is auxiliary and sized to
-          say so. It read as one flat line of grey before. */}
-      <div className="shrink-0 px-3 pt-2 pb-2.5">
-        <div className="flex items-center gap-2">
-          <h3 className="text-foreground min-w-0 flex-1 truncate text-sm font-bold tracking-tight">
-            {stage.name}
-          </h3>
-          <CountBadge tone="card">{deals.length}</CountBadge>
-        </div>
-        <p className="text-muted-foreground text-2xs font-medium tabular-nums">
-          {formatCurrency(totalValue, currency)}
-        </p>
-      </div>
-
-      <div
-        ref={setNodeRef}
-        className={`flex flex-1 flex-col gap-2 overflow-y-auto px-2 pb-2 transition-colors duration-(--dur-1) ${
-          isOver ? 'bg-primary-soft' : ''
-        }`}
-      >
+    // On mobile each column is `w-[85vw]` (with a reasonable min/max) so the
+    // next column's edge peeks in — a "there's more here" hint. snap-start
+    // lands each column cleanly when swiping. On lg+ we restore the flex-1
+    // share-the-row behaviour. All of that, plus the recessed surface and the
+    // header, now lives in `BoardLane` — extracted so the `/chart-lab` can
+    // mount the real lane without a session.
+    <BoardLane
+      color={stage.color}
+      name={stage.name}
+      count={deals.length}
+      subtitle={formatCurrency(totalValue, currency)}
+      isOver={isOver}
+      // O ref do droppable pertence ao CORPO, e nao a raiz, para que um
+      // arrasto sobre o cabecalho nao acenda a coluna inteira.
+      bodyRef={setNodeRef}
+      footer={
+        // O SLOT TRACEJADO das referencias, na cor da etapa.
+        //
+        // Era um botao fantasma cinza, indistinguivel de qualquer outra acao
+        // secundaria da tela. Tracejado ele le como um lugar VAZIO esperando
+        // um cartao — que e o que ele e — e a cor amarra o gesto a coluna em
+        // que ele vai cair. E o unico lugar do quadro onde a cor da etapa
+        // aparece de novo depois da bolinha, e aqui ela esta dizendo "aqui
+        // dentro", nao "olhe para mim".
+        <button
+          type="button"
+          onClick={() => onAddDeal(stage.id)}
+          className="text-muted-foreground hover:text-foreground mx-2 mb-2 flex h-8 shrink-0 items-center justify-center gap-1 rounded-lg border border-dashed text-xs font-medium transition-colors duration-(--dur-1)"
+          style={{ borderColor: stage.color }}
+        >
+          <Plus className="size-3.5" />
+          {t('addDeal')}
+        </button>
+      }
+    >
         {deals.length === 0 ? (
           <StatePanel title={t('dropDealHere')} framed className="flex-1" />
         ) : (
@@ -285,18 +277,7 @@ function StageColumn({
             />
           ))
         )}
-      </div>
-
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => onAddDeal(stage.id)}
-        className="text-muted-foreground hover:bg-card hover:text-foreground mx-2 mb-2 h-7 shrink-0 justify-start rounded-md text-xs"
-      >
-        <Plus className="mr-1 size-3" />
-        {t('addDeal')}
-      </Button>
-    </div>
+    </BoardLane>
   );
 }
 

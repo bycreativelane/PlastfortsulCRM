@@ -1197,7 +1197,10 @@
       "noContact": "연락처 없음",
       "won": "성사",
       "lost": "실패",
-      "playbook": "단계 체크리스트"
+      "playbook": "단계 체크리스트",
+      "inStage": "{days}일째",
+      "inStageTitle": "이 단계 경과 일수",
+      "playbookProgress": "플레이북: {total}개 중 {done}개"
     },
     "menu": {
       "open": "딜 열기",

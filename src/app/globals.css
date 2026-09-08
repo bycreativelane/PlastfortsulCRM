@@ -1437,6 +1437,17 @@ html[data-theme='rose'] {
   /* The lift a card takes when the pointer is on it. Small on purpose:
    * a raised card in a grid of thirty is a card that broke the grid. */
   --lift-shadow: 0 1px 2px oklch(0 0 0 / 0.04), 0 4px 12px oklch(0 0 0 / 0.06);
+
+  /* THE CARD AT REST, and the reason it can drop its border.
+   *
+   * Every reference board draws its cards as a surface a step lighter than
+   * the canvas with a soft shadow under it and no visible outline. Ours
+   * drew a 1px border instead, and a bordered card inside a bordered lane
+   * is a rectangle inside a rectangle — the thing that makes a stack read
+   * as a grey grid rather than as a set of objects.
+   *
+   * Half the weight of the lift, so the hover still has somewhere to go. */
+  --card-shadow: 0 1px 2px oklch(0 0 0 / 0.05);
 }
 
 html[data-mode='dark'] {
@@ -1444,6 +1455,10 @@ html[data-mode='dark'] {
    * darker to cast onto. The lift becomes light instead: a hairline
    * of the card's own colour, brighter than the border around it. */
   --lift-shadow: 0 0 0 1px oklch(1 0 0 / 0.06), 0 6px 16px oklch(0 0 0 / 0.35);
+
+  /* Same reason, same answer: no shadow reads on a dark surface, so the
+   * card separates with a hairline of its own light instead. */
+  --card-shadow: 0 0 0 1px oklch(1 0 0 / 0.05);
 }
 
 /* Both end on `transform: none` rather than `translateY(0)`, and both

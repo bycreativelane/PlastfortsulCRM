@@ -163,7 +163,7 @@ A do próprio pacote (item 34), com o 37 recolocado.
 | **P0** | bugs que bloqueiam operação           | 5,5 de 6 — a auditoria corrigiu 5 defeitos; sobra o que só a Meta responde |
 | **P1** | experiência de atendimento            | 6 de 6 — fechado em 8 de setembro                                          |
 | **P2** | produtividade                         | 3 de 4 — falta a revisão visual em tela autenticada                        |
-| —      | itens 38–59: oportunidade e orçamento | não começou                                                                |
+| —      | itens 38–59: oportunidade e orçamento | feito em 8 de setembro; a migração 070 falta aplicar                       |
 
 ---
 
@@ -667,54 +667,90 @@ a suíte e a build de produção, que compila todas as rotas.
 
 ---
 
-## Itens 38–59 — a oportunidade e o orçamento
+## ✅ Itens 38–59 — a oportunidade e o orçamento
 
-**Fora da ordem de execução do pacote, e é o maior bloco.** Redesenho do
-formulário de oportunidade (campos, ordem, "Pedido de venda" no lugar de
-"Título", produto, valor, frete, transportador) e, a partir do item 51, a
-**geração de orçamento dentro do CRM** — com o modelo atual da PlastfortSul
-transcrito como referência, a estrutura desejada, os formatos, e preparação
-para integração futura com o **Bling**.
+**Feito em 8 de setembro**, em dois commits: a base (`a719da5`) e o
+documento. A integração com o Bling continua fora, como o item 51 pede e o
+59 proíbe.
 
-É uma release por si, e misturá-la com correções de bug atrasaria as duas.
+### O formulário (39–50)
 
-### O que já existe, e é mais do que o pacote supõe
+| Item         | O que virou                                                                               |
+| ------------ | ----------------------------------------------------------------------------------------- |
+| 39           | `Pedido de venda` → **coluna própria** `sales_order_number` (070), não o `title` — ver R6 |
+| 40           | já estava: o inbox passa `defaultContactId`                                               |
+| 41           | `Moeda` e `Previsão de fechamento` saem da tela; as colunas ficam e continuam gravadas    |
+| 42           | Etapa fica, discreta, no fim da linha do Responsável                                      |
+| 43 · 45 · 46 | a seção vira **Produto**; `deal_items` intacto — ver R5                                   |
+| 44           | Pedido → Contato → Produto → Valor → Frete → Transportador → Responsável → Observações    |
+| 47           | **Frete**, fora do valor; `NULL` não é zero                                               |
+| 48           | **Transportador** em texto, com os dois estados do item como atalhos                      |
+| 49 · 50      | mantidos                                                                                  |
 
-| Pedido                                                     | No produto hoje                                                                                                     |
-| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| 45 — campo Produto com SKU, qtd., valor unitário, subtotal | `deal_items` (054): `product_id`, `name` congelado, `quantity`, `unit_price`, `discount_percent`, `total` GENERATED |
-| 45 — "não criar uma segunda base de produtos"              | `products` (054), com `sku`, `unit`, `price`, `category`                                                            |
-| 46 — Valor somado a partir dos itens                       | já soma; `valueFromItems` é o texto                                                                                 |
-| 49 — Responsável usando a equipe cadastrada                | `assigned_to` → `profiles`                                                                                          |
-| 50 — Observações multilinha                                | `notes`                                                                                                             |
+**O título continua existindo e continua sendo preenchido**, pela mesma
+regra do motor (`resolveDealTitle`): nome do contato, caindo no telefone.
+Duas regras para a mesma coluna seriam duas listas de negócio com nomes
+diferentes no mesmo Kanban.
 
-### O que falta de verdade
+**A moeda vira BRL em três lugares** (R7): o `DEFAULT` da coluna, as contas
+que ainda carregavam `USD`, e o `DEFAULT_CURRENCY` do app. `deals.currency`
+de oportunidades antigas não é tocado — o item 59 proíbe.
 
-Três colunas que não existem em lugar nenhum — **`grep` por `shipping`,
-`freight`, `carrier`, `order_number` no diretório de migrações não devolve
-nada** fora do motivo de perda:
+### O orçamento (51–55)
 
-1. **Pedido de venda** (item 39) — número/texto, e **não** a coluna `title`
-   (R6);
-2. **Frete** (item 47) — valor separado dos produtos, para o orçamento poder
-   mostrar subtotal / frete / total;
-3. **Transportador** (item 48) — o pacote sugere reaproveitar contatos
-   classificados como transportadora, mais os estados "Cliente retira" e "A
-   definir". **Essa classificação não existe** hoje; decidir antes de
-   escrever a coluna.
+**Uma conta só, em `lib/quotes/quote.ts`.** O item 55 termina com a frase
+que decide a arquitetura — "não manter dois cálculos independentes" —, então
+a soma acontece longe de qualquer pixel e o desenho recebe números prontos.
+`lineTotal` vem de `products/catalog`, que já é a cópia em TypeScript da
+coluna `total` GENERATED da 054: uma terceira versão da mesma multiplicação
+seria a mesma dívida com outro nome.
 
-Mais os dois defaults de moeda (R7) e o orçamento inteiro (51–55), que é
-renderização e não tem nada no repositório.
+**O PDF é a impressão, e não uma biblioteca.** Gerar PDF no servidor custaria
+um navegador headless para produzir, de um documento de uma página, o que o
+próprio navegador já produz com "Salvar como PDF" — vetorial, com texto
+selecionável. E viria com um segundo caminho de renderização, que é o segundo
+cálculo do item 55 um andar acima. A folha de `globals.css` inverte a regra:
+some tudo, volta só o ramo marcado.
 
-### A numeração da migração está disputada
+**Um defeito achado ao ver o documento na tela.** `formatCurrency` arredonda
+para a unidade de propósito — no cartão do Kanban `R$ 18.400` se lê mais
+rápido. Num orçamento é errado: o bench imprimia `100 × R$ 4` para um preço
+de R$ 4,25, e a conta não fechava na frente do cliente. Agora há
+`formatCurrencyExact` ao lado, e as duas existem porque são duas decisões
+sobre a mesma quantia: quem escaneia usa uma, quem confere usa a outra.
 
-A última aplicada é a **069**. Três specs de 4 de setembro já reservam a
-070 em diante (`spec-acoes-de-agente.md` toma 070–072;
-`spec-transporte-secundario.md` registra a colisão). Quem escrever a migração
-deste bloco tem que renumerar alguém — e a decisão é de quem entregar
-primeiro, não de quem escreveu primeiro.
+**Medido no `/chart-lab`**, que é a primeira peça deste bloco que dá para
+olhar sem sessão — `DealQuote` recebe um objeto e não consulta nada:
 
----
+|            |                                                                                                                          |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------ |
+| completo   | `100 × R$ 4,25 → R$ 425,00`; `200 × R$ 1,00 · 10% → R$ 180,00`; Produtos R$ 605,00; Frete R$ 120,00; **Total R$ 725,00** |
+| só o valor | sem pedido, sem produtos, sem frete, sem transportador, sem observações — Produtos e Total R$ 625,00                     |
+
+### O que ficou de fora, e por quê
+
+**A migração 070 não foi aplicada.** Não há MCP do Supabase nesta sessão.
+Até ela rodar, salvar uma oportunidade falha — as três colunas não existem.
+
+**O CRM não sabe quem é a empresa.** O item 54 pede logo, site, e-mail e
+telefone no cabeçalho e no rodapé. `accounts` tem nome, dono, fuso, moeda e
+horário comercial; `whatsapp_config` guarda o `phone_number_id` da Meta, que
+é um id e não um telefone que se imprima. O documento é montado com o que
+existe e não inventa o que não existe — **esta é a única parte do item 54 que
+depende de uma coluna que ninguém escreveu ainda**, e ela vem com uma tela de
+configuração junto, que é uma entrega por si.
+
+**A imagem vertical do item 55 não é gerada.** O item pede o visual de
+WhatsApp como "imagem vertical de boa resolução; **ou** PDF de uma página com
+proporção amigável", e o que existe é o segundo — que também é o PDF que ele
+pede em seguida, do mesmo desenho. A imagem exigiria uma dependência de
+rasterização e um segundo caminho de renderização.
+
+**O item 57 (preparar para o Bling) está atendido pela estrutura, não por
+código.** Os campos que ele lista existem como colunas — pedido, contact_id,
+conversation_id, responsável, produtos com product_id, quantidade, preço,
+subtotal, frete, transportador, total, observações, status, stage_id — e o
+`Quote` é o objeto que uma futura chamada ao Bling consumiria.
 
 ## O que o pacote proíbe (item 35)
 

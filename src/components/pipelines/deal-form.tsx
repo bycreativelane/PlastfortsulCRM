@@ -1,11 +1,11 @@
 'use client';
 
-import { useCallback, useState, useEffect } from 'react';
+import { useCallback, useMemo, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
 import { useCan } from '@/hooks/use-can';
-import { formatCurrency } from '@/lib/currency';
+import { formatCurrencyExact } from '@/lib/currency';
 import {
   lineTotal,
   replaceDealItems,
@@ -37,12 +37,23 @@ import {
 import { LOSS_REASONS, type LossReason } from '@/lib/deals/outcome';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { OptionSelect } from '@/components/ui/option-select';
+import { useBusinessHours } from '@/hooks/use-business-hours';
+import { localParts } from '@/lib/automations/local-time';
+import { buildQuote } from '@/lib/quotes/quote';
+import { DealQuote } from './deal-quote';
 import { ChoiceChip } from '@/components/ui/choice-chip';
 import { PlaybookChecklist } from './playbook-checklist';
 import { TaskList } from '@/components/tasks/task-list';
 import { FieldLabel } from '@/components/ui/field';
 import { Textarea } from '@/components/ui/textarea';
-import { Check, X, Trash2, MessageSquare, Loader2 } from 'lucide-react';
+import {
+  Check,
+  X,
+  Trash2,
+  MessageSquare,
+  FileText,
+  Loader2,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 
@@ -140,8 +151,9 @@ export function DealForm({
   // cartão e do diálogo de desfecho. Nenhuma chave nova nos dois.
   const tCard = useTranslations('Pipelines.card');
   const tOutcome = useTranslations('Pipelines.outcome');
+  const tQuote = useTranslations('Quote');
   const supabase = createClient();
-  const { accountId, defaultCurrency } = useAuth();
+  const { account, accountId, defaultCurrency } = useAuth();
 
   /*
    * O "hoje" da conta saiu junto com a Previsão de fechamento.
@@ -171,6 +183,20 @@ export function DealForm({
   const canWrite = useCan('send-messages');
 
   /**
+   * A data que o orçamento carimba: hoje, no fuso da CONTA.
+   *
+   * `localParts` e não `toISOString().slice(0, 10)`: meia-noite UTC é o
+   * dia anterior a oeste de Greenwich, e um orçamento datado de ontem é
+   * a única data que ninguém consegue explicar ao cliente. É a mesma
+   * razão do topo de `lib/calendar.ts`.
+   */
+  const { hours } = useBusinessHours();
+  const hojeIso = useMemo(
+    () => localParts(new Date(), hours.timezone).dateKey,
+    [hours.timezone]
+  );
+
+  /**
    * O TÍTULO NÃO É MAIS UM CAMPO, e continua sendo uma coluna.
    *
    * Item 39: o que a pessoa preenche aqui é o PEDIDO DE VENDA, o número
@@ -180,6 +206,8 @@ export function DealForm({
    * contato. Ver `tituloDerivado` abaixo.
    */
   const [salesOrder, setSalesOrder] = useState('');
+  /** A prévia do orçamento (item 51). Não grava nada — só desenha. */
+  const [quoteOpen, setQuoteOpen] = useState(false);
   const [value, setValue] = useState<number | null>(null);
   /** Frete, separado dos produtos (item 47). `null` é 'não definido'. */
   const [shipping, setShipping] = useState<number | null>(null);
@@ -376,6 +404,34 @@ export function DealForm({
    * seria apagar o que alguém digitou por causa de um redesenho.
    */
   const contatoAtual = contacts.find((c) => c.id === contactId);
+
+  /**
+   * O orçamento a partir do que está NA TELA, e não do que está gravado.
+   *
+   * Item 51: "conseguir montar o documento a partir dos dados já
+   * preenchidos na oportunidade". Preenchidos, não salvos — quem acabou
+   * de digitar o frete quer ver o documento com ele, e mandar salvar
+   * antes de olhar seria o formulário cobrando um passo para mostrar
+   * uma prévia.
+   *
+   * A conta é feita uma vez, em `buildQuote`, e o desenho não soma nada
+   * — a condição que o item 55 impõe para as duas saídas do documento.
+   */
+  const orcamento = buildQuote({
+    orderNumber: salesOrder,
+    issuedOn: hojeIso,
+    company: account?.name,
+    customerName: contatoAtual?.name || contatoAtual?.phone,
+    customerCompany: contatoAtual?.company,
+    customerPhone: contatoAtual?.phone,
+    items,
+    value,
+    currency,
+    shipping,
+    carrier,
+    owner: profiles.find((pf) => pf.id === assignedTo)?.full_name,
+    notes,
+  });
   const tituloDerivado =
     deal?.title?.trim() ||
     contatoAtual?.name?.trim() ||
@@ -776,12 +832,14 @@ export function DealForm({
               <p className="text-secondary-foreground border-border bg-muted/50 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-lg border px-3 py-2 text-xs">
                 <span className="text-muted-foreground">
                   {t('breakdown', {
-                    products: formatCurrency(produtos, currency),
-                    shipping: formatCurrency(shipping, currency),
+                    products: formatCurrencyExact(produtos, currency),
+                    shipping: formatCurrencyExact(shipping, currency),
                   })}
                 </span>
                 <span className="text-foreground font-semibold">
-                  {t('total', { total: formatCurrency(totalGeral, currency) })}
+                  {t('total', {
+                    total: formatCurrencyExact(totalGeral, currency),
+                  })}
                 </span>
               </p>
             )}
@@ -898,6 +956,31 @@ export function DealForm({
                 className="border-border bg-muted text-foreground min-h-[100px]"
               />
             </div>
+
+            {/*
+              GERAR ORÇAMENTO — item 51.
+
+              Depois das Observações porque é aqui que tudo que o documento
+              imprime já foi preenchido: produto, valor, frete,
+              transportador, responsável e a própria observação. Antes disto
+              o botão abriria um documento pela metade.
+
+              `outline` e não sólido: o azul cheio desta gaveta é do Salvar,
+              e ver o orçamento não grava nada. É uma prévia — o item 51 diz
+              que o objetivo da fase é "conseguir montar o documento", e
+              montar não é enviar.
+
+              Sem Bling, que o item 51 dispensa em uma frase e o 59 proíbe.
+            */}
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setQuoteOpen(true)}
+              className="w-fit"
+            >
+              <FileText className="size-4" />
+              {tQuote('open')}
+            </Button>
 
             {/* The stage's playbook, on the deal it applies to. Keyed to the
                 deal's PERSISTED stage rather than the form's stage select:
@@ -1141,6 +1224,12 @@ export function DealForm({
           </div>
         </div>
       </SheetContent>
+      <DealQuote
+        open={quoteOpen}
+        onOpenChange={setQuoteOpen}
+        quote={orcamento}
+      />
+
       <DealOutcomeDialogs {...outcome.dialogProps} />
     </Sheet>
   );

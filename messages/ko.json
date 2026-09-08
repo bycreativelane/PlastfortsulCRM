@@ -3968,5 +3968,25 @@
     "viewLabel": "보기",
     "rangeLabel": "달력 범위",
     "dropTaskHere": "여기에 작업을 놓으세요"
+  },
+  "Quote": {
+    "title": "견적서",
+    "description": "이 기회의 견적서 미리보기입니다. 바로 보낼 수 있습니다.",
+    "untitledCompany": "귀사",
+    "orderNumber": "주문 {number}",
+    "customer": "고객",
+    "products": "제품",
+    "lineMath": "{quantity} × {price}",
+    "lineDiscount": "{percent}% 할인",
+    "subtotal": "제품",
+    "shipping": "운송비",
+    "total": "합계",
+    "delivery": "배송:",
+    "owner": "담당: {name}",
+    "notes": "비고",
+    "footer": "재고 및 납기 확인 후 확정되는 견적입니다.",
+    "close": "닫기",
+    "print": "PDF로 저장",
+    "open": "견적서 생성"
   }
 }

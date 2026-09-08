@@ -1879,3 +1879,69 @@ html[data-mode='dark'] {
   --code-kw: oklch(0.78 0.12 305);
   --code-com: oklch(0.58 0.01 258);
 }
+
+/* ============================================================
+ * IMPRIMIR: só o orçamento, e sem a moldura do app.
+ *
+ * O item 55 do pacote pede duas saídas do MESMO documento — uma boa de
+ * ler no celular e um PDF de uma página — e termina dizendo que elas não
+ * podem ter cálculos independentes. Elas não têm: o cálculo mora em
+ * `lib/quotes/quote.ts` e o desenho é um só. O que muda entre as duas é
+ * esta folha.
+ *
+ * SEM BIBLIOTECA. Gerar PDF no servidor custaria um navegador headless
+ * ou um motor de layout inteiro para produzir, de um documento de uma
+ * página, o que o próprio navegador já produz com "Salvar como PDF" — e
+ * essa saída é vetorial, tem o texto selecionável e sai na fonte certa.
+ * A dependência viria com um segundo caminho de renderização, que é
+ * exatamente o segundo cálculo que o item 55 proíbe, um andar acima.
+ *
+ * A regra é uma inversão: some tudo, e volta só a árvore marcada. Um
+ * `display: none` por elemento indesejado esquece o próximo diálogo que
+ * alguém escrever; esconder o `body` inteiro e reexibir um ramo não tem
+ * como esquecer nada.
+ * ============================================================ */
+@media print {
+  /* A moldura do diálogo — véu, sombra, cantos, altura máxima — é
+     desenho de tela. No papel ela vira um retângulo cinza em volta do
+     texto. */
+  body:has([data-print-root]) > * {
+    display: none !important;
+  }
+
+  body:has([data-print-root]) [data-print-portal] {
+    display: block !important;
+  }
+
+  [data-print-root] {
+    position: static !important;
+    display: block !important;
+    width: auto !important;
+    max-width: none !important;
+    max-height: none !important;
+    overflow: visible !important;
+    box-shadow: none !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    transform: none !important;
+    background: white !important;
+    color: black !important;
+  }
+
+  /* O que existe só para se poder fechar ou imprimir. */
+  [data-print-hide] {
+    display: none !important;
+  }
+
+  /* Uma página. Um orçamento que quebra no meio da tabela de itens perde
+     a única coisa que o item 53 pede: entender em poucos segundos. */
+  [data-print-root] * {
+    break-inside: avoid;
+  }
+
+  @page {
+    margin: 14mm;
+  }
+}

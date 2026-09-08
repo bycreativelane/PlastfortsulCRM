@@ -40,6 +40,8 @@ import { StatTile } from '@/components/ui/stat-tile';
 import { BoardLane } from '@/components/pipelines/board-lane';
 import { DealCard } from '@/components/pipelines/deal-card';
 import { TasksBoard } from '@/components/tasks/tasks-board';
+import { DealQuote } from '@/components/pipelines/deal-quote';
+import { buildQuote } from '@/lib/quotes/quote';
 import { TaskDialog } from '@/components/tasks/task-dialog';
 import { TaskRow } from '@/components/tasks/task-row';
 import { TasksCalendar } from '@/components/tasks/tasks-calendar';
@@ -746,6 +748,9 @@ export default function ChartLabPage() {
         <SectionTitle>Tarefa — diálogo</SectionTitle>
         <TaskDialogBench />
 
+        <SectionTitle>Orçamento — o documento</SectionTitle>
+        <QuoteBench />
+
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <ResponseTimeChart data={RESPONSE} loading={false} />
           {/* The dashboard's density, at the dashboard's width. */}
@@ -839,6 +844,73 @@ function TaskDialogBench() {
       {/* A atrasada, porque o selo de atraso e os presets de prazo só
           aparecem editando — e é o estado que mais se abre. */}
       <TaskDialog open={edicao} onOpenChange={setEdicao} task={LAB_TASKS[0]} />
+    </Panel>
+  );
+}
+
+/**
+ * O ORÇAMENTO, e ele cabe aqui porque é puro.
+ *
+ * `DealQuote` recebe um objeto `Quote` e desenha — não consulta nada, ao
+ * contrário da gaveta da oportunidade que o abre. É a única peça do
+ * bloco 38–59 do pacote que dá para olhar sem sessão, e é justamente a
+ * que mais precisa ser olhada: o item 53 é inteiro sobre aparência.
+ *
+ * Dois estados, porque as diferenças são de omissão. O documento omite
+ * frete não definido, observação vazia, transportador e responsável — e
+ * um orçamento só de valor, sem produto nenhum, é o caminho mais comum
+ * hoje, antes de o catálogo estar preenchido.
+ */
+function QuoteBench() {
+  const [completo, setCompleto] = useState(false);
+  const [magro, setMagro] = useState(false);
+  const cheio = buildQuote({
+    orderNumber: '14349',
+    issuedOn: '2026-09-08',
+    company: 'PlastfortSul',
+    customerName: 'Euclides Fernando Goncalves',
+    customerCompany: 'Cooperativa Cotrisel',
+    customerPhone: '+5547999549247',
+    items: [
+      {
+        productId: 'p-1',
+        name: 'Sacos para silagem 51x110 branco',
+        quantity: 100,
+        unitPrice: 4.25,
+        discountPercent: 0,
+      },
+      {
+        productId: 'p-2',
+        name: 'Abraçadeira plástica com UV preta',
+        quantity: 200,
+        unitPrice: 1,
+        discountPercent: 10,
+      },
+    ],
+    currency: 'BRL',
+    shipping: 120,
+    carrier: 'Transportadora Rodoexpress',
+    owner: 'Juliana Prestes',
+    notes: 'Prazo de produção: 10 dias úteis após a confirmação.',
+  });
+  const enxuto = buildQuote({
+    issuedOn: '2026-09-08',
+    company: 'PlastfortSul',
+    customerName: 'Marcos Beal',
+    items: [],
+    value: 625,
+    currency: 'BRL',
+  });
+  return (
+    <Panel className="flex flex-wrap gap-2 p-4">
+      <Button variant="outline" onClick={() => setCompleto(true)}>
+        Abrir — orçamento completo
+      </Button>
+      <Button variant="outline" onClick={() => setMagro(true)}>
+        Abrir — só o valor
+      </Button>
+      <DealQuote open={completo} onOpenChange={setCompleto} quote={cheio} />
+      <DealQuote open={magro} onOpenChange={setMagro} quote={enxuto} />
     </Panel>
   );
 }

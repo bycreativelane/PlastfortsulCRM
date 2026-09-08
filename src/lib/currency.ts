@@ -129,6 +129,46 @@ export function formatCurrency(
 }
 
 /**
+ * O mesmo dinheiro, COM OS CENTAVOS.
+ *
+ * `formatCurrency` arredonda para a unidade de propósito, e o comentário
+ * dele diz por quê: no cartão do Kanban e no gráfico, o valor é uma
+ * grandeza que se compara de relance, e `R$ 18.400` se lê mais rápido que
+ * `R$ 18.400,00`. Isso está certo lá.
+ *
+ * E está errado num ORÇAMENTO. Ali o número não é para comparar, é para
+ * conferir: o cliente lê `100 × R$ 4` e a conta não fecha, porque o preço
+ * era R$ 4,25 e o subtotal, R$ 425,00. Medido no bench antes de esta
+ * função existir — o documento imprimia exatamente isso.
+ *
+ * Duas funções e não um parâmetro porque são duas decisões diferentes
+ * sobre a mesma quantia, e cada chamada pertence a uma delas: quem
+ * escaneia usa a de cima, quem confere usa esta.
+ */
+export function formatCurrencyExact(
+  value: number,
+  currency: string = DEFAULT_CURRENCY
+): string {
+  const code = (currency || DEFAULT_CURRENCY).trim();
+  const amount = Number(value) || 0;
+  try {
+    return new Intl.NumberFormat(APP_LOCALE, {
+      style: 'currency',
+      currency: code,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(amount);
+  } catch {
+    // Mesma rede de segurança da irmã: `deals.currency` não tem CHECK no
+    // banco, então um código malformado não pode derrubar um render.
+    return `${code} ${new Intl.NumberFormat(APP_LOCALE, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(amount)}`;
+  }
+}
+
+/**
  * Compact currency for tight spaces (donut center, legend rows):
  * "$1.2M" / "€34.5k" / "₹900". Uses the currency's symbol from
  * CURRENCIES, falling back to the code when we don't carry a symbol.

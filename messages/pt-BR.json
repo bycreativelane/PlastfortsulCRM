@@ -3968,5 +3968,25 @@
     "viewLabel": "Visão",
     "rangeLabel": "Janela do calendário",
     "dropTaskHere": "Solte uma tarefa aqui"
+  },
+  "Quote": {
+    "title": "Orçamento",
+    "description": "Prévia do orçamento desta oportunidade, pronta para enviar.",
+    "untitledCompany": "Sua empresa",
+    "orderNumber": "Pedido {number}",
+    "customer": "Cliente",
+    "products": "Produtos",
+    "lineMath": "{quantity} × {price}",
+    "lineDiscount": "{percent}% de desconto",
+    "subtotal": "Produtos",
+    "shipping": "Frete",
+    "total": "Total",
+    "delivery": "Entrega:",
+    "owner": "Atendimento: {name}",
+    "notes": "Observações",
+    "footer": "Orçamento sujeito a confirmação de estoque e prazo.",
+    "close": "Fechar",
+    "print": "Salvar em PDF",
+    "open": "Gerar orçamento"
   }
 }

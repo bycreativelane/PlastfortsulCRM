@@ -3968,5 +3968,25 @@
     "viewLabel": "View",
     "rangeLabel": "Calendar range",
     "dropTaskHere": "Drop a task here"
+  },
+  "Quote": {
+    "title": "Quote",
+    "description": "Preview of this opportunity's quote, ready to send.",
+    "untitledCompany": "Your company",
+    "orderNumber": "Order {number}",
+    "customer": "Customer",
+    "products": "Products",
+    "lineMath": "{quantity} × {price}",
+    "lineDiscount": "{percent}% off",
+    "subtotal": "Products",
+    "shipping": "Freight",
+    "total": "Total",
+    "delivery": "Delivery:",
+    "owner": "Handled by {name}",
+    "notes": "Notes",
+    "footer": "Quote subject to stock and lead-time confirmation.",
+    "close": "Close",
+    "print": "Save as PDF",
+    "open": "Generate quote"
   }
 }

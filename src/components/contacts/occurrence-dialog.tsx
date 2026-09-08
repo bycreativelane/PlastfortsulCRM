@@ -101,6 +101,19 @@ export function OccurrenceDialog({
     if (!open) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setAdding(false);
+    /*
+     * AS LINHAS VOLTAM A SER `null`, e isto é o conserto de um defeito.
+     *
+     * `load()` é assíncrono. Sem esta linha, abrir o histórico do contato B
+     * logo depois de fechar o do contato A mostrava as OCORRÊNCIAS DE A até a
+     * consulta voltar — o histórico de problemas de um cliente na ficha de
+     * outro, que num CRM é pior do que uma tela em branco.
+     *
+     * `null` e não `[]`: o componente distingue "ainda carregando" de "não
+     * tem nenhuma", e `[]` piscaria "Sem ocorrências registradas" para um
+     * contato que tem seis.
+     */
+    setRows(null);
     setKind(OCCURRENCE_KINDS[0]);
     setOccurredOn(todayIso());
     setDescription('');

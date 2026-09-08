@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { Loader2, Trash2 } from 'lucide-react';
@@ -96,6 +96,14 @@ export function TaskDialog({
   const [remind, setRemind] = useState<string>('');
   const [assignedTo, setAssignedTo] = useState<string>('');
   const [saving, setSaving] = useState(false);
+  /**
+   * Ver a nota em `handleSave`: o estado não fecha a porta a tempo.
+   *
+   * Destrava logo depois dos `await`, e não na reabertura do diálogo — um
+   * ref não pode ser tocado durante o render, e o bloco que semeia os campos
+   * roda lá.
+   */
+  const savingRef = useRef(false);
 
   /** "Hoje" no fuso da CONTA, não no do navegador. */
   const todayIso = useMemo(
@@ -150,11 +158,32 @@ export function TaskDialog({
   function handleDayChange(iso: string) {
     setDueOn(iso);
     if (iso && !dueTime) setDueTime(firstOpenTime(hours, iso) ?? '');
-    if (!iso) setDueTime('');
+    if (!iso) {
+      setDueTime('');
+      // O LEMBRETE VAI JUNTO. Ele é "N minutos antes do prazo" e sem prazo
+      // não tem antes de quê. O `handleSave` já grava `null` nesse caso, o
+      // que deixava a tela afirmando um lembrete que o banco não teria —
+      // pior que não mostrar nada, porque parece uma escolha que foi feita.
+      setRemind('');
+    }
   }
 
   async function handleSave() {
+    /*
+     * A TRAVA É UM REF, e não o `saving` do estado.
+     *
+     * O campo de título chama `handleSave` direto no Enter, e o `disabled`
+     * do botão não alcança esse caminho. `setSaving(true)` é assíncrono:
+     * segurar Enter dispara a função de novo antes de o estado virar, e sai
+     * uma tarefa duplicada — mais um evento na Google Agenda, quando a conta
+     * está conectada.
+     *
+     * Um ref muda no mesmo tique. O `saving` continua existindo porque é
+     * ele que desenha o spinner.
+     */
+    if (savingRef.current) return;
     if (!accountId || !title.trim()) return;
+    savingRef.current = true;
     setSaving(true);
 
     const input: TaskInput = {
@@ -165,7 +194,20 @@ export function TaskDialog({
       due_time: dueOn && dueTime ? dueTime : null,
       remind_minutes_before: dueOn && remind !== '' ? Number(remind) : null,
       assigned_to: assignedTo || null,
-      ...target,
+      /*
+       * O ALVO SÓ VALE PARA TAREFA NOVA.
+       *
+       * `target` é onde a lista está pendurada — a ficha da oportunidade
+       * passa `{ deal_id, contact_id: deal.contact_id }`. Espalhá-lo numa
+       * EDIÇÃO reescrevia o vínculo da tarefa com o do lugar de onde ela foi
+       * aberta: uma tarefa criada na conversa com o contato A, editada pela
+       * ficha de um negócio cujo contato passou a ser B, mudava de dono sem
+       * ninguém pedir.
+       *
+       * Numa tarefa nova o alvo É a informação; numa existente ele é só o
+       * caminho por onde se chegou nela.
+       */
+      ...(task ? {} : target),
     };
 
     const db = createClient();
@@ -174,6 +216,7 @@ export function TaskDialog({
       : await createTask(db, accountId, user?.id ?? null, input);
     const ok = task ? await updateTask(db, task.id, input) : Boolean(created);
 
+    savingRef.current = false;
     setSaving(false);
     if (!ok) {
       toast.error(t('saveFailed'));

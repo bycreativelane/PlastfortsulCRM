@@ -42,11 +42,58 @@ interface PhoneInputProps extends Omit<
  * DIGITS rather than characters — how many digits are to the left of the
  * caret is the one thing that survives re-formatting.
  */
+/**
+ * O que apagar quando o caret está encostado num SEPARADOR.
+ *
+ * `null` quer dizer "não é comigo" — o caminho normal do navegador já apaga a
+ * coisa certa, e é o caso da maioria esmagadora das teclas.
+ *
+ * A metade pura do conserto, separada para poder ser testada sem um DOM —
+ * mesmo arranjo do `parseTimeInput` no `time-field`.
+ *
+ * A REGRA: separador não é conteúdo, é desenho. Backspace apaga o DÍGITO à
+ * esquerda; Delete apaga o dígito à direita. É o que faz segurar Backspace
+ * sumir com o número um dígito por vez, com as parênteses e o traço caindo
+ * sozinhos no caminho.
+ *
+ * A posição sai em DÍGITOS e não em caracteres porque é a única medida que
+ * sobrevive à reformatação: tirar um dígito no meio reescreve o resto da
+ * string, e um índice de caractere aponta para outro lugar depois disso.
+ */
+export function deleteAcrossSeparator(
+  text: string,
+  caret: number,
+  direction: 'back' | 'forward'
+): { digits: string; caretDigits: number } | null {
+  const back = direction === 'back';
+  const at = back ? caret - 1 : caret;
+
+  // Encostado num dígito é o caso comum, e aí o navegador acerta sozinho.
+  if (at < 0 || at >= text.length || /\d/.test(text[at])) return null;
+
+  const digits = normalizePhone(text);
+  const target = back
+    ? normalizePhone(text.slice(0, caret)).length - 1
+    : normalizePhone(text.slice(0, caret)).length;
+
+  // Só separador daquele lado — o `+` da esquerda de tudo, por exemplo.
+  // Não há dígito para apagar, e o certo é não apagar nada.
+  if (target < 0 || target >= digits.length) {
+    return { digits, caretDigits: normalizePhone(text.slice(0, caret)).length };
+  }
+
+  return {
+    digits: digits.slice(0, target) + digits.slice(target + 1),
+    caretDigits: target,
+  };
+}
+
 export function PhoneInput({
   value,
   onValueChange,
   className,
   disabled,
+  onKeyDown: onKeyDownProp,
   ...rest
 }: PhoneInputProps) {
   const inputRef = React.useRef<HTMLInputElement>(null);
@@ -76,6 +123,57 @@ export function PhoneInput({
     if (target === 0) index = 0;
     el.setSelectionRange(index, index);
   }, [display]);
+
+  /*
+   * BACKSPACE EM CIMA DE UM SEPARADOR APAGA UM DÍGITO.
+   *
+   * Sem isto ele não apagava nada — e ainda levava o cursor para o fim do
+   * campo. Medido em `+55 (51) 99000-0001` com o caret logo depois do `)`:
+   * o campo continuava igual e o caret ia de 8 para 19. O próximo Backspace
+   * apagava o último dígito do número, que não é onde a pessoa estava.
+   *
+   * O mecanismo: apagar um separador não muda os DÍGITOS, então `value` não
+   * muda, `display` não muda, e o `useLayoutEffect` acima — que depende de
+   * `[display]` — não roda. O caret nunca é recolocado. Enquanto isso o React
+   * reescreve o valor no `<input>` para ressincronizar o campo controlado, e
+   * atribuir `.value` num input estaciona o caret no fim.
+   *
+   * A regra aqui é a que todo campo mascarado bom segue: os separadores não
+   * são conteúdo, são desenho. Backspace apaga o DÍGITO à esquerda; Delete
+   * apaga o dígito à direita. Segurar Backspace some com o número um dígito
+   * por vez, com as parênteses e o traço desaparecendo sozinhos no caminho.
+   *
+   * Uma SELEÇÃO não passa por aqui: quem marcou um pedaço à mão quer apagar
+   * exatamente aquilo, e o caminho normal já faz isso certo.
+   */
+  const handleKeyDown = React.useCallback(
+    (event: React.KeyboardEvent<HTMLInputElement>) => {
+      onKeyDownProp?.(event);
+      if (event.defaultPrevented) return;
+
+      const direction =
+        event.key === 'Backspace'
+          ? 'back'
+          : event.key === 'Delete'
+            ? 'forward'
+            : null;
+      if (!direction) return;
+
+      const el = event.currentTarget;
+      const start = el.selectionStart;
+      if (start === null || start !== el.selectionEnd) return;
+
+      const plan = deleteAcrossSeparator(el.value, start, direction);
+      if (!plan) return;
+
+      event.preventDefault();
+      // O caret vai para onde o dígito apagado estava, contado em DÍGITOS —
+      // a única medida que sobrevive à reformatação.
+      caretDigitsRef.current = plan.caretDigits;
+      onValueChange(plan.digits ? toE164(plan.digits) : '');
+    },
+    [onKeyDownProp, onValueChange]
+  );
 
   const handleChange = React.useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -145,6 +243,7 @@ export function PhoneInput({
       autoComplete="tel"
       value={display}
       onChange={handleChange}
+      onKeyDown={handleKeyDown}
       disabled={disabled}
       className={className}
     />

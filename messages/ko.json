@@ -3988,7 +3988,10 @@
     "close": "닫기",
     "print": "PDF로 저장",
     "open": "견적서 생성",
-    "archive": "생성된 견적서"
+    "archive": "생성된 견적서",
+    "generate": "PDF 생성",
+    "generated": "견적서를 생성하고 보관했습니다",
+    "generateFailed": "견적서를 생성하지 못했습니다"
   },
   "Quotes": {
     "title": "견적서",

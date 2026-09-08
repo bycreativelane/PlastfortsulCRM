@@ -3988,7 +3988,10 @@
     "close": "Close",
     "print": "Save as PDF",
     "open": "Generate quote",
-    "archive": "Generated quotes"
+    "archive": "Generated quotes",
+    "generate": "Generate PDF",
+    "generated": "Quote generated and archived",
+    "generateFailed": "Could not generate the quote"
   },
   "Quotes": {
     "title": "Quotes",

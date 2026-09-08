@@ -45,7 +45,6 @@ import { OptionSelect } from '@/components/ui/option-select';
 import { useBusinessHours } from '@/hooks/use-business-hours';
 import { localParts } from '@/lib/automations/local-time';
 import { buildQuote } from '@/lib/quotes/quote';
-import { saveQuote } from '@/lib/quotes/store';
 import { brandFromAccount } from '@/lib/quotes/brand';
 import { DealQuote } from './deal-quote';
 import { ChoiceChip } from '@/components/ui/choice-chip';
@@ -1283,16 +1282,51 @@ export function DealForm({
         quote={orcamento}
         brand={brandFromAccount(account)}
         archiveHref="/documentos/orcamentos"
-        // "Todo orçamento gerado em PDF precisa ficar salvo." O documento
-        // não sabe de conta, oportunidade nem usuário — quem sabe é esta
-        // gaveta, e é por isso que a gravação mora aqui e não lá.
-        onPrinted={() => {
-          if (!accountId) return;
-          void saveQuote(
-            supabase,
-            { accountId, dealId: deal?.id ?? null, userId: user?.id ?? null },
-            orcamento
-          );
+        /*
+         * ARQUIVAR E RENDERIZAR VIRARAM A MESMA CHAMADA.
+         *
+         * Antes esta gaveta gravava a linha por conta própria e mandava o
+         * navegador imprimir. Agora a rota faz as duas coisas na ordem
+         * certa — grava, desenha, sobe os arquivos — porque só ela pode:
+         * o Chromium é do servidor, e os totais precisam ser refeitos
+         * longe de quem os enviou.
+         *
+         * O que sobe é INSUMO e não resultado: linhas, valor digitado,
+         * frete. A conta é refeita lá pelo mesmo `buildQuote`.
+         */
+        onGenerate={async (labels) => {
+          const res = await fetch('/api/quotes', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              dealId: deal?.id ?? null,
+              orderNumber: salesOrder,
+              issuedOn: hojeIso,
+              customerName: contatoAtual?.name || contatoAtual?.phone,
+              customerCompany: contatoAtual?.company,
+              customerPhone: contatoAtual?.phone,
+              items,
+              value,
+              currency,
+              shipping,
+              carrier,
+              owner: profiles.find((pf) => pf.id === assignedTo)?.full_name,
+              notes,
+              labels,
+            }),
+          });
+          const dados = await res.json().catch(() => ({}));
+          if (res.ok && dados.pdfUrl) {
+            // Uma aba nova e não um download forçado: quem gerou quer
+            // CONFERIR antes de mandar, e o visualizador do navegador é
+            // onde isso acontece sem baixar nada.
+            window.open(dados.pdfUrl, '_blank', 'noopener');
+            toast.success(tQuote('generated'));
+            return true;
+          }
+          if (dados.error === 'no_browser') return false;
+          toast.error(tQuote('generateFailed'));
+          return true;
         }}
       />
 

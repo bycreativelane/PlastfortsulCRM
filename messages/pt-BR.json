@@ -3988,7 +3988,10 @@
     "close": "Fechar",
     "print": "Salvar em PDF",
     "open": "Gerar orçamento",
-    "archive": "Orçamentos gerados"
+    "archive": "Orçamentos gerados",
+    "generate": "Gerar PDF",
+    "generated": "Orçamento gerado e guardado",
+    "generateFailed": "Não foi possível gerar o orçamento"
   },
   "Quotes": {
     "title": "Orçamentos",

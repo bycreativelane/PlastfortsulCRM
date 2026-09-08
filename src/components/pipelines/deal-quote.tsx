@@ -1,8 +1,9 @@
 'use client';
 
+import { useCallback, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
-import { FolderOpen, Printer } from 'lucide-react';
+import { FileDown, FolderOpen, Loader2 } from 'lucide-react';
 
 import type { Quote } from '@/lib/quotes/quote';
 import {
@@ -68,6 +69,7 @@ export function DealQuote({
   onOpenChange,
   quote,
   brand,
+  onGenerate,
   onPrinted,
   archiveHref,
 }: {
@@ -76,6 +78,15 @@ export function DealQuote({
   quote: Quote;
   /** Quem emite. Sem ela, o documento imprime só o nome da conta. */
   brand: QuoteBrand;
+  /**
+   * Gera o documento no servidor. Devolve `false` quando não deu — e aí
+   * o diálogo cai para a impressão do navegador.
+   *
+   * Recebe os rótulos porque quem os tem é este componente, que vive
+   * dentro do provider de i18n; a rota renderiza o mesmo documento longe
+   * dele.
+   */
+  onGenerate?: (labels: QuoteLabels) => Promise<boolean>;
   /**
    * Chamado quando o documento foi mandado para a impressora.
    *
@@ -91,6 +102,7 @@ export function DealQuote({
   archiveHref?: string;
 }) {
   const t = useTranslations('Quote');
+  const [gerando, setGerando] = useState(false);
 
   /**
    * Os rótulos, num objeto simples.
@@ -123,6 +135,27 @@ export function DealQuote({
     notes: t('notes'),
     footer: t('footer'),
   };
+
+  /**
+   * Pede o documento ao servidor, e cai para a impressão sem ele.
+   *
+   * Os TOTAIS não vão no corpo: a rota os recalcula com o mesmo
+   * `buildQuote`. O que sobe são as linhas, o valor digitado e o frete
+   * — insumo, não resultado. É isso que impede um total inventado de
+   * entrar num documento que sai com a marca da empresa.
+   */
+  const gerar = useCallback(async () => {
+    if (!onGenerate) {
+      // O bench, e a página de arquivo: ali o documento é só para ver.
+      window.print();
+      return;
+    }
+    setGerando(true);
+    const ok = await onGenerate(labels);
+    setGerando(false);
+    // Sem navegador do outro lado, o caminho velho ainda serve.
+    if (!ok) window.print();
+  }, [onGenerate, labels]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -190,14 +223,28 @@ export function DealQuote({
             orçamento gerado fica salvo", e um documento a mais no arquivo
             é barato perto de um que sumiu.
           */}
-          <Button
-            onClick={() => {
-              onPrinted?.();
-              window.print();
-            }}
-          >
-            <Printer className="size-4" />
-            {t('print')}
+          {/*
+            GERAR, e não imprimir.
+
+            O botão pedia ao NAVEGADOR que imprimisse, e o navegador
+            carimbava data, URL e número de página no arquivo — foi o que
+            saiu no primeiro PDF real. Aquilo é opção do diálogo de
+            impressão, do usuário; nenhum CSS remove.
+
+            Agora quem desenha é o servidor, com o mesmo documento, e
+            devolve dois arquivos: o PDF que fica guardado e a imagem que
+            vai pela conversa. Quando não há navegador do lado de lá — a
+            máquina de desenvolvimento sem `CHROMIUM_PATH` — ele cai de
+            volta para a impressão, e a linha já foi arquivada de qualquer
+            forma.
+          */}
+          <Button onClick={() => void gerar()} disabled={gerando}>
+            {gerando ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <FileDown className="size-4" />
+            )}
+            {t('generate')}
           </Button>
         </div>
       </DialogContent>

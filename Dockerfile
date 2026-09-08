@@ -44,6 +44,20 @@ ENV NODE_ENV=production \
     PORT=3000 \
     HOSTNAME=0.0.0.0
 
+# ---------------------------------------------------------------
+# Chromium, para o orçamento virar PDF e imagem.
+#
+# `puppeteer-core` e não `puppeteer`: o segundo baixaria um Chrome
+# próprio no `npm ci`, dentro de uma imagem que já tem um pelo gerente
+# de pacotes. Um navegador por imagem basta.
+#
+# As fontes vêm junto e não são opcionais: sem elas o Chromium desenha
+# retângulos no lugar das letras, e o PDF sai "pronto" e ilegível — que
+# é o pior jeito de falhar. `font-noto` cobre o que o pt-BR precisa.
+# ---------------------------------------------------------------
+RUN apk add --no-cache chromium font-noto font-noto-emoji ttf-dejavu
+ENV CHROMIUM_PATH=/usr/bin/chromium-browser
+
 RUN addgroup -S nextjs && adduser -S nextjs -G nextjs
 
 COPY --from=builder --chown=nextjs:nextjs /app/.next/standalone ./

@@ -40,20 +40,18 @@ describe('ContextMenuActionsTrigger', () => {
   it('renders on its own, without a ContextMenu ancestor', () => {
     expect(() =>
       renderToStaticMarkup(
-        React.createElement(ContextMenuActionsTrigger, {
-          onOpen: () => {},
-          children: 'x',
-        })
+        React.createElement(
+          ContextMenuActionsTrigger,
+          { onOpen: () => {} },
+          'x'
+        )
       )
     ).not.toThrow();
   });
 
   it('is a type="button", never a submit', () => {
     const html = renderToStaticMarkup(
-      React.createElement(ContextMenuActionsTrigger, {
-        onOpen: () => {},
-        children: 'x',
-      })
+      React.createElement(ContextMenuActionsTrigger, { onOpen: () => {} }, 'x')
     );
     expect(html).toContain('type="button"');
     expect(html).toContain('data-slot="context-menu-actions-trigger"');
@@ -65,11 +63,11 @@ describe('ContextMenuActionsTrigger', () => {
         ContextMenu,
         null,
         React.createElement(ContextMenuTrigger, null, 'card'),
-        React.createElement(ContextMenuActionsTrigger, {
-          onOpen: () => {},
-          'aria-label': 'Ações',
-          children: '⋯',
-        })
+        React.createElement(
+          ContextMenuActionsTrigger,
+          { onOpen: () => {}, 'aria-label': 'Ações' },
+          '⋯'
+        )
       )
     );
     expect(html).toContain('aria-label="Ações"');

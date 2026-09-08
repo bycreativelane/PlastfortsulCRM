@@ -351,6 +351,29 @@ const LAB_TASKS: Task[] = [
     due_on: shiftDay(3),
   }),
   labTask({ id: 't4', title: 'Conferir estoque de bombonas', kind: 'todo' }),
+  // TRES NA MESMA HORA, de proposito: e o caso que a grade nao sabia
+  // desenhar — os tres ficavam um em cima do outro e so o ultimo aparecia.
+  labTask({
+    id: 't7',
+    title: 'Ligar para a Juliana',
+    kind: 'call',
+    due_on: LAB_TODAY,
+    due_time: '09:00:00',
+  }),
+  labTask({
+    id: 't8',
+    title: 'Reuniao de alinhamento',
+    kind: 'meeting',
+    due_on: LAB_TODAY,
+    due_time: '09:00:00',
+  }),
+  labTask({
+    id: 't9',
+    title: 'Orcamento Frigorifico Baldi',
+    kind: 'quote',
+    due_on: LAB_TODAY,
+    due_time: '09:15:00',
+  }),
   labTask({
     id: 't5',
     title: 'Mandar orçamento dos pallets PBR',

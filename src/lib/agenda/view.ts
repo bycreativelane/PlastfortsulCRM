@@ -121,7 +121,9 @@ export function hourSlots(
   const step = slotMinutes > 0 ? slotMinutes : 60;
   for (let m = startHour * 60; m < endHour * 60; m += step) {
     const h = Math.floor(m / 60);
-    slots.push(`${String(h).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`);
+    slots.push(
+      `${String(h).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
+    );
   }
   return slots;
 }
@@ -157,6 +159,108 @@ export function positionOf(
     top: (clamped / span) * 100,
     height: (Math.max(height, 15) / span) * 100,
   };
+}
+
+/**
+ * Quantos minutos um item ocupa no eixo.
+ *
+ * Trinta é o piso e o padrão, e não uma medida: nenhuma das seis fontes da
+ * agenda guarda duração. `tasks.duration_minutes` existe no schema e não tem
+ * quem escreva — nem tela, nem API — então lê-la seria inventar precisão a
+ * partir de uma coluna sempre nula.
+ *
+ * A função existe para o dia em que uma fonte passar a ter duração: o eixo já
+ * pergunta por ela em vez de assumir meia hora em todo lugar.
+ */
+export function durationOf(item: Pick<AgendaItem, 'kind'>): number {
+  return item.kind === 'deal' ? 60 : 30;
+}
+
+/** Uma faixa: em qual coluna paralela o item cai, de quantas. */
+export interface Lane {
+  index: number;
+  of: number;
+}
+
+/**
+ * Divide a largura do dia entre os itens que se SOBREPÕEM no tempo.
+ *
+ * ------------------------------------------------------------------
+ * O DEFEITO QUE ISTO CONSERTA
+ * ------------------------------------------------------------------
+ *
+ * Cada item era desenhado com `inset-x-1` — a largura inteira da coluna do
+ * dia. Duas tarefas às 08:00 ficavam uma EXATAMENTE em cima da outra, e a de
+ * baixo era invisível: nem o título, nem a existência dela. Numa agenda, o
+ * conflito de horário é a informação mais cara que a tela tem, e era a única
+ * que ela não sabia mostrar.
+ *
+ * ------------------------------------------------------------------
+ * O ALGORITMO, E POR QUE ESTE
+ * ------------------------------------------------------------------
+ *
+ * Varredura por hora de início: cada item entra na primeira faixa livre — a
+ * primeira cujo último item já terminou. É o que o Google Agenda e o cal.com
+ * fazem, e a propriedade que importa é que a ordem de leitura da esquerda
+ * para a direita é a ordem do relógio.
+ *
+ * O `of` é contado por GRUPO de sobreposição e não pelo dia inteiro: uma
+ * reunião sozinha às 15h ocupa a coluna toda mesmo que às 08h três coisas
+ * disputem espaço. Dividir o dia inteiro pelo pior momento dele deixaria a
+ * agenda de uma terça tranquila com três colunas de 33% e muito branco.
+ */
+export function laneOf(
+  items: AgendaItem[],
+  duration: (item: AgendaItem) => number = durationOf
+): Map<string, Lane> {
+  const lanes = new Map<string, Lane>();
+
+  const timed = items
+    .filter((item) => item.time)
+    .map((item) => ({
+      item,
+      start: minutesOf(item.time as string),
+      end: minutesOf(item.time as string) + duration(item),
+    }))
+    .sort((a, b) => a.start - b.start || a.item.id.localeCompare(b.item.id));
+
+  // Um grupo é uma corrente de sobreposições: A encosta em B, B encosta em C,
+  // e os três repartem a largura mesmo que A e C não se toquem. Sem isso, A e
+  // C tomariam a mesma faixa e B ficaria por cima de um deles.
+  let group: typeof timed = [];
+  let groupEnd = -1;
+
+  const flush = () => {
+    if (!group.length) return;
+    const ends: number[] = [];
+    const placed: { id: string; lane: number }[] = [];
+
+    for (const entry of group) {
+      let lane = ends.findIndex((end) => end <= entry.start);
+      if (lane === -1) {
+        lane = ends.length;
+        ends.push(entry.end);
+      } else {
+        ends[lane] = entry.end;
+      }
+      placed.push({ id: entry.item.id, lane });
+    }
+
+    for (const { id, lane } of placed) {
+      lanes.set(id, { index: lane, of: ends.length });
+    }
+    group = [];
+    groupEnd = -1;
+  };
+
+  for (const entry of timed) {
+    if (group.length && entry.start >= groupEnd) flush();
+    group.push(entry);
+    groupEnd = Math.max(groupEnd, entry.end);
+  }
+  flush();
+
+  return lanes;
 }
 
 /** Os itens de um dia que não têm hora — a faixa acima do eixo. */

@@ -3,12 +3,14 @@
 import * as React from 'react';
 import { useTranslations } from 'next-intl';
 
-import { fromISO } from '@/lib/calendar';
+import { fromISO, toISO } from '@/lib/calendar';
 import type { AgendaItem } from '@/lib/dashboard/agenda';
 import { dayBounds, type BusinessHours } from '@/lib/hours';
 import {
   allDayItems,
+  durationOf,
   hourSlots,
+  laneOf,
   positionOf,
   timedItems,
 } from '@/lib/agenda/view';
@@ -59,7 +61,15 @@ export function TimeGrid({
   items: AgendaItem[];
   hours: BusinessHours;
   onSelectTask: (item: AgendaItem) => void;
-  renderHeader: (iso: string) => React.ReactNode;
+  /**
+   * O rótulo de cada coluna. Ausente, a faixa inteira não é desenhada.
+   *
+   * A visão de DIA não passa: com uma coluna só, o rótulo dela é a data,
+   * e a data já é o título da faixa de navegação logo acima. Duas linhas
+   * dizendo "8 de setembro" uma embaixo da outra são uma banda de cromo
+   * cobrando espaço do eixo para repetir o que já foi lido.
+   */
+  renderHeader?: (iso: string) => React.ReactNode;
 }) {
   const t = useTranslations('Agenda');
   const { startHour, endHour } = React.useMemo(
@@ -82,26 +92,73 @@ export function TimeGrid({
     (iso) => allDayItems(byDay.get(iso) ?? []).length > 0
   );
 
+  /** As faixas de cada dia — ver `laneOf`. Um dia, um cálculo. */
+  const lanes = React.useMemo(() => {
+    const map = new Map<string, ReturnType<typeof laneOf>>();
+    for (const iso of days) map.set(iso, laneOf(byDay.get(iso) ?? []));
+    return map;
+  }, [days, byDay]);
+
   // A altura de uma linha vezes o número de linhas. Fixa em px e não em
   // fração da viewport: a grade rola dentro da página, e uma hora que muda
   // de altura conforme a janela torna impossível comparar dois dias.
   const slotHeight = hours.slotMinutes >= 60 ? 56 : 40;
   const bodyHeight = slots.length * slotHeight;
 
+  /*
+   * A LINHA DO AGORA.
+   *
+   * A coisa que todo calendário tem e esta grade não tinha. Sem ela, "onde
+   * eu estou no dia" é uma conta que a pessoa faz de cabeça comparando o
+   * relógio do sistema com uma régua de números — e é a pergunta que se faz
+   * toda vez que a tela abre.
+   *
+   * Só desenha no dia que está em tela e dentro do eixo: uma linha às 23h
+   * numa grade que termina às 19h seria uma barra colada na borda dizendo
+   * algo falso.
+   *
+   * Reavalia a cada minuto. Um `setInterval` de um segundo redesenharia 60
+   * vezes por minuto para mover a linha meio pixel.
+   */
+  const [nowMinutes, setNowMinutes] = React.useState<number | null>(null);
+  const [todayIso, setTodayIso] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    const tick = () => {
+      const now = new Date();
+      setNowMinutes(now.getHours() * 60 + now.getMinutes());
+      setTodayIso(toISO(now));
+    };
+    tick();
+    const id = setInterval(tick, 60_000);
+    return () => clearInterval(id);
+  }, []);
+
+  const nowTop =
+    nowMinutes !== null &&
+    nowMinutes >= startHour * 60 &&
+    nowMinutes <= endHour * 60
+      ? ((nowMinutes - startHour * 60) / ((endHour - startHour) * 60)) * 100
+      : null;
+
   return (
     <div className="flex flex-col overflow-hidden rounded-lg border">
       {/* Cabeçalho: o rótulo de cada dia, alinhado às colunas de baixo. */}
-      <div
-        className="bg-muted/30 grid border-b"
-        style={{ gridTemplateColumns: `4rem repeat(${days.length}, 1fr)` }}
-      >
-        <div aria-hidden />
-        {days.map((iso) => (
-          <div key={iso} className="border-l px-2 py-2 text-center">
-            {renderHeader(iso)}
-          </div>
-        ))}
-      </div>
+      {renderHeader ? (
+        <div
+          className="bg-muted/30 grid border-b"
+          style={{
+            gridTemplateColumns: `4rem repeat(${days.length}, 1fr)`,
+          }}
+        >
+          <div aria-hidden />
+          {days.map((iso) => (
+            <div key={iso} className="border-l px-2 py-2 text-center">
+              {renderHeader(iso)}
+            </div>
+          ))}
+        </div>
+      ) : null}
 
       {/* A faixa do dia todo, só quando há o que pôr nela. */}
       {anyAllDay ? (
@@ -109,7 +166,7 @@ export function TimeGrid({
           className="bg-muted/10 grid border-b"
           style={{ gridTemplateColumns: `4rem repeat(${days.length}, 1fr)` }}
         >
-          <div className="text-muted-foreground px-2 py-1.5 text-2xs">
+          <div className="text-muted-foreground text-2xs px-2 py-1.5">
             {t('allDay')}
           </div>
           {days.map((iso) => (
@@ -136,12 +193,25 @@ export function TimeGrid({
             height: bodyHeight,
           }}
         >
-          {/* A régua de horas. */}
+          {/*
+            A régua de horas.
+
+            O PRIMEIRO RÓTULO NÃO SOBE. Todos usavam `-translate-y-1/2` para
+            centrar o texto na linha, e o de cima ficava metade fora do
+            scroller: a grade abria mostrando "07:00" cortado ao meio, que é
+            a primeira coisa que se lê nela.
+
+            O do topo alinha por baixo da linha; os demais seguem centrados,
+            porque para eles existe linha acima e abaixo.
+          */}
           <div className="relative">
             {slots.map((slot, i) => (
               <div
                 key={slot}
-                className="text-muted-foreground absolute right-2 -translate-y-1/2 text-2xs tabular-nums"
+                className={cn(
+                  'text-muted-foreground text-2xs absolute right-2 tabular-nums',
+                  i > 0 && '-translate-y-1/2'
+                )}
                 style={{ top: (i / slots.length) * 100 + '%' }}
               >
                 {slot}
@@ -171,19 +241,52 @@ export function TimeGrid({
                     aria-hidden
                   />
                 ))}
+                {/*
+                  A LINHA DO AGORA, só na coluna de hoje.
+                  `z-20` para passar por cima dos cartões: ela é a régua
+                  contra a qual eles são lidos, não mais um deles.
+                */}
+                {iso === todayIso && nowTop !== null ? (
+                  <div
+                    aria-hidden
+                    className="pointer-events-none absolute inset-x-0 z-20 flex items-center"
+                    style={{ top: `${nowTop}%` }}
+                  >
+                    <span className="bg-danger size-1.5 shrink-0 rounded-full" />
+                    <span className="bg-danger h-px flex-1" />
+                  </div>
+                ) : null}
+
                 {timed.map((item) => {
-                  const pos = positionOf(item, startHour, endHour);
+                  const pos = positionOf(
+                    item,
+                    startHour,
+                    endHour,
+                    durationOf(item)
+                  );
                   if (!pos) return null;
+                  /*
+                    A FAIXA. Dois itens na mesma hora ficavam um EXATAMENTE
+                    em cima do outro, e o de baixo sumia — nem o título, nem
+                    a existência dele. Numa agenda o conflito de horário é a
+                    informação mais cara da tela, e era a única que ela não
+                    sabia mostrar.
+                  */
+                  const lane = lanes.get(iso)?.get(item.id);
+                  const of = lane?.of ?? 1;
+                  const index = lane?.index ?? 0;
                   return (
                     <AgendaChip
                       key={item.id}
                       item={item}
                       density="tight"
                       onSelect={item.kind === 'task' ? onSelectTask : undefined}
-                      className="absolute inset-x-1 z-10 overflow-hidden"
+                      className="absolute z-10 overflow-hidden"
                       style={{
                         top: `${pos.top}%`,
                         minHeight: `${pos.height}%`,
+                        left: `calc(${(index / of) * 100}% + 0.25rem)`,
+                        width: `calc(${(1 / of) * 100}% - 0.5rem)`,
                       }}
                     />
                   );

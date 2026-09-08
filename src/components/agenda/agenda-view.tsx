@@ -41,6 +41,7 @@ import { DayView } from './day-view';
 import { MonthView } from './month-view';
 import { WeekView } from './week-view';
 import { KIND_ICON, TONE_DOT } from './tokens';
+import { SegBar } from '@/components/ui/seg-bar';
 
 /**
  * A agenda como LUGAR, e não como painel.
@@ -66,6 +67,9 @@ import { KIND_ICON, TONE_DOT } from './tokens';
  * vazia. O padrão "Minhas" é o mesmo raciocínio do outro lado: a pergunta
  * que se faz ao abrir a própria agenda é sobre o próprio dia.
  */
+/** As tres janelas, na ordem em que a barra as mostra. */
+const VIEW_MODES: ViewMode[] = ['month', 'week', 'day'];
+
 export function AgendaPage() {
   const t = useTranslations('Agenda');
   const router = useRouter();
@@ -216,24 +220,21 @@ export function AgendaPage() {
         </h1>
 
         <div className="ml-auto flex flex-wrap items-center gap-2">
-          <div className="bg-muted flex rounded-md p-0.5">
-            {(['month', 'week', 'day'] as ViewMode[]).map((mode) => (
-              <button
-                key={mode}
-                type="button"
-                onClick={() => setParam({ v: mode })}
-                aria-pressed={view === mode}
-                className={cn(
-                  'rounded px-2.5 py-1 text-xs font-medium',
-                  view === mode
-                    ? 'bg-background shadow-sm'
-                    : 'text-muted-foreground'
-                )}
-              >
-                {t(`view.${mode}`)}
-              </button>
-            ))}
-          </div>
+          {/*
+            O `SegBar` da casa. Esta era a QUARTA escrita a mao do mesmo
+            controle — `/tasks`, o calendario de tarefas e esta tela tinham
+            copias identicas, com `rounded` de 4px fora da escada, altura do
+            `line-height` e nenhum anel de foco.
+          */}
+          <SegBar
+            label={t('viewLabel')}
+            value={view}
+            onValueChange={(next) => setParam({ v: next })}
+            segments={VIEW_MODES.map((mode) => ({
+              value: mode,
+              label: t(`view.${mode}`),
+            }))}
+          />
 
           {/*
             As partes do `Select` e não o `OptionSelect`: aqui cada linha

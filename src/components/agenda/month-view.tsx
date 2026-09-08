@@ -63,7 +63,9 @@ export function MonthView({
         const shown = list.slice(0, MAX_CHIPS);
         const rest = list.length - shown.length;
         return (
-          <div className={cn('mt-0.5 space-y-0.5', day.outside && 'opacity-50')}>
+          <div
+            className={cn('mt-0.5 space-y-0.5', day.outside && 'opacity-50')}
+          >
             {/*
               SEM `onSelect` AQUI, e não é esquecimento.
 
@@ -80,7 +82,7 @@ export function MonthView({
               <AgendaChip key={item.id} item={item} density="tight" />
             ))}
             {rest > 0 ? (
-              <div className="text-muted-foreground px-1 text-3xs">
+              <div className="text-muted-foreground text-3xs px-1">
                 {t('more', { count: rest })}
               </div>
             ) : null}

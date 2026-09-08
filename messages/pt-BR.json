@@ -3855,7 +3855,8 @@
       "birthday": "Aniversário",
       "task": "Tarefa",
       "external": "Agenda externa"
-    }
+    },
+    "viewLabel": "Janela"
   },
   "Calendars": {
     "title": "Agendas",

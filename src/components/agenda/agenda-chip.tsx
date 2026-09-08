@@ -3,10 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 
-import {
-  AGENDA_TONE,
-  type AgendaItem,
-} from '@/lib/dashboard/agenda';
+import { AGENDA_TONE, type AgendaItem } from '@/lib/dashboard/agenda';
 import { cn } from '@/lib/utils';
 
 import { KIND_ICON, TONE_CHIP } from './tokens';
@@ -80,7 +77,12 @@ export function AgendaChip({
 
   if (item.href) {
     return (
-      <Link href={item.href} className={classes} style={style} title={item.title}>
+      <Link
+        href={item.href}
+        className={classes}
+        style={style}
+        title={item.title}
+      >
         {inner}
       </Link>
     );

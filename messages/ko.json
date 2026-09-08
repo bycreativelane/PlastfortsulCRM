@@ -3855,7 +3855,8 @@
       "birthday": "생일",
       "task": "작업",
       "external": "외부 캘린더"
-    }
+    },
+    "viewLabel": "범위"
   },
   "Calendars": {
     "title": "캘린더",

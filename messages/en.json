@@ -3855,7 +3855,8 @@
       "birthday": "Birthday",
       "task": "Task",
       "external": "External calendar"
-    }
+    },
+    "viewLabel": "Range"
   },
   "Calendars": {
     "title": "Calendars",

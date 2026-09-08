@@ -94,7 +94,10 @@ describe('filterAgenda', () => {
   });
 
   it('NUNCA esconde o que não é de ninguém', () => {
-    const items = [item({ kind: 'birthday', owner: null }), item({ owner: 'u2' })];
+    const items = [
+      item({ kind: 'birthday', owner: null }),
+      item({ owner: 'u2' }),
+    ];
     const out = filterAgenda(items, { hidden: none, owner: 'mine', me: 'u1' });
     expect(out).toHaveLength(1);
     expect(out[0].kind).toBe('birthday');

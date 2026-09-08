@@ -2,7 +2,8 @@
 
 import type { ReactNode } from 'react';
 
-import { CountBadge } from '@/components/ui/count-badge';
+import { Plus } from 'lucide-react';
+
 import { cn } from '@/lib/utils';
 
 /**
@@ -43,8 +44,13 @@ export interface BoardLaneProps {
   /** O `ref` do droppable, que pertence ao CORPO e não à raiz — assim um
    *  arrasto sobre o cabeçalho não acende a coluna inteira. */
   bodyRef?: (node: HTMLElement | null) => void;
-  /** Preso ao pe da raia, fora da rolagem: o "+ adicionar". */
-  footer?: ReactNode;
+  /**
+   * O slot tracejado do pé da coluna. Sem isto ele não aparece — a coluna
+   * "concluída" do quadro de tarefas não tem "adicionar", porque criar uma
+   * tarefa já concluída não é uma ação que exista.
+   */
+  onAdd?: () => void;
+  addLabel?: string;
   children: ReactNode;
   className?: string;
 }
@@ -57,18 +63,33 @@ export function BoardLane({
   subtitle,
   isOver = false,
   bodyRef,
-  footer,
+  onAdd,
+  addLabel,
   children,
   className,
 }: BoardLaneProps) {
   return (
-    // Uma raia rebaixada, e não um cartão. A coluna é o recipiente em que os
-    // cartões estão, então ela toma a superfície apagada e eles tomam o
-    // branco — o contrário de uma caixa com borda segurando caixas com
-    // borda, que achata a pilha num retângulo cinza só.
+    /*
+     * A COLUNA NÃO TEM FUNDO.
+     *
+     * Ela era uma raia cinza preenchida, com o argumento de que a superfície
+     * apagada faz os cartões brancos saltarem. Seis das oito referências
+     * fazem o contrário: a coluna é transparente sobre o canvas da página e
+     * quem separa o cartão é a SOMBRA dele. A sétima (o Bond CRM) tinge a
+     * coluna, mas com um tom por etapa — creme, rosa, lavanda — que a
+     * doutrina de cor daqui veta.
+     *
+     * Enquanto o cartão tinha borda e nenhuma sombra, a raia era o que dava
+     * separação e o argumento se sustentava. Com o `--card-shadow` ela
+     * virou um segundo retângulo em volta de retângulos — e é exatamente o
+     * "caixas cinzas contendo caixas brancas" que aquelas telas evitam.
+     *
+     * O que segura a coluna sem o fundo é a régua fina sob o cabeçalho, que
+     * é o que as imagens 6, 7 e 8 usam no lugar dele.
+     */
     <div
       className={cn(
-        'bg-muted flex w-[85vw] max-w-[320px] min-w-[260px] shrink-0 snap-start flex-col overflow-hidden rounded-xl lg:w-auto lg:max-w-none lg:flex-1 lg:shrink lg:basis-[260px] lg:snap-none',
+        'flex w-[85vw] max-w-[320px] min-w-[260px] shrink-0 snap-start flex-col rounded-xl lg:w-auto lg:max-w-none lg:flex-1 lg:shrink lg:basis-[260px] lg:snap-none',
         className
       )}
     >
@@ -83,42 +104,77 @@ export function BoardLane({
 
         A bolinha fica ao lado do nome, que é onde o olho já está.
       */}
-      <div className="shrink-0 px-3 pt-3 pb-2.5">
-        <div className="flex items-center gap-2">
+      {/*
+        Mais quieto do que era. O cabeçalho estava em `text-sm font-bold`
+        com uma pílula de contagem, o que numa coluna sem fundo vira a coisa
+        mais pesada da tela. Nas referências ele é uma linha pequena —
+        "● To Do · 26" — e o que ele tem de fazer é dizer onde você está, não
+        competir com os cartões que ele encima.
+
+        A régua embaixo é o que dá borda à coluna agora que ela não tem
+        fundo; `px-1` porque ela tem de alinhar com a borda dos cartões, e
+        eles vivem num corpo com `px-1` de folga.
+      */}
+      <div className="border-border/70 mx-1 shrink-0 border-b px-1 pt-1 pb-2">
+        <div className="flex items-center gap-1.5">
           <span
             aria-hidden
-            className={cn("size-2 shrink-0 rounded-full", colorClass)}
+            className={cn('size-2 shrink-0 rounded-full', colorClass)}
             style={color ? { backgroundColor: color } : undefined}
           />
-          <h3 className="text-foreground min-w-0 flex-1 truncate text-sm font-bold tracking-tight">
+          <h3 className="text-foreground min-w-0 truncate text-xs font-semibold">
             {name}
           </h3>
-          <CountBadge tone="card">{count}</CountBadge>
+          <span className="text-muted-foreground text-2xs shrink-0 tabular-nums">
+            · {count}
+          </span>
+          {subtitle ? (
+            <span className="text-muted-foreground text-2xs ml-auto shrink-0 font-semibold tabular-nums">
+              {subtitle}
+            </span>
+          ) : null}
         </div>
-        {subtitle ? (
-          <p className="text-muted-foreground text-2xs mt-0.5 pl-4 font-medium tabular-nums">
-            {subtitle}
-          </p>
-        ) : null}
       </div>
 
       {/* `overflow-y-auto`: a COLUNA rola, não a página. */}
       <div
         ref={bodyRef}
         className={cn(
-          'flex flex-1 flex-col gap-2 overflow-y-auto px-2 pb-2 transition-colors duration-(--dur-1)',
+          // `gap-2.5` e não `gap-2`: sem o fundo da raia, o que agrupa uma
+          // coluna é o espaçamento, e ele tem de ser maior do que o espaço
+          // interno do cartão para a pilha ler como pilha.
+          'flex flex-1 flex-col gap-2.5 overflow-y-auto rounded-xl px-1 pt-2.5 pb-2 transition-colors duration-(--dur-1)',
           isOver && 'bg-primary-soft'
         )}
       >
         {children}
       </div>
 
-      {/* O "+ adicionar" fica FORA do corpo que rola, e nao no fim da lista.
-          As referencias o poem no fim da coluna, mas elas mostram colunas
-          curtas: numa com trinta negocios ele viraria um botao que so existe
-          depois de rolar ate o fundo. Preso embaixo, ele esta sempre a um
-          clique de distancia — a forma e a das referencias, o lugar nao. */}
-      {footer}
+      {/*
+        O SLOT TRACEJADO das referências, e ele fica FORA do corpo que rola.
+
+        As imagens o põem no fim da coluna, mas elas mostram colunas curtas:
+        numa com trinta negócios ele viraria um botão que só existe depois de
+        rolar até o fundo. Preso embaixo, está sempre a um clique — a forma é
+        a das referências, o lugar não.
+
+        Tracejado e na cor da etapa porque é um lugar VAZIO esperando um
+        cartão, e não uma ação secundária qualquer; era um botão fantasma
+        cinza, indistinguível de qualquer outro. É o único ponto do quadro
+        onde a cor da etapa reaparece depois da bolinha, e aqui ela diz "aqui
+        dentro", não "olhe para mim".
+      */}
+      {onAdd ? (
+        <button
+          type="button"
+          onClick={onAdd}
+          className="text-muted-foreground hover:text-foreground mx-1 mb-1 flex h-9 shrink-0 items-center justify-center gap-1 rounded-xl border border-dashed text-xs font-medium transition-colors duration-(--dur-1)"
+          style={color ? { borderColor: color } : undefined}
+        >
+          <Plus className="size-3.5" />
+          {addLabel}
+        </button>
+      ) : null}
     </div>
   );
 }

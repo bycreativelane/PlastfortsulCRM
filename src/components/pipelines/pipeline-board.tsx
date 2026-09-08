@@ -240,25 +240,8 @@ function StageColumn({
       // O ref do droppable pertence ao CORPO, e nao a raiz, para que um
       // arrasto sobre o cabecalho nao acenda a coluna inteira.
       bodyRef={setNodeRef}
-      footer={
-        // O SLOT TRACEJADO das referencias, na cor da etapa.
-        //
-        // Era um botao fantasma cinza, indistinguivel de qualquer outra acao
-        // secundaria da tela. Tracejado ele le como um lugar VAZIO esperando
-        // um cartao — que e o que ele e — e a cor amarra o gesto a coluna em
-        // que ele vai cair. E o unico lugar do quadro onde a cor da etapa
-        // aparece de novo depois da bolinha, e aqui ela esta dizendo "aqui
-        // dentro", nao "olhe para mim".
-        <button
-          type="button"
-          onClick={() => onAddDeal(stage.id)}
-          className="text-muted-foreground hover:text-foreground mx-2 mb-2 flex h-8 shrink-0 items-center justify-center gap-1 rounded-lg border border-dashed text-xs font-medium transition-colors duration-(--dur-1)"
-          style={{ borderColor: stage.color }}
-        >
-          <Plus className="size-3.5" />
-          {t('addDeal')}
-        </button>
-      }
+      onAdd={() => onAddDeal(stage.id)}
+      addLabel={t('addDeal')}
     >
         {deals.length === 0 ? (
           <StatePanel title={t('dropDealHere')} framed className="flex-1" />

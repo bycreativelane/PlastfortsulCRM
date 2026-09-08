@@ -129,9 +129,25 @@ export function DealCard({
           Company on its own line and only when there is one, because a
           contact created from an inbound message has nothing but a phone
           number. */}
-      <h4 className="text-foreground truncate text-sm leading-tight font-semibold">
-        {contactLabel}
-      </h4>
+      {/* O CHIP DE ESTADO AO LADO DO NOME, como o `New`/`Warm`/`Renewal`
+          do Bond CRM. Ele estava no rodapé, embaixo do divisor, junto com
+          prazo e foto — que é onde se põe metadado, não o fato de o negócio
+          já estar ganho ou perdido. */}
+      <div className="flex items-start gap-2">
+        <h4 className="text-foreground min-w-0 flex-1 truncate text-sm leading-tight font-semibold">
+          {contactLabel}
+        </h4>
+        {deal.status === 'won' && (
+          <StatusBadge variant="ok" size="sm">
+            {t('won')}
+          </StatusBadge>
+        )}
+        {deal.status === 'lost' && (
+          <StatusBadge variant="danger" size="sm">
+            {t('lost')}
+          </StatusBadge>
+        )}
+      </div>
       {deal.contact?.company && (
         <p className="text-muted-foreground text-2xs mt-0.5 truncate leading-tight">
           {deal.contact.company}
@@ -174,23 +190,11 @@ export function DealCard({
         </span>
       )}
 
-      {(deal.status !== 'open' ||
-        deal.expected_close_date ||
+      {(deal.expected_close_date ||
         daysHere !== null ||
         playbook ||
         assigneeLabel) && (
         <div className="border-muted mt-3 flex items-center gap-1.5 border-t pt-2.5">
-          {deal.status === 'won' && (
-            <StatusBadge variant="ok" size="sm">
-              {t('won')}
-            </StatusBadge>
-          )}
-          {deal.status === 'lost' && (
-            <StatusBadge variant="danger" size="sm">
-              {t('lost')}
-            </StatusBadge>
-          )}
-
           {/* Já concluído, o playbook não tem barra e não tem pílula: só o
               par de números, em cinza, para quem quiser conferir. */}
           {playbook && playbook.done >= playbook.total && (

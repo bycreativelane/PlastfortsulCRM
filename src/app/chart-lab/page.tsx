@@ -39,7 +39,8 @@ import { AttentionRow } from '@/components/dashboard/attention-row';
 import { StatTile } from '@/components/ui/stat-tile';
 import { BoardLane } from '@/components/pipelines/board-lane';
 import { DealCard } from '@/components/pipelines/deal-card';
-import type { Deal, PipelineStage } from '@/types';
+import { TasksBoard } from '@/components/tasks/tasks-board';
+import type { Deal, PipelineStage, Task } from '@/types';
 
 /**
  * A bench for the chart components, outside the login wall.
@@ -286,6 +287,65 @@ const LAB_PLAYBOOK: Record<string, { done: number; total: number }> = {
   d3: { done: 1, total: 6 },
   d5: { done: 4, total: 4 },
 };
+
+/**
+ * As tarefas, em fixtures.
+ *
+ * O mesmo criterio do funil: uma tarefa por caso que o desenho tem de
+ * decidir. Titulo curto e longo, cada tipo do catalogo, atrasada, vencendo
+ * hoje, sem prazo, concluida e cancelada.
+ */
+const LAB_TODAY = new Date().toISOString().slice(0, 10);
+const shiftDay = (n: number) =>
+  new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10);
+
+function labTask(task: Partial<Task> & { id: string; title: string }): Task {
+  return {
+    account_id: 'a1',
+    contact_id: 'c1',
+    kind: 'call',
+    status: 'open',
+    created_by: 'u1',
+    created_at: '2026-09-01T00:00:00Z',
+    ...task,
+  } as Task;
+}
+
+const LAB_TASKS: Task[] = [
+  labTask({
+    id: 't1',
+    title: 'Ligar para o Marcos sobre a proposta das caixas 60L',
+    kind: 'call',
+    due_on: shiftDay(-2),
+  }),
+  labTask({
+    id: 't2',
+    title: 'Enviar catálogo atualizado',
+    kind: 'followup',
+    due_on: LAB_TODAY,
+    due_time: '14:30:00',
+  }),
+  labTask({
+    id: 't3',
+    title: 'Visita técnica na Agroindustrial Vale Verde',
+    kind: 'visit',
+    due_on: shiftDay(3),
+  }),
+  labTask({ id: 't4', title: 'Conferir estoque de bombonas', kind: 'todo' }),
+  labTask({
+    id: 't5',
+    title: 'Mandar orçamento dos pallets PBR',
+    kind: 'quote',
+    status: 'done',
+    due_on: shiftDay(-5),
+  }),
+  labTask({
+    id: 't6',
+    title: 'Reagendar reunião de setembro',
+    kind: 'meeting',
+    status: 'cancelled',
+  }),
+];
 
 const ENABLED = process.env.NODE_ENV !== 'production';
 
@@ -548,15 +608,8 @@ export default function ChartLabPage() {
                 (LAB_DEALS[stage.id] ?? []).reduce((n, d) => n + d.value, 0)
               )}
               className="h-100"
-              footer={
-                <button
-                  type="button"
-                  className="text-muted-foreground hover:text-foreground mx-2 mb-2 flex h-8 shrink-0 items-center justify-center gap-1 rounded-lg border border-dashed text-xs font-medium"
-                  style={{ borderColor: stage.color }}
-                >
-                  + Adicionar negócio
-                </button>
-              }
+              onAdd={() => {}}
+              addLabel="Adicionar negócio"
             >
               {(LAB_DEALS[stage.id] ?? []).map((deal) => (
                 <DealCard
@@ -569,6 +622,21 @@ export default function ChartLabPage() {
               ))}
             </BoardLane>
           ))}
+        </div>
+
+        {/* O QUADRO DE TAREFAS, tambem com a peca real. E a tela que abriu
+            este redesenho, e ela divide a raia com o funil agora — se as
+            duas divergirem de novo, e aqui que aparece, lado a lado. */}
+        <SectionTitle>Tarefas</SectionTitle>
+        <div className="bg-background h-100 rounded-xl p-3">
+          <TasksBoard
+            tasks={LAB_TASKS}
+            todayIso={LAB_TODAY}
+            busyId={null}
+            onChangeStatus={() => {}}
+            onOpen={() => {}}
+            onCreate={() => {}}
+          />
         </div>
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">

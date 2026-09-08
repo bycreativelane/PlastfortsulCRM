@@ -15,12 +15,13 @@ import {
   useSensors,
   type DragEndEvent,
 } from '@dnd-kit/core';
-import { GripVertical, Plus } from 'lucide-react';
+import { CalendarDays, GripVertical } from 'lucide-react';
 
 import { useMemberDirectory } from '@/hooks/use-member-directory';
 import { MemberAvatar } from '@/components/presence/member-avatar';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { BoardLane } from '@/components/pipelines/board-lane';
+import { Tag } from '@/components/ui/tag';
 import { formatDue } from '@/components/tasks/task-row';
 import { StatePanel } from '@/components/ui/state-panel';
 import { bucketOf } from '@/lib/tasks/board';
@@ -172,7 +173,12 @@ export function TasksBoard({
       >
         {activeTask ? (
           <div className="opacity-90">
-            <Card task={activeTask} todayIso={todayIso} onOpen={() => {}} isOverlay />
+            <Card
+              task={activeTask}
+              todayIso={todayIso}
+              onOpen={() => {}}
+              isOverlay
+            />
           </div>
         ) : null}
       </DragOverlay>
@@ -208,43 +214,33 @@ function Column({
       count={tasks.length}
       isOver={isOver}
       bodyRef={setNodeRef}
-      footer={
-        // Só na coluna das abertas: criar uma tarefa já concluída não é uma
-        // ação que exista, e um botão que produz um estado impossível é pior
-        // que a ausência dele.
-        status === 'open' ? (
-          <button
-            type="button"
-            onClick={onCreate}
-            className="border-input text-muted-foreground hover:border-primary/40 hover:text-foreground mx-2 mb-2 flex h-8 shrink-0 items-center justify-center gap-1 rounded-lg border border-dashed text-xs font-medium transition-colors duration-(--dur-1)"
-          >
-            <Plus className="size-3.5" />
-            {tPage('new')}
-          </button>
-        ) : null
-      }
+      // Só na coluna das abertas: criar uma tarefa já concluída não é uma
+      // ação que exista, e um botão que produz um estado impossível é pior
+      // que a ausência dele.
+      onAdd={status === 'open' ? onCreate : undefined}
+      addLabel={tPage('new')}
     >
-        {tasks.map((task) => (
-          <DraggableCard
-            key={task.id}
-            task={task}
-            todayIso={todayIso}
-            busy={busyId === task.id}
-            onOpen={() => onOpen(task)}
-          />
-        ))}
+      {tasks.map((task) => (
+        <DraggableCard
+          key={task.id}
+          task={task}
+          todayIso={todayIso}
+          busy={busyId === task.id}
+          onOpen={() => onOpen(task)}
+        />
+      ))}
 
-        {tasks.length === 0 && status !== 'open' ? (
-          // O frame único de vazio da casa, o mesmo que o funil usa para
-          // "solte uma oportunidade aqui". Um parágrafo cru à esquerda não
-          // parecia um alvo de soltura.
-          <StatePanel
-            title={tPage('columnEmpty')}
-            framed
-            size="sm"
-            className="flex-1"
-          />
-        ) : null}
+      {tasks.length === 0 && status !== 'open' ? (
+        // O frame único de vazio da casa, o mesmo que o funil usa para
+        // "solte uma oportunidade aqui". Um parágrafo cru à esquerda não
+        // parecia um alvo de soltura.
+        <StatePanel
+          title={tPage('columnEmpty')}
+          framed
+          size="sm"
+          className="flex-1"
+        />
+      ) : null}
     </BoardLane>
   );
 }
@@ -347,45 +343,64 @@ function Card({
           mesmo da linha: o mesmo risco, a mesma pílula, a mesma foto. */}
       <span
         className={cn(
-          'text-foreground block text-sm leading-tight font-semibold',
+          'text-foreground block text-sm leading-snug font-semibold',
           task.status !== 'open' && 'text-muted-foreground line-through'
         )}
       >
         {task.title}
       </span>
 
-      <span className="border-muted mt-3 flex items-center gap-1.5 border-t pt-2.5">
-        <span className="text-muted-foreground text-2xs">
-          {tTask(`kind.${task.kind}`)}
-        </span>
+      {/*
+        A FILEIRA DE CHIPS, logo abaixo do título.
 
-        {/* O mesmo prazo que a linha da lista imprime, pela mesma função:
-            a hora respeita o relógio do idioma em vez de sair sempre em 24h,
-            e "Atrasada" é a MESMA pílula, não uma escrita à mão sem altura. */}
-        {due ? (
-          overdue ? (
-            <StatusBadge variant="danger" size="sm">
-              {due}
-            </StatusBadge>
-          ) : (
-            <span className="text-muted-foreground text-2xs tabular-nums">
-              {due}
-            </span>
-          )
-        ) : null}
+        Todo cartão das oito referências tem uma — `Medium` + `Administration`
+        na primeira, `Low` + `Front` + `To do` na segunda, `Cosmic Mavericks`
+        na terceira. É o átomo único de metadado delas: em vez de um
+        tratamento por tipo de informação, o mesmo objeto repetido.
 
-        {/* O rosto no fim da linha, como no cartão da oportunidade: numa
-            equipe, reconhecer quem é pela foto é mais rápido que ler. */}
-        {owner ? (
-          <span className="ml-auto shrink-0">
-            <MemberAvatar
-              name={owner.full_name}
-              avatarUrl={owner.avatar_url}
-              size="2xs"
-            />
-          </span>
+        O tipo da tarefa já era esse dado e saía como texto cinza cru, que é
+        a mesma informação com metade da legibilidade. `Tag` é a peça da
+        casa para taxonomia — retângulo arredondado, e não pílula, porque a
+        forma é o segundo canal: estado é pílula, categoria é retângulo.
+      */}
+      <span className="mt-2 flex flex-wrap items-center gap-1">
+        <Tag size="sm">{tTask(`kind.${task.kind}`)}</Tag>
+        {due && overdue ? (
+          <StatusBadge variant="danger" size="sm">
+            {due}
+          </StatusBadge>
         ) : null}
       </span>
+
+      {/* Sem rodape quando nao ha rodape. Uma tarefa sem prazo e sem
+          responsavel — "conferir o estoque", que e o caso comum de um lembrete
+          solto — desenhava um divisor e um espaco vazio embaixo dele. */}
+      {(due && !overdue) || owner ? (
+        <span className="border-muted mt-3 flex items-center gap-1.5 border-t pt-2.5">
+          {/* O mesmo prazo que a linha da lista imprime, pela mesma função: a
+            hora respeita o relógio do idioma em vez de sair sempre em 24h. O
+            atrasado subiu para a fileira de chips, porque lá ele é lido
+            junto com o tipo, e não perdido entre metadados cinzas. */}
+          {due && !overdue ? (
+            <span className="text-muted-foreground text-2xs flex items-center gap-1 tabular-nums">
+              <CalendarDays className="size-3" />
+              {due}
+            </span>
+          ) : null}
+
+          {/* O rosto no fim da linha, como no cartão da oportunidade: numa
+            equipe, reconhecer quem é pela foto é mais rápido que ler. */}
+          {owner ? (
+            <span className="ml-auto shrink-0">
+              <MemberAvatar
+                name={owner.full_name}
+                avatarUrl={owner.avatar_url}
+                size="2xs"
+              />
+            </span>
+          ) : null}
+        </span>
+      ) : null}
     </button>
   );
 }

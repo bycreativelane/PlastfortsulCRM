@@ -102,7 +102,7 @@ async function PageNav({
       {prev ? (
         <Link
           href={pageHref(prev)}
-          className="border-border hover:border-primary/40 hover:bg-card-2 group flex flex-col gap-1 rounded-xl border p-3.5 transition-colors"
+          className="surface-interactive border-border group flex flex-col gap-1 rounded-xl border p-3.5"
         >
           <span className="text-muted-foreground text-2xs flex items-center gap-1.5">
             <ArrowLeft className="size-3 transition-transform group-hover:-translate-x-0.5" />
@@ -119,7 +119,7 @@ async function PageNav({
       {next ? (
         <Link
           href={pageHref(next)}
-          className="border-border hover:border-primary/40 hover:bg-card-2 group flex flex-col items-end gap-1 rounded-xl border p-3.5 text-right transition-colors sm:col-start-2"
+          className="surface-interactive border-border group flex flex-col items-end gap-1 rounded-xl border p-3.5 text-right sm:col-start-2"
         >
           <span className="text-muted-foreground text-2xs flex items-center gap-1.5">
             {t('next')}

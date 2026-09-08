@@ -80,7 +80,7 @@ export function QuickReplyPicker({
                   <button
                     type="button"
                     onClick={() => onPick(qr)}
-                    className="border-border bg-muted/40 hover:border-primary/50 hover:bg-muted flex w-full items-start gap-2 rounded-md border p-2.5 text-left transition-colors duration-(--dur-1)"
+                    className="surface-interactive border-border bg-muted/40 flex w-full items-start gap-2 rounded-md border p-2.5 text-left"
                   >
                     {/* Grey lightning, same as the automated-thread marker in
                         the conversation list. The glyph already separates the

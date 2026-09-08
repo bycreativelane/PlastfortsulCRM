@@ -55,8 +55,9 @@ import { IconTile } from '@/components/ui/icon-tile';
  * width of the tile, so it wraps less. The tile is ~30px taller and
  * says its one thing at four times the volume.
  *
- * Renders as a plain div and is not focusable; the dashboard wraps it
- * in a link when a tile names a queue you can open.
+ * Renders as a plain div and is not focusable. Nothing wraps one in a
+ * link today — the dashboard answers that need with `AttentionRow` — so a
+ * pressable tile would take `surface-interactive` on its wrapper.
  */
 
 /**
@@ -68,21 +69,23 @@ import { IconTile } from '@/components/ui/icon-tile';
  * label wrapping to two lines was enough: that tile grew, and the other
  * three drew their frames short of the row, which reads as three
  * misaligned boxes rather than as one long label.
+ *
+ * NO TONE ON THE SURFACE. Every tile is the same card on the same border;
+ * the tone lives in the icon square and the figure, and nowhere else. See
+ * the note above the component.
+ *
+ * There used to be an `interactive` variant here — `transition-shadow
+ * hover:shadow-sm`, half of the house's hover recipe. It was unreachable:
+ * `StatTile` hard-coded `interactive: false` and no call site imported
+ * `tileVariants`. A dead variant reads as an option someone weighed, so
+ * the next person copies half a recipe believing it was chosen.
+ *
+ * If a tile ever needs to be pressable, the answer is `surface-interactive`
+ * on whatever wraps it, which is the same answer every other clickable
+ * surface in the app now gives.
  */
 const tileVariants = cva(
-  'flex h-full w-full flex-col items-start gap-3 rounded-xl border p-4 text-left',
-  {
-    variants: {
-      // NO TONE ON THE SURFACE. Every tile is the same card on the same
-      // border; the tone lives in the icon square and the figure, and
-      // nowhere else. See the note above the component.
-      interactive: {
-        true: 'transition-shadow hover:shadow-sm',
-        false: '',
-      },
-    },
-    defaultVariants: { interactive: false },
-  }
+  'flex h-full w-full flex-col items-start gap-3 rounded-xl border p-4 text-left'
 );
 
 /**
@@ -146,7 +149,7 @@ function StatTile({
     <div
       data-slot="stat-tile"
       data-tone={tone ?? 'neutral'}
-      className={cn(tileVariants({ interactive: false }), className)}
+      className={cn(tileVariants(), className)}
       {...props}
     >
       {/* The SOLID, not the tint: this square is the only place the tone

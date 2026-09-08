@@ -120,10 +120,13 @@ function ModeCard({
       aria-checked={isActive}
       aria-label={t('useMode', { mode })}
       className={cn(
-        'bg-card flex items-center gap-3 rounded-lg border p-4 text-left transition-colors duration-(--dur-1)',
+        // O `hover:border-border` era um no-op: esquentava a borda para a
+        // MESMA cor que ela ja tinha. Sobrava um lavado de fundo, e fundo e o
+        // que diz "esta e a selecionada" — o hover nao pode imitar isso.
+        'bg-card flex items-center gap-3 rounded-lg border p-4 text-left',
         isActive
           ? 'border-primary/60 ring-primary/40 ring-2'
-          : 'border-border hover:border-border hover:bg-muted/40'
+          : 'border-border surface-interactive'
       )}
     >
       <span
@@ -169,10 +172,10 @@ function ThemeCard({
       aria-checked={isActive}
       aria-label={t('useTheme', { name })}
       className={cn(
-        'bg-card flex flex-col gap-3 rounded-lg border p-4 text-left transition-colors duration-(--dur-1)',
+        'bg-card flex flex-col gap-3 rounded-lg border p-4 text-left',
         isActive
           ? 'border-primary/60 ring-primary/40 ring-2'
-          : 'border-border hover:border-border hover:bg-muted/40'
+          : 'border-border surface-interactive'
       )}
     >
       <div className="flex items-center justify-between">

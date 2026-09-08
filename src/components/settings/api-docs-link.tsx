@@ -32,7 +32,7 @@ export function ApiDocsLink({
       href={href}
       target="_blank"
       rel="noreferrer noopener"
-      className="border-border bg-card-2 hover:border-primary/40 hover:bg-card group flex items-center gap-3 rounded-xl border p-3 transition-colors"
+      className="surface-interactive border-border bg-card-2 group flex items-center gap-3 rounded-xl border p-3"
     >
       <BookOpen className="text-primary size-4 shrink-0" />
       <span className="min-w-0">

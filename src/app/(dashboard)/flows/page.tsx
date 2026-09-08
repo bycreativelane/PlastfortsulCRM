@@ -299,7 +299,7 @@ export default function FlowsPage() {
                       type="button"
                       onClick={() => handleUseTemplate(template.slug)}
                       disabled={creating}
-                      className="border-border bg-background hover:border-primary/40 hover:bg-muted flex flex-col gap-2.5 rounded-lg border p-4 text-left transition-colors duration-(--dur-1) disabled:opacity-50"
+                      className="surface-interactive border-border bg-background flex flex-col gap-2.5 rounded-lg border p-4 text-left disabled:opacity-50"
                     >
                       <Icon className="text-primary h-5 w-5" />
                       <span className="text-popover-foreground text-sm font-semibold">

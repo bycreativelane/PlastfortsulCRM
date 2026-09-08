@@ -216,7 +216,7 @@ export function TemplatePicker({
                   key={t.id}
                   type="button"
                   onClick={() => pickTemplate(t)}
-                  className="border-border bg-background/50 hover:border-primary/40 hover:bg-popover w-full rounded-md border p-3 text-left transition-colors duration-(--dur-1)"
+                  className="surface-interactive border-border bg-background/50 w-full rounded-md border p-3 text-left"
                 >
                   <div className="flex items-start gap-2">
                     <div className="min-w-0 flex-1">

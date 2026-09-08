@@ -276,7 +276,7 @@ function CardGrid({
           <Link
             key={card.href}
             href={card.href}
-            className="border-border bg-card hover:border-primary/40 hover:bg-card-2 group flex flex-col gap-2 rounded-xl border p-4 transition-colors"
+            className="surface-interactive border-border bg-card group flex flex-col gap-2 rounded-xl border p-4"
           >
             <Icon className="text-primary size-5" />
             <span className="text-foreground flex items-center gap-1.5 text-sm font-semibold">

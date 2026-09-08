@@ -391,6 +391,24 @@ function panelOffenders(): string[] {
   return found;
 }
 
+/**
+ * A sombra de hover pertence a UMA receita, e ela já está escrita.
+ *
+ * `surface-interactive`, no `globals.css`, é o único hover de superfície
+ * clicável da casa: a borda esquenta, a peça sobe 1px com `--lift-shadow`,
+ * e o `:active` cancela o lift — sem esse cancelamento o cartão fica no ar
+ * enquanto você o pressiona, e o gesto não tem fundo.
+ *
+ * Quem escreve `hover:shadow-sm` está copiando um terço dela. O comentário
+ * do utilitário conta que o app teve onze respostas diferentes para "o que
+ * isto faz sob o ponteiro"; esta busca é o que impede a décima segunda.
+ *
+ * Só a SOMBRA é procurada. `hover:border-` sozinho é legítimo em botões,
+ * gatilhos de menu e campos — peças que não sobem — e acusá-los tornaria o
+ * guarda ruído.
+ */
+const HAND_ROLLED_LIFT = /hover:shadow-/;
+
 describe('atoms', () => {
   it('no one hand-rolls a count badge', () => {
     expect(
@@ -427,6 +445,14 @@ describe('atoms', () => {
         '`rounded-xl` que o comentário do componente defende em dois ' +
         'parágrafos. Se a superfície é clicável, o vocabulário é ' +
         '`surface-interactive`, não `Panel`.'
+    ).toEqual([]);
+  });
+
+  it('no one hand-rolls the lift', () => {
+    expect(
+      offenders(HAND_ROLLED_LIFT),
+      'Use `surface-interactive` do globals.css — a sombra é um terço da ' +
+        'receita, e a parte que falta é o `:active` que cancela o lift.'
     ).toEqual([]);
   });
 

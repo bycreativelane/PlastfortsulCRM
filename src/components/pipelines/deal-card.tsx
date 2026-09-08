@@ -61,10 +61,13 @@ export function DealCard({
           : `${contactLabel} — ${deal.title}`
       }
       className={cn(
-        'border-border bg-card w-full cursor-grab rounded-lg border px-2.5 py-2.5 text-left transition-colors duration-(--dur-1)',
-        isOverlay
-          ? 'cursor-grabbing shadow-lg'
-          : 'hover:border-input hover:shadow-sm',
+        // `surface-interactive` e a receita unica de hover da casa: a borda
+        // esquenta, o cartao sobe 1px e o `:active` cancela o lift. Estava
+        // escrita a mao aqui, sem o lift — que e justamente o que da a
+        // sensacao de que o cartao e pegavel. O cartao do quadro de tarefas
+        // ja tinha sido corrigido; este era o original que ele copiou.
+        'border-border bg-card w-full cursor-grab rounded-lg border px-2.5 py-2.5 text-left',
+        isOverlay ? 'cursor-grabbing shadow-lg' : 'surface-interactive',
         className
       )}
     >

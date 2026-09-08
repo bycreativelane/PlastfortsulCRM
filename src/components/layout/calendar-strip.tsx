@@ -28,11 +28,11 @@ import {
 } from '@/lib/dashboard/agenda';
 import {
   KIND_ICON,
-  TONE_CHIP,
   TONE_DOT,
 } from '@/components/agenda/tokens';
 import { cn } from '@/lib/utils';
 import { Popover, PopoverContent } from '@/components/ui/popover';
+import { IconTile } from '@/components/ui/icon-tile';
 
 /**
  * The week, in the bar, beside the search.
@@ -295,14 +295,9 @@ export function CalendarStrip({ className }: { className?: string }) {
 
                 const body = (
                   <>
-                    <span
-                      className={cn(
-                        'grid size-6 shrink-0 place-items-center rounded-md',
-                        TONE_CHIP[tone]
-                      )}
-                    >
-                      <Icon className="size-3" />
-                    </span>
+                    <IconTile size="xs" tone={tone}>
+                      <Icon />
+                    </IconTile>
                     <span className="min-w-0 flex-1">
                       <span className="flex items-center gap-1.5">
                         <span className="text-foreground truncate text-xs font-semibold">

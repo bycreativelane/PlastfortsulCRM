@@ -22,6 +22,7 @@ import { useCapabilityCheck } from '@/hooks/use-can';
 import { StatusDot } from '@/components/ui/status-badge';
 import { SettingsChip } from './settings-chip';
 import { ROLE_META } from './role-meta';
+import { IconTile } from '@/components/ui/icon-tile';
 
 interface OverviewCounts {
   members: number | null;
@@ -311,9 +312,9 @@ export function SettingsOverview({
                 'hover:bg-card-2'
               )}
             >
-              <span className="bg-primary-soft text-primary flex size-9 shrink-0 items-center justify-center rounded-lg">
-                <Icon className="size-4" />
-              </span>
+              <IconTile size="lg" tone="primary">
+                <Icon />
+              </IconTile>
               <span className="min-w-0 flex-1">
                 <span className="text-foreground block text-sm font-semibold">
                   {tSections(section)}

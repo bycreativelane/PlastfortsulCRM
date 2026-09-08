@@ -38,7 +38,6 @@ import {
 } from '@/lib/dashboard/agenda';
 import {
   KIND_ICON,
-  TONE_CHIP,
   TONE_DOT,
 } from '@/components/agenda/tokens';
 import { MonthGrid, MonthNav } from '@/components/ui/month-grid';
@@ -381,14 +380,9 @@ function AgendaRow({
 
   const body = (
     <>
-      <span
-        className={cn(
-          'grid size-7 shrink-0 place-items-center rounded-md',
-          TONE_CHIP[tone]
-        )}
-      >
-        <Icon className="size-3.5" />
-      </span>
+      <IconTile size="sm" tone={tone}>
+        <Icon />
+      </IconTile>
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-2">
           <span className="text-foreground truncate text-sm font-semibold">

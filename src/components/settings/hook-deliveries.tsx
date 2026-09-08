@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/dashboard/skeleton';
 import { StatePanel } from '@/components/ui/state-panel';
 import { cn } from '@/lib/utils';
+import { IconTile } from '@/components/ui/icon-tile';
 
 /**
  * What arrived, and what it caused.
@@ -134,24 +135,24 @@ export function HookDeliveries({ hookId }: { hookId: string }) {
               onClick={() => setOpenId(open ? null : delivery.id)}
               className="hover:bg-muted/50 flex w-full items-center gap-2.5 px-3 py-2.5 text-left transition-colors"
             >
-              <span
-                className={cn(
-                  'grid size-7 shrink-0 place-items-center rounded-md',
+              <IconTile
+                size="sm"
+                tone={
                   delivery.status === 'rejected' || failed
-                    ? 'bg-danger-soft text-danger-ink'
+                    ? 'danger'
                     : nothingRan
-                      ? 'bg-human-soft text-human-ink'
-                      : 'bg-muted text-muted-foreground'
-                )}
+                      ? 'human'
+                      : 'neutral'
+                }
               >
                 {delivery.status === 'rejected' || failed ? (
-                  <AlertTriangle className="size-3.5" />
+                  <AlertTriangle />
                 ) : nothingRan ? (
-                  <AlertTriangle className="size-3.5" />
+                  <AlertTriangle />
                 ) : (
-                  <CheckCircle2 className="size-3.5" />
+                  <CheckCircle2 />
                 )}
-              </span>
+              </IconTile>
 
               <span className="min-w-0 flex-1">
                 <span className="text-foreground block truncate text-sm">

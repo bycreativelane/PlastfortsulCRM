@@ -48,9 +48,41 @@ const HAND_ROLLED_COUNT = /h-4\.5[^"'`]*min-w-4\.5[^"'`]*rounded-full/;
  * botões fantasma — que é exatamente a peça que NÃO deve virar `IconTile`.
  * Um preenchimento que só existe no hover é um botão; um que existe em
  * repouso é um ladrilho.
+ *
+ * O SÓLIDO conta também. `bg-human-strong` e `bg-danger-solid` são a mesma
+ * peça com a outra pintura — a linha de atenção do painel e o `StatTile`
+ * escreviam os dois com as MESMAS palavras de justificativa, cada um no seu
+ * arquivo, e nenhuma busca por tons lavados os alcançava.
  */
-const HAND_ROLLED_TILE =
-  /(?<![\w:-])(bg-muted|bg-auto-soft|bg-human-soft|bg-ok-soft|bg-danger-soft|bg-primary-soft)[^"'`]*\bsize-[6789]\b[^"'`]*place-items-center/;
+const TILE_TONE =
+  /(?<![\w:-])(bg-muted|bg-auto-soft|bg-human-soft|bg-ok-soft|bg-danger-soft|bg-primary-soft|bg-human-strong|bg-danger-solid|bg-primary)\b/;
+
+/**
+ * A FORMA, e ela tem de estar toda numa linha só.
+ *
+ * Medida e centragem sempre saem juntas, porque juntas elas são a string
+ * literal que abre a chamada de `cn`. Deixá-las vagar pela janela fazia a
+ * busca casar a marca de 48px das telas de autenticação com o `size-6` do
+ * ÍCONE dentro dela, na linha seguinte — duas medidas de dois objetos
+ * diferentes lidas como uma.
+ */
+const TILE_SHAPE =
+  /\bsize-[6789]\b[^\n]*(place-items-center|items-center justify-center)|(place-items-center|items-center justify-center)[^\n]*\bsize-[6789]\b/;
+
+/**
+ * Um preenchimento que MUDA no hover é um botão.
+ *
+ * O ladrilho é decorativo e não tem hover nenhum — quem pinta o repouso e
+ * repinta no ponteiro está descrevendo uma ação, e a resposta certa para ela
+ * é `<Button size="icon">`. É a mesma frase que justifica o `(?<![\w:-])`,
+ * levada até o fim: sem isto o botão de salvar do canal da equipe, que é
+ * `bg-primary hover:bg-primary-hover`, entra como ladrilho.
+ *
+ * A checagem é na LINHA da forma, não na janela: o `hook-deliveries` põe o
+ * ladrilho dentro de um botão com `hover:bg-muted/50` três linhas acima, e
+ * olhar a janela inteira o deixaria escapar.
+ */
+const IS_BUTTON = /hover:bg-/;
 
 /**
  * Um disco não é um ladrilho.
@@ -109,6 +141,74 @@ function offenders(pattern: RegExp, skip?: RegExp): string[] {
   return found;
 }
 
+/**
+ * O ladrilho, procurado numa JANELA de quatro linhas.
+ *
+ * ------------------------------------------------------------------
+ * POR QUE A BUSCA POR LINHA NÃO SERVIA
+ * ------------------------------------------------------------------
+ *
+ * O ladrilho quase nunca cabe numa linha. A escrita real é
+ *
+ *     className={cn(
+ *       'grid size-8 shrink-0 place-items-center rounded-md',
+ *       room.is_default ? 'bg-primary-soft text-primary' : 'bg-muted …'
+ *     )}
+ *
+ * — a forma numa linha, o tom na seguinte, porque é assim que o Prettier
+ * quebra e é assim que o tom costuma ser condicional. A versão por linha
+ * deste guarda exigia tom E medida E centragem juntos, então **não pegou
+ * nenhum dos doze** ladrilhos que a fase 4 encontrou à mão. Um guarda que
+ * não pega o caso que motivou o componente é um guarda que dá falsa
+ * segurança, que é pior do que não ter.
+ *
+ * Quatro linhas é o tamanho de uma chamada de `cn` com dois ramos. Menos
+ * perde o ternário; mais começa a juntar propriedades vizinhas que não têm
+ * relação e a acusar quem não errou.
+ *
+ * ------------------------------------------------------------------
+ * O QUE ELE AINDA NÃO PEGA, MEDIDO
+ * ------------------------------------------------------------------
+ *
+ * Rodado contra a versão anterior dos treze ladrilhos migrados, este guarda
+ * acusa nove. Os quatro que escapam escapam pelo mesmo motivo: **o tom não
+ * é literal.**
+ *
+ *     cn('grid size-7 … place-items-center rounded-md', TONE_CHIP[tone])
+ *     cn('grid size-6 … place-items-center rounded-md', kindStyle.icon)
+ *
+ * `TONE_CHIP[tone]` e `kindStyle.icon` são nomes; o texto da classe está em
+ * outro arquivo, ou trinta linhas acima num `Record`. Uma busca por texto
+ * não alcança isso, e fingir que alcança seria pior do que dizer onde ela
+ * para. O quarto é o `StatTile`, que declara a forma numa `cva` e os tons
+ * sete linhas abaixo — fora da janela de propósito.
+ *
+ * Vale o que pega: as nove são a escrita comum, a que alguém repete sem
+ * saber que o átomo existe. Quem escreve um mapa de tons já está pensando
+ * em sistema.
+ */
+const SPAN = 4;
+
+function tileOffenders(): string[] {
+  const found: string[] = [];
+  for (const file of sourceFiles(SRC)) {
+    const lines = stripComments(readFileSync(file, 'utf8')).split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      if (!TILE_SHAPE.test(lines[i])) continue;
+      if (IS_BUTTON.test(lines[i])) continue;
+
+      // O tom pode estar na linha da forma ou logo abaixo, e o disco é
+      // olhado na janela inteira porque o raio às vezes vem depois do tom.
+      const win = lines.slice(i, i + SPAN).join(' ');
+      if (TILE_TONE.test(win) && !IS_CIRCLE.test(win)) {
+        found.push(`${file.replace(SRC, 'src')}:${i + 1}`);
+        i += SPAN - 1; // uma janela por achado, senão o mesmo erro sai 4x
+      }
+    }
+  }
+  return found;
+}
+
 describe('atoms', () => {
   it('no one hand-rolls a count badge', () => {
     expect(
@@ -121,7 +221,7 @@ describe('atoms', () => {
 
   it('no one hand-rolls an icon tile', () => {
     expect(
-      offenders(HAND_ROLLED_TILE, IS_CIRCLE),
+      tileOffenders(),
       'Use `IconTile` de @/components/ui/icon-tile — ele encadeia tamanho e ' +
         'raio, que eram dois eixos soltos. Se o ícone É a ação, o componente ' +
         'certo é `<Button variant="ghost" size="icon">`.'

@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
+import { IconTile } from '@/components/ui/icon-tile';
 
 /**
  * A count with a caption — the unit the dashboard is built out of.
@@ -122,28 +123,10 @@ const tileLabelVariants = cva(
   'text-secondary-foreground text-sm leading-tight font-medium'
 );
 
-const tileIconVariants = cva(
-  'grid size-9 shrink-0 place-items-center rounded-lg [&>svg]:size-4.5',
-  {
-    variants: {
-      tone: {
-        // The SOLID, not the tint. This square is now the only place
-        // the tone exists on the tile, so it has to be unambiguous at
-        // 36px — a wash would read as a smudge in the corner.
-        human: 'bg-human-strong text-white',
-        auto: 'bg-muted text-secondary-foreground',
-        danger: 'bg-danger-solid text-white',
-        neutral: 'bg-muted text-secondary-foreground',
-      },
-    },
-    defaultVariants: { tone: 'neutral' },
-  }
-);
-
 interface StatTileProps
   extends
     Omit<React.ComponentProps<'div'>, 'title'>,
-    VariantProps<typeof tileIconVariants> {
+    VariantProps<typeof tileValueVariants> {
   icon: React.ReactNode;
   /** The number. Kept as a node so a tile can show "R$ 14.800" too. */
   value: React.ReactNode;
@@ -166,7 +149,13 @@ function StatTile({
       className={cn(tileVariants({ interactive: false }), className)}
       {...props}
     >
-      <span className={tileIconVariants({ tone })}>{icon}</span>
+      {/* The SOLID, not the tint: this square is the only place the tone
+          exists on the tile, so it has to be unambiguous at 36px — a wash
+          would read as a smudge in the corner. The rule, and the ladder that
+          pairs 36px with an 18px glyph, now live in `IconTile`. */}
+      <IconTile size="lg" tone={tone ?? 'neutral'} fill="solid">
+        {icon}
+      </IconTile>
       {/* `mt-auto` pins the pair to the bottom, so a caption that wraps
           to two lines in one tile does not lift its number above the
           others beside it. One row, one baseline. */}
@@ -178,10 +167,4 @@ function StatTile({
   );
 }
 
-export {
-  StatTile,
-  tileVariants,
-  tileIconVariants,
-  tileValueVariants,
-  tileLabelVariants,
-};
+export { StatTile, tileVariants, tileValueVariants, tileLabelVariants };

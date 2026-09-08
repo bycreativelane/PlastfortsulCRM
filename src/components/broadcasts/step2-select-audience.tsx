@@ -22,6 +22,7 @@ import { useTranslations } from 'next-intl';
 import { Input } from '@/components/ui/input';
 import { OptionSelect } from '@/components/ui/option-select';
 import { APP_LOCALE } from '@/lib/i18n/locale';
+import { IconTile } from '@/components/ui/icon-tile';
 
 type AudienceType = 'all' | 'tags' | 'custom_field' | 'csv' | 'products';
 type CustomFieldOperator = 'is' | 'is_not' | 'contains';
@@ -372,15 +373,9 @@ export function Step2SelectAudience({
                     : 'border-border bg-card/50 hover:bg-card'
                 }`}
               >
-                <div
-                  className={`grid size-9 shrink-0 place-items-center rounded-lg ${
-                    isSelected
-                      ? 'bg-primary/10 text-primary'
-                      : 'bg-muted text-secondary-foreground'
-                  }`}
-                >
-                  <Icon className="size-4" />
-                </div>
+                <IconTile size="lg" tone={isSelected ? 'primary' : 'neutral'}>
+                  <Icon />
+                </IconTile>
                 <div className="min-w-0">
                   <p className="text-foreground text-sm font-medium">
                     {option.label}

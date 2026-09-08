@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { ArrowDown, ArrowUp } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
+import { IconTile } from '@/components/ui/icon-tile';
 
 /**
  * The period's headline numbers.
@@ -176,16 +177,17 @@ function MetricHero({
     >
       <div className="flex items-start gap-2">
         {reading.icon ? (
-          <span
-            aria-hidden
+          <IconTile
             // The solid, like every other tone-bearing icon square in
             // the product. It is one of the two places the accent is
             // allowed on this card, so it has to be unambiguous at
             // 24px — a tint would read as a smudge in the corner.
-            className="bg-primary text-primary-foreground grid size-6 shrink-0 place-items-center rounded-md [&>svg]:size-3.5"
+            size="xs"
+            tone="primary"
+            fill="solid"
           >
             {reading.icon}
-          </span>
+          </IconTile>
         ) : null}
         <span className="text-secondary-foreground text-3xs mt-1.5 min-w-0 flex-1 font-bold tracking-wider uppercase">
           {reading.label}

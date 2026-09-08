@@ -7,6 +7,7 @@ import type { ComponentType } from 'react';
 import { useTranslations } from 'next-intl';
 
 import { cn } from '@/lib/utils';
+import { IconTile } from '@/components/ui/icon-tile';
 
 // Quick-action shortcuts. Each navigates to the page that owns the
 // relevant "create" flow. We deliberately don't try to auto-open any
@@ -103,9 +104,11 @@ export function QuickActions() {
               'sm:min-w-0 sm:flex-none sm:flex-row sm:items-center sm:justify-start sm:gap-3 sm:px-3.5 sm:py-2.5'
             )}
           >
-            <div className="bg-muted text-primary flex size-8 shrink-0 items-center justify-center rounded-lg">
-              <Icon className="size-4" />
-            </div>
+            {/* Cinza com tinta azul: o quadrado nao e o assunto, o atalho e.
+                So a tinta desvia do neutro, e por isso vem por `className`. */}
+            <IconTile size="md" className="text-primary">
+              <Icon />
+            </IconTile>
             <span className="text-foreground text-2xs w-full min-w-0 text-center leading-tight font-medium text-balance sm:w-auto sm:text-left sm:text-sm">
               {t(a.labelKey as string)}
             </span>

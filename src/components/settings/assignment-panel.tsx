@@ -45,6 +45,7 @@ import {
 import { Skeleton } from '@/components/dashboard/skeleton';
 import { StatePanel } from '@/components/ui/state-panel';
 import { Switch } from '@/components/ui/switch';
+import { IconTile } from '@/components/ui/icon-tile';
 
 /**
  * "Quem atende a próxima?" — the whole answer, on one screen.
@@ -591,14 +592,13 @@ function ModeCard({
         disabled && 'pointer-events-none opacity-60'
       )}
     >
-      <span
-        className={cn(
-          'grid size-8 shrink-0 place-items-center rounded-md',
-          active ? 'bg-primary text-white' : 'bg-muted text-muted-foreground'
-        )}
+      <IconTile
+        size="md"
+        tone={active ? 'primary' : 'neutral'}
+        fill={active ? 'solid' : 'soft'}
       >
-        <Icon className="size-4" />
-      </span>
+        <Icon />
+      </IconTile>
       <span className="min-w-0">
         <span
           className={cn(

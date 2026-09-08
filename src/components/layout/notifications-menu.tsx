@@ -318,17 +318,13 @@ export function NotificationsMenu({ className }: { className?: string }) {
                         clickable && 'hover:bg-muted'
                       )}
                     >
-                      <span
-                        aria-hidden
-                        className={cn(
-                          'mt-0.5 grid size-6 shrink-0 place-items-center rounded-md',
-                          isUnread
-                            ? 'bg-primary/15 text-primary'
-                            : 'bg-muted text-muted-foreground'
-                        )}
+                      <IconTile
+                        size="xs"
+                        tone={isUnread ? 'primary' : 'neutral'}
+                        className="mt-0.5"
                       >
-                        <Icon className="size-3.5" />
-                      </span>
+                        <Icon />
+                      </IconTile>
                       <span className="min-w-0 flex-1">
                         <span className="flex items-center gap-1.5">
                           <span

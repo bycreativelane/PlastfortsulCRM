@@ -21,6 +21,31 @@ import { cn } from '@/lib/utils';
  * combinações que sobravam eram digitação, não desenho.
  *
  * ------------------------------------------------------------------
+ * DUAS PINTURAS, E A REGRA QUE ESCOLHE
+ * ------------------------------------------------------------------
+ *
+ * O `fill` não é gosto. `soft` é o padrão e serve a quase tudo: o ladrilho
+ * abre a linha e o texto ao lado é que carrega o conteúdo.
+ *
+ * `solid` existe para o caso em que **o quadrado é o único lugar onde o tom
+ * aparece na peça inteira** — o ladrilho do `StatTile` e o da linha de
+ * atenção do painel. O comentário original dos dois já dizia a mesma coisa
+ * com as mesmas palavras, cada um no seu arquivo: *"a wash would read as a
+ * smudge in the corner"*. Uma regra escrita duas vezes em dois lugares é uma
+ * regra do sistema que ainda não tinha casa.
+ *
+ * `ok` não tem sólido, e isso é do desenho, não um esquecimento: não existe
+ * `--ok-solid` no `globals.css` porque confirmado é a informação menos
+ * urgente do produto e nunca precisou gritar. Pedir `fill="solid"
+ * tone="ok"` devolve o lavado.
+ *
+ * Toda a cor mora nos `compoundVariants` e as variantes de `tone` são
+ * vazias de propósito. A alternativa — tom pintando o lavado e o composto
+ * pintando por cima — só funciona porque o `cn` passa por `twMerge`, e daria
+ * a cor errada para quem chamasse `iconTileVariants` cru, como o `StatTile`
+ * faz. Uma peça não deve depender de quem a chama lembrar de limpá-la.
+ *
+ * ------------------------------------------------------------------
  * DECORATIVO, NÃO CLICÁVEL
  * ------------------------------------------------------------------
  *
@@ -47,28 +72,49 @@ const iconTileVariants = cva(
         /** 36px — cabeçalho de painel, item de lista com duas linhas. */
         lg: 'size-9 rounded-lg [&>svg]:size-4.5',
       },
-      tone: {
-        /** O padrão. Cinza é a resposta certa quase sempre. */
-        neutral: 'bg-muted text-muted-foreground',
-        /** Trabalho de máquina — cinza DE PROPÓSITO, ver a doutrina de cor. */
-        auto: 'bg-auto-soft text-auto-ink',
-        /** Uma pessoa precisa agir. O único "venha aqui" do sistema. */
-        human: 'bg-human-soft text-human-ink',
-        /** Confirmado. Com parcimônia. */
-        ok: 'bg-ok-soft text-ok-ink',
-        /** Falhou, quebrou, foi perdido. */
-        danger: 'bg-danger-soft text-danger-ink',
-        /** Onde você está, ou o que dá para apertar — nunca "importante". */
-        primary: 'bg-primary-soft text-primary',
-      },
+      /** A cor vem dos compostos abaixo — ver a nota no topo. */
+      tone: { neutral: '', auto: '', human: '', ok: '', danger: '', primary: '' },
+      fill: { soft: '', solid: '' },
     },
-    defaultVariants: { size: 'sm', tone: 'neutral' },
+    compoundVariants: [
+      /* O LAVADO. Cinza é a resposta certa quase sempre. */
+      { fill: 'soft', tone: 'neutral', class: 'bg-muted text-muted-foreground' },
+      /* Trabalho de máquina — cinza DE PROPÓSITO, ver a doutrina de cor. */
+      { fill: 'soft', tone: 'auto', class: 'bg-auto-soft text-auto-ink' },
+      /* Uma pessoa precisa agir. O único "venha aqui" do sistema. */
+      { fill: 'soft', tone: 'human', class: 'bg-human-soft text-human-ink' },
+      /* Confirmado. Com parcimônia. */
+      { fill: 'soft', tone: 'ok', class: 'bg-ok-soft text-ok-ink' },
+      /* Falhou, quebrou, foi perdido. */
+      { fill: 'soft', tone: 'danger', class: 'bg-danger-soft text-danger-ink' },
+      /* Onde você está, ou o que dá para apertar — nunca "importante". */
+      { fill: 'soft', tone: 'primary', class: 'bg-primary-soft text-primary' },
+
+      /* O SÓLIDO. Só quando o quadrado é o único portador do tom na peça. */
+      { fill: 'solid', tone: 'human', class: 'bg-human-strong text-white' },
+      { fill: 'solid', tone: 'danger', class: 'bg-danger-solid text-white' },
+      {
+        fill: 'solid',
+        tone: 'primary',
+        class: 'bg-primary text-primary-foreground',
+      },
+      /* Não existe cinza sólido: o quieto continua lavado nos dois modos, e
+         é assim que ele se distingue do que grita ao lado. */
+      {
+        fill: 'solid',
+        tone: ['neutral', 'auto'],
+        class: 'bg-muted text-secondary-foreground',
+      },
+      { fill: 'solid', tone: 'ok', class: 'bg-ok-soft text-ok-ink' },
+    ],
+    defaultVariants: { size: 'sm', tone: 'neutral', fill: 'soft' },
   }
 );
 
 export function IconTile({
   size,
   tone,
+  fill,
   className,
   children,
   ...props
@@ -77,7 +123,7 @@ export function IconTile({
     <span
       data-slot="icon-tile"
       aria-hidden
-      className={cn(iconTileVariants({ size, tone }), className)}
+      className={cn(iconTileVariants({ size, tone, fill }), className)}
       {...props}
     >
       {children}

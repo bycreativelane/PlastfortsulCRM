@@ -27,7 +27,6 @@ import {
   updateTeamRoom,
   type TeamRoom,
 } from '@/lib/team/rooms';
-import { cn } from '@/lib/utils';
 import { SettingsPanelHead } from '@/components/settings/settings-panel-head';
 import { Button } from '@/components/ui/button';
 import { FieldLabel } from '@/components/ui/field';
@@ -474,16 +473,9 @@ function RoomRow({
 
   return (
     <li className="flex items-start gap-3 px-4 py-3">
-      <span
-        className={cn(
-          'grid size-8 shrink-0 place-items-center rounded-md',
-          room.is_default
-            ? 'bg-primary-soft text-primary'
-            : 'bg-muted text-muted-foreground'
-        )}
-      >
-        <Users className="size-4" />
-      </span>
+      <IconTile size="md" tone={room.is_default ? 'primary' : 'neutral'}>
+        <Users />
+      </IconTile>
       <div className="min-w-0 flex-1">
         <div className="flex min-h-8 flex-col justify-center">
           <p className="text-foreground truncate text-sm font-medium">

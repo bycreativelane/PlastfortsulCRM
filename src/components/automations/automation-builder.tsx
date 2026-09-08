@@ -1891,14 +1891,12 @@ function StepRenderer({
               className="text-muted-foreground size-3.5 shrink-0"
               aria-hidden
             />
-            <div
-              className={cn(
-                'grid size-6 shrink-0 place-items-center rounded-md',
-                kindStyle.icon
-              )}
-            >
-              <Icon className="size-3.5" />
-            </div>
+            {/* A cor e do KIND_STYLE e fica: `bg-auto` e
+                `bg-secondary-foreground` sao identidades desta tela, com o
+                contraste auditado no comentario acima. Do atomo vem a forma. */}
+            <IconTile size="xs" className={kindStyle.icon}>
+              <Icon />
+            </IconTile>
             <span className={cn('eyebrow shrink-0', kindStyle.label)}>
               {t(`kinds.${meta.kind}`)}
             </span>

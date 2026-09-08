@@ -3,6 +3,7 @@
 import Link from 'next/link';
 
 import { cn } from '@/lib/utils';
+import { IconTile } from '@/components/ui/icon-tile';
 
 /**
  * One state that might be waiting on a person.
@@ -43,16 +44,12 @@ export function AttentionRow({
       href={href}
       className="focus-visible:outline-ring hover:bg-muted flex items-center gap-3 px-3.5 py-2.5 -outline-offset-2 transition-colors focus-visible:outline-2"
     >
-      <span
-        className={cn(
-          'grid size-7 shrink-0 place-items-center rounded-lg [&>svg]:size-3.5',
-          tone === 'human' && 'bg-human-strong text-white',
-          tone === 'danger' && 'bg-danger-solid text-white',
-          quiet && 'bg-muted text-secondary-foreground'
-        )}
-      >
+      {/* Solido porque este quadrado e o UNICO lugar onde o tom aparece na
+          linha — a regra esta escrita no `IconTile`. `auto` continua lavado
+          la, que e como o quieto se distingue do que chama. */}
+      <IconTile size="sm" tone={tone} fill="solid">
         {icon}
-      </span>
+      </IconTile>
       <span
         className={cn(
           'w-7 shrink-0 text-xl leading-none font-bold tabular-nums',

@@ -3987,6 +3987,20 @@
     "footer": "Orçamento sujeito a confirmação de estoque e prazo.",
     "close": "Fechar",
     "print": "Salvar em PDF",
-    "open": "Gerar orçamento"
+    "open": "Gerar orçamento",
+    "archive": "Orçamentos gerados"
+  },
+  "Quotes": {
+    "title": "Orçamentos",
+    "description": "Todo orçamento gerado fica aqui, do jeito que foi enviado.",
+    "searchPlaceholder": "Cliente, pedido, produto…",
+    "orderNumber": "Pedido {number}",
+    "lineCount": "{count} {count, plural, =1 {item} other {itens}}",
+    "noCustomer": "Sem cliente",
+    "empty": "Nenhum orçamento ainda",
+    "emptyBody": "Gere um pela oportunidade — em \"Gerar orçamento\", ao salvar em PDF — e ele aparece aqui.",
+    "noResults": "Nada para \"{query}\"",
+    "pendingTitle": "O arquivo ainda não existe no banco",
+    "pendingBody": "Falta aplicar a migração 071. Até lá os orçamentos são gerados normalmente, mas não ficam guardados."
   }
 }

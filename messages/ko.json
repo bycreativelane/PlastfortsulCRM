@@ -3987,6 +3987,20 @@
     "footer": "재고 및 납기 확인 후 확정되는 견적입니다.",
     "close": "닫기",
     "print": "PDF로 저장",
-    "open": "견적서 생성"
+    "open": "견적서 생성",
+    "archive": "생성된 견적서"
+  },
+  "Quotes": {
+    "title": "견적서",
+    "description": "생성된 모든 견적서가 보낸 그대로 여기 남습니다.",
+    "searchPlaceholder": "고객, 주문, 제품…",
+    "orderNumber": "주문 {number}",
+    "lineCount": "{count}개 항목",
+    "noCustomer": "고객 없음",
+    "empty": "아직 견적서가 없습니다",
+    "emptyBody": "기회에서 \"견적서 생성\" 후 PDF로 저장하면 여기에 나타납니다.",
+    "noResults": "\"{query}\"에 대한 결과 없음",
+    "pendingTitle": "보관함이 아직 데이터베이스에 없습니다",
+    "pendingBody": "071 마이그레이션이 적용되지 않았습니다. 그때까지 견적서는 생성되지만 보관되지 않습니다."
   }
 }

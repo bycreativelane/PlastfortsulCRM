@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { buildQuote, quoteFileName } from './quote';
 import type { DealItemDraft } from '@/lib/products/catalog';
+import { matchesQuote } from './store';
 
 const SACO: DealItemDraft = {
   productId: 'p-1',
@@ -117,5 +118,40 @@ describe('quoteFileName', () => {
   it('nunca devolve um nome vazio', () => {
     const q = buildQuote({ ...BASE, customerName: '', issuedOn: '' });
     expect(quoteFileName(q)).toBe('orcamento-cliente');
+  });
+});
+
+describe('matchesQuote — a busca da página de documentos', () => {
+  const guardado = {
+    ...buildQuote({
+      ...BASE,
+      orderNumber: '14349',
+      items: [SACO],
+      customerCompany: 'Cooperativa Cotrisel',
+      carrier: 'Rodoexpress',
+      owner: 'Juliana Prestes',
+    }),
+    id: 'q-1',
+    dealId: 'd-1',
+    createdAt: '2026-09-08T12:00:00Z',
+  };
+
+  it.each([
+    ['o número do pedido', '14349'],
+    ['o nome do cliente', 'euclides'],
+    ['a empresa dele', 'cotrisel'],
+    ['a transportadora', 'rodoexpress'],
+    ['quem atendeu', 'juliana'],
+    ['o que estava na linha', 'silagem'],
+  ])('acha por %s', (_nome, termo) => {
+    expect(matchesQuote(guardado, termo)).toBe(true);
+  });
+
+  it('não acha o que não está lá', () => {
+    expect(matchesQuote(guardado, 'abraçadeira')).toBe(false);
+  });
+
+  it('busca vazia devolve tudo — é o estado inicial da página', () => {
+    expect(matchesQuote(guardado, '   ')).toBe(true);
   });
 });

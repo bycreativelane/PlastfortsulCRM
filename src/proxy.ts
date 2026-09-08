@@ -28,6 +28,11 @@ export const PROTECTED_PATHS = [
   '/broadcasts',
   '/contacts',
   '/dashboard',
+  // Documentos → Orçamentos. Fica FORA da barra lateral por pedido, e é
+  // exatamente por isso que ela precisava aparecer aqui: uma rota que
+  // nenhum menu aponta é uma rota que ninguém lembra de proteger. Quem
+  // lembrou foi o `proxy.test.ts`, varrendo `app/(dashboard)`.
+  '/documentos',
   '/flows',
   '/inbox',
   '/notifications',

@@ -1,7 +1,8 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
-import { Printer } from 'lucide-react';
+import Link from 'next/link';
+import { FolderOpen, Printer } from 'lucide-react';
 
 import { formatCurrencyExact } from '@/lib/currency';
 import { fromISO } from '@/lib/calendar';
@@ -64,10 +65,25 @@ export function DealQuote({
   open,
   onOpenChange,
   quote,
+  onPrinted,
+  archiveHref,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   quote: Quote;
+  /**
+   * Chamado quando o documento foi mandado para a impressora.
+   *
+   * É por aqui que o orçamento vai para o arquivo (Documentos →
+   * Orçamentos). Fica FORA deste componente de propósito: ele desenha e
+   * imprime, e quem sabe a conta, a oportunidade e o usuário é a gaveta
+   * que o abriu. É também o que o mantém no `/chart-lab` — sem esta
+   * prop, nada é gravado, e o bench continua sendo fixture e nunca uma
+   * consulta.
+   */
+  onPrinted?: () => void;
+  /** O caminho do arquivo, quando faz sentido oferecê-lo. */
+  archiveHref?: string;
 }) {
   const t = useTranslations('Quote');
 
@@ -257,11 +273,48 @@ export function DealQuote({
         </article>
 
         {/* Fora do documento, e fora do papel. */}
-        <div data-print-hide className="flex justify-end gap-2 pt-2">
+        <div
+          data-print-hide
+          className="flex flex-wrap items-center justify-end gap-2 pt-2"
+        >
+          {/* A PORTA DO ARQUIVO, e ela fica aqui porque é aqui que a
+              pergunta nasce: quem acabou de gerar um orçamento é quem se
+              pergunta onde foi parar o anterior. A seção está fora do menu
+              principal por pedido, então este link é como se chega nela. */}
+          {archiveHref && (
+            <Button
+              variant="ghost"
+              size="sm"
+              render={<Link href={archiveHref} />}
+              className="text-muted-foreground hover:text-foreground mr-auto"
+            >
+              <FolderOpen className="size-4" />
+              {t('archive')}
+            </Button>
+          )}
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             {t('close')}
           </Button>
-          <Button onClick={() => window.print()}>
+          {/*
+            ARQUIVA E IMPRIME, nesta ordem.
+
+            `window.print()` bloqueia a aba enquanto o diálogo do navegador
+            está aberto, e o que acontece depois dele depende de a pessoa
+            salvar ou cancelar — que é uma coisa que a página não fica
+            sabendo. Gravar antes é o único momento em que se sabe, com
+            certeza, que o documento existiu.
+
+            O custo é um orçamento arquivado que a pessoa cancelou na hora
+            de salvar. É o lado certo para errar: o pedido foi "todo
+            orçamento gerado fica salvo", e um documento a mais no arquivo
+            é barato perto de um que sumiu.
+          */}
+          <Button
+            onClick={() => {
+              onPrinted?.();
+              window.print();
+            }}
+          >
             <Printer className="size-4" />
             {t('print')}
           </Button>

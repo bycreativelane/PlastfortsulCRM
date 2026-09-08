@@ -45,6 +45,7 @@ import { OptionSelect } from '@/components/ui/option-select';
 import { useBusinessHours } from '@/hooks/use-business-hours';
 import { localParts } from '@/lib/automations/local-time';
 import { buildQuote } from '@/lib/quotes/quote';
+import { saveQuote } from '@/lib/quotes/store';
 import { DealQuote } from './deal-quote';
 import { ChoiceChip } from '@/components/ui/choice-chip';
 import { PlaybookChecklist } from './playbook-checklist';
@@ -158,7 +159,7 @@ export function DealForm({
   const tOutcome = useTranslations('Pipelines.outcome');
   const tQuote = useTranslations('Quote');
   const supabase = createClient();
-  const { account, accountId, defaultCurrency } = useAuth();
+  const { account, accountId, defaultCurrency, user } = useAuth();
 
   /*
    * O "hoje" da conta saiu junto com a Previsão de fechamento.
@@ -1279,6 +1280,18 @@ export function DealForm({
         open={quoteOpen}
         onOpenChange={setQuoteOpen}
         quote={orcamento}
+        archiveHref="/documentos/orcamentos"
+        // "Todo orçamento gerado em PDF precisa ficar salvo." O documento
+        // não sabe de conta, oportunidade nem usuário — quem sabe é esta
+        // gaveta, e é por isso que a gravação mora aqui e não lá.
+        onPrinted={() => {
+          if (!accountId) return;
+          void saveQuote(
+            supabase,
+            { accountId, dealId: deal?.id ?? null, userId: user?.id ?? null },
+            orcamento
+          );
+        }}
       />
 
       <DealOutcomeDialogs {...outcome.dialogProps} />

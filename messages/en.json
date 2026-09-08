@@ -3987,6 +3987,20 @@
     "footer": "Quote subject to stock and lead-time confirmation.",
     "close": "Close",
     "print": "Save as PDF",
-    "open": "Generate quote"
+    "open": "Generate quote",
+    "archive": "Generated quotes"
+  },
+  "Quotes": {
+    "title": "Quotes",
+    "description": "Every generated quote lives here, exactly as it was sent.",
+    "searchPlaceholder": "Customer, order, product…",
+    "orderNumber": "Order {number}",
+    "lineCount": "{count} {count, plural, =1 {item} other {items}}",
+    "noCustomer": "No customer",
+    "empty": "No quotes yet",
+    "emptyBody": "Generate one from an opportunity — \"Generate quote\", then save as PDF — and it shows up here.",
+    "noResults": "Nothing for \"{query}\"",
+    "pendingTitle": "The archive is not in the database yet",
+    "pendingBody": "Migration 071 has not been applied. Until then quotes still generate, they just are not kept."
   }
 }

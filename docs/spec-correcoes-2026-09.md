@@ -163,7 +163,7 @@ A do próprio pacote (item 34), com o 37 recolocado.
 | **P0** | bugs que bloqueiam operação           | 5,5 de 6 — a auditoria corrigiu 5 defeitos; sobra o que só a Meta responde |
 | **P1** | experiência de atendimento            | 6 de 6 — fechado em 8 de setembro                                          |
 | **P2** | produtividade                         | 3 de 4 — falta a revisão visual em tela autenticada                        |
-| —      | itens 38–59: oportunidade e orçamento | feito em 8 de setembro; a migração 070 falta aplicar                       |
+| —      | itens 38–59: oportunidade e orçamento | feito e aplicado em 8 de setembro                                          |
 
 ---
 
@@ -729,8 +729,17 @@ olhar sem sessão — `DealQuote` recebe um objeto e não consulta nada:
 
 ### O que ficou de fora, e por quê
 
-**A migração 070 não foi aplicada.** Não há MCP do Supabase nesta sessão.
-Até ela rodar, salvar uma oportunidade falha — as três colunas não existem.
+**A migração 070 está aplicada** (8 de setembro, pelo Gabriel). Conferido
+contra o banco: as três colunas respondem em `deals`, `default_currency` da
+conta é `BRL`, e uma consulta de controle a uma coluna inexistente reprova
+com 400 — sem ela, o "OK" das outras duas não provaria nada.
+
+O caminho normal falhou por dois motivos que vale registrar: o token do MCP
+do Supabase tinha vencido, e **o servidor nem estava carregado** — o
+`.mcp.json` que o declara existe só em `D:wacrmwacrm`, e a sessão passou o
+dia oscilando para `D:wacrm`. É a armadilha que a memória
+`raiz-do-projeto-e-wacrm-wacrm` descreve, e ela custou caro aqui porque não
+dá erro: o MCP simplesmente não existe.
 
 **O CRM não sabe quem é a empresa.** O item 54 pede logo, site, e-mail e
 telefone no cabeçalho e no rodapé. `accounts` tem nome, dono, fuso, moeda e

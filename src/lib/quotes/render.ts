@@ -1,5 +1,3 @@
-import { renderToStaticMarkup } from 'react-dom/server';
-
 import {
   QUOTE_CSS,
   QuoteDocument,
@@ -46,12 +44,22 @@ import type { Quote } from './quote';
  * é `false` por escolha nossa.
  */
 
-/** A página que vai para o navegador: marcação + folha, nada mais. */
-export function quotePage(
+/**
+ * A página que vai para o navegador: marcação + folha, nada mais.
+ *
+ * ASSÍNCRONA POR CAUSA DO IMPORT, e não porque desenhar demore. O Next
+ * recusa um `import` estático de `react-dom/server` neste grafo — a
+ * build quebra com "You're importing a component that imports
+ * react-dom/server" —, e a saída sancionada é carregá-lo na hora. É a
+ * mesma forma que `renderQuoteFiles` usa para o `puppeteer-core`, com o
+ * mesmo efeito colateral bom: nada disso pesa no arranque do servidor.
+ */
+export async function quotePage(
   quote: Quote,
   labels: QuoteLabels,
   brand: QuoteBrand
-): string {
+): Promise<string> {
+  const { renderToStaticMarkup } = await import('react-dom/server');
   const corpo = renderToStaticMarkup(QuoteDocument({ quote, labels, brand }));
   return [
     '<!doctype html>',

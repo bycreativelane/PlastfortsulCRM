@@ -64,8 +64,8 @@ const QUOTE = buildQuote({
 /** `Intl` separa símbolo e número com espaço NÃO-QUEBRÁVEL. */
 const legivel = (html: string) => html.replace(/ /g, ' ');
 
-describe('quotePage', () => {
-  const html = quotePage(QUOTE, LABELS, MARCA);
+describe('quotePage', async () => {
+  const html = await quotePage(QUOTE, LABELS, MARCA);
 
   it('é uma página completa e autossuficiente', () => {
     expect(html.startsWith('<!doctype html>')).toBe(true);
@@ -95,8 +95,8 @@ describe('quotePage', () => {
     expect(html).not.toContain('{name}');
   });
 
-  it('omite o que a empresa ainda não disse de si', () => {
-    const semMarca = quotePage(QUOTE, LABELS, { name: 'PlastfortSul' });
+  it('omite o que a empresa ainda não disse de si', async () => {
+    const semMarca = await quotePage(QUOTE, LABELS, { name: 'PlastfortSul' });
     expect(semMarca).toContain('PlastfortSul');
     // `class="…"` E NÃO o nome da classe solto: a FOLHA sempre viaja
     // junto, então `q-tax` aparece na página mesmo quando o elemento não
@@ -106,8 +106,8 @@ describe('quotePage', () => {
     expect(semMarca).not.toContain('class="q-logo"');
   });
 
-  it('a logo entra como imagem quando existe', () => {
-    const comLogo = quotePage(QUOTE, LABELS, {
+  it('a logo entra como imagem quando existe', async () => {
+    const comLogo = await quotePage(QUOTE, LABELS, {
       ...MARCA,
       logoUrl: 'https://exemplo/logo.png',
     });

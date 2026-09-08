@@ -142,7 +142,9 @@ export async function POST(request: Request) {
 
     let arquivos;
     try {
-      arquivos = await renderQuoteFiles(quotePage(quote, body.labels, brand));
+      arquivos = await renderQuoteFiles(
+        await quotePage(quote, body.labels, brand)
+      );
     } catch (err) {
       if (err instanceof NoBrowserError) {
         return NextResponse.json(

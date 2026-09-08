@@ -178,6 +178,135 @@ export function formatPhone(phone: string | null | undefined): string {
 }
 
 /**
+ * Os DDDs que existem no Brasil.
+ *
+ * É a metade que faz o padrão `+55` ser seguro em vez de um chute. Sem ela
+ * a regra seria "onze dígitos viram brasileiros", e onze dígitos é também o
+ * comprimento de um número americano com o código do país.
+ *
+ * A lista é fechada e não é um intervalo: 20, 23, 25, 26, 29, 36, 39, 50,
+ * 52, 56 a 60, 70, 72, 76, 78 e 80 nunca foram atribuídos.
+ */
+const BR_AREA_CODES = new Set([
+  '11',
+  '12',
+  '13',
+  '14',
+  '15',
+  '16',
+  '17',
+  '18',
+  '19',
+  '21',
+  '22',
+  '24',
+  '27',
+  '28',
+  '31',
+  '32',
+  '33',
+  '34',
+  '35',
+  '37',
+  '38',
+  '41',
+  '42',
+  '43',
+  '44',
+  '45',
+  '46',
+  '47',
+  '48',
+  '49',
+  '51',
+  '53',
+  '54',
+  '55',
+  '61',
+  '62',
+  '63',
+  '64',
+  '65',
+  '66',
+  '67',
+  '68',
+  '69',
+  '71',
+  '73',
+  '74',
+  '75',
+  '77',
+  '79',
+  '81',
+  '82',
+  '83',
+  '84',
+  '85',
+  '86',
+  '87',
+  '88',
+  '89',
+  '91',
+  '92',
+  '93',
+  '94',
+  '95',
+  '96',
+  '97',
+  '98',
+  '99',
+]);
+
+/**
+ * O Brasil como padrão: `47999549247` vira `5547999549247`.
+ *
+ * Item 10 do pacote de correções. Ninguém que cadastra um cliente em Santa
+ * Catarina digita `55` antes do DDD — o número está num cartão, numa nota
+ * ou numa conversa, sempre sem ele —, e até aqui o campo obrigava. Pior:
+ * não obrigava com um erro, obrigava em silêncio. `47999549247` sem o
+ * código virava `+47 999549247`, que é a **Noruega**, e o CRM salvava isso
+ * como um número válido. A primeira notícia vinha num envio que falha
+ * longe de quem digitou.
+ *
+ * ------------------------------------------------------------------
+ * A REGRA, E POR QUE ELA É ESTREITA
+ * ------------------------------------------------------------------
+ *
+ * Só dez ou onze dígitos entram. Um número que já tem código de país é
+ * mais comprido do que isso, então o caminho de quem digita internacional
+ * não é tocado — inclusive `5547999549247`, que sai como entrou.
+ *
+ * E não basta o comprimento. As duas formas brasileiras têm assinatura:
+ *
+ *   onze  → DDD válido + **9** + oito dígitos   (celular)
+ *   dez   → DDD válido + **2 a 5** + sete       (fixo)
+ *
+ * Esses dois testes juntos são o que separa um número daqui de um número
+ * de fora com o mesmo tamanho. Um celular alemão (`+49 15…`) tem 49 como
+ * DDD válido — Blumenau — e falha no segundo teste, porque o dígito
+ * seguinte é 1 e não 9.
+ *
+ * Sobra uma colisão real e ela está registrada de propósito: um fixo
+ * norueguês (`+47` + oito dígitos) tem dez dígitos, DDD 47 é Joinville, e
+ * o primeiro dígito local cai na faixa dos fixos. Este é um CRM de uma
+ * empresa de Joinville falando com clientes de Joinville; a saída para
+ * quem precisa do número de fora é o `+`, que o campo escuta.
+ *
+ * Recebe e devolve DÍGITOS. Quem põe o `+` é o `toE164`, e é assim que
+ * esta regra fica testável sem passar por formatação.
+ */
+export function applyDefaultCountry(digits: string): string {
+  if (digits.length !== 10 && digits.length !== 11) return digits;
+  if (!BR_AREA_CODES.has(digits.slice(0, 2))) return digits;
+
+  const primeiroLocal = digits[2];
+  const celular = digits.length === 11 && primeiroLocal === '9';
+  const fixo =
+    digits.length === 10 && primeiroLocal >= '2' && primeiroLocal <= '5';
+  return celular || fixo ? BR + digits : digits;
+}
+
+/**
  * What goes in the database: `+` and digits, nothing else.
  *
  * Every write path runs through this, so a number typed with a mask, pasted

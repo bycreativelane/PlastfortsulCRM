@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/masked-caret';
 import {
   MAX_PHONE_DIGITS,
+  applyDefaultCountry,
   formatPhone,
   toE164,
 } from '@/lib/whatsapp/phone-format';
@@ -57,7 +58,26 @@ export function PhoneInput({
   const inputRef = React.useRef<HTMLInputElement>(null);
   const caretDigitsRef = React.useRef<number | null>(null);
 
-  const display = formatPhone(value);
+  /**
+   * A pessoa começou o número com `+`.
+   *
+   * A saída do padrão brasileiro, e a terceira regra do item 10: "se já foi
+   * informado um número internacional explícito começando com `+`, preservar
+   * o código informado". Sem ela o padrão vira uma armadilha sem porta —
+   * um fixo norueguês tem dez dígitos e cai na assinatura de um fixo
+   * daqui, e a pessoa veria `+55 (47) …` na tela sem nenhum jeito de dizer
+   * que não era isso.
+   *
+   * Estado e não `ref` porque ele PINTA: com o campo vazio e a marca
+   * ligada, o campo mostra o `+` sozinho. Um modo invisível seria pior do
+   * que o problema — este aparece na tela no instante em que é ligado.
+   */
+  const [explicito, setExplicito] = React.useState(false);
+
+  const digitosAtuais = normalizePhone(value);
+  // Um `+` solitário só se sustenta enquanto não há dígito nenhum; a partir
+  // do primeiro, quem desenha o país é o formatador.
+  const display = digitosAtuais ? formatPhone(value) : explicito ? '+' : '';
 
   React.useLayoutEffect(() => {
     const target = caretDigitsRef.current;
@@ -127,18 +147,50 @@ export function PhoneInput({
       const el = event.currentTarget;
       const raw = el.value;
 
+      const digits = normalizePhone(raw).slice(0, MAX_PHONE_DIGITS);
+      const marcado = raw.trimStart().startsWith('+');
+
+      /*
+       * A marca de "internacional" só é lida no COMEÇO de um número.
+       *
+       * Depois do primeiro dígito o `+` da tela é desenho do formatador, e
+       * não uma coisa que alguém digitou — perguntar por ele aí responderia
+       * "sim" sempre. Então ela é decidida enquanto não há dígito nenhum:
+       * de um lado do campo vazio para o primeiro caractere, do outro
+       * quando alguém apaga tudo e recomeça.
+       */
+      if (!digitosAtuais || !digits) setExplicito(marcado);
+      const internacional = digitosAtuais && digits ? explicito : marcado;
+
       // Count the digits before the caret in what the user just typed, so
       // the caret can be put back in the same logical place afterwards.
       const before = raw.slice(0, el.selectionStart ?? raw.length);
-      caretDigitsRef.current = normalizePhone(before).length;
+      const antesDoCaret = normalizePhone(before).length;
 
-      const digits = normalizePhone(raw).slice(0, MAX_PHONE_DIGITS);
+      /*
+       * O `+55` do item 10, e SÓ QUANDO O NÚMERO ESTÁ CRESCENDO.
+       *
+       * Apagar não pode acrescentar. Sem essa guarda, quem apaga um número
+       * completo dígito a dígito passa por dez dígitos no caminho, a
+       * assinatura de fixo casa, e o campo devolve dois dígitos que a
+       * pessoa acabou de tirar — um Backspace que aumenta o número.
+       *
+       * O `handleKeyDown` acima não passa por aqui, e é outro caminho de
+       * apagar: ele também não deve aplicar o padrão, e não aplica.
+       */
+      const crescendo = digits.length > digitosAtuais.length;
+      const final =
+        internacional || !crescendo ? digits : applyDefaultCountry(digits);
+
+      // Dois dígitos entraram na frente do número: o caret, que é contado em
+      // dígitos, anda com eles.
+      caretDigitsRef.current = antesDoCaret + (final.length - digits.length);
 
       // An empty field is empty, not `+`. Otherwise clearing the box would
       // leave a lone plus sign behind that nothing can delete.
-      onValueChange(digits ? toE164(digits) : '');
+      onValueChange(final ? toE164(final) : '');
     },
-    [onValueChange]
+    [onValueChange, digitosAtuais, explicito]
   );
 
   return (

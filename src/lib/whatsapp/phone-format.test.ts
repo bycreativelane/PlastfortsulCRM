@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { formatPhone, toE164, isCompletePhone } from './phone-format';
+import {
+  applyDefaultCountry,
+  formatPhone,
+  toE164,
+  isCompletePhone,
+} from './phone-format';
+import { normalizePhone } from './phone-utils';
 
 describe('formatPhone', () => {
   it('groups a Brazilian mobile the way people write it', () => {
@@ -163,5 +169,72 @@ describe('isCompletePhone', () => {
     expect(isCompletePhone('')).toBe(false);
     expect(isCompletePhone(null)).toBe(false);
     expect(isCompletePhone('+123')).toBe(false);
+  });
+});
+
+describe('applyDefaultCountry — o item 10 do pacote', () => {
+  it('põe o 55 no celular escrito como todo mundo escreve', () => {
+    // Os dois exemplos do pacote, palavra por palavra.
+    expect(applyDefaultCountry('47999549247')).toBe('5547999549247');
+    expect(applyDefaultCountry(normalizePhone('(47) 99954-9247'))).toBe(
+      '5547999549247'
+    );
+  });
+
+  it('põe o 55 no fixo', () => {
+    expect(applyDefaultCountry('4733334444')).toBe('554733334444');
+  });
+
+  it('não duplica quando o 55 já está lá', () => {
+    expect(applyDefaultCountry('5547999549247')).toBe('5547999549247');
+    expect(applyDefaultCountry('554733334444')).toBe('554733334444');
+  });
+
+  it('DDD 55 sem código do país ainda é um número daqui', () => {
+    // Santa Maria. A leitura ingênua — "começa com 55, já tem país" —
+    // deixaria onze dígitos passarem e o formatador desenharia
+    // `+55 (98) 7654-321`, que não é número nenhum.
+    expect(applyDefaultCountry('55987654321')).toBe('5555987654321');
+  });
+
+  it('não inventa DDD que não existe', () => {
+    // 20, 23, 26, 52 e 80 nunca foram atribuídos.
+    for (const ddd of ['20', '23', '26', '52', '80']) {
+      expect(applyDefaultCountry(`${ddd}999999999`)).toBe(`${ddd}999999999`);
+    }
+  });
+
+  it('celular precisa do 9, fixo precisa de 2 a 5', () => {
+    // Um alemão (+49 15…) tem 49 como DDD válido e falha no dígito seguinte.
+    expect(applyDefaultCountry('49151234567')).toBe('49151234567');
+    // 11 dígitos com 8 no lugar do 9 não é celular nenhum.
+    expect(applyDefaultCountry('47899954924')).toBe('47899954924');
+    // 10 dígitos começando em 9 seria um celular sem um dígito.
+    expect(applyDefaultCountry('4799954924')).toBe('4799954924');
+    // 10 dígitos começando em 1 não é fixo brasileiro.
+    expect(applyDefaultCountry('4713334444')).toBe('4713334444');
+  });
+
+  it('não encosta em quem já veio com código do país', () => {
+    expect(applyDefaultCountry('595991234567')).toBe('595991234567');
+    expect(applyDefaultCountry('12125551234')).toBe('12125551234');
+    expect(applyDefaultCountry('')).toBe('');
+    expect(applyDefaultCountry('4799')).toBe('4799');
+  });
+
+  it('o que sai é o que o formatador desenha certo', () => {
+    expect(formatPhone(toE164(applyDefaultCountry('47999549247')))).toBe(
+      '+55 (47) 99954-9247'
+    );
+    expect(formatPhone(toE164(applyDefaultCountry('4733334444')))).toBe(
+      '+55 (47) 3333-4444'
+    );
+  });
+
+  it('e passa a valer como número completo', () => {
+    expect(isCompletePhone(toE164('47999549247'))).toBe(true);
+    expect(isCompletePhone(toE164(applyDefaultCountry('47999549247')))).toBe(
+      true
+    );
   });
 });

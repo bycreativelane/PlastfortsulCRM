@@ -3,6 +3,9 @@
  * tag-column handling stays aligned with phone/name/email/company.
  */
 
+import { applyDefaultCountry, toE164 } from '@/lib/whatsapp/phone-format';
+import { normalizePhone } from '@/lib/whatsapp/phone-utils';
+
 export interface ParsedContactRow {
   phone: string;
   name?: string;
@@ -89,7 +92,28 @@ export function parseContactCsv(text: string): ParseContactCsvResult {
     if (!line) continue;
 
     const values = parseCsvLine(line);
-    const phone = values[phoneIdx]?.replace(/["']/g, '').trim();
+    const cru = values[phoneIdx]?.replace(/["']/g, '').trim();
+    if (!cru) continue;
+
+    /*
+     * A MESMA REGRA DA OUTRA PORTA. Item 10 do pacote.
+     *
+     * O campo de telefone passou a pôr o `+55` sozinho, e a planilha é o
+     * outro caminho pelo qual contato entra neste produto. Deixar só um dos
+     * dois normalizando é a receita do defeito que o `PhoneInput` já teve:
+     * uma regra que mora no call site em vez de morar no caminho.
+     *
+     * E aqui ela conserta um segundo defeito, mais caro. A deduplicação
+     * compara `normalizeKey(row.phone)` contra `phone_normalized`, que é
+     * dígito puro — então uma planilha com `47999549247` não casava com o
+     * contato que já existia como `+5547999549247`, e a importação criava
+     * uma SEGUNDA ficha do mesmo cliente. Normalizar antes de comparar é o
+     * que faz as duas chaves serem a mesma chave.
+     *
+     * Um número que já vem com código de país não é tocado: a regra só
+     * pega dez ou onze dígitos com assinatura brasileira.
+     */
+    const phone = toE164(applyDefaultCountry(normalizePhone(cru))) || cru;
     if (!phone) continue;
 
     rows.push({

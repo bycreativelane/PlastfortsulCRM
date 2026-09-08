@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parseContactCsv, parseTagCell } from './parse-contact-csv';
+import { normalizeKey } from './dedupe';
 
 describe('parseTagCell', () => {
   it('splits comma-separated tags and trims whitespace', () => {
@@ -102,5 +103,43 @@ Alice,alice@example.com`;
     const csv = `phone,name
 +15551234567,Alice`;
     expect(parseContactCsv(csv).failure).toBeUndefined();
+  });
+});
+
+describe('o +55 da planilha — item 10 do pacote', () => {
+  it('põe o código do país num número escrito como todo mundo escreve', () => {
+    const csv = `phone,name\n47999549247,Euclides`;
+    expect(parseContactCsv(csv).rows[0].phone).toBe('+5547999549247');
+  });
+
+  it('aceita a máscara que a pessoa copiou do sistema antigo', () => {
+    const csv = `phone,name\n"(47) 99954-9247",Euclides`;
+    expect(parseContactCsv(csv).rows[0].phone).toBe('+5547999549247');
+  });
+
+  it('não duplica o 55 nem encosta em quem veio de fora', () => {
+    const csv = `phone\n+5547999549247\n+15551234567\n+595991234567`;
+    expect(parseContactCsv(csv).rows.map((r) => r.phone)).toEqual([
+      '+5547999549247',
+      '+15551234567',
+      '+595991234567',
+    ]);
+  });
+
+  it('a chave de deduplicação passa a bater com a do banco', () => {
+    // `phone_normalized` é dígito puro (migração 022). Antes disso a
+    // planilha com `47999549247` gerava a chave `47999549247`, que não casa
+    // com `5547999549247` — e a importação criava uma segunda ficha do
+    // mesmo cliente.
+    const daPlanilha = parseContactCsv(`phone\n47999549247`).rows[0].phone;
+    expect(normalizeKey(daPlanilha)).toBe('5547999549247');
+  });
+
+  it('o que não é número nenhum passa como veio', () => {
+    // Melhor uma linha que o servidor recusa do que uma linha silenciosamente
+    // esvaziada: a tela de importação mostra o que vai ser gravado.
+    expect(parseContactCsv(`phone\nsem numero aqui`).rows[0].phone).toBe(
+      'sem numero aqui'
+    );
   });
 });

@@ -59,6 +59,35 @@ import { useTranslations } from 'next-intl';
 const KNOWN_LOSS_REASONS = new Set<string>([...LOSS_REASONS, 'noReply']);
 
 /**
+ * A opção que segura o valor enquanto a lista dele não chegou.
+ *
+ * O ITEM 12 DO PACOTE, e o mecanismo por trás dele. `OptionSelect` é o
+ * `Select` do base-ui: o `Select.Value` resolve o rótulo procurando o valor
+ * entre os `items`, e **quando não acha, desenha o valor**. Num campo cujo
+ * valor é um UUID, isso é o UUID na cara do vendedor:
+ *
+ *     Contato    eb8d692a-4f2e-4229-beb0-a2c33985b569
+ *
+ * — enquanto a lista aberta mostra os nomes certinhos, que foi exatamente o
+ * print do pacote. E o caminho é banal: `contactId` vem do `deal` no
+ * primeiro render, `contacts` só chega no efeito, então TODA edição desenha
+ * um quadro sem nenhuma opção que case.
+ *
+ * O conserto é uma opção que sempre existe para o valor que existe. O
+ * pacote é literal sobre a regra — "nunca mostrar UUID ao usuário como
+ * label normal" — e pede o mesmo padrão em qualquer outro select que
+ * exponha id interno; aqui são dois, contato e responsável.
+ */
+function espera(
+  id: string,
+  lista: { id: string }[],
+  rotulo: string
+): React.ReactElement | null {
+  if (!id || lista.some((item) => item.id === id)) return null;
+  return <option value={id}>{rotulo}</option>;
+}
+
+/**
  * O ícone do motivo, quando existe um.
  *
  * `noReply` está em `KNOWN_LOSS_REASONS` e não em `REASON_ICONS` — o mapa
@@ -163,6 +192,15 @@ export function DealForm({
 
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
+  /**
+   * A lista já respondeu — que não é o mesmo que a lista estar vazia.
+   *
+   * A distinção é o item 12 do pacote inteiro: sem ela, "ainda não carregou"
+   * e "não existe" dão a mesma resposta, e o `OptionSelect` desenha o valor
+   * cru quando não acha uma opção para ele. Era o mesmo defeito do item 30,
+   * que foi corrigido no seletor de etapa com uma flag igual a esta.
+   */
+  const [listsLoaded, setListsLoaded] = useState(false);
   const [linkedConversation, setLinkedConversation] =
     useState<Conversation | null>(null);
 
@@ -214,11 +252,49 @@ export function DealForm({
       if (cancelled) return;
       setContacts((c.data ?? []) as Contact[]);
       setProfiles((p.data ?? []) as Profile[]);
+      setListsLoaded(true);
+    })();
+    return () => {
+      cancelled = true;
+      setListsLoaded(false);
+    };
+  }, [open, supabase]);
+
+  /**
+   * O contato desta oportunidade, quando ele não veio na lista.
+   *
+   * O SEGUNDO FLANCO DO ITEM 12, e o pior dos dois. A consulta acima não
+   * tem `limit`, o que não quer dizer "todos": quer dizer o teto do
+   * PostgREST. Numa base que passe dele, o contato de uma oportunidade
+   * antiga simplesmente não está entre as opções — e aí não é um quadro de
+   * UUID no começo, é UUID **para sempre**, naquela ficha, toda vez que
+   * alguém a abrir.
+   *
+   * Uma consulta a mais, só quando falta, e ela vem por id. O contato entra
+   * na lista como qualquer outro: o `<option>` sai do mesmo `map`, então
+   * nada mais no formulário precisa saber que ele chegou por outro caminho.
+   */
+  useEffect(() => {
+    if (!open || !listsLoaded || !contactId) return;
+    if (contacts.some((c) => c.id === contactId)) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from('contacts')
+        .select('*')
+        .eq('id', contactId)
+        .maybeSingle();
+      if (cancelled || !data) return;
+      setContacts((atuais) =>
+        atuais.some((c) => c.id === data.id)
+          ? atuais
+          : [...atuais, data as Contact]
+      );
     })();
     return () => {
       cancelled = true;
     };
-  }, [open, supabase]);
+  }, [open, listsLoaded, contactId, contacts, supabase]);
 
   // A conversa do contato — UMA só, pela UNIQUE (account_id, contact_id)
   // da migração 036; o argumento está escrito em `lib/inbox/conversations`.
@@ -486,6 +562,7 @@ export function DealForm({
                 className="border-border bg-muted text-foreground"
               >
                 <option value="">{t('selectContact')}</option>
+                {espera(contactId, contacts, t('loadingLists'))}
                 {contacts.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name || c.phone}
@@ -651,6 +728,7 @@ export function DealForm({
                   className="border-border bg-muted text-foreground"
                 >
                   <option value="">{t('unassigned')}</option>
+                  {espera(assignedTo, profiles, t('loadingLists'))}
                   {profiles.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.full_name || p.email}

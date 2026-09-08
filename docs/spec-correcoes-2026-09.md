@@ -389,14 +389,14 @@ fechado.
 
 ## P1 — experiência de atendimento
 
-| #   | Item                                                 | Estado                                   |
-| --- | ---------------------------------------------------- | ---------------------------------------- |
-| 7   | Rascunho por conversa (item 13)                      | ✅ 8 de setembro                         |
-| 8   | "Rascunho:" na lista (item 14)                       | ✅ 8 de setembro                         |
-| 9   | Editor de contatos unificado (item 9)                | ✅ **já estava feito** — ver R4          |
-| 10  | +55 automático (item 10)                             | ⬜ **decisão fechada, é só implementar** |
-| 11  | Botão grande "Abrir conversa" (item 11)              | ⬜                                       |
-| 12  | Nome em vez de UUID em Editar oportunidade (item 12) | ⬜ **causa localizada**                  |
+| #   | Item                                                 | Estado                           |
+| --- | ---------------------------------------------------- | -------------------------------- |
+| 7   | Rascunho por conversa (item 13)                      | ✅ 8 de setembro                 |
+| 8   | "Rascunho:" na lista (item 14)                       | ✅ 8 de setembro                 |
+| 9   | Editor de contatos unificado (item 9)                | ✅ **já estava feito** — ver R4  |
+| 10  | +55 automático (item 10)                             | ✅ 8 de setembro, medido na tela |
+| 11  | Botão grande "Abrir conversa" (item 11)              | ⬜                               |
+| 12  | Nome em vez de UUID em Editar oportunidade (item 12) | ✅ 8 de setembro                 |
 
 ### ✅ 7 e 8. Os rascunhos (itens 13 e 14)
 
@@ -453,22 +453,87 @@ escrevendo. O que **não** está provado é a tela: o `/inbox` exige sessão e o
 `/chart-lab` não pode montar uma lista que consulta o Supabase. **Isto pede
 um olhar na tela real** — digitar na Ana, abrir o João, voltar.
 
-**Item 12 — a causa, e ela já tem remédio no repositório.** `OptionSelect` é o
-`Select` do base-ui: `Select.Value` resolve o rótulo a partir de `items`, e
-**quando o valor não casa com nenhum item ele desenha o valor cru** — o UUID.
-Em `deal-form.tsx` os contatos chegam por efeito, então o primeiro quadro de
-toda edição tem `contactId` preenchido e `contacts` vazio. É o mesmo defeito
-do item 30, e a correção é a mesma flag `loading` (P0 §2). Há um segundo
-flanco: `supabase.from('contacts').select('*')` sem `limit` fica preso ao teto
-do PostgREST — um contato fora dessa página mostra UUID **para sempre**, não
-só no primeiro quadro.
+### ✅ 10. O `+55` sozinho (item 10)
 
-**Item 10 — o escopo real.** `toE164` é uma função de três linhas
-(`phone-format.ts:187`) e o pacote define a regra inteira (R8). O cuidado é
-que ela é chamada pelo campo mascarado a cada tecla: prefixar `+55` cedo
-demais faz o número aparecer completo enquanto ainda está pela metade, e
-`isCompletePhone` passa a mentir. A normalização é **na gravação**, não na
-digitação.
+`applyDefaultCountry`, em `phone-format.ts`. Dígitos entram, dígitos saem —
+quem põe o `+` continua sendo o `toE164`, e é isso que deixa a regra testável
+sem passar por formatação.
+
+**A regra é estreita de propósito.** Só dez ou onze dígitos entram, então
+nada que já traga código de país é tocado. E o comprimento não basta: as duas
+formas brasileiras têm assinatura, e as duas são exigidas.
+
+| dígitos | assinatura                    | vira    |
+| ------- | ----------------------------- | ------- |
+| 11      | DDD válido + **9** + oito     | celular |
+| 10      | DDD válido + **2 a 5** + sete | fixo    |
+
+Sem a lista fechada de DDDs, "onze dígitos viram brasileiros" atropelaria um
+número americano com o código do país. Com ela, um celular alemão
+(`+49 15…`) passa reto: 49 é DDD válido — Blumenau — e o dígito seguinte é 1,
+não 9.
+
+**O que estava acontecendo antes.** Não era um erro, era um silêncio:
+`47999549247` sem o código virava `+47 999549247`, que é a **Noruega**, e o
+CRM salvava isso como número válido. A primeira notícia vinha num envio que
+falha longe de quem digitou.
+
+**A saída pelo `+`.** Sobra uma colisão real, e ela está registrada no
+código: um fixo norueguês tem dez dígitos, DDD 47 é Joinville, e o primeiro
+dígito local cai na faixa dos fixos. O campo escuta o `+` no começo de um
+número e desliga o padrão — em estado e não em `ref`, porque com o campo
+vazio e a marca ligada ele **desenha o `+` sozinho**. Um modo invisível seria
+pior do que o problema.
+
+**Apagar não acrescenta.** O padrão só é aplicado quando o número está
+crescendo. Sem essa guarda, quem apaga um número completo dígito a dígito
+passa por dez no caminho, a assinatura de fixo casa, e o campo devolve dois
+dígitos que a pessoa acabou de tirar.
+
+**A planilha também.** `parse-contact-csv.ts` normaliza pela mesma função —
+a importação é a outra porta por onde contato entra, e deixar só uma das duas
+normalizando é a receita do defeito que o `PhoneInput` já teve. De quebra
+conserta um segundo: a deduplicação compara a chave da planilha contra
+`phone_normalized`, que é dígito puro, então `47999549247` não casava com o
+`+5547999549247` que já existia — e a importação abria uma **segunda ficha do
+mesmo cliente**.
+
+**Medido no navegador**, no `PhoneInput` do `/chart-lab`, tecla a tecla:
+
+| digitado                       | na tela                                |
+| ------------------------------ | -------------------------------------- |
+| `47999549247`                  | `+55 (47) 99954-9247`, caret no fim    |
+| `4733334444`                   | `+55 (47) 3333-4444`                   |
+| `+47999549247`                 | `+47 999549247` — a Noruega preservada |
+| `5547999549247`                | `+55 (47) 99954-9247`, sem duplicar    |
+| encolher de 11 para 10 dígitos | não cresceu                            |
+
+### ✅ 12. Nome e não UUID (item 12)
+
+`OptionSelect` é o `Select` do base-ui: `Select.Value` resolve o rótulo entre
+os `items` e, **quando não acha, desenha o valor**. Num campo cujo valor é um
+UUID, é o UUID na cara do vendedor — enquanto a lista aberta mostra os nomes
+certinhos, que foi exatamente o print do pacote.
+
+O caminho é banal: `contactId` vem do registro no primeiro render e
+`contacts` só chega no efeito, então **toda** edição desenhava um quadro sem
+nenhuma opção que casasse. Mesmo defeito do item 30.
+
+**O conserto é uma opção que sempre existe para o valor que existe.** E vale
+para os dois selects que expõem id — contato e responsável —, porque o pacote
+pede o mesmo padrão "em qualquer outro select que estiver expondo IDs
+internos".
+
+**O segundo flanco era o pior.** A consulta não tem `limit`, o que não quer
+dizer "todos": quer dizer o teto do PostgREST. Numa base que passe dele, o
+contato de uma oportunidade antiga não está entre as opções — e aí não é um
+quadro de UUID, é UUID **para sempre**, naquela ficha, toda vez que alguém a
+abrir. Agora há uma consulta a mais, só quando falta, e ela vem por id.
+
+O mecanismo está provado em `option-select-optgroup.test.tsx`: uma asserção
+mostra o UUID aparecendo sem a opção de espera, e a seguinte mostra o rótulo
+com ela. **A tela em si não foi vista** — o `DealForm` consulta o Supabase e
+não pode subir no `/chart-lab`.
 
 ---
 

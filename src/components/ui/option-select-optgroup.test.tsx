@@ -68,3 +68,57 @@ describe('OptionSelect reads <optgroup> rows', () => {
     expect(submittedValue(stagePicker(FOLLOW_UP))).toBe(FOLLOW_UP);
   });
 });
+
+/**
+ * Item 12 do pacote: "o campo Contato mostra `eb8d692a-…`".
+ *
+ * O mecanismo é o mesmo do item 30 e está descrito no topo deste arquivo —
+ * `Select.Value` resolve o rótulo entre os `items` e, quando não acha,
+ * desenha o valor. A diferença é que ali o valor sumia por causa de um
+ * `<optgroup>` e aqui ele some porque a LISTA ainda não chegou: o id vem do
+ * registro no primeiro render, os contatos vêm de um efeito.
+ *
+ * O conserto, em `deal-form.tsx`, é uma opção que sempre existe para o
+ * valor que existe. Estas duas asserções são o antes e o depois dela.
+ */
+const CONTATO = 'eb8d692a-4f2e-4229-beb0-a2c33985b569';
+
+function campoContato(rows: React.ReactNode) {
+  return renderToStaticMarkup(
+    <OptionSelect value={CONTATO} onValueChange={() => {}}>
+      <option value="">Escolha um contato</option>
+      {rows}
+    </OptionSelect>
+  );
+}
+
+describe('um valor sem opção que case', () => {
+  it('desenha o UUID — é o defeito do item 12', () => {
+    // A lista ainda vazia, que é o primeiro quadro de toda edição.
+    expect(shownLabel(campoContato(null))).toBe(CONTATO);
+  });
+
+  it('com a opção de espera, desenha o rótulo', () => {
+    expect(
+      shownLabel(campoContato(<option value={CONTATO}>Carregando…</option>))
+    ).toBe('Carregando…');
+  });
+
+  it('e o id continua sendo o que o formulário grava', () => {
+    expect(
+      submittedValue(campoContato(<option value={CONTATO}>Carregando…</option>))
+    ).toBe(CONTATO);
+  });
+
+  it('quando a lista chega, quem manda é o nome de verdade', () => {
+    expect(
+      shownLabel(
+        campoContato(
+          <>
+            <option value={CONTATO}>Euclides Fernando Goncalves</option>
+          </>
+        )
+      )
+    ).toBe('Euclides Fernando Goncalves');
+  });
+});

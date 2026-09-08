@@ -1902,15 +1902,53 @@ html[data-mode='dark'] {
  * como esquecer nada.
  * ============================================================ */
 @media print {
-  /* A moldura do diálogo — véu, sombra, cantos, altura máxima — é
-     desenho de tela. No papel ela vira um retângulo cinza em volta do
-     texto. */
-  body:has([data-print-root]) > * {
+  /*
+   * A REGRA É UMA SÓ, e ela se lê em voz alta: some tudo que não é o
+   * documento, não está dentro dele, e não o contém.
+   *
+   * A versão anterior escondia `body > *` e mandava reaparecer um
+   * `[data-print-portal]` — um atributo que EU inventei aqui e nunca pus
+   * em elemento nenhum. O diálogo mora num portal que é filho do body,
+   * então ele era escondido pela primeira regra e a segunda nunca casava
+   * com nada. Resultado medido pelo Gabriel: o PDF saía em branco.
+   *
+   * Uma regra que aponta para um seletor que não existe não dá erro. Ela
+   * simplesmente não faz nada, e o que sobra é o efeito da regra ao lado.
+   *
+   * As três negações fazem o trabalho que antes precisaria de recursão:
+   *
+   *   :not(:has([data-print-root]))   — não é ancestral do documento
+   *   :not([data-print-root])         — não é o documento
+   *   :not([data-print-root] *)       — não está dentro do documento
+   *
+   * Sobrando: a cadeia body → portal → … → documento fica de pé, e todo o
+   * resto do app sai da página.
+   */
+  body:has([data-print-root])
+    *:not(:has([data-print-root])):not([data-print-root]):not(
+      [data-print-root] *
+    ) {
     display: none !important;
   }
 
-  body:has([data-print-root]) [data-print-portal] {
+  /*
+   * A cadeia de ancestrais existe, mas ela é MOLDURA: o portal é fixo, o
+   * véu é preto translúcido, e o container do diálogo centraliza numa
+   * viewport que no papel não existe. Sem isto o documento sai no meio de
+   * uma página cinza, ou não sai.
+   */
+  body:has([data-print-root]) *:has([data-print-root]) {
+    position: static !important;
     display: block !important;
+    overflow: visible !important;
+    background: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: none !important;
+    max-height: none !important;
+    width: auto !important;
+    height: auto !important;
+    transform: none !important;
   }
 
   [data-print-root] {

@@ -104,16 +104,33 @@ export function DealQuote({
               A empresa em cima, a palavra ORÇAMENTO como sobrancelha, e
               o número do pedido do lado da data. Sem logo: este CRM não
               guarda nenhuma — ver a nota em `lib/quotes/quote.ts`. */}
-          <header className="border-border/60 flex items-start justify-between gap-4 border-b pb-4">
+          {/*
+            `pr-7` NA TELA, E ZERO NO PAPEL.
+
+            O X de fechar do diálogo é posicionado em absoluto no canto
+            superior direito, e o número do pedido estava passando por baixo
+            dele — medido pelo Gabriel num pedido de treze dígitos, com o X
+            em cima do último. O documento não deveria precisar saber que a
+            moldura tem um botão ali, mas ele tem, e o custo de conviver é
+            um recuo.
+
+            No papel o botão não existe (`[data-print-hide]`), então o recuo
+            também não: `print:pr-0` devolve a largura inteira ao número.
+
+            E o número QUEBRA. `break-all` porque um pedido não tem espaços
+            para quebrar; sem isso, um número comprido empurra a coluna e
+            volta a esbarrar no X em vez de descer uma linha.
+          */}
+          <header className="border-border/60 flex items-start justify-between gap-4 border-b pr-7 pb-4 print:pr-0">
             <div className="min-w-0">
               <p className="eyebrow text-muted-foreground">{t('title')}</p>
               <p className="text-foreground truncate text-lg font-semibold">
                 {quote.company || t('untitledCompany')}
               </p>
             </div>
-            <div className="shrink-0 text-right">
+            <div className="min-w-0 shrink-0 text-right">
               {quote.orderNumber && (
-                <p className="text-foreground text-sm font-semibold tabular-nums">
+                <p className="text-foreground text-sm font-semibold break-all tabular-nums">
                   {t('orderNumber', { number: quote.orderNumber })}
                 </p>
               )}

@@ -34,7 +34,12 @@ import {
   REASON_ICONS,
   useDealOutcome,
 } from '@/components/pipelines/deal-outcome';
-import { LOSS_REASONS, type LossReason } from '@/lib/deals/outcome';
+import {
+  LOSS_REASONS,
+  isLostStage,
+  isWonStage,
+  type LossReason,
+} from '@/lib/deals/outcome';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { OptionSelect } from '@/components/ui/option-select';
 import { useBusinessHours } from '@/hooks/use-business-hours';
@@ -546,6 +551,44 @@ export function DealForm({
     await persist();
   }
 
+  /**
+   * PARA ONDE O DESFECHO MANDA A OPORTUNIDADE.
+   *
+   * Marcar Ganho gravava `{ status }` e mais nada. O cartão continuava na
+   * coluna em que estava — um negócio "Ganho" parado em Em Negociação, no
+   * quadro, para sempre. Ganho e perdido ficavam MARCADOS e não
+   * ENCAMINHADOS, que foi como o Gabriel descreveu.
+   *
+   * E o custo maior não está no quadro. As automações do funil cancelam
+   * por `cancel_when_stage_in`, quer dizer, ao ENTRAR na etapa Venda
+   * Perdida — não pelo `status`. Uma perda marcada por aqui deixava o
+   * follow-up de pé: D1, D2, D3 e D30 seguiam saindo para um cliente que
+   * a empresa já tinha dado como perdido.
+   *
+   * O quadro sempre fez certo: arrastar para a coluna passa o DESTINO ao
+   * portão, que grava `stage_id` junto com o status. Esta gaveta passava
+   * a etapa ATUAL, e escrever a etapa em que já se está é não escrever
+   * nada. A assimetria era entre dois caminhos para a mesma decisão.
+   *
+   * Devolve `null` — e nada se move — em três casos: reabrir (para onde?),
+   * já estar numa etapa de desfecho (marcar Ganho em Atendido não pode
+   * puxar de volta para Em Andamento), e o funil não ter a etapa. Este
+   * último não é hipotético: quem monta o quadro à mão escolhe os nomes,
+   * e inventar um destino seria pior do que não mover.
+   */
+  function outcomeStage(status: DealStatus): PipelineStage | null {
+    const atual = stages.find((st) => st.id === stageId) ?? null;
+    if (status === 'won') {
+      if (atual && isWonStage(atual.name)) return null;
+      return stages.find((st) => isWonStage(st.name)) ?? null;
+    }
+    if (status === 'lost') {
+      if (atual && isLostStage(atual.name)) return null;
+      return stages.find((st) => isLostStage(st.name)) ?? null;
+    }
+    return null;
+  }
+
   async function handleStatusChange(status: DealStatus) {
     if (!deal) return;
 
@@ -564,6 +607,8 @@ export function DealForm({
      */
     if (!(await persist({ silent: true }))) return;
 
+    const destino = outcomeStage(status);
+
     // Won and lost go through the gates: a sale with no value and a loss
     // with no reason are the two records nobody can reconstruct afterwards.
     // `request` returns true when it took the move; reopening never gates.
@@ -572,16 +617,22 @@ export function DealForm({
         // O negócio COM o que acabou de ser gravado. `deal` é a prop, e ela
         // só é reidratada no próximo `onSaved()`.
         { ...deal, value: hasLines ? lineTotalSum : (value ?? 0) },
-        stages.find((st) => st.id === stageId) ?? null,
+        // O DESTINO. Era a etapa atual, e o portão grava
+        // `stage_id = pending.stage.id` — quer dizer, gravava a etapa em que
+        // a oportunidade já estava.
+        destino,
         status
       );
       if (gated) return;
     }
 
     setStatusAction(status);
+    // Sem portão — um ganho que já tem valor não pergunta nada — e mesmo
+    // assim a etapa tem de andar. Este era o segundo caminho pelo qual um
+    // negócio ganho ficava parado na coluna de negociação.
     const { error } = await supabase
       .from('deals')
-      .update({ status })
+      .update(destino ? { status, stage_id: destino.id } : { status })
       .eq('id', deal.id);
     setStatusAction(null);
     if (error) {

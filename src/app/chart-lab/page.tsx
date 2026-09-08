@@ -865,7 +865,10 @@ function QuoteBench() {
   const [completo, setCompleto] = useState(false);
   const [magro, setMagro] = useState(false);
   const cheio = buildQuote({
-    orderNumber: '14349',
+    // TREZE DÍGITOS de propósito, e não os cinco do exemplo do pacote.
+    // Foi num número assim que o X de fechar do diálogo passou por cima
+    // do último dígito. O caso fácil não guarda o caso difícil.
+    orderNumber: '1234123451234',
     issuedOn: '2026-09-08',
     company: 'PlastfortSul',
     customerName: 'Euclides Fernando Goncalves',

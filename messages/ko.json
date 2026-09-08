@@ -1107,7 +1107,8 @@
       "followUpLabel": "회신 전화 작업 만들기",
       "followUpHint": "영업시간 내 {day}로 예정된 전화입니다.",
       "followUpTaskTitle": "{name}에게 회신 전화",
-      "followUpFailed": "통화는 기록되었지만 작업은 생성되지 않았습니다"
+      "followUpFailed": "통화는 기록되었지만 작업은 생성되지 않았습니다",
+      "dateRequired": "통화 날짜를 선택하세요"
     }
   },
   "Tasks": {

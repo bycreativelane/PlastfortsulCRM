@@ -15,6 +15,7 @@ import {
 } from '@/lib/products/catalog';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { StatePanel } from '@/components/ui/state-panel';
 import { FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { OptionSelect } from '@/components/ui/option-select';
@@ -133,7 +134,13 @@ export function DealItemsEditor({
   const add = useCallback(() => {
     setItems((prev) => [
       ...prev,
-      { productId: null, name: '', quantity: 1, unitPrice: 0, discountPercent: 0 },
+      {
+        productId: null,
+        name: '',
+        quantity: 1,
+        unitPrice: 0,
+        discountPercent: 0,
+      },
     ]);
   }, []);
 
@@ -152,9 +159,13 @@ export function DealItemsEditor({
       </div>
 
       {items.length === 0 ? (
-        <p className="border-border text-muted-foreground rounded-md border border-dashed px-3 py-4 text-center text-xs">
-          {t('empty')}
-        </p>
+        // O `StatePanel` da casa, e não uma tira tracejada à mão.
+        //
+        // A lista de tarefas desenha o vazio dela a poucos pixels daqui, na
+        // MESMA sheet, com o painel da casa e um ícone. Duas formas de vazio
+        // numa superfície só é o tipo de divergência que só se enxerga com as
+        // duas abertas ao mesmo tempo — que é o caso aqui, sempre.
+        <StatePanel icon={Package} title={t('empty')} size="sm" />
       ) : (
         <ul className="border-border divide-border divide-y rounded-md border">
           {items.map((item, index) => (
@@ -266,7 +277,9 @@ export function DealItemsEditor({
         // line items exist.
         <p className="text-foreground flex items-center justify-between gap-2 text-sm font-semibold">
           <span>{t('total')}</span>
-          <span className="tabular-nums">{formatCurrency(total, currency)}</span>
+          <span className="tabular-nums">
+            {formatCurrency(total, currency)}
+          </span>
         </p>
       )}
     </div>

@@ -494,8 +494,20 @@ export function DealForm({
               </OptionSelect>
 
               {linkedConversation && (
+                /*
+                 * O LINK LEVA À CONVERSA, e não à caixa de entrada.
+                 *
+                 * Era `href="/inbox"` seco: um link que diz "abrir a conversa
+                 * deste negócio" e larga a pessoa na lista, para procurar à
+                 * mão a conversa que o próprio link acabou de identificar.
+                 *
+                 * O resto do app já faz certo em cinco lugares, incluindo o
+                 * menu de contexto DESTE MESMO cartão — clicar com o botão
+                 * direito chegava na conversa e clicar no link dentro da
+                 * ficha não. A linha inteira já está carregada aqui.
+                 */
                 <Link
-                  href="/inbox"
+                  href={`/inbox?c=${linkedConversation.id}`}
                   className="bg-primary/10 text-primary hover:bg-primary/20 mt-1 inline-flex items-center gap-1.5 self-start rounded-md px-2 py-1 text-xs"
                 >
                   <MessageSquare className="h-3 w-3" />

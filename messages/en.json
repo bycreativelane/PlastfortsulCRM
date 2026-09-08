@@ -1107,7 +1107,8 @@
       "followUpLabel": "Book a return call",
       "followUpHint": "A call set for {day}, within business hours.",
       "followUpTaskTitle": "Call {name} back",
-      "followUpFailed": "The call was logged, but the task was not created"
+      "followUpFailed": "The call was logged, but the task was not created",
+      "dateRequired": "Pick the date of the call"
     }
   },
   "Tasks": {

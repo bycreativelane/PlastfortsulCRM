@@ -158,9 +158,37 @@ export function CallLogDialog({
       return;
     }
 
+    /*
+     * `fromISO`, e a data conferida ANTES de virar texto.
+     *
+     * Dois defeitos moravam nesta linha, e os dois viravam registro
+     * permanente: o texto vai para `contact_notes`, que é a linha do tempo
+     * do contato, e nada nesta tela reabre uma nota para corrigir.
+     *
+     * O DIA ERRADO. `date` é `YYYY-MM-DD` vindo do `DateField`, e
+     * `new Date('2026-09-08')` é meia-noite UTC — a oeste de Greenwich isso
+     * é o dia anterior. Medido em `America/Sao_Paulo`: escolher 08/09
+     * gravava "07/09/2026", e escolher 01/01/2026 gravava "31/12/2025", com
+     * o ANO errado. É o mesmo off-by-one que o `lib/calendar.ts` documenta e
+     * que o `fromISO` existe para evitar.
+     *
+     * O "INVALID DATE". Apagar a data é um caminho de dois cliques — o botão
+     * Limpar do `DateField` e o texto esvaziado —, e `new Date('')` é uma
+     * data inválida, cujo `toLocaleDateString` devolve a string literal
+     * "Invalid Date". Ela entrava na nota como se fosse uma data. Agora a
+     * gravação para antes: a data é o único fato de que um registro de
+     * ligação trata, e uma ligação sem quando não é registro nenhum.
+     */
+    const dia = fromISO(date);
+    if (!dia) {
+      setSaving(false);
+      toast.error(t('dateRequired'));
+      return;
+    }
+
     // One line, in the language of the app, so the note reads as a sentence
     // in the timeline rather than as a form dump.
-    const when = new Date(date).toLocaleDateString(APP_LOCALE, {
+    const when = dia.toLocaleDateString(APP_LOCALE, {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',

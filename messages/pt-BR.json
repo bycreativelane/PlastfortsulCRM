@@ -1107,7 +1107,8 @@
       "followUpLabel": "Criar tarefa de retorno",
       "followUpHint": "Uma ligação marcada para {day}, no horário de atendimento.",
       "followUpTaskTitle": "Retornar ligação para {name}",
-      "followUpFailed": "A ligação foi registrada, mas a tarefa não foi criada"
+      "followUpFailed": "A ligação foi registrada, mas a tarefa não foi criada",
+      "dateRequired": "Escolha a data da ligação"
     }
   },
   "Tasks": {

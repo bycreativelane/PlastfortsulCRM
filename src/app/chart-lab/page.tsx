@@ -280,7 +280,10 @@ const LAB_DEALS: Record<string, Deal[]> = {
       title: 'Bombonas 200L',
       value: 9800,
       stage_entered_at: daysAgo(9),
-      contact: { name: 'Rafael Kunz', company: 'Kunz Transportes' } as Deal['contact'],
+      contact: {
+        name: 'Rafael Kunz',
+        company: 'Kunz Transportes',
+      } as Deal['contact'],
       assignee: { full_name: 'Gabriel Spencer' } as Deal['assignee'],
     }),
   ],
@@ -671,7 +674,12 @@ export default function ChartLabPage() {
             este redesenho, e ela divide a raia com o funil agora — se as
             duas divergirem de novo, e aqui que aparece, lado a lado. */}
         <SectionTitle>Tarefas</SectionTitle>
-        <div className="bg-background h-100 rounded-xl p-3">
+        {/* `flex flex-col` pela mesma razão do calendário logo abaixo: o
+            trilho do quadro é `min-h-0 flex-1` e precisa de um pai FLEX para
+            ter o que dividir. Com um bloco de altura fixa as colunas cresciam
+            para caber os cartões e vazavam por cima da seção seguinte — na
+            página de tarefas quem dá esse pai é o shell de altura contida. */}
+        <div className="bg-background flex h-100 flex-col rounded-xl p-3">
           <TasksBoard
             tasks={LAB_TASKS}
             todayIso={LAB_TODAY}
@@ -743,7 +751,9 @@ function TaskListBench() {
 
 function ControlsBench() {
   const [mode, setMode] = useState<'list' | 'board' | 'calendar'>('list');
-  const [hidden, setHidden] = useState<ReadonlySet<string>>(() => new Set(['quote']));
+  const [hidden, setHidden] = useState<ReadonlySet<string>>(
+    () => new Set(['quote'])
+  );
   return (
     <div className="flex flex-wrap items-center gap-3">
       <SegBar
@@ -757,25 +767,30 @@ function ControlsBench() {
         ]}
       />
       <div className="flex flex-wrap gap-1.5">
-        {['Ligação', 'Reunião', 'Visita', 'Follow-up', 'Orçamento', 'Outro'].map(
-          (label) => (
-            <FilterChip
-              key={label}
-              subtle
-              active={!hidden.has(label)}
-              onClick={() =>
-                setHidden((current) => {
-                  const next = new Set(current);
-                  if (next.has(label)) next.delete(label);
-                  else next.add(label);
-                  return next;
-                })
-              }
-            >
-              {label}
-            </FilterChip>
-          )
-        )}
+        {[
+          'Ligação',
+          'Reunião',
+          'Visita',
+          'Follow-up',
+          'Orçamento',
+          'Outro',
+        ].map((label) => (
+          <FilterChip
+            key={label}
+            subtle
+            active={!hidden.has(label)}
+            onClick={() =>
+              setHidden((current) => {
+                const next = new Set(current);
+                if (next.has(label)) next.delete(label);
+                else next.add(label);
+                return next;
+              })
+            }
+          >
+            {label}
+          </FilterChip>
+        ))}
       </div>
     </div>
   );

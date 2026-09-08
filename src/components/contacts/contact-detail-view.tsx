@@ -55,9 +55,11 @@ import {
   X,
   DollarSign,
   LayoutTemplate,
+  MessageSquare,
   StickyNote,
   BellOff,
 } from 'lucide-react';
+import Link from 'next/link';
 import { Tag as TagChip } from '@/components/ui/tag';
 import { Badge } from '@/components/ui/badge';
 import { StatePanel } from '@/components/ui/state-panel';
@@ -123,6 +125,20 @@ export function ContactDetailView({
   // Deals tab
   const [deals, setDeals] = useState<Deal[]>([]);
   const [loadingDeals, setLoadingDeals] = useState(false);
+
+  /**
+   * A conversa deste contato, para o botão de abrir.
+   *
+   * UMA, e não uma lista. A migração 036 põe uma UNIQUE em
+   * `(account_id, contact_id)`, então "e se houver mais de uma conversa?"
+   * — a dúvida que o item 11 do pacote levanta e propõe resolver com uma
+   * escolha — não é uma pergunta que este produto consegue fazer. É por
+   * isso que o botão pode ser um link direto e não um menu.
+   *
+   * `null` é "ainda não perguntei" e `''` é "não tem nenhuma": sem a
+   * diferença, o botão certo pisca por um quadro antes do outro.
+   */
+  const [conversationId, setConversationId] = useState<string | null>(null);
 
   /**
    * `silent`: a releitura de fundo (realtime, ou a automação que acabou
@@ -223,6 +239,23 @@ export function ContactDetailView({
     [contactId, supabase]
   );
 
+  /**
+   * NÃO filtra status, pelo mesmo motivo que a gaveta da oportunidade não
+   * filtra: uma conversa encerrada continua sendo a conversa desta pessoa,
+   * e esconder o link deixaria o botão sem destino num contato que tem
+   * histórico. Quem decide o que fazer com uma thread encerrada é o
+   * Atendimento, não este botão.
+   */
+  const fetchConversation = useCallback(async () => {
+    if (!contactId) return;
+    const { data } = await supabase
+      .from('conversations')
+      .select('id')
+      .eq('contact_id', contactId)
+      .maybeSingle();
+    setConversationId(data?.id ?? '');
+  }, [contactId, supabase]);
+
   useEffect(() => {
     if (open && contactId) {
       fetchContact();
@@ -230,8 +263,10 @@ export function ContactDetailView({
       fetchNotes();
       fetchCustomFields();
       fetchDeals();
+      void fetchConversation();
     }
   }, [
+    fetchConversation,
     open,
     contactId,
     fetchContact,
@@ -684,9 +719,48 @@ export function ContactDetailView({
                   </div>
                 )}
 
-                <div className="mt-3">
+                {/*
+                  IR PARA A CONVERSA É A AÇÃO PRINCIPAL DESTA FICHA.
+
+                  Item 11 do pacote: "reduzir cliques para sair da ficha do
+                  contato e ir ao WhatsApp". Até aqui o registro não tinha
+                  saída nenhuma — quem abria o contato pelo CRM, lia o que
+                  precisava e queria responder tinha que fechar a gaveta, ir
+                  no Atendimento e procurar a pessoa na lista. O menu de
+                  contexto do cartão do funil já fazia isso desde sempre; a
+                  ficha, que é onde se decide responder, não.
+
+                  UM LINK, E NÃO UM MENU. O item 11 pergunta o que fazer com
+                  mais de uma conversa. Neste produto a pergunta não existe:
+                  a migração 036 põe uma UNIQUE em `(account_id, contact_id)`.
+
+                  QUANDO NÃO HÁ CONVERSA, quem manda é o template — e é a
+                  resposta certa, não um contorno. A janela de 24 h da Meta
+                  não deixa escrever primeiro para quem nunca escreveu, então
+                  "iniciar conversa" NESTE produto é exatamente mandar um
+                  template aprovado. A rota de envio abre a conversa e, desde
+                  hoje, dispara `conversation_created` — que é o que põe a
+                  oportunidade em VENDAS → Novo Lead, como o próprio item 11
+                  pede para o caminho de iniciar.
+
+                  Por isso o template troca de peso em vez de sumir: sozinho
+                  ele é a ação principal; ao lado do "Abrir conversa" ele é a
+                  segunda, que é o que ele passa a ser.
+                */}
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {conversationId ? (
+                    <Button
+                      size="sm"
+                      render={<Link href={`/inbox?c=${conversationId}`} />}
+                      onClick={() => onOpenChange(false)}
+                    >
+                      <MessageSquare className="size-4" />
+                      {t('openConversation')}
+                    </Button>
+                  ) : null}
                   <Button
                     size="sm"
+                    variant={conversationId ? 'outline' : 'default'}
                     onClick={() => setTemplatePickerOpen(true)}
                     disabled={sendingTemplate}
                   >
@@ -695,7 +769,9 @@ export function ContactDetailView({
                     ) : (
                       <LayoutTemplate className="size-4" />
                     )}
-                    {t('sendTemplateBtn')}
+                    {conversationId
+                      ? t('sendTemplateBtn')
+                      : t('startConversation')}
                   </Button>
                 </div>
               </SheetHeader>

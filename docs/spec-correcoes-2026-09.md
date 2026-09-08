@@ -161,7 +161,7 @@ A do próprio pacote (item 34), com o 37 recolocado.
 |        |                                       | Estado                                                                     |
 | ------ | ------------------------------------- | -------------------------------------------------------------------------- |
 | **P0** | bugs que bloqueiam operação           | 5,5 de 6 — a auditoria corrigiu 5 defeitos; sobra o que só a Meta responde |
-| **P1** | experiência de atendimento            | 1 de 6 (o 9 já estava feito)                                               |
+| **P1** | experiência de atendimento            | 6 de 6 — fechado em 8 de setembro                                          |
 | **P2** | produtividade                         | não começou                                                                |
 | —      | itens 38–59: oportunidade e orçamento | não começou                                                                |
 
@@ -395,7 +395,7 @@ fechado.
 | 8   | "Rascunho:" na lista (item 14)                       | ✅ 8 de setembro                 |
 | 9   | Editor de contatos unificado (item 9)                | ✅ **já estava feito** — ver R4  |
 | 10  | +55 automático (item 10)                             | ✅ 8 de setembro, medido na tela |
-| 11  | Botão grande "Abrir conversa" (item 11)              | ⬜                               |
+| 11  | Botão grande "Abrir conversa" (item 11)              | ✅ 8 de setembro                 |
 | 12  | Nome em vez de UUID em Editar oportunidade (item 12) | ✅ 8 de setembro                 |
 
 ### ✅ 7 e 8. Os rascunhos (itens 13 e 14)
@@ -507,6 +507,52 @@ mesmo cliente**.
 | `+47999549247`                 | `+47 999549247` — a Noruega preservada |
 | `5547999549247`                | `+55 (47) 99954-9247`, sem duplicar    |
 | encolher de 11 para 10 dígitos | não cresceu                            |
+
+### ✅ 11. Abrir conversa (item 11)
+
+A ficha do contato não tinha saída nenhuma. Quem abria o contato pelo CRM,
+lia o que precisava e queria responder tinha que fechar a gaveta, ir no
+Atendimento e procurar a pessoa na lista. O menu de contexto do cartão do
+funil já levava direto lá desde sempre; a ficha, que é **onde se decide
+responder**, não.
+
+**Duas perguntas do item que este produto já responde.** A primeira — "e se
+houver mais de uma conversa?" — não existe aqui: a migração 036 põe uma
+UNIQUE em `(account_id, contact_id)`. Por isso o botão é um link e não um
+menu de escolha.
+
+A segunda é "Iniciar conversa", e a resposta é o botão que já estava lá. A
+janela de 24 h da Meta não deixa escrever primeiro para quem nunca escreveu,
+então **iniciar conversa neste produto é mandar um template aprovado**. O
+template não sumiu nem virou outra coisa: ele troca de peso. Sozinho é a ação
+principal e se chama "Iniciar conversa"; ao lado do "Abrir conversa" ele é a
+segunda, e volta a se chamar "Enviar template".
+
+#### E aqui saiu um defeito que a auditoria do P0 §6 não pegou
+
+O item 11 pede que iniciar uma conversa aplique também a regra de criar a
+oportunidade em Novo Lead. **Não aplicava** — e o buraco é maior do que o
+item 11:
+
+`conversation_created` foi criado com o item 17 e **só o webhook o emitia**.
+Uma conversa aberta pela equipe — mandando um template pela ficha do contato,
+que é o único jeito de começar — criava a linha e não criava oportunidade
+nenhuma. O item 4 é explícito ("vale para conversa iniciada pelo cliente,
+**pela equipe**, ou criada manualmente"), o comentário que emite o gatilho no
+webhook até repete isso, e o outro lado nunca foi ligado.
+
+A auditoria do P0 §6 leu as **definições** das automações e não os
+**emissores** dos gatilhos. É a lição a levar: um gatilho correto num arquivo
+de modelos não diz nada sobre quem o dispara.
+
+A rota de envio agora devolve se ELA abriu a conversa e dispara o gatilho
+**antes** do envio — a ordem importa, porque o núcleo de envio dispara
+`team_message_sent` no fim, que é o gatilho de `/aberto` e companhia, e esses
+passos MOVEM uma oportunidade que precisa já existir.
+
+Três asserções novas em `send/route.test.ts`; duas delas acusam o `HEAD`
+anterior. **A tela não foi vista** — a ficha consulta o Supabase e o
+`/chart-lab` não pode montá-la.
 
 ### ✅ 12. Nome e não UUID (item 12)
 

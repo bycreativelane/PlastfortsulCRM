@@ -160,6 +160,17 @@ vi.mock('@/lib/whatsapp/meta-api', () => ({
   sendMediaMessage: vi.fn(),
 }))
 
+// O motor de automação, para poder perguntar QUAL gatilho a rota disparou.
+// `importOriginal` mantém o resto do módulo real: `send-message.ts` importa
+// só esta função, mas o grafo de imports não é só ele.
+const { runAutomationsForTrigger } = vi.hoisted(() => ({
+  runAutomationsForTrigger: vi.fn(async () => undefined),
+}))
+vi.mock('@/lib/automations/engine', async (original) => ({
+  ...(await original<Record<string, unknown>>()),
+  runAutomationsForTrigger,
+}))
+
 import { POST } from './route'
 
 function postContactTemplate(overrides: Record<string, unknown> = {}) {
@@ -190,6 +201,7 @@ describe('POST /api/whatsapp/send — contact_id template path', () => {
     callerRole = 'admin'
     supabaseMock = makeSupabaseMock()
     sendTemplateMessage.mockClear()
+    runAutomationsForTrigger.mockClear()
   })
 
   afterEach(() => {
@@ -244,6 +256,63 @@ describe('POST /api/whatsapp/send — contact_id template path', () => {
 
     expect(conversationInserts).toHaveLength(0)
     expect(messageInserts[0]).toMatchObject({ conversation_id: 'conv-existing' })
+  })
+
+  /*
+   * O item 4 do pacote: "vale para conversa iniciada pelo cliente, PELA
+   * EQUIPE, ou criada manualmente". O gatilho `conversation_created`
+   * existia desde o item 17 e só o webhook o emitia — quer dizer, a metade
+   * do item que fala da equipe nunca funcionou: mandar um template pela
+   * ficha do contato abria a conversa e não abria oportunidade nenhuma.
+   */
+  it('a conversa que a equipe abriu dispara conversation_created', async () => {
+    await postContactTemplate()
+
+    const disparos = runAutomationsForTrigger.mock.calls.map(
+      (c) => (c[0] as { triggerType: string }).triggerType,
+    )
+    expect(disparos).toContain('conversation_created')
+
+    const chamada = runAutomationsForTrigger.mock.calls.find(
+      (c) => (c[0] as { triggerType: string }).triggerType ===
+        'conversation_created',
+    )![0] as Record<string, unknown>
+    expect(chamada).toMatchObject({
+      accountId: 'acct-1',
+      contactId: 'contact-1',
+      context: { conversation_id: 'conv-new' },
+    })
+  })
+
+  it('e ele vem ANTES do team_message_sent', async () => {
+    // `/aberto` e companhia MOVEM uma oportunidade. Se a oportunidade ainda
+    // não existisse quando eles rodassem, o primeiro atalho de uma conversa
+    // nova não teria o que mover.
+    await postContactTemplate()
+
+    const disparos = runAutomationsForTrigger.mock.calls.map(
+      (c) => (c[0] as { triggerType: string }).triggerType,
+    )
+    const criada = disparos.indexOf('conversation_created')
+    const enviada = disparos.indexOf('team_message_sent')
+    expect(criada).toBeGreaterThanOrEqual(0)
+    if (enviada >= 0) expect(criada).toBeLessThan(enviada)
+  })
+
+  it('uma conversa que já existia NÃO dispara — seria uma segunda oportunidade', async () => {
+    existingConversation = {
+      id: 'conv-existing',
+      account_id: 'acct-1',
+      contact_id: 'contact-1',
+      contact: CONTACT,
+    }
+
+    await postContactTemplate()
+
+    const disparos = runAutomationsForTrigger.mock.calls.map(
+      (c) => (c[0] as { triggerType: string }).triggerType,
+    )
+    expect(disparos).not.toContain('conversation_created')
   })
 
   it('404s when the contact is not in the caller account', async () => {

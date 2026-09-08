@@ -968,6 +968,8 @@
         "noTagsAvailable": "사용 가능한 태그가 없습니다. 설정에서 태그를 만드세요."
       },
       "sendTemplateBtn": "템플릿 보내기",
+      "openConversation": "대화 열기",
+      "startConversation": "대화 시작",
       "saveChangesBtn": "변경 사항 저장",
       "saveCustomFieldsBtn": "커스텀 필드 저장",
       "toastPhoneRequired": "전화번호는 필수입니다",

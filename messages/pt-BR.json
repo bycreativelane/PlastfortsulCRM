@@ -968,6 +968,8 @@
         "noTagsAvailable": "Nenhuma etiqueta disponível. Crie em Configurações."
       },
       "sendTemplateBtn": "Enviar template",
+      "openConversation": "Abrir conversa",
+      "startConversation": "Iniciar conversa",
       "saveChangesBtn": "Salvar alterações",
       "saveCustomFieldsBtn": "Salvar campos personalizados",
       "toastPhoneRequired": "O telefone é obrigatório",

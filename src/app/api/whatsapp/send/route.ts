@@ -11,6 +11,7 @@ import {
   validateSendMessageParams,
   SendMessageError,
 } from '@/lib/whatsapp/send-message';
+import { runAutomationsForTrigger } from '@/lib/automations/engine';
 
 // The dashboard's outbound-send endpoint. It owns auth, per-user rate
 // limiting, and the two ways the UI targets a thread — an existing
@@ -142,7 +143,45 @@ export async function POST(request: Request) {
           { status: 500 }
         );
       }
-      conversationId = resolved;
+      conversationId = resolved.id;
+
+      /*
+       * A CONVERSA QUE A EQUIPE ABRIU TAMBÉM É UMA CONVERSA NOVA.
+       *
+       * O item 4 do pacote é explícito — "vale para conversa iniciada pelo
+       * cliente, pela equipe, ou criada manualmente" — e metade disso não
+       * existia. O gatilho `conversation_created` foi criado com o item 17
+       * e só o WEBHOOK o emitia: uma conversa aberta daqui, mandando um
+       * template pela ficha do contato, criava a linha e não criava
+       * oportunidade nenhuma. O comentário que emite o gatilho no webhook
+       * até diz que a regra vale para a equipe; o outro lado nunca foi
+       * ligado.
+       *
+       * ANTES do envio, e não depois: a ordem importa. O núcleo de envio
+       * dispara `team_message_sent` no fim, que é o gatilho de `/aberto` e
+       * companhia — e esses passos MOVEM uma oportunidade. Se a
+       * oportunidade ainda não existisse quando eles rodassem, o primeiro
+       * `/aberto` de uma conversa nova não teria o que mover.
+       *
+       * Aguardado, e não solto: esta rota não roda dentro de `after()`, e
+       * um disparo destacado pode ser congelado no meio em serverless — o
+       * mesmo motivo que o núcleo de envio documenta para o dele.
+       */
+      if (resolved.created) {
+        try {
+          await runAutomationsForTrigger({
+            accountId,
+            triggerType: 'conversation_created',
+            contactId: contact_id,
+            context: { conversation_id: resolved.id },
+          });
+        } catch (err) {
+          console.error(
+            '[automations] conversation_created dispatch threw:',
+            err instanceof Error ? err.message : err
+          );
+        }
+      }
     }
 
     if (!conversationId) {
@@ -216,7 +255,7 @@ async function findOrCreateConversation(
   accountId: string,
   userId: string,
   contactId: string
-): Promise<string | null> {
+): Promise<{ id: string; created: boolean } | null> {
   const { data: existing } = await supabase
     .from('conversations')
     .select('id')
@@ -224,7 +263,7 @@ async function findOrCreateConversation(
     .eq('contact_id', contactId)
     .maybeSingle();
 
-  if (existing) return existing.id;
+  if (existing) return { id: existing.id, created: false };
 
   const { data: created, error } = await supabase
     .from('conversations')
@@ -244,5 +283,9 @@ async function findOrCreateConversation(
     return null;
   }
 
-  return created.id;
+  // `created` E NÃO SÓ O ID. Quem chama precisa saber que ESTA chamada
+  // abriu a conversa: é o que dispara `conversation_created`, e disparar
+  // numa conversa que já existia abriria uma segunda oportunidade a cada
+  // template enviado.
+  return { id: created.id, created: true };
 }

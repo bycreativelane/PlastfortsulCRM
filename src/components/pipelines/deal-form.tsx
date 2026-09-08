@@ -72,6 +72,7 @@ export function DealForm({
   onSaved,
 }: DealFormProps) {
   const t = useTranslations('Pipelines.form');
+  const tMenu = useTranslations('Pipelines.menu');
   const supabase = createClient();
   const { accountId, defaultCurrency } = useAuth();
   const outcome = useDealOutcome({
@@ -198,19 +199,26 @@ export function DealForm({
     };
   }, [open, contactId, supabase]);
 
-  async function handleSave() {
+  // The lines decide the value when there are lines. The trigger in 054 does
+  // this again server-side — this is only so the row is right in the same
+  // statement rather than a beat later, which is what the board reads when it
+  // refreshes.
+  const lineTotalSum = items.reduce((sum, item) => sum + lineTotal(item), 0);
+  const hasLines = items.length > 0;
+
+  /**
+   * Grava o que está no formulário. Devolve `false` quando não deu.
+   *
+   * Separado do `handleSave` porque o DESFECHO também precisa dele: marcar
+   * como ganho tem de levar junto o que a pessoa acabou de digitar. Com
+   * `silent`, não avisa nem fecha a ficha — quem chamou continua a conversa.
+   */
+  async function persist({ silent = false } = {}): Promise<boolean> {
     if (!title.trim() || !contactId || !stageId) {
       toast.error(t('toastRequired'));
-      return;
+      return false;
     }
     setSaving(true);
-
-    // The lines decide the value when there are lines. The trigger in
-    // 054 does this again server-side — this is only so the row is right
-    // in the same statement rather than a beat later, which is what the
-    // board reads when it refreshes.
-    const lineTotalSum = items.reduce((sum, item) => sum + lineTotal(item), 0);
-    const hasLines = items.length > 0;
 
     const payload = {
       title: title.trim(),
@@ -232,7 +240,7 @@ export function DealForm({
       if (error) {
         toast.error(t('toastFailedSave'));
         setSaving(false);
-        return;
+        return false;
       }
       if (!itemsPending && accountId) {
         const { error: itemsError } = await replaceDealItems(supabase, {
@@ -253,12 +261,12 @@ export function DealForm({
       if (!user) {
         toast.error(t('toastNotSignedIn'));
         setSaving(false);
-        return;
+        return false;
       }
       if (!accountId) {
         toast.error(t('toastNotLinked'));
         setSaving(false);
-        return;
+        return false;
       }
       const { data: created, error } = await supabase
         .from('deals')
@@ -275,7 +283,7 @@ export function DealForm({
       if (error || !created) {
         toast.error(t('toastFailedCreate'));
         setSaving(false);
-        return;
+        return false;
       }
       if (!itemsPending && items.length > 0) {
         const { error: itemsError } = await replaceDealItems(supabase, {
@@ -288,20 +296,44 @@ export function DealForm({
     }
 
     setSaving(false);
-    toast.success(deal ? t('toastUpdated') : t('toastCreated'));
-    onOpenChange(false);
-    onSaved();
+    if (!silent) {
+      toast.success(deal ? t('toastUpdated') : t('toastCreated'));
+      onOpenChange(false);
+      onSaved();
+    }
+    return true;
+  }
+
+  async function handleSave() {
+    await persist();
   }
 
   async function handleStatusChange(status: DealStatus) {
     if (!deal) return;
+
+    /*
+     * O QUE ESTÁ NO FORMULÁRIO É GRAVADO ANTES.
+     *
+     * Este caminho escrevia só `{ status }` e fechava a ficha. Quem corrigia
+     * o valor para R$ 12.000 e clicava em "Marcar como ganho" perdia a
+     * correção em silêncio: o negócio virava ganho pelo valor velho — e é
+     * exatamente na hora de fechar que alguém arruma o número.
+     *
+     * A ordem importa. Gravar PRIMEIRO e só então pedir o desfecho, porque o
+     * portão lê o valor do negócio para decidir se pergunta; lendo a versão
+     * antiga, ele pergunta o que a pessoa acabou de responder no campo ao
+     * lado.
+     */
+    if (!(await persist({ silent: true }))) return;
 
     // Won and lost go through the gates: a sale with no value and a loss
     // with no reason are the two records nobody can reconstruct afterwards.
     // `request` returns true when it took the move; reopening never gates.
     if (status !== 'open') {
       const gated = outcome.request(
-        deal,
+        // O negócio COM o que acabou de ser gravado. `deal` é a prop, e ela
+        // só é reidratada no próximo `onSaved()`.
+        { ...deal, value: hasLines ? lineTotalSum : (value ?? 0) },
         stages.find((st) => st.id === stageId) ?? null,
         status
       );
@@ -358,6 +390,20 @@ export function DealForm({
             </SheetTitle>
           </SheetHeader>
 
+          {/*
+            A FRASE, e nao so os campos cinzas.
+
+            Dez controles ficam `disabled` para quem so le, e uma ficha
+            inteira apagada sem explicacao le como defeito. O motivo mora no
+            `Pipelines.menu.readOnly`, que o menu de contexto do quadro ja
+            usa — a mesma frase para a mesma recusa.
+          */}
+          {!canWrite && (
+            <p className="text-muted-foreground border-border bg-muted mx-4 mt-3 rounded-lg border px-3 py-2 text-xs">
+              {tMenu('readOnly')}
+            </p>
+          )}
+
           {/* `overflow-y-auto` alone computes `overflow-x` to `auto` as
               well, so anything a pixel too wide inside adds a horizontal
               scrollbar across the bottom of the form. Nothing in a
@@ -369,6 +415,7 @@ export function DealForm({
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder={t('titlePlaceholder')}
+                disabled={!canWrite}
                 className="border-border bg-muted text-foreground"
               />
             </div>
@@ -378,6 +425,7 @@ export function DealForm({
               <OptionSelect
                 value={contactId}
                 onValueChange={setContactId}
+                disabled={!canWrite}
                 className="border-border bg-muted text-foreground"
               >
                 <option value="">{t('selectContact')}</option>
@@ -424,7 +472,7 @@ export function DealForm({
                     onValueChange={setValue}
                     currency={currency}
                     placeholder="0"
-                    disabled={items.length > 0}
+                    disabled={!canWrite || items.length > 0}
                     className="border-border bg-muted text-foreground"
                   />
                   {items.length > 0 ? (
@@ -438,6 +486,7 @@ export function DealForm({
                   <OptionSelect
                     value={currency}
                     onValueChange={setCurrency}
+                    disabled={!canWrite}
                     className="border-border bg-muted text-foreground"
                   >
                     {CURRENCIES.map((c) => (
@@ -454,6 +503,7 @@ export function DealForm({
                 <DateField
                   value={expectedCloseDate}
                   onValueChange={setExpectedCloseDate}
+                  disabled={!canWrite}
                   className="[&_input]:border-border [&_input]:bg-muted [&_input]:text-foreground"
                 />
               </div>
@@ -465,6 +515,7 @@ export function DealForm({
                 <OptionSelect
                   value={stageId}
                   onValueChange={setStageId}
+                  disabled={!canWrite}
                   className="border-border bg-muted text-foreground"
                 >
                   {stages.map((s) => (
@@ -480,6 +531,7 @@ export function DealForm({
                 <OptionSelect
                   value={assignedTo}
                   onValueChange={setAssignedTo}
+                  disabled={!canWrite}
                   className="border-border bg-muted text-foreground"
                 >
                   <option value="">{t('unassigned')}</option>
@@ -510,6 +562,7 @@ export function DealForm({
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder={t('notesPlaceholder')}
+                disabled={!canWrite}
                 className="border-border bg-muted text-foreground min-h-[100px]"
               />
             </div>

@@ -1,11 +1,11 @@
 'use client';
 
-import { useCallback, useMemo, useState, useEffect } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
 import { useCan } from '@/hooks/use-can';
-import { CURRENCIES } from '@/lib/currency';
+import { formatCurrency } from '@/lib/currency';
 import {
   lineTotal,
   replaceDealItems,
@@ -36,10 +36,8 @@ import {
 } from '@/components/pipelines/deal-outcome';
 import { LOSS_REASONS, type LossReason } from '@/lib/deals/outcome';
 import { StatusBadge } from '@/components/ui/status-badge';
-import { useBusinessHours } from '@/hooks/use-business-hours';
-import { localParts } from '@/lib/automations/local-time';
-import { DateField } from '@/components/ui/date-field';
 import { OptionSelect } from '@/components/ui/option-select';
+import { ChoiceChip } from '@/components/ui/choice-chip';
 import { PlaybookChecklist } from './playbook-checklist';
 import { TaskList } from '@/components/tasks/task-list';
 import { FieldLabel } from '@/components/ui/field';
@@ -57,6 +55,15 @@ import { useTranslations } from 'next-intl';
  * `t()` estourar, então ela simplesmente não é desenhada.
  */
 const KNOWN_LOSS_REASONS = new Set<string>([...LOSS_REASONS, 'noReply']);
+
+/**
+ * Os dois estados de transporte que não são uma transportadora.
+ *
+ * Item 48, literal: "permitir também estados como Cliente retira, A
+ * definir". Chaves do catálogo e não literais, porque o que vai para a
+ * coluna é o texto que a pessoa vê — e o orçamento imprime esse texto.
+ */
+const CARRIER_STATES = ['carrierPickup', 'carrierTbd'] as const;
 
 /**
  * A opção que segura o valor enquanto a lista dele não chegou.
@@ -137,20 +144,18 @@ export function DealForm({
   const { accountId, defaultCurrency } = useAuth();
 
   /*
-   * HOJE no fuso da CONTA, para saber se a previsão de fechamento venceu.
+   * O "hoje" da conta saiu junto com a Previsão de fechamento.
    *
-   * Cópia literal de `task-list.tsx`, que é o mesmo "hoje" da lista de
-   * tarefas renderizada a poucos pixels daqui dentro desta mesma sheet —
-   * duas noções de hoje na mesma tela seria o defeito.
+   * Ele existia para uma coisa só: saber se a data de fechamento tinha
+   * vencido, e desenhar o selo "Prazo vencido" ao lado do rótulo. O item
+   * 41 tirou o campo da interface, e um relógio sem nada para medir é
+   * peso morto — `useBusinessHours` é uma consulta por abertura da
+   * gaveta.
    *
-   * NÃO é o `todayIso()` de `deal-card.tsx`: aquele é o dia do
-   * DISPOSITIVO, e promovê-lo consagraria o segundo hoje.
+   * A `expected_close_date` continua no banco e continua sendo gravada
+   * (item 59). Se ela voltar para a tela, o padrão está em
+   * `task-list.tsx`, que é de onde este veio.
    */
-  const { hours } = useBusinessHours();
-  const todayIso = useMemo(
-    () => localParts(new Date(), hours.timezone).dateKey,
-    [hours.timezone]
-  );
   const outcome = useDealOutcome({
     defaultCurrency,
     onDone: () => {
@@ -165,8 +170,21 @@ export function DealForm({
   // click, not after it.
   const canWrite = useCan('send-messages');
 
-  const [title, setTitle] = useState('');
+  /**
+   * O TÍTULO NÃO É MAIS UM CAMPO, e continua sendo uma coluna.
+   *
+   * Item 39: o que a pessoa preenche aqui é o PEDIDO DE VENDA, o número
+   * que a operação controla no Bling. `deals.title` é NOT NULL desde a
+   * 001, então ele continua existindo — preenchido do jeito que a
+   * automação já preenche desde a correção do item 3, com o nome do
+   * contato. Ver `tituloDerivado` abaixo.
+   */
+  const [salesOrder, setSalesOrder] = useState('');
   const [value, setValue] = useState<number | null>(null);
+  /** Frete, separado dos produtos (item 47). `null` é 'não definido'. */
+  const [shipping, setShipping] = useState<number | null>(null);
+  /** Transportadora, ou um dos dois estados do item 48. */
+  const [carrier, setCarrier] = useState('');
   /**
    * The opportunity's line items (spec §10, migration 054).
    *
@@ -217,8 +235,10 @@ export function DealForm({
     if (!open) return;
     setConfirmDelete(false);
     if (deal) {
-      setTitle(deal.title);
+      setSalesOrder(deal.sales_order_number ?? '');
       setValue(deal.value ?? null);
+      setShipping(deal.shipping_cost ?? null);
+      setCarrier(deal.carrier ?? '');
       setCurrency(deal.currency || defaultCurrency);
       // contact_id is nullable when the contact has been deleted
       // (migration 004: ON DELETE SET NULL). "" means "no selection".
@@ -228,8 +248,10 @@ export function DealForm({
       setExpectedCloseDate(deal.expected_close_date ?? '');
       setNotes(deal.notes ?? '');
     } else {
-      setTitle('');
+      setSalesOrder('');
       setValue(null);
+      setShipping(null);
+      setCarrier('');
       setCurrency(defaultCurrency);
       setContactId(defaultContactId ?? '');
       setStageId(defaultStageId || stages[0]?.id || '');
@@ -336,6 +358,29 @@ export function DealForm({
   // refreshes.
   const lineTotalSum = items.reduce((sum, item) => sum + lineTotal(item), 0);
   const hasLines = items.length > 0;
+  /** Produtos + frete, que é o que o item 47 manda o orçamento mostrar. */
+  const produtos = hasLines ? lineTotalSum : (value ?? 0);
+  const totalGeral = produtos + (shipping ?? 0);
+
+  /**
+   * O que vai em `deals.title` agora que ele não é mais um campo.
+   *
+   * A MESMA REGRA DO MOTOR, de propósito: `resolveDealTitle` usa o nome
+   * do contato e cai no telefone, e nunca num UUID. Duas regras para o
+   * mesmo campo — uma para a oportunidade que a automação abre e outra
+   * para a que o vendedor abre — seriam duas listas de negócio com
+   * nomes diferentes na mesma coluna do Kanban.
+   *
+   * Editando, o título que já existe é preservado: ele pode ter sido
+   * escrito à mão antes de o item 39 mudar esta tela, e reescrevê-lo
+   * seria apagar o que alguém digitou por causa de um redesenho.
+   */
+  const contatoAtual = contacts.find((c) => c.id === contactId);
+  const tituloDerivado =
+    deal?.title?.trim() ||
+    contatoAtual?.name?.trim() ||
+    contatoAtual?.phone?.trim() ||
+    t('newDeal');
 
   /**
    * Grava o que está no formulário. Devolve `false` quando não deu.
@@ -345,15 +390,21 @@ export function DealForm({
    * `silent`, não avisa nem fecha a ficha — quem chamou continua a conversa.
    */
   async function persist({ silent = false } = {}): Promise<boolean> {
-    if (!title.trim() || !contactId || !stageId) {
+    // O título saiu da lista de obrigatórios porque saiu da tela: quem
+    // o preenche agora é `tituloDerivado`, e ele nunca é vazio quando
+    // há contato. Contato e etapa continuam sendo o mínimo.
+    if (!contactId || !stageId) {
       toast.error(t('toastRequired'));
       return false;
     }
     setSaving(true);
 
     const payload = {
-      title: title.trim(),
+      title: tituloDerivado,
+      sales_order_number: salesOrder.trim() || null,
       value: hasLines ? lineTotalSum : (value ?? 0),
+      shipping_cost: shipping,
+      carrier: carrier.trim() || null,
       currency,
       contact_id: contactId,
       pipeline_id: pipelineId,
@@ -540,13 +591,31 @@ export function DealForm({
               scrollbar across the bottom of the form. Nothing in a
               single-column form should ever scroll sideways. */}
           <div className="@container flex-1 space-y-4 overflow-x-hidden overflow-y-auto p-4">
+            {/*
+              PEDIDO DE VENDA, e não "Título" — item 39.
+
+              É o número que a operação já controla no Bling (14349), e nesta
+              fase ele é digitado à mão; a integração é etapa futura e o item
+              58 pede explicitamente que ela NÃO entre agora.
+
+              O campo antigo dizia "Título da oportunidade" e não recebia
+              nada útil: desde a correção do item 3 o título é preenchido
+              por automação com o nome do contato, e desde o item 17 é assim
+              que toda oportunidade nasce. Um campo cujo valor é sempre o
+              nome que está no campo de baixo não é um campo.
+
+              Opcional de propósito: a oportunidade existe antes do pedido.
+              Ela nasce no primeiro "oi" e só ganha número quando alguém
+              monta o orçamento.
+            */}
             <div className="grid gap-2">
-              <FieldLabel htmlFor="deal-title">{t('title')}</FieldLabel>
+              <FieldLabel htmlFor="deal-order">{t('salesOrder')}</FieldLabel>
               <Input
-                id="deal-title"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder={t('titlePlaceholder')}
+                id="deal-order"
+                value={salesOrder}
+                onChange={(e) => setSalesOrder(e.target.value)}
+                placeholder={t('salesOrderPlaceholder')}
+                inputMode="numeric"
                 disabled={!canWrite}
                 className="border-border bg-muted text-foreground"
               />
@@ -607,115 +676,178 @@ export function DealForm({
                 who owns it. This was seven stacked rows in a sheet that
                 rendered at 24rem, which is what put a scrollbar under a
                 form of eight fields. */}
+            {/*
+              PRODUTO — itens 43, 44, 45 e 46, e eles se resolvem juntos.
+
+              O item 43 manda remover "O que tem nesta oportunidade" e
+              "Adicionar linha"; o 45 manda criar um campo Produto que
+              reutilize os produtos cadastrados e guarde produto, SKU,
+              quantidade, valor unitário e subtotal; o 46 manda o Valor sair
+              dos itens. Lidos juntos, o 45 pede coluna por coluna o que o 43
+              manda apagar — e o próprio 43 nomeia o risco disso: "não deixar
+              dois sistemas diferentes de itens dentro da mesma oportunidade".
+
+              `deal_items` (migração 054) já é o que o 45 descreve:
+              `product_id` apontando para `products`, o nome congelado no
+              momento da linha, quantidade, preço unitário, desconto e um
+              `total` GENERATED. Então o que muda é a APRESENTAÇÃO — que é
+              de onde a queixa do 43 vem: a seção era pesada e o vazio dela
+              dizia "Sem linhas. O valor acima é o que alguém digitou.", uma
+              frase de diagnóstico interno numa tela de vendedor.
+
+              PRIMEIRO NA ORDEM COMERCIAL do item 44: o produto é o que se
+              decide antes do preço, e o preço passa a sair dele.
+            */}
+            <DealItemsEditor
+              accountId={accountId}
+              dealId={deal?.id ?? null}
+              currency={currency}
+              disabled={!canWrite}
+              onChange={handleItems}
+            />
+
+            {/*
+              VALOR E FRETE, lado a lado — itens 46 e 47.
+
+              Saíram desta linha a MOEDA e a PREVISÃO DE FECHAMENTO, que o
+              item 41 manda tirar da interface. As duas colunas continuam no
+              banco e continuam sendo gravadas: o item 59 proíbe apagar campo
+              histórico só porque ele saiu da tela, e uma oportunidade que já
+              tinha data de fechamento a mantém intacta ao ser editada aqui.
+
+              A moeda é BRL e não precisava de um seletor de 110px ao lado do
+              valor em toda oportunidade de uma empresa que vende em real. A
+              070 corrige o padrão da coluna e das contas, e o
+              `DEFAULT_CURRENCY` do app; o que sai é só o controle.
+
+              O FRETE FICA FORA DO VALOR de propósito (item 47): o orçamento
+              precisa mostrar produtos, frete e total como três linhas, e um
+              valor que embutisse o frete não sabe mais dizer quanto era
+              cada parte.
+            */}
             <div className="grid gap-4 @lg:grid-cols-2">
-              <div className="grid grid-cols-[1fr_110px] gap-3">
-                <div className="grid gap-2">
-                  <FieldLabel htmlFor="deal-value">{t('value')}</FieldLabel>
-                  {/* Read-only once there are lines. The number is what
-                      they add up to, and a field somebody can type over
-                      an arithmetic result is a field that makes the
-                      total a lie again — which is the whole thing line
-                      items were added to stop. */}
-                  <CurrencyInput
-                    id="deal-value"
-                    value={
-                      items.length > 0
-                        ? items.reduce((sum, i) => sum + lineTotal(i), 0)
-                        : value
-                    }
-                    onValueChange={setValue}
-                    currency={currency}
-                    placeholder="0"
-                    disabled={!canWrite || items.length > 0}
-                    className="border-border bg-muted text-foreground"
-                  />
-                  {items.length > 0 ? (
-                    <p className="text-muted-foreground text-2xs">
-                      {t('valueFromItems')}
-                    </p>
-                  ) : null}
-                </div>
-                <div className="grid gap-2">
-                  <FieldLabel htmlFor="deal-currency">
-                    {t('currency')}
-                  </FieldLabel>
-                  <OptionSelect
-                    id="deal-currency"
-                    value={currency}
-                    onValueChange={setCurrency}
-                    disabled={!canWrite}
-                    className="border-border bg-muted text-foreground"
-                  >
-                    {CURRENCIES.map((c) => (
-                      <option key={c.code} value={c.code}>
-                        {c.code}
-                      </option>
-                    ))}
-                  </OptionSelect>
-                </div>
+              <div className="grid gap-2">
+                <FieldLabel htmlFor="deal-value">{t('value')}</FieldLabel>
+                {/* Read-only once there are lines. The number is what
+                    they add up to, and a field somebody can type over
+                    an arithmetic result is a field that makes the
+                    total a lie again — which is the whole thing line
+                    items were added to stop. */}
+                <CurrencyInput
+                  id="deal-value"
+                  value={hasLines ? lineTotalSum : value}
+                  onValueChange={setValue}
+                  currency={currency}
+                  placeholder="0"
+                  disabled={!canWrite || hasLines}
+                  className="border-border bg-muted text-foreground"
+                />
+                {hasLines ? (
+                  <p className="text-muted-foreground text-2xs">
+                    {t('valueFromItems')}
+                  </p>
+                ) : null}
               </div>
 
               <div className="grid gap-2">
-                {/* O SELO AO LADO DO RÓTULO, e não pendurado sob o campo.
-
-                    Era eu quem tinha posto embaixo, e ele ficava órfão: uma
-                    pílula vermelha sozinha entre campos cinzas, sem encostar
-                    no que qualifica — e a coisa mais pesada da linha, para
-                    dizer uma informação, não um alarme.
-
-                    Pior: dentro de uma GRADE de duas colunas, ele crescia
-                    só a célula da direita. A linha inteira acompanhava, e a
-                    coluna da esquerda (Valor/Moeda) ficava com um buraco
-                    embaixo que não existia do outro lado.
-
-                    O diálogo de tarefa já resolve isto do jeito certo, com
-                    o "Atrasada" colado no rótulo "Prazo". Duas telas dizendo
-                    a mesma coisa de duas formas era a divergência. */}
-                <div className="flex items-center gap-2">
-                  <FieldLabel htmlFor="deal-close-date" className="mb-0">
-                    {t('expectedCloseDate')}
-                  </FieldLabel>
-                  {deal?.status === 'open' &&
-                    expectedCloseDate &&
-                    expectedCloseDate < todayIso && (
-                      <StatusBadge variant="danger" size="sm">
-                        {t('expectedCloseOverdue')}
-                      </StatusBadge>
-                    )}
-                </div>
-                <DateField
-                  id="deal-close-date"
-                  value={expectedCloseDate}
-                  onValueChange={setExpectedCloseDate}
+                <FieldLabel htmlFor="deal-shipping">{t('shipping')}</FieldLabel>
+                <CurrencyInput
+                  id="deal-shipping"
+                  value={shipping}
+                  onValueChange={setShipping}
+                  currency={currency}
+                  placeholder="0"
                   disabled={!canWrite}
-                  className="[&_input]:border-border [&_input]:bg-muted [&_input]:text-foreground"
+                  className="border-border bg-muted text-foreground"
                 />
               </div>
             </div>
 
-            {/* `@lg`, o MESMO da linha acima. Eram dois limiares para duas
-                linhas que se leem como uma grade só: entre 24rem e 32rem de
-                gaveta, Etapa/Responsável já estavam lado a lado enquanto
-                Valor/Moeda/Previsão ainda estavam empilhados, e as colunas
-                do formulário deixavam de se alinhar nessa faixa. */}
-            <div className="grid gap-4 @lg:grid-cols-2">
-              <div className="grid gap-2">
-                <FieldLabel htmlFor="deal-stage">{t('stage')}</FieldLabel>
-                <OptionSelect
-                  id="deal-stage"
-                  value={stageId}
-                  onValueChange={setStageId}
-                  disabled={!canWrite}
-                  className="border-border bg-muted text-foreground"
-                >
-                  {stages.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                    </option>
-                  ))}
-                </OptionSelect>
-              </div>
+            {/*
+              PRODUTOS · FRETE · TOTAL, a conta que o orçamento vai imprimir.
 
+              Só aparece quando há frete: sem ele o total É o valor, e uma
+              linha repetindo o número que está dois campos acima seria ruído.
+              É a mesma soma que o orçamento faz — feita aqui uma vez, para
+              não existirem dois cálculos que podem discordar, que é o que o
+              item 55 proíbe em outras palavras.
+            */}
+            {shipping !== null && shipping > 0 && (
+              <p className="text-secondary-foreground border-border bg-muted/50 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-lg border px-3 py-2 text-xs">
+                <span className="text-muted-foreground">
+                  {t('breakdown', {
+                    products: formatCurrency(produtos, currency),
+                    shipping: formatCurrency(shipping, currency),
+                  })}
+                </span>
+                <span className="text-foreground font-semibold">
+                  {t('total', { total: formatCurrency(totalGeral, currency) })}
+                </span>
+              </p>
+            )}
+
+            {/*
+              TRANSPORTADOR — item 48, e a decisão de não criar uma tabela.
+
+              O item manda reutilizar "contatos/cadastros classificados como
+              Transportadora, CASO essa estrutura já exista". Não existe:
+              não há tipo, etiqueta de sistema nem tabela de transportadoras
+              neste banco. Então o mínimo honesto é guardar o nome — um
+              campo de texto do tamanho da decisão que ele representa.
+
+              Os dois atalhos são os estados que o próprio item pede. Como
+              `ChoiceChip`, e não como opções de um select: eles não são uma
+              lista fechada de onde se escolhe, são dois valores frequentes
+              ao lado de um campo que aceita qualquer nome.
+            */}
+            <div className="grid gap-2">
+              <FieldLabel htmlFor="deal-carrier">{t('carrier')}</FieldLabel>
+              <Input
+                id="deal-carrier"
+                value={carrier}
+                onChange={(e) => setCarrier(e.target.value)}
+                placeholder={t('carrierPlaceholder')}
+                disabled={!canWrite}
+                className="border-border bg-muted text-foreground"
+              />
+              <div className="flex flex-wrap gap-1.5">
+                {CARRIER_STATES.map((chave) => {
+                  const rotulo = t(chave);
+                  return (
+                    <ChoiceChip
+                      key={chave}
+                      active={carrier === rotulo}
+                      disabled={!canWrite}
+                      onClick={() =>
+                        setCarrier(carrier === rotulo ? '' : rotulo)
+                      }
+                    >
+                      {rotulo}
+                    </ChoiceChip>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/*
+              RESPONSÁVEL PRIMEIRO, ETAPA DEPOIS — e a ordem é o item 44.
+
+              A sequência comercial que ele fixa é Produto → Valor → Frete →
+              Transportador → Responsável → Observações, e a Etapa não está
+              nela. O item 42 explica por quê e o que fazer: ela continua
+              necessária no modelo, "mas não precisa poluir o novo formulário
+              simplificado" — e, se a arquitetura exigir o campo, "mantê-lo de
+              forma discreta, sem quebrar a ordem comercial".
+
+              Exige: mover de etapa é o trabalho central do funil e o quadro
+              não é a única porta para isso. Então ela fica, no fim da linha
+              em que o Responsável começa — a leitura vai Responsável, Etapa,
+              e a sequência do item 44 sai intacta.
+
+              `@lg`, o MESMO da linha acima: entre 24rem e 32rem de gaveta
+              esta linha já estava lado a lado enquanto a de cima ainda
+              estava empilhada, e as colunas deixavam de se alinhar. */}
+            <div className="grid gap-4 @lg:grid-cols-2">
               <div className="grid gap-2">
                 <FieldLabel htmlFor="deal-assignee">
                   {t('assignedTo')}
@@ -736,19 +868,24 @@ export function DealForm({
                   ))}
                 </OptionSelect>
               </div>
-            </div>
 
-            {/* The lines, between the money and the notes — because they
-                ARE the money, and the note is what somebody adds after
-                deciding what is on the quote. Draws nothing at all on a
-                database without migration 054. */}
-            <DealItemsEditor
-              accountId={accountId}
-              dealId={deal?.id ?? null}
-              currency={currency}
-              disabled={!canWrite}
-              onChange={handleItems}
-            />
+              <div className="grid gap-2">
+                <FieldLabel htmlFor="deal-stage">{t('stage')}</FieldLabel>
+                <OptionSelect
+                  id="deal-stage"
+                  value={stageId}
+                  onValueChange={setStageId}
+                  disabled={!canWrite}
+                  className="border-border bg-muted text-foreground"
+                >
+                  {stages.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </OptionSelect>
+              </div>
+            </div>
 
             <div className="grid gap-2">
               <FieldLabel htmlFor="deal-notes">{t('notes')}</FieldLabel>
@@ -934,9 +1071,10 @@ export function DealForm({
               </Button>
               <Button
                 onClick={handleSave}
-                disabled={
-                  !canWrite || saving || !title.trim() || !contactId || !stageId
-                }
+                // O título saiu daqui junto com o campo (item 39): quem o
+                // preenche é `tituloDerivado`, e ele nunca é vazio quando
+                // há contato — que é a condição ao lado.
+                disabled={!canWrite || saving || !contactId || !stageId}
               >
                 {saving
                   ? t('saving')

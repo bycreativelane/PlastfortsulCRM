@@ -687,7 +687,9 @@ async function resolveDealTitle(
   configured: string | undefined,
   args: ExecuteArgs
 ): Promise<string> {
-  const written = configured ? (await interpolate(configured, args)).trim() : '';
+  const written = configured
+    ? (await interpolate(configured, args)).trim()
+    : '';
   if (written) return written;
 
   if (!args.contactId) return 'Oportunidade';
@@ -1029,7 +1031,11 @@ async function runStep(
           conversation_id: args.context.conversation_id ?? null,
           title: await resolveDealTitle(db, cfg.title, args),
           value: cfg.value ?? 0,
-          currency: acct?.default_currency ?? 'USD',
+          // BRL e não USD quando a conta não diz nada. O item 41 do pacote
+          // tira o seletor de moeda da tela, e a 070 já corrige o padrão da
+          // coluna — este é o caminho em que a conta não foi lida, e um
+          // dólar aqui seria a única moeda que ninguém escolheu.
+          currency: acct?.default_currency ?? 'BRL',
           status: 'open',
         })
         .select('id')

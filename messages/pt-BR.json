@@ -1270,15 +1270,21 @@
     "form": {
       "editDeal": "Editar oportunidade",
       "newDeal": "Nova oportunidade",
-      "title": "Título",
-      "titlePlaceholder": "Título da oportunidade",
       "contact": "Contato",
       "selectContact": "Escolha um contato",
       "loadingLists": "Carregando…",
       "linkToConversation": "Vincular a uma conversa",
       "value": "Valor",
-      "currency": "Moeda",
-      "expectedCloseDate": "Previsão de fechamento",
+      "salesOrder": "Pedido de venda",
+      "salesOrderPlaceholder": "Número do pedido, ex.: 14349",
+      "shipping": "Frete",
+      "carrier": "Transportador",
+      "carrierPlaceholder": "Nome da transportadora",
+      "carrierPickup": "Cliente retira",
+      "carrierTbd": "A definir",
+      "breakdown": "Produtos {products} · Frete {shipping}",
+      "total": "Total {total}",
+      "quote": "Gerar orçamento",
       "stage": "Etapa",
       "assignedTo": "Responsável",
       "unassigned": "Sem responsável",
@@ -1308,8 +1314,7 @@
       "toastFailedDelete": "Não foi possível excluir a oportunidade",
       "toastDeleted": "Oportunidade excluída",
       "valueFromItems": "Somado a partir das linhas abaixo.",
-      "toastItemsFailed": "A oportunidade foi salva, mas as linhas dela não.",
-      "expectedCloseOverdue": "Prazo vencido"
+      "toastItemsFailed": "A oportunidade foi salva, mas as linhas dela não."
     },
     "settings": {
       "managePipeline": "Gerenciar pipeline",
@@ -1381,9 +1386,9 @@
       }
     },
     "items": {
-      "title": "O que tem nesta oportunidade",
+      "title": "Produto",
       "addLine": "Adicionar linha",
-      "empty": "Sem linhas. O valor acima é o que alguém digitou.",
+      "empty": "Nenhum produto ainda. Some um e o valor se calcula sozinho.",
       "product": "Produto",
       "freeText": "Texto livre (frete, montagem…)",
       "lineName": "O que é esta linha",

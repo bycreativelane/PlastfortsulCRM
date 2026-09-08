@@ -579,6 +579,22 @@ export interface Deal {
    * pre-065 database.
    */
   stage_entered_at?: string | null;
+  /**
+   * O número do pedido que a operação controla no Bling (item 39 do
+   * pacote). Digitado à mão nesta fase.
+   *
+   * É uma coluna própria e não o `title`: desde a correção do item 3 o
+   * título é preenchido por automação com o nome do contato, e desde o
+   * item 17 toda conversa nova nasce por esse caminho. Migração 070.
+   */
+  sales_order_number?: string | null;
+  /**
+   * Frete, separado do valor dos produtos (item 47). `null` é "ainda não
+   * definido", que não é zero. Migração 070.
+   */
+  shipping_cost?: number | null;
+  /** Transportadora, "Cliente retira" ou "A definir" (item 48). 070. */
+  carrier?: string | null;
   created_at: string;
   updated_at?: string;
   contact?: Contact;

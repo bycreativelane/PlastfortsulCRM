@@ -12,8 +12,19 @@ import { APP_LOCALE } from '@/lib/i18n/locale';
  * nothing is known.
  */
 
-/** App-wide fallback when no account/deal currency is available. */
-export const DEFAULT_CURRENCY = 'USD';
+/**
+ * App-wide fallback when no account/deal currency is available.
+ *
+ * BRL desde o item 41 do pacote de correções, que tira o seletor de moeda
+ * do formulário de oportunidade — "a moeda utilizada operacionalmente é
+ * BRL e não precisa ocupar espaço na interface". Com o seletor fora, este
+ * valor deixa de ser um chute de esqueleto e vira o que a operação usa.
+ *
+ * A 070 corrige junto o `DEFAULT` da coluna e as contas que ainda
+ * carregavam o antigo. Este aqui é o caminho em que nem a conta foi lida.
+ * `deals.currency` de oportunidades antigas não é tocado por nada disso.
+ */
+export const DEFAULT_CURRENCY = 'BRL';
 
 export interface CurrencyOption {
   /** ISO-4217 code, e.g. "USD". Stored verbatim in the DB. */

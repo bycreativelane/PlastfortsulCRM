@@ -1270,15 +1270,21 @@
     "form": {
       "editDeal": "Edit Deal",
       "newDeal": "New Deal",
-      "title": "Title",
-      "titlePlaceholder": "Deal title",
       "contact": "Contact",
       "selectContact": "Select a contact",
       "loadingLists": "Loading…",
       "linkToConversation": "Link to Conversation",
       "value": "Value",
-      "currency": "Currency",
-      "expectedCloseDate": "Expected Close Date",
+      "salesOrder": "Sales order",
+      "salesOrderPlaceholder": "Order number, e.g. 14349",
+      "shipping": "Freight",
+      "carrier": "Carrier",
+      "carrierPlaceholder": "Carrier name",
+      "carrierPickup": "Customer picks up",
+      "carrierTbd": "To be defined",
+      "breakdown": "Products {products} · Freight {shipping}",
+      "total": "Total {total}",
+      "quote": "Generate quote",
       "stage": "Stage",
       "assignedTo": "Assigned To",
       "unassigned": "Unassigned",
@@ -1308,8 +1314,7 @@
       "toastFailedDelete": "Failed to delete deal",
       "toastDeleted": "Deal deleted",
       "valueFromItems": "Added up from the lines below.",
-      "toastItemsFailed": "The opportunity was saved, but its lines were not.",
-      "expectedCloseOverdue": "Past due"
+      "toastItemsFailed": "The opportunity was saved, but its lines were not."
     },
     "settings": {
       "managePipeline": "Manage Pipeline",
@@ -1381,9 +1386,9 @@
       }
     },
     "items": {
-      "title": "What is in this opportunity",
+      "title": "Product",
       "addLine": "Add line",
-      "empty": "No lines. The value above is whatever somebody typed.",
+      "empty": "No product yet. Add one and the value adds itself up.",
       "product": "Product",
       "freeText": "Free text (freight, assembly…)",
       "lineName": "What this line is",

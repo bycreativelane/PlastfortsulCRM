@@ -1270,15 +1270,21 @@
     "form": {
       "editDeal": "딜 수정",
       "newDeal": "새 딜",
-      "title": "제목",
-      "titlePlaceholder": "딜 제목",
       "contact": "연락처",
       "selectContact": "연락처 선택",
       "loadingLists": "불러오는 중…",
       "linkToConversation": "대화에 연결",
       "value": "금액",
-      "currency": "통화",
-      "expectedCloseDate": "예상 마감일",
+      "salesOrder": "판매 주문",
+      "salesOrderPlaceholder": "주문 번호, 예: 14349",
+      "shipping": "운송비",
+      "carrier": "운송업체",
+      "carrierPlaceholder": "운송업체 이름",
+      "carrierPickup": "고객 직접 수령",
+      "carrierTbd": "미정",
+      "breakdown": "제품 {products} · 운송비 {shipping}",
+      "total": "합계 {total}",
+      "quote": "견적서 생성",
       "stage": "단계",
       "assignedTo": "담당자",
       "unassigned": "담당자 없음",
@@ -1308,8 +1314,7 @@
       "toastFailedDelete": "딜을 삭제하지 못했습니다",
       "toastDeleted": "딜이 삭제되었습니다",
       "valueFromItems": "아래 항목의 합계입니다.",
-      "toastItemsFailed": "기회는 저장되었지만 항목은 저장되지 않았습니다.",
-      "expectedCloseOverdue": "기한 초과"
+      "toastItemsFailed": "기회는 저장되었지만 항목은 저장되지 않았습니다."
     },
     "settings": {
       "managePipeline": "파이프라인 관리",
@@ -1381,9 +1386,9 @@
       }
     },
     "items": {
-      "title": "이 기회의 구성 품목",
+      "title": "제품",
       "addLine": "항목 추가",
-      "empty": "항목이 없습니다. 위 금액은 직접 입력한 값입니다.",
+      "empty": "아직 제품이 없습니다. 추가하면 금액이 자동 계산됩니다.",
       "product": "제품",
       "freeText": "직접 입력(운송비, 설치…)",
       "lineName": "항목 내용",

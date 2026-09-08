@@ -50,7 +50,10 @@ function SegBar<T extends string>({
     <div
       role="tablist"
       aria-label={label}
-      className={cn('bg-muted flex gap-0.5 rounded-lg p-[3px]', className)}
+      // `w-fit`: sem isto a barra estica pela linha inteira quando o pai é
+      // um bloco, e os três segmentos ficam do tamanho do toolbar. Quem quer
+      // que ela ocupe a linha passa `w-full`, como a caixa de entrada faz.
+      className={cn('bg-muted flex w-fit gap-0.5 rounded-lg p-[3px]', className)}
     >
       {segments.map((segment) => {
         const active = segment.value === value;
@@ -62,7 +65,19 @@ function SegBar<T extends string>({
             aria-selected={active}
             onClick={() => onValueChange(segment.value)}
             className={cn(
-              'flex h-[30px] flex-1 items-center justify-center gap-1.5 rounded-md text-sm font-semibold transition-colors',
+              // `px-3` E `flex-1`, e não só o segundo.
+              //
+              // O componente nasceu numa coluna de 326px, onde `flex-1`
+              // reparte a largura e cada segmento sobra espaço. Num toolbar
+              // que encolhe para caber — que é onde `/tasks` e o calendário o
+              // puseram — não há largura para repartir, e `flex-1` de um
+              // container do tamanho do conteúdo dá a cada botão exatamente a
+              // largura do texto: "Lista Quadro Calendário", colados, com a
+              // pastilha do ativo rente às letras.
+              //
+              // O padding é o piso; onde há largura, o `flex-1` continua
+              // repartindo o resto.
+              'flex h-[30px] flex-1 items-center justify-center gap-1.5 rounded-md px-3 text-sm font-semibold transition-colors',
               active
                 ? 'bg-card text-foreground shadow-sm'
                 : 'text-secondary-foreground hover:text-foreground'

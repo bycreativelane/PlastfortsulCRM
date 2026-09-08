@@ -148,31 +148,37 @@ export function TasksCalendar({
         </Link>
       </header>
 
-      {view === 'month' ? (
-        <MonthView
-          cursor={cursor}
-          items={items}
-          onPickDay={(date) => {
-            setCursor(date);
-            setView('day');
-          }}
-        />
-      ) : view === 'week' ? (
-        <WeekView
-          days={range.days}
-          items={items}
-          hours={hours}
-          todayIso={todayIso}
-          onSelectTask={open}
-        />
-      ) : (
-        <DayView
-          iso={range.days[0]}
-          items={items}
-          hours={hours}
-          onSelectTask={open}
-        />
-      )}
+      {/* `min-h-0 flex-1`: e esta caixa que entrega a altura para o mes
+          esticar e para a grade de horas rolar por dentro. Sem ela o `fill`
+          do `MonthGrid` nao tem o que dividir. */}
+      <div className="flex min-h-0 flex-1 flex-col">
+        {view === 'month' ? (
+          <MonthView
+            fill
+            cursor={cursor}
+            items={items}
+            onPickDay={(date) => {
+              setCursor(date);
+              setView('day');
+            }}
+          />
+        ) : view === 'week' ? (
+          <WeekView
+            days={range.days}
+            items={items}
+            hours={hours}
+            todayIso={todayIso}
+            onSelectTask={open}
+          />
+        ) : (
+          <DayView
+            iso={range.days[0]}
+            items={items}
+            hours={hours}
+            onSelectTask={open}
+          />
+        )}
+      </div>
     </div>
   );
 }

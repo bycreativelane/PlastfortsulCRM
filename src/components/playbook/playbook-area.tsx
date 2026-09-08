@@ -234,6 +234,7 @@ export function PlaybookArea() {
 
       {!searching && (
         <SegBar
+          className="w-full"
           label={t('title')}
           value={section}
           onValueChange={(value) => setSection(value)}

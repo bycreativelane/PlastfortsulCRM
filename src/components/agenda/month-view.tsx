@@ -27,10 +27,13 @@ export function MonthView({
   cursor,
   items,
   onPickDay,
+  fill = false,
 }: {
   cursor: Date;
   items: AgendaItem[];
   onPickDay: (date: Date) => void;
+  /** Divide a altura do pai entre as seis semanas — ver `MonthGrid`. */
+  fill?: boolean;
 }) {
   const t = useTranslations('Agenda');
 
@@ -49,6 +52,7 @@ export function MonthView({
       month={cursor}
       onSelect={onPickDay}
       size="md"
+      fill={fill}
       dayDescription={(day) => {
         const count = byDay.get(day.iso)?.length ?? 0;
         return count > 0 ? t('itemCount', { count }) : undefined;

@@ -51,6 +51,20 @@ interface MonthGridProps {
   selected?: Date | null;
   onSelect: (date: Date) => void;
   size?: 'sm' | 'md';
+  /**
+   * Estica as seis semanas para dividir a altura do pai, em vez de fixar
+   * 40px por célula.
+   *
+   * A tela de tarefas é de altura contida — o `<main>` não rola, a visão é
+   * dona da própria altura — e o mês desenhava 240px de grade seguidos de
+   * meia tela branca. Uma grade de mês que não chega ao pé da área parece
+   * carregada pela metade, e as células ficam pequenas demais para caber os
+   * chips que elas existem para carregar.
+   *
+   * Fora de um pai com altura, isto não faz nada: `1fr` de uma linha sem
+   * altura definida colapsa para o conteúdo, que é o comportamento antigo.
+   */
+  fill?: boolean;
   /** Drawn under the day number. */
   marker?: (day: MonthGridDay) => React.ReactNode;
   /**
@@ -67,6 +81,7 @@ export function MonthGrid({
   selected = null,
   onSelect,
   size = 'sm',
+  fill = false,
   marker,
   dayDescription,
   className,
@@ -99,7 +114,13 @@ export function MonthGrid({
   const md = size === 'md';
 
   return (
-    <div className={cn('grid grid-cols-7 gap-0.5', className)}>
+    <div
+      className={cn(
+        'grid grid-cols-7 gap-0.5',
+        fill && 'h-full grid-rows-[auto_repeat(6,minmax(0,1fr))]',
+        className
+      )}
+    >
       {weekdays.map((day, i) => (
         <span
           key={i}
@@ -137,7 +158,13 @@ export function MonthGrid({
             className={cn(
               'grid place-items-center rounded-md tabular-nums transition-colors',
               md
-                ? 'h-10 w-full content-center gap-0.5 text-xs'
+                ? cn(
+                    'w-full content-start gap-0.5 py-1 text-xs',
+                    // Preenchendo, a linha da grade manda na altura; fixo,
+                    // ela vem daqui. `min-h` e não `h` para que uma célula
+                    // com três chips cresça em vez de recortá-los.
+                    fill ? 'min-h-10' : 'h-10 content-center'
+                  )
                 : 'size-7 text-xs pointer-coarse:size-10',
               // Plain muted, not 45% of it. These days are LIVE — clicking one
               // selects that date — and WCAG's contrast exemption is for

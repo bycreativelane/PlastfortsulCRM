@@ -500,6 +500,9 @@ export function ConversationList({
         />
 
         <SegBar
+          // A barra ocupa a coluna: aqui os tres segmentos SAO a largura da
+          // lista, e o `w-fit` do componente e para os toolbars que encolhem.
+          className="w-full"
           label={t('scopeLabel')}
           segments={segments}
           value={scope}

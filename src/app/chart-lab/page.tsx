@@ -41,6 +41,9 @@ import { BoardLane } from '@/components/pipelines/board-lane';
 import { DealCard } from '@/components/pipelines/deal-card';
 import { TasksBoard } from '@/components/tasks/tasks-board';
 import { TaskRow } from '@/components/tasks/task-row';
+import { TasksCalendar } from '@/components/tasks/tasks-calendar';
+import { FilterChip } from '@/components/ui/filter-chip';
+import { SegBar } from '@/components/ui/seg-bar';
 import { useTranslations } from 'next-intl';
 import type { Deal, PipelineStage, Task } from '@/types';
 
@@ -660,6 +663,19 @@ export default function ChartLabPage() {
         <SectionTitle>Tarefas — lista</SectionTitle>
         <TaskListBench />
 
+        {/* O CALENDARIO e a fileira de controles.
+            Os dois controles segmentados e os chips de filtro sao os que o
+            Gabriel fotografou colados; e aqui que da para conferir sem
+            sessao. */}
+        <SectionTitle>Tarefas — calendário</SectionTitle>
+        <ControlsBench />
+        {/* `flex flex-col` e nao so `h-140`: o `flex-1` da raiz do
+            calendario precisa de um pai FLEX para ter o que dividir — na
+            pagina de tarefas quem da isso e o shell de altura contida. */}
+        <div className="flex h-140 flex-col rounded-xl">
+          <TasksCalendar tasks={LAB_TASKS} onSelectTask={() => {}} />
+        </div>
+
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <ResponseTimeChart data={RESPONSE} loading={false} />
           {/* The dashboard's density, at the dashboard's width. */}
@@ -698,5 +714,45 @@ function TaskListBench() {
         />
       ))}
     </Panel>
+  );
+}
+
+function ControlsBench() {
+  const [mode, setMode] = useState<'list' | 'board' | 'calendar'>('list');
+  const [hidden, setHidden] = useState<ReadonlySet<string>>(() => new Set(['quote']));
+  return (
+    <div className="flex flex-wrap items-center gap-3">
+      <SegBar
+        label="Visão"
+        value={mode}
+        onValueChange={setMode}
+        segments={[
+          { value: 'list' as const, label: 'Lista' },
+          { value: 'board' as const, label: 'Quadro' },
+          { value: 'calendar' as const, label: 'Calendário' },
+        ]}
+      />
+      <div className="flex flex-wrap gap-1.5">
+        {['Ligação', 'Reunião', 'Visita', 'Follow-up', 'Orçamento', 'Outro'].map(
+          (label) => (
+            <FilterChip
+              key={label}
+              subtle
+              active={!hidden.has(label)}
+              onClick={() =>
+                setHidden((current) => {
+                  const next = new Set(current);
+                  if (next.has(label)) next.delete(label);
+                  else next.add(label);
+                  return next;
+                })
+              }
+            >
+              {label}
+            </FilterChip>
+          )
+        )}
+      </div>
+    </div>
   );
 }

@@ -339,6 +339,9 @@ export function TasksPage() {
         {TASK_KINDS.map((kind) => (
           <FilterChip
             key={kind}
+            // `subtle`: os seis nascem ligados, então o ligado é o repouso e
+            // quem tem de aparecer é o desligado. Ver a nota no componente.
+            subtle
             active={!hiddenKinds.has(kind)}
             onClick={() => toggleKind(kind)}
           >

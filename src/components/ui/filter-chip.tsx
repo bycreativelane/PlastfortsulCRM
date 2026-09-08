@@ -40,14 +40,41 @@ import { cn } from '@/lib/utils';
  * `/tasks` o desligado vinha com `opacity-60`, o que apagava o rótulo
  * exatamente quando ele é a informação que interessa — qual filtro está
  * fora.
+ *
+ * ------------------------------------------------------------------
+ * DUAS PERGUNTAS, E `subtle` É A SEGUNDA
+ * ------------------------------------------------------------------
+ *
+ * O funil pergunta **qual** — um dono entre cinco, e o padrão é "todos". Uma
+ * escolha acesa entre apagadas, e o azul lavado marca onde você está.
+ *
+ * `/tasks` pergunta **quais não** — seis tipos, todos ligados por padrão, e
+ * clicar esconde. Com a mesma pintura isso vira uma fileira de seis chips
+ * azuis em repouso, que é a tela inteira gritando o estado normal dela. O
+ * que muda ali não é o ligado, é o DESLIGADO — e é ele que precisa ser
+ * visível.
+ *
+ * Então `subtle` inverte o peso: o ligado é a superfície do cartão — erguido,
+ * como um cartão sobre a raia — e o desligado é REBAIXADO, com o cinza da
+ * casa e o rótulo riscado.
+ *
+ * O risco não é enfeite. A primeira versão disto tirava o preenchimento do
+ * desligado, e sobre uma página branca `bg-transparent` e `bg-card` são a
+ * mesma cor: os dois estados ficaram idênticos na tela, o que é pior do que
+ * o `opacity-60` que eu tinha acabado de remover. Riscado, o rótulo diz
+ * "este tipo está fora" sem depender de dois cinzas a 2% de distância — e
+ * continua legível, que era a razão de tirar a opacidade.
  */
 export function FilterChip({
   active,
+  subtle = false,
   onClick,
   className,
   children,
 }: {
   active: boolean;
+  /** O ligado é o padrão desta fileira — ver a nota acima. */
+  subtle?: boolean;
   onClick: () => void;
   className?: string;
   children: ReactNode;
@@ -62,8 +89,12 @@ export function FilterChip({
       className={cn(
         'rounded-full px-2.5 font-semibold',
         active
-          ? 'border-primary-soft-2 bg-primary-soft text-primary hover:bg-primary-soft hover:text-primary'
-          : 'bg-card dark:bg-card text-secondary-foreground',
+          ? subtle
+            ? 'bg-card dark:bg-card text-secondary-foreground'
+            : 'border-primary-soft-2 bg-primary-soft text-primary hover:bg-primary-soft hover:text-primary'
+          : subtle
+            ? 'bg-muted text-muted-foreground dark:bg-muted border-transparent line-through decoration-muted-foreground/60 hover:bg-muted hover:text-secondary-foreground'
+            : 'bg-card dark:bg-card text-secondary-foreground',
         className
       )}
     >

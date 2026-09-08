@@ -25,18 +25,43 @@ export function AgendaChip({
   item,
   density = 'comfortable',
   onSelect,
+  interactive = true,
   className,
   style,
 }: {
   item: AgendaItem;
   density?: 'tight' | 'comfortable';
   onSelect?: (item: AgendaItem) => void;
+  /**
+   * `false` quando o chip está DENTRO de outro controle.
+   *
+   * A célula do mês é um `<button>`, e um `<a>` ali é aninhamento inválido
+   * e dois cliques num só.
+   */
+  interactive?: boolean;
   className?: string;
   style?: React.CSSProperties;
 }) {
   const Icon = KIND_ICON[item.kind];
-  const tone = TONE_CHIP[AGENDA_TONE[item.kind]];
+  // Concluída perde a cor: âmbar quer dizer "uma pessoa precisa agir", e
+  // uma tarefa fechada não pede nada. Mesmo idioma da linha da lista
+  // (`task-row.tsx`), e obedece à regra do espelho da Google — concluída
+  // não some da agenda.
+  const tone = item.done
+    ? TONE_CHIP.neutral
+    : TONE_CHIP[AGENDA_TONE[item.kind]];
   const tight = density === 'tight';
+
+  /*
+   * `interactive` existe por causa da célula do mês, que é um `<button>`.
+   *
+   * O comentário do `month-view.tsx` já defendia não passar `onSelect`
+   * ali — "botão dentro de botão" — e não percebeu que sem `onSelect` o
+   * ramo do `<Link>` dispara igual, porque toda tarefa tem `href`. Um
+   * `<a>` dentro de um `<button>` é aninhamento inválido E dois cliques
+   * num só.
+   */
+  const clickable = Boolean(onSelect) || (interactive && Boolean(item.href));
 
   const inner = (
     <>
@@ -46,7 +71,9 @@ export function AgendaChip({
           {item.time}
         </span>
       ) : null}
-      <span className="truncate">{item.title}</span>
+      <span className={cn('truncate', item.done && 'line-through')}>
+        {item.title}
+      </span>
     </>
   );
 
@@ -54,7 +81,8 @@ export function AgendaChip({
     'flex w-full items-center gap-1.5 rounded-md text-left',
     tight ? 'px-1 py-0.5 text-2xs' : 'px-2 py-1 text-xs',
     tone,
-    'hover:brightness-95 focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none',
+    clickable &&
+      'hover:brightness-95 focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none',
     className
   );
 
@@ -75,7 +103,7 @@ export function AgendaChip({
     );
   }
 
-  if (item.href) {
+  if (interactive && item.href) {
     return (
       <Link
         href={item.href}

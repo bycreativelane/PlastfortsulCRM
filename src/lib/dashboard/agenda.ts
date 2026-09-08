@@ -132,6 +132,15 @@ export interface AgendaItem {
   currency: string | null;
   /** Source status, where it changes the reading (a campaign that failed). */
   status: string | null;
+  /**
+   * A tarefa já saiu da fila (`status !== 'open'`).
+   *
+   * Opcional de propósito: só o calendário de `/tasks` carrega tarefa
+   * concluída. A `/agenda` filtra `.eq('status', 'open')` na origem, então
+   * lá isto é sempre `undefined` — e as outras sete construções de item
+   * deste arquivo não precisam dizer nada.
+   */
+  done?: boolean;
   href: string | null;
   /**
    * Quem é responsável, como **id de usuário do auth** — o mesmo espaço de

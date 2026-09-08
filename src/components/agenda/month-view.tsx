@@ -79,7 +79,12 @@ export function MonthView({
               DIAS tem coisa, o dia responde o quê e a que horas.
             */}
             {shown.map((item) => (
-              <AgendaChip key={item.id} item={item} density="tight" />
+              <AgendaChip
+                key={item.id}
+                item={item}
+                density="tight"
+                interactive={false}
+              />
             ))}
             {rest > 0 ? (
               <div className="text-muted-foreground text-3xs px-1">

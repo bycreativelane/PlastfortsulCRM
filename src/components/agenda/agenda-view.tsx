@@ -42,6 +42,7 @@ import { MonthView } from './month-view';
 import { WeekView } from './week-view';
 import { KIND_ICON, TONE_DOT } from './tokens';
 import { SegBar } from '@/components/ui/seg-bar';
+import { FilterChip } from '@/components/ui/filter-chip';
 
 /**
  * A agenda como LUGAR, e não como painel.
@@ -288,30 +289,39 @@ export function AgendaPage() {
         </div>
       </header>
 
+      {/*
+        O `FilterChip` da casa, e não a quarta escrita à mão.
+
+        Estes seis nascem LIGADOS, então `subtle`: o ligado é o repouso e
+        quem tem de aparecer é o desligado. O que estava aqui apagava o
+        desligado com `opacity-60` — exatamente quando o rótulo é a
+        informação que interessa, que é qual tipo está fora.
+
+        A bolinha na cor do tipo fica: ela é a legenda dos chips que a
+        grade desenha logo abaixo, e é o único lugar da tela onde a cor de
+        cada fonte é explicada.
+      */}
       <div className="flex flex-wrap gap-1.5">
         {AGENDA_KINDS.map((kind) => {
           const on = !hidden.has(kind);
           const Icon = KIND_ICON[kind];
           return (
-            <button
+            <FilterChip
               key={kind}
-              type="button"
+              subtle
+              active={on}
               onClick={() => toggleKind(kind)}
-              aria-pressed={on}
-              className={cn(
-                'flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs',
-                on ? 'bg-background' : 'text-muted-foreground opacity-60'
-              )}
             >
               <span
+                aria-hidden
                 className={cn(
-                  'size-2 rounded-full',
+                  'size-2 shrink-0 rounded-full',
                   on ? TONE_DOT[AGENDA_TONE[kind]] : 'bg-muted-foreground/40'
                 )}
               />
-              <Icon className="size-3.5" />
+              <Icon />
               {t(`kind.${kind}`)}
-            </button>
+            </FilterChip>
           );
         })}
       </div>

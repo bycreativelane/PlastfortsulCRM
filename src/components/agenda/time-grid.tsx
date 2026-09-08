@@ -170,7 +170,22 @@ export function TimeGrid({
             {t('allDay')}
           </div>
           {days.map((iso) => (
-            <div key={iso} className="space-y-0.5 border-l p-1">
+            /*
+              TETO NA FAIXA, e não um "+N".
+
+              Sem ele, oito aniversários numa quinta empurram o eixo de
+              horas para fora da tela — a faixa cresce e a grade que a
+              pessoa veio ver desaparece.
+
+              Limita a ALTURA e não o número: o "+N" do mês só funciona
+              porque a célula é um botão que leva ao dia, e aqui não há
+              destino nenhum. Cortar em três deixaria o quarto
+              aniversário inalcançável em qualquer lugar do produto.
+            */
+            <div
+              key={iso}
+              className="max-h-18 space-y-0.5 overflow-y-auto border-l p-1"
+            >
               {allDayItems(byDay.get(iso) ?? []).map((item) => (
                 <AgendaChip
                   key={item.id}

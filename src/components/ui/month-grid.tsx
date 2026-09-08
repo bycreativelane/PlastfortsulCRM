@@ -78,7 +78,7 @@ interface MonthGridProps {
 
 export function MonthGrid({
   month,
-  selected = null,
+  selected,
   onSelect,
   size = 'sm',
   fill = false,
@@ -153,7 +153,15 @@ export function MonthGrid({
                 ? `${longDate.format(date)} — ${description}`
                 : longDate.format(date)
             }
-            aria-pressed={day.selected}
+            /*
+              `undefined` quando o chamador não tem o conceito de seleção.
+
+              O `MonthView` da agenda não seleciona nada — e anunciava 42
+              células dizendo "não pressionado" a cada dia do mês. `null` é
+              diferente de ausente: o `DateField` TEM seleção e às vezes
+              está vazio, e ali o "não pressionado" é a resposta certa.
+            */
+            aria-pressed={selected === undefined ? undefined : day.selected}
             aria-current={day.today ? 'date' : undefined}
             className={cn(
               'grid place-items-center rounded-md tabular-nums transition-colors',

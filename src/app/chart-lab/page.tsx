@@ -379,7 +379,8 @@ const LAB_TASKS: Task[] = [
     title: 'Mandar orçamento dos pallets PBR',
     kind: 'quote',
     status: 'done',
-    due_on: shiftDay(-5),
+    due_on: LAB_TODAY,
+    due_time: '10:00:00',
   }),
   labTask({
     id: 't6',

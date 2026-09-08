@@ -35,6 +35,10 @@ export function taskToAgendaItem(
     // O TIPO da tarefa ocupa o campo de status, como sempre ocupou — é o
     // que a linha mostra como segunda informação.
     status: task.kind,
+    // Concluída ou cancelada. O chip do calendário lê isto para riscar em
+    // vez de sumir: o que foi feito hoje é metade da resposta de "como foi
+    // meu dia", e some da tela exatamente quando vira resposta.
+    done: task.status !== 'open',
     href: `${hrefBase}?task=${task.id}`,
     owner: task.assigned_to ?? null,
     reschedule: 'task',

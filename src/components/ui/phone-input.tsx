@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 
-import { cn } from '@/lib/utils';
+import { Input } from '@/components/ui/input';
 import { normalizePhone } from '@/lib/whatsapp/phone-utils';
 import {
   MAX_PHONE_DIGITS,
@@ -97,7 +97,44 @@ export function PhoneInput({
   );
 
   return (
-    <input
+    /*
+     * O `Input` DA CASA, e não um `<input>` nu.
+     *
+     * Era nu, com `className={cn(className)}` e nada mais — o que significa
+     * que ele não recebia NADA da receita de campo: sem `w-full`, sem `h-8`,
+     * sem `px-2.5`, sem `border`, sem `rounded-lg`, sem o anel de foco de 3px
+     * e sem `data-slot="input"`. Medido na ficha do contato, ao lado dos três
+     * irmãos que usam o `Input`:
+     *
+     *   largura   trava em ~215px (o `size` padrão do navegador) · acompanha
+     *   altura    24px · 32px
+     *   padding   0 · 10px
+     *   borda     0 · 1px
+     *   raio      0 · 8px
+     *
+     * As classes que os dois call sites passavam — `border-border` entre elas
+     * — são COR, não largura: o preflight do Tailwind zera `border-width` em
+     * tudo, então pintar a borda de uma borda que não existe não desenha
+     * nada. É por isso que o campo aparecia sem contorno e com o número
+     * colado na margem esquerda.
+     *
+     * `data-slot="input"` é o que menos se vê e mais importa: é por ele que o
+     * `globals.css` dá 44px de altura no ponteiro grosso. Sem ele, o campo de
+     * telefone era o alvo de 24px de um formulário — no componente cujo
+     * próprio `type="tel"` existe, diz o parágrafo acima, porque é do celular
+     * que a maioria dos contatos é cadastrada.
+     *
+     * O irmão `currency-input.tsx` também desenha um `<input>` nu, mas ele
+     * PRECISA: o símbolo da moeda é um irmão absoluto dentro de um `relative`.
+     * E ele copia a receita inteira à mão, `data-slot` incluído. Aqui não há
+     * sobreposição nenhuma, então o certo é usar o componente e parar de ter
+     * uma terceira cópia da receita.
+     *
+     * `{...rest}` vem PRIMEIRO de propósito: `value`, `onChange` e `type` são
+     * o contrato deste componente e um call site não pode sobrescrevê-los sem
+     * quebrar a máscara.
+     */
+    <Input
       {...rest}
       ref={inputRef}
       // `tel` and not `text`: it is what puts the numeric keypad in front of
@@ -109,7 +146,7 @@ export function PhoneInput({
       value={display}
       onChange={handleChange}
       disabled={disabled}
-      className={cn(className)}
+      className={className}
     />
   );
 }

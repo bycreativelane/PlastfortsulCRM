@@ -43,6 +43,7 @@ import { TasksBoard } from '@/components/tasks/tasks-board';
 import { TaskRow } from '@/components/tasks/task-row';
 import { TasksCalendar } from '@/components/tasks/tasks-calendar';
 import { FilterChip } from '@/components/ui/filter-chip';
+import { PhoneInput } from '@/components/ui/phone-input';
 import { SegBar } from '@/components/ui/seg-bar';
 import { useTranslations } from 'next-intl';
 import type { Deal, PipelineStage, Task } from '@/types';
@@ -708,6 +709,14 @@ export default function ChartLabPage() {
           <TasksCalendar tasks={LAB_TASKS} onSelectTask={() => {}} />
         </div>
 
+        {/* OS CAMPOS DA FICHA DO CONTATO.
+            O Gabriel fotografou o campo de telefone desalinhado dos irmãos,
+            e a ficha é autenticada. Esta é a mesma grade, com os mesmos
+            componentes: se o telefone voltar a divergir do nome ao lado, é
+            aqui que aparece sem precisar de sessão. */}
+        <SectionTitle>Contato — campos</SectionTitle>
+        <FieldsBench />
+
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <ResponseTimeChart data={RESPONSE} loading={false} />
           {/* The dashboard's density, at the dashboard's width. */}
@@ -723,6 +732,66 @@ export default function ChartLabPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * A grade de campos da ficha do contato, com as peças reais.
+ *
+ * Quatro campos, e o de telefone é de um componente diferente dos outros
+ * três — que é exatamente a razão de esta seção existir. Lado a lado,
+ * qualquer divergência de altura, raio, preenchimento ou largura entre o
+ * `PhoneInput` e o `Input` da casa fica visível sem abrir a ficha.
+ */
+function FieldsBench() {
+  const [name, setName] = useState('Juliana Prestes');
+  const [phone, setPhone] = useState('+555199000002');
+  const [email, setEmail] = useState('juliana.prestes@cotrisel.coop.br');
+  const [company, setCompany] = useState('Cooperativa Cotrisel');
+
+  return (
+    <Panel className="@container p-4">
+      <div className="grid gap-3 @sm:grid-cols-2">
+        <div className="space-y-1.5">
+          <FieldLabel htmlFor="lab-name">Nome</FieldLabel>
+          <Input
+            id="lab-name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="bg-muted border-border text-foreground"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <FieldLabel htmlFor="lab-phone">
+            Telefone <span className="text-danger-ink">*</span>
+          </FieldLabel>
+          <PhoneInput
+            id="lab-phone"
+            value={phone}
+            onValueChange={setPhone}
+            className="bg-muted border-border text-foreground"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <FieldLabel htmlFor="lab-email">E-mail</FieldLabel>
+          <Input
+            id="lab-email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="bg-muted border-border text-foreground"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <FieldLabel htmlFor="lab-company">Empresa</FieldLabel>
+          <Input
+            id="lab-company"
+            value={company}
+            onChange={(e) => setCompany(e.target.value)}
+            className="bg-muted border-border text-foreground"
+          />
+        </div>
+      </div>
+    </Panel>
   );
 }
 

@@ -510,7 +510,18 @@ export function ContactForm({
             {/* Masked while typing, stored as E.164. The field used to
                 print `+555199000001` straight back — thirteen digits in a
                 row that nobody can check against a business card without
-                counting them. See `ui/phone-input`. */}
+                counting them. See `ui/phone-input`.
+
+                SÓ AS CORES, como o campo Nome logo acima. O que estava aqui
+                era a receita do `Input` recopiada à mão e DIFERENTE dela —
+                `h-9` contra `h-8`, `rounded-md` contra `rounded-lg`, `px-3`
+                contra `px-2.5`, mais um `shadow-xs` que campo nenhum deste
+                app tem. Como o `className` do call site entra depois da
+                receita no `cn`, ele vencia: o campo de telefone era 4px mais
+                alto e mais quadrado que os quatro irmãos da mesma coluna.
+
+                O `PhoneInput` passou a usar o `Input` da casa, então isto
+                agora é só ruído que sobrescreve. */}
             <PhoneInput
               id="cf-phone"
               value={phone}
@@ -520,7 +531,7 @@ export function ContactForm({
               }}
               onBlur={checkDuplicate}
               placeholder={t('phonePlaceholder')}
-              className="border-border bg-muted text-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 flex h-9 w-full min-w-0 rounded-md border px-3 py-1 text-base shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-3 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
+              className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
             />
             {dupMatch ? (
               <div

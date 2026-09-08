@@ -52,6 +52,9 @@
 -- que nasce fora dela é justamente a divergência que ela existe para
 -- impedir.
 --
+-- Só que não daqui: o banco proíbe apagar bucket por SQL. O bloco no fim
+-- do arquivo explica, e a remoção passa a ser feita pela Storage API.
+--
 -- ------------------------------------------------------------
 -- O QUE CONTINUA COMO ESTÁ: a leitura pública
 -- ------------------------------------------------------------
@@ -136,14 +139,24 @@ CREATE POLICY "brand delete" ON storage.objects FOR DELETE TO authenticated
   );
 
 -- ------------------------------------------------------------
--- O órfão
+-- O órfão: NÃO dá para apagar daqui
 -- ------------------------------------------------------------
 --
--- Só se estiver vazio. Um `DELETE` num bucket com objetos falha por chave
--- estrangeira, e é assim que se quer: se alguém tiver subido alguma coisa
--- entre a revisão e esta migração, ela para aqui em vez de sumir.
-DELETE FROM storage.buckets
-WHERE id = 'branding'
-  AND NOT EXISTS (
-    SELECT 1 FROM storage.objects o WHERE o.bucket_id = 'branding'
-  );
+-- A primeira versão desta migração terminava com um `DELETE FROM
+-- storage.buckets WHERE id = 'branding'`. O banco recusa:
+--
+--   42501: Direct deletion from storage tables is not allowed.
+--          Use the Storage API instead.
+--
+-- É o gatilho `storage.protect_delete()`, e ele derrubava a migração
+-- INTEIRA — as políticas acima, que são a correção que importa, não
+-- entravam por causa de uma linha de faxina no fim do arquivo.
+--
+-- Então a remoção do `branding` sai daqui e passa a ser o que ela é: uma
+-- operação de Storage, não de schema. Pelo painel (Storage > branding >
+-- Delete bucket) ou pela API. O bucket está vazio e nenhuma linha de
+-- código o referencia — `grep branding src/` só acha prosa em
+-- comentários —, então apagá-lo não quebra nada, e deixá-lo mais um dia
+-- também não quebra: o risco que ele representava era a logo ir para o
+-- destino errado, e isso agora é impossível, porque só o `brand` tem
+-- política de escrita.

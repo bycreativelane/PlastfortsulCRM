@@ -76,3 +76,58 @@ describe('toE164', () => {
     expect(toE164('+')).toBe('');
   });
 });
+
+/**
+ * O round-trip acima é a propriedade que mantém a máscara segura, e ele só
+ * era testado com treze dígitos — que é exatamente onde o formatador parava
+ * de ser fiel.
+ *
+ * `formatPhone` cortava em nove dígitos locais enquanto o `PhoneInput` aceita
+ * quinze no total (`MAX_PHONE_DIGITS`). Como o campo é CONTROLADO pelo que
+ * esta função devolve, os dígitos a mais existiam no estado e não na tela: o
+ * contato ia para o banco com um número que ninguém viu, e `isValidE164` — 7
+ * a 15 dígitos — deixava passar.
+ */
+describe('formatPhone não perde dígito', () => {
+  it('devolve todos os dígitos que recebeu, em qualquer comprimento', () => {
+    // A propriedade, e não um caso: para todo número, os dígitos do que sai
+    // são os dígitos do que entrou. É isso que faz o campo controlado poder
+    // realimentar a própria saída sem apagar o que a pessoa digitou.
+    const bases = [
+      '5551990000001234',
+      '5511987654321098',
+      '5521330012345678',
+      '595991234567890',
+      '15551234567890',
+    ];
+
+    for (const base of bases) {
+      for (let n = 2; n <= base.length; n++) {
+        const entrada = base.slice(0, n);
+        expect(
+          formatPhone(entrada).replace(/\D/g, ''),
+          `formatPhone perdeu dígito em ${entrada}`
+        ).toBe(entrada);
+      }
+    }
+  });
+
+  it('mostra o excedente em vez de escondê-lo', () => {
+    // Nenhum número brasileiro tem catorze dígitos. A saída é feia de
+    // propósito: a feiura é o aviso de que sobrou um, e é o que faltava
+    // quando a tela simplesmente parava de mudar.
+    expect(formatPhone('+55519900000012')).toBe('+55 (51) 99000-00012');
+    expect(formatPhone('+555199000000123')).toBe('+55 (51) 99000-000123');
+  });
+
+  it('não mexeu em nenhum número válido', () => {
+    // As duas formas que o Brasil tem, intactas.
+    expect(formatPhone('+5551990000001')).toBe('+55 (51) 99000-0001');
+    expect(formatPhone('+555199000001')).toBe('+55 (51) 9900-0001');
+  });
+
+  it('faz round-trip com toE164 acima de treze dígitos', () => {
+    const stored = '+55519900000012';
+    expect(toE164(formatPhone(stored))).toBe(stored);
+  });
+});

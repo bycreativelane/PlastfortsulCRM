@@ -19,6 +19,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { DateField } from '@/components/ui/date-field';
 import { FieldLabel } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
 import { OptionSelect } from '@/components/ui/option-select';
 import {
   Panel,
@@ -563,9 +564,15 @@ export function HoursPanel() {
                       aria-label={t('exceptionDate')}
                     />
 
-                    <input
+                    {/* O `Input` da casa, e não a quinta cópia da receita.
+                        A que estava aqui tinha caído para `text-sm` fixo,
+                        sem o `md:` que as outras quatro têm — e o campo de
+                        data ao lado, na mesma linha flex, não caiu. Num
+                        telefone eram 14px colados em 16px; e abaixo de 16px
+                        o Safari do iPhone dá zoom na página ao focar, então
+                        tocar num dos dois mexia na tela e no outro não. */}
+                    <Input
                       type="text"
-                      data-slot="input"
                       value={exception.label ?? ''}
                       disabled={readOnly}
                       placeholder={t('exceptionLabel')}
@@ -578,7 +585,7 @@ export function HoursPanel() {
                           )
                         )
                       }
-                      className="border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 dark:bg-field/30 h-8 min-w-0 flex-1 rounded-lg border bg-transparent px-2.5 py-1 text-sm transition-colors outline-none focus-visible:ring-3 disabled:opacity-50"
+                      className="flex-1"
                     />
 
                     <div className="flex items-center gap-2">

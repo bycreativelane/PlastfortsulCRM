@@ -128,7 +128,44 @@ export function formatPhone(phone: string | null | undefined): string {
     // breaks 5-4, 8 breaks 4-4. Below 8 it follows the mobile shape, which
     // is what somebody typing one is heading for.
     const head = local.length >= 9 ? 5 : 4;
-    return `+${BR} (${ddd}) ${local.slice(0, head)}-${local.slice(head, head + 4)}`;
+
+    /*
+     * `slice(head)` E NÃO `slice(head, head + 4)`. Este era o segundo `4`.
+     *
+     * O `+ 4` cortava tudo acima de nove dígitos locais — quer dizer, treze
+     * no total — e isso seria inofensivo se esta função só pintasse texto.
+     * Ela não só pinta: o `PhoneInput` é controlado por ela (`value={display}`)
+     * e aceita quinze dígitos (`MAX_PHONE_DIGITS`). Formatador e campo
+     * discordavam em dois dígitos, e a diferença ia parar no banco.
+     *
+     * O que acontecia, medido no navegador com o estado do React lido pelo
+     * fiber, digitando um dígito a mais num celular:
+     *
+     *   na tela   +55 (51) 99000-0001   (não muda mais, tecla o que teclar)
+     *   salvo     +55519900000017       (o 14º existe e ninguém o viu)
+     *
+     * A tela congela porque o próximo caractere é reinterpretado a partir do
+     * TEXTO VISÍVEL, que já perdeu o dígito: cada tecla substitui o invisível
+     * em vez de acrescentar. Pelo mesmo motivo um Backspace no fim apagava
+     * DOIS dígitos de uma vez (14 → 12, medido).
+     *
+     * E nada rio abaixo pega: `isValidE164` aceita de 7 a 15 dígitos, então
+     * um número de 14 passa por toda validação e só falha no envio pela Meta,
+     * longe de quem digitou.
+     *
+     * Não é o teto que está errado. O campo é o único ponto de entrada de
+     * telefone do produto e o parágrafo acima explica que esta conta fala com
+     * transportadoras e fornecedores fora do Brasil — E.164 vai a quinze, e
+     * baixar o teto para treze trocaria um defeito brasileiro por um
+     * paraguaio. O certo é o formatador parar de mentir.
+     *
+     * `+55 (51) 99000-00012` é feio de propósito: nenhum número brasileiro
+     * tem tantos dígitos, e a feiura é o aviso de que sobrou um. Conferido
+     * por execução em todos os comprimentos: a saída é idêntica, caractere
+     * por caractere, de 2 a 13 dígitos — só 14 e 15 mudam, e eles hoje
+     * perdem dígito.
+     */
+    return `+${BR} (${ddd}) ${local.slice(0, head)}-${local.slice(head)}`;
   }
 
   // Not Brazil: split the country code off so it reads as a country plus a

@@ -12,38 +12,24 @@ import {
   AlertTriangle,
   Bell,
   CheckCheck,
-  ListChecks,
   Loader2,
-  MessageSquare,
-  UserPlus,
   WifiOff,
 } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { destinationFor } from '@/lib/notifications/destination';
 import { PageActions } from '@/components/layout/page-actions';
 import { PageHeader } from '@/components/layout/page-header';
 import { StatePanel } from '@/components/ui/state-panel';
 import { IconTile } from '@/components/ui/icon-tile';
-import { dateLocale } from '@/lib/i18n/dates';
 import { useMemberNames } from '@/hooks/use-member-names';
-import { notificationText } from '@/lib/notifications/text';
 import { sectionHref } from '@/components/settings/settings-sections';
 
 /** The row plus the one embed this page asks for. */
-type NotificationRow = Notification & {
-  contact?: { name: string | null; phone: string | null } | null;
-};
-
-// Icon per notification type. One line per type.
-const TYPE_ICON: Record<Notification['type'], typeof Bell> = {
-  conversation_assigned: UserPlus,
-  new_message: MessageSquare,
-  task_due: ListChecks,
-};
-
+import {
+  NotificationRow,
+  type NotificationRecord,
+} from '@/components/notifications/notification-row';
 export default function NotificationsPage() {
   const t = useTranslations('Notifications');
   const tWhatsApp = useTranslations('WhatsAppAlert');
@@ -52,7 +38,7 @@ export default function NotificationsPage() {
   // Mirrors the bell panel — see `NotificationsMenu`. "Ver todas" must not
   // be the click that makes a standing warning disappear.
   const needsWhatsApp = useWhatsAppConnected() === false;
-  const [notifications, setNotifications] = useState<NotificationRow[] | null>(
+  const [notifications, setNotifications] = useState<NotificationRecord[] | null>(
     null
   );
   const memberNames = useMemberNames();
@@ -75,7 +61,7 @@ export default function NotificationsPage() {
       setError(fetchErr.message);
       return;
     }
-    setNotifications((data ?? []) as NotificationRow[]);
+    setNotifications((data ?? []) as NotificationRecord[]);
   }, [accountId]);
 
   useEffect(() => {
@@ -272,96 +258,21 @@ export default function NotificationsPage() {
         />
       ) : (
         <ul className="space-y-2">
-          {notifications.map((n) => {
-            const Icon = TYPE_ICON[n.type] ?? Bell;
-            const isUnread = !n.read_at;
-            // A row is a control only when clicking it DOES something —
-            // going somewhere, or marking itself read. Same rule, same
-            // shape as the bell panel.
-            const clickable = destinationFor(n) !== null || isUnread;
-            const Row = clickable ? 'button' : 'div';
-            return (
-              <li key={n.id}>
-                <Row
-                  {...(clickable
-                    ? {
-                        type: 'button' as const,
-                        onClick: () => handleClick(n),
-                      }
-                    : {})}
-                  className={cn(
-                    'surface-interactive flex w-full items-start gap-3 rounded-lg border p-4 text-left',
-                    // Unread moves the BORDER, never the fill: the panel and
-                    // this page used to disagree (`bg-primary-soft/40` there,
-                    // `bg-primary/5` here) about a tint neither should have
-                    // had.
-                    isUnread
-                      ? 'border-primary/30 bg-card'
-                      : 'border-border bg-card'
-                  )}
-                >
-                  <div
-                    className={cn(
-                      'flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg',
-                      isUnread ? 'bg-primary/15' : 'bg-muted'
-                    )}
-                    aria-hidden
-                  >
-                    <Icon
-                      className={cn(
-                        'h-5 w-5',
-                        isUnread ? 'text-primary' : 'text-muted-foreground'
-                      )}
-                    />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={cn(
-                          'truncate text-sm font-semibold',
-                          isUnread ? 'text-foreground' : 'text-muted-foreground'
-                        )}
-                      >
-                        {
-                          notificationText(n, t, {
-                            actor: n.actor_user_id
-                              ? memberNames.get(n.actor_user_id)
-                              : null,
-                            contact: n.contact?.name || n.contact?.phone,
-                          }).title
-                        }
-                      </span>
-                      {isUnread && (
-                        <span
-                          aria-label={t('unreadAria')}
-                          className="bg-primary h-2 w-2 flex-shrink-0 rounded-full"
-                        />
-                      )}
-                    </div>
-                    {(() => {
-                      const { body } = notificationText(n, t, {
-                        actor: n.actor_user_id
-                          ? memberNames.get(n.actor_user_id)
-                          : null,
-                        contact: n.contact?.name || n.contact?.phone,
-                      });
-                      return body ? (
-                        <p className="text-muted-foreground mt-0.5 truncate text-xs">
-                          {body}
-                        </p>
-                      ) : null;
-                    })()}
-                    <p className="text-muted-foreground/70 text-2xs mt-1">
-                      {formatDistanceToNow(new Date(n.created_at), {
-                        addSuffix: true,
-                        locale: dateLocale,
-                      })}
-                    </p>
-                  </div>
-                </Row>
-              </li>
-            );
-          })}
+          {notifications.map((n) => (
+            <li key={n.id}>
+              <NotificationRow
+                notification={n}
+                actorName={
+                  n.actor_user_id
+                    ? (memberNames.get(n.actor_user_id) ?? null)
+                    : null
+                }
+                density="comfortable"
+                onOpen={() => handleClick(n)}
+                t={t}
+              />
+            </li>
+          ))}
         </ul>
       )}
     </div>

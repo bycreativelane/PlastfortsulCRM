@@ -6,14 +6,10 @@ import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { destinationFor } from '@/lib/notifications/destination';
 import { toast } from 'sonner';
-import { formatDistanceToNow } from 'date-fns';
 import {
   Bell,
   CheckCheck,
-  ListChecks,
   Loader2,
-  MessageSquare,
-  UserPlus,
   WifiOff,
 } from 'lucide-react';
 
@@ -22,13 +18,12 @@ import { useAuth } from '@/hooks/use-auth';
 import { useUnreadNotifications } from '@/hooks/use-unread-notifications';
 import { useWhatsAppConnected } from '@/hooks/use-whatsapp-connected';
 import { useMemberNames } from '@/hooks/use-member-names';
-import { notificationText } from '@/lib/notifications/text';
 
 /** The row plus the one embed the panel asks for. */
-type NotificationRow = Notification & {
-  contact?: { name: string | null; phone: string | null } | null;
-};
-import { dateFnsOptions } from '@/lib/i18n/dates';
+import {
+  NotificationRow,
+  type NotificationRecord,
+} from '@/components/notifications/notification-row';
 import { cn } from '@/lib/utils';
 import type { Notification } from '@/types';
 import {
@@ -41,12 +36,6 @@ import { sectionHref } from '@/components/settings/settings-sections';
 import { CountBadge } from '@/components/ui/count-badge';
 
 /** One icon per type. New ones are a line each. */
-const TYPE_ICON: Record<Notification['type'], typeof Bell> = {
-  conversation_assigned: UserPlus,
-  new_message: MessageSquare,
-  task_due: ListChecks,
-};
-
 /** Enough to answer "anything new?" without becoming a page. */
 const PANEL_LIMIT = 8;
 
@@ -102,7 +91,7 @@ export function NotificationsMenu({ className }: { className?: string }) {
   const needsWhatsApp = useWhatsAppConnected() === false;
 
   const [open, setOpen] = useState(false);
-  const [rows, setRows] = useState<NotificationRow[] | null>(null);
+  const [rows, setRows] = useState<NotificationRecord[] | null>(null);
   const memberNames = useMemberNames();
   const [marking, setMarking] = useState(false);
 
@@ -118,7 +107,7 @@ export function NotificationsMenu({ className }: { className?: string }) {
       .eq('account_id', accountId)
       .order('created_at', { ascending: false })
       .limit(PANEL_LIMIT);
-    setRows((data ?? []) as NotificationRow[]);
+    setRows((data ?? []) as NotificationRecord[]);
   }, [accountId]);
 
   function handleOpenChange(next: boolean) {
@@ -301,85 +290,20 @@ export function NotificationsMenu({ className }: { className?: string }) {
             </p>
           ) : (
             <ul>
-              {rows.map((n) => {
-                const Icon = TYPE_ICON[n.type] ?? Bell;
-                const isUnread = !n.read_at;
-                const clickable = destinationFor(n) !== null || isUnread;
-                const Row = clickable ? 'button' : 'div';
-                return (
-                  <li key={n.id}>
-                    <Row
-                      {...(clickable
-                        ? {
-                            type: 'button' as const,
-                            onClick: () => openNotification(n),
-                          }
-                        : {})}
-                      className={cn(
-                        // Unread is not a fill either — it is the bold ink,
-                        // the accented tile and the dot, three signals that
-                        // do not tint a whole row.
-                        'flex w-full items-start gap-2.5 px-3 py-2 text-left transition-colors',
-                        clickable && 'hover:bg-muted'
-                      )}
-                    >
-                      <IconTile
-                        size="xs"
-                        tone={isUnread ? 'primary' : 'neutral'}
-                        className="mt-0.5"
-                      >
-                        <Icon />
-                      </IconTile>
-                      <span className="min-w-0 flex-1">
-                        <span className="flex items-center gap-1.5">
-                          <span
-                            className={cn(
-                              'truncate text-xs font-semibold',
-                              isUnread
-                                ? 'text-foreground'
-                                : 'text-muted-foreground'
-                            )}
-                          >
-                            {
-                              notificationText(n, t, {
-                                actor: n.actor_user_id
-                                  ? memberNames.get(n.actor_user_id)
-                                  : null,
-                                contact: n.contact?.name || n.contact?.phone,
-                              }).title
-                            }
-                          </span>
-                          {isUnread && (
-                            <span
-                              aria-label={t('unreadAria')}
-                              className="bg-primary size-1.5 shrink-0 rounded-full"
-                            />
-                          )}
-                        </span>
-                        {(() => {
-                          const { body } = notificationText(n, t, {
-                            actor: n.actor_user_id
-                              ? memberNames.get(n.actor_user_id)
-                              : null,
-                            contact: n.contact?.name || n.contact?.phone,
-                          });
-                          return body ? (
-                            <span className="text-muted-foreground text-2xs mt-0.5 block truncate">
-                              {body}
-                            </span>
-                          ) : null;
-                        })()}
-                        <span className="text-muted-foreground/70 text-3xs mt-0.5 block">
-                          {formatDistanceToNow(new Date(n.created_at), {
-                            addSuffix: true,
-                            ...dateFnsOptions,
-                          })}
-                        </span>
-                      </span>
-                    </Row>
-                  </li>
-                );
-              })}
+              {rows.map((n) => (
+                <li key={n.id}>
+                  <NotificationRow
+                    notification={n}
+                    actorName={
+                      n.actor_user_id
+                        ? (memberNames.get(n.actor_user_id) ?? null)
+                        : null
+                    }
+                    onOpen={() => openNotification(n)}
+                    t={t}
+                  />
+                </li>
+              ))}
             </ul>
           )}
         </div>

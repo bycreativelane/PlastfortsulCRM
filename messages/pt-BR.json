@@ -3955,10 +3955,10 @@
       "cancelled": "Canceladas"
     },
     "dragHandle": "Arrastar para outra coluna",
-    "columnEmpty": "Nada por aqui.",
     "contactLink": "contato",
     "dragHint": "arraste um cartão para mudar de estado",
     "viewLabel": "Visão",
-    "rangeLabel": "Janela do calendário"
+    "rangeLabel": "Janela do calendário",
+    "dropTaskHere": "Solte uma tarefa aqui"
   }
 }

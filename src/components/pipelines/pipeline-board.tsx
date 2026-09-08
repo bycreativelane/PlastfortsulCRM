@@ -197,7 +197,6 @@ export function PipelineBoard({
           </div>
         ) : null}
       </DragOverlay>
-
     </DndContext>
   );
 }
@@ -251,23 +250,33 @@ function StageColumn({
       onAdd={() => onAddDeal(stage.id)}
       addLabel={t('addDeal')}
     >
-        {deals.length === 0 ? (
-          <StatePanel title={t('dropDealHere')} framed className="flex-1" />
-        ) : (
-          deals.map((deal) => (
-            <DraggableDealCard
-              key={deal.id}
-              deal={deal}
-              stage={stage}
-              stages={stages}
-              onEdit={onEditDeal}
-              onMove={onDealMoved}
-              onChanged={onDealChanged}
-              onRequestOutcome={onRequestOutcome}
-              playbook={progress.get(deal.id)}
-            />
-          ))
-        )}
+      {deals.length === 0 ? (
+        // O MESMO DEFEITO DA COLUNA VAZIA DE TAREFAS, e a mesma linha.
+        //
+        // `flex-1` esticava o painel até o fim da raia, então uma etapa sem
+        // negócio virava um retângulo tracejado do tamanho da coluna. O
+        // droppable é o corpo da raia e o realce sob arrasto é dele — a
+        // coluna inteira continua aceitando o cartão de qualquer jeito.
+        <StatePanel
+          title={t('dropDealHere')}
+          framed
+          className="min-h-24 shrink-0"
+        />
+      ) : (
+        deals.map((deal) => (
+          <DraggableDealCard
+            key={deal.id}
+            deal={deal}
+            stage={stage}
+            stages={stages}
+            onEdit={onEditDeal}
+            onMove={onDealMoved}
+            onChanged={onDealChanged}
+            onRequestOutcome={onRequestOutcome}
+            playbook={progress.get(deal.id)}
+          />
+        ))
+      )}
     </BoardLane>
   );
 }

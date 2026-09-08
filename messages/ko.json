@@ -3955,10 +3955,10 @@
       "cancelled": "취소됨"
     },
     "dragHandle": "다른 열로 끌기",
-    "columnEmpty": "없음.",
     "contactLink": "연락처",
     "dragHint": "카드를 끌어 상태 변경",
     "viewLabel": "보기",
-    "rangeLabel": "달력 범위"
+    "rangeLabel": "달력 범위",
+    "dropTaskHere": "여기에 작업을 놓으세요"
   }
 }

@@ -389,12 +389,14 @@ const LAB_TASKS: Task[] = [
     due_on: LAB_TODAY,
     due_time: '10:00:00',
   }),
-  labTask({
-    id: 't6',
-    title: 'Reagendar reunião de setembro',
-    kind: 'meeting',
-    status: 'cancelled',
-  }),
+  /*
+   * NENHUMA CANCELADA, e isso é o fixture fazendo o seu trabalho.
+   *
+   * O Gabriel fotografou o quadro com "Concluídas · 0" e "Canceladas · 0", e
+   * a bancada tinha uma tarefa em cada coluna — então o estado VAZIO, que é o
+   * que ele apontou, não aparecia aqui. Com a coluna cancelada vazia o quadro
+   * mostra as duas coisas de uma vez: uma coluna com carga e uma sem.
+   */
 ];
 
 const ENABLED = process.env.NODE_ENV !== 'production';

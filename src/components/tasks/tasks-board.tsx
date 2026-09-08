@@ -244,14 +244,25 @@ function Column({
       ))}
 
       {tasks.length === 0 && status !== 'open' ? (
-        // O frame único de vazio da casa, o mesmo que o funil usa para
-        // "solte uma oportunidade aqui". Um parágrafo cru à esquerda não
-        // parecia um alvo de soltura.
+        // UM ALVO DE SOLTURA, e não uma região vazia do tamanho da coluna.
+        //
+        // Com `flex-1` o painel crescia até o fim da raia: duas colunas
+        // zeradas viravam dois retângulos tracejados de ~700px com uma frase
+        // no meio, e o vazio passava a ser a coisa mais pesada da tela.
+        //
+        // Encolher não tira área de soltura nenhuma: o droppable é o CORPO da
+        // raia (`bodyRef`), e o realce sob arrasto é dele — a coluna inteira
+        // continua acendendo e aceitando o cartão. O que muda é só quanta
+        // tinta o vazio cobra.
+        //
+        // E ele NOMEIA O GESTO, como o funil sempre fez. Dizia "Nada por
+        // aqui." ao lado de um cabeçalho que já dizia "· 0": repetia o que se
+        // lê acima e não contava o que dá para fazer ali.
         <StatePanel
-          title={tPage('columnEmpty')}
+          title={tPage('dropTaskHere')}
           framed
           size="sm"
-          className="flex-1"
+          className="min-h-24 shrink-0"
         />
       ) : null}
     </BoardLane>

@@ -1039,14 +1039,19 @@
       "description": "Quando devemos retomar este contato?",
       "whenLabel": "Data prevista",
       "inDays": "Daqui {days} dias",
-      "hint": "A data fica na ficha do contato e é o que a automação de recompra lê. Nenhuma tarefa é criada.",
+      "hint": "A data fica na ficha do contato e é o que a automação de recompra lê. Nenhuma tarefa é criada. Se o funil Vendas tiver a etapa Compra Futura, a oportunidade também vai para lá.",
       "cancel": "Cancelar",
       "confirm": "Confirmar",
       "toastSaved": "Compra futura registrada",
       "toastCleared": "Compra futura removida",
       "toastFailed": "Não foi possível salvar a compra futura",
       "toastSavedAndMoved": "Data salva e oportunidade movida para Compra Futura",
-      "toastStageSkipped": "Data salva. A oportunidade não foi movida — confira se o funil Vendas tem a etapa Compra Futura."
+      "toastStageSkipped": "Data salva. A oportunidade não foi movida — confira se o funil Vendas tem a etapa Compra Futura.",
+      "toastSavedAndCreated": "Data salva e uma oportunidade foi aberta em Compra Futura",
+      "toastSkippedNoPipeline": "Data salva. A oportunidade não foi movida: não existe um funil Vendas.",
+      "toastSkippedNoStage": "Data salva. A oportunidade não foi movida: o funil Vendas não tem a etapa Compra Futura.",
+      "toastSkippedFailed": "Data salva. A oportunidade não foi movida — a gravação falhou. Tente de novo.",
+      "pastDate": "Data no passado. A automação de recompra só dispara na data."
     },
     "occurrences": {
       "title": "Histórico de ocorrências",

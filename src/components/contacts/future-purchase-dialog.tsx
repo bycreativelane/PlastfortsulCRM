@@ -71,6 +71,9 @@ export function FuturePurchaseDialog({
   const [date, setDate] = useState('');
   const [saving, setSaving] = useState(false);
 
+  /** Hoje pelo relógio local — a coluna é DATE, sem fuso. */
+  const pastDate = date !== '' && date < isoInDays(0);
+
   useEffect(() => {
     if (!open) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -105,18 +108,49 @@ export function FuturePurchaseDialog({
         accountId,
         user.id
       );
-      // Falhar em mover NÃO desfaz a data. A data é o que a automação de
-      // recompra lê, e ela é a parte que sempre funcionou; perder o
-      // registro porque o funil não tem a etapa seria trocar um problema
-      // por um pior.
+      /*
+       * UM TOAST, e ele diz a CAUSA.
+       *
+       * Falhar em mover NÃO desfaz a data. A data é o que a automação de
+       * recompra lê, e ela é a parte que sempre funcionou; perder o registro
+       * porque o funil não tem a etapa seria trocar um problema por um pior.
+       * Por isso o aviso é `warning` e não `error`, e a ficha fecha do mesmo
+       * jeito: alguma coisa foi gravada.
+       *
+       * Dois defeitos moravam aqui. O ramo `skipped` não tinha `return`,
+       * então caía no sucesso genérico logo abaixo e a tela mostrava um
+       * aviso e uma confirmação ao mesmo tempo, dizendo coisas opostas.
+       *
+       * E a mensagem de aviso era uma só para três causas. `reason:
+       * "failed"` é devolvido quando o funil E a etapa existem e a
+       * gravação é que falhou — mandar conferir o nome da etapa ali é
+       * mandar procurar um problema que não existe.
+       *
+       * `created` também virava "movida". O contato não TINHA
+       * oportunidade: uma foi aberta. São eventos diferentes e a pessoa
+       * precisa saber qual aconteceu para saber onde procurar.
+       */
       if (outcome.action === 'skipped') {
-        toast.warning(t('toastStageSkipped'));
-      } else {
-        toast.success(t('toastSavedAndMoved'));
+        toast.warning(
+          outcome.reason === 'no_pipeline'
+            ? t('toastSkippedNoPipeline')
+            : outcome.reason === 'no_stage'
+              ? t('toastSkippedNoStage')
+              : t('toastSkippedFailed')
+        );
         onOpenChange(false);
         onSaved();
         return;
       }
+
+      toast.success(
+        outcome.action === 'created'
+          ? t('toastSavedAndCreated')
+          : t('toastSavedAndMoved')
+      );
+      onOpenChange(false);
+      onSaved();
+      return;
     }
 
     toast.success(date ? t('toastSaved') : t('toastCleared'));
@@ -161,6 +195,20 @@ export function FuturePurchaseDialog({
               })}
             </div>
             <DateField id="fp-date" value={date} onValueChange={setDate} />
+            {/*
+              O AVISO VEM ANTES DO CLIQUE, e não depois.
+
+              A varredura de recompra (`date-sweep.ts:146`) casa a data EXATA
+              de hoje — não existe varredura de vencidos. Uma data no passado
+              fica na ficha para sempre sem disparar nada, e a tela não dizia.
+
+              É só o aviso: o toast de sucesso continua como está, porque a
+              data FOI salva e a oportunidade FOI movida. Avisar depois faria
+              refazer uma operação que funcionou.
+            */}
+            {pastDate && (
+              <p className="text-danger-ink text-2xs">{t('pastDate')}</p>
+            )}
           </div>
 
           <p className="text-muted-foreground text-2xs leading-relaxed">

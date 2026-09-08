@@ -1039,14 +1039,19 @@
       "description": "When should we come back to this customer?",
       "whenLabel": "Expected date",
       "inDays": "In {days} days",
-      "hint": "The date lives on the contact record and is what the repurchase automation reads. No task is created.",
+      "hint": "The date lives on the contact and is what the repurchase automation reads. No task is created. If the Sales pipeline has a Future Purchase stage, the deal moves there too.",
       "cancel": "Cancel",
       "confirm": "Confirm",
       "toastSaved": "Future purchase scheduled",
       "toastCleared": "Future purchase cleared",
       "toastFailed": "Could not save the future purchase",
       "toastSavedAndMoved": "Date saved and deal moved to Future Purchase",
-      "toastStageSkipped": "Date saved. The deal was not moved — check that the Sales pipeline has a Future Purchase stage."
+      "toastStageSkipped": "Date saved. The deal was not moved — check that the Sales pipeline has a Future Purchase stage.",
+      "toastSavedAndCreated": "Date saved and a deal was opened in Future Purchase",
+      "toastSkippedNoPipeline": "Date saved. The deal was not moved: there is no Sales pipeline.",
+      "toastSkippedNoStage": "Date saved. The deal was not moved: the Sales pipeline has no Future Purchase stage.",
+      "toastSkippedFailed": "Date saved. The deal was not moved — the write failed. Try again.",
+      "pastDate": "Date in the past. The repurchase automation only fires on the date."
     },
     "occurrences": {
       "title": "Occurrence history",

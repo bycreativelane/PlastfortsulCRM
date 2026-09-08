@@ -49,6 +49,16 @@ const buttonVariants = cva(
           'hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50',
         destructive:
           'bg-destructive/10 text-destructive hover:bg-destructive/20 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:hover:bg-destructive/30 dark:focus-visible:ring-destructive/40',
+        // Espelho exato da `destructive`, e existe pelo mesmo motivo que
+        // ela: um desfecho não é "o que dá para apertar". "Marcar como
+        // ganho" era azul cheio — o mesmo tratamento do Salvar ao lado —
+        // ao lado de um "Marcar como perdido" tingido, o que fazia o par
+        // parecer uma ação principal e uma secundária em vez de duas
+        // saídas simétricas.
+        //
+        // Verde é usado com parcimônia por doutrina, e este é o caso que
+        // ela descreve: confirmado.
+        ok: 'bg-ok/10 text-ok-ink hover:bg-ok/20 focus-visible:border-ok/40 focus-visible:ring-ok/20 dark:bg-ok/20 dark:hover:bg-ok/30 dark:focus-visible:ring-ok/40',
         link: 'text-primary underline-offset-4 hover:underline',
       },
       size: {

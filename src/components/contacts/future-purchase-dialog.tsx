@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/dialog';
 import { DateField } from '@/components/ui/date-field';
 import { FieldLabel } from '@/components/ui/field';
+import { ChoiceChip } from '@/components/ui/choice-chip';
 import { cn } from '@/lib/utils';
 import type { Contact } from '@/types';
 
@@ -177,20 +178,16 @@ export function FuturePurchaseDialog({
               {PRESETS.map((days) => {
                 const iso = isoInDays(days);
                 return (
-                  <button
+                  // `active` traz o `aria-pressed` que estes três presets
+                  // nunca tiveram: quem usa leitor de tela não tinha como
+                  // saber qual prazo estava escolhido.
+                  <ChoiceChip
                     key={days}
-                    type="button"
-                    data-slot="button"
+                    active={date === iso}
                     onClick={() => setDate(iso)}
-                    className={cn(
-                      'h-7 rounded-md border px-2.5 text-xs font-semibold transition-colors',
-                      date === iso
-                        ? 'border-primary bg-primary-soft text-primary'
-                        : 'border-border bg-card text-secondary-foreground hover:bg-muted hover:text-foreground'
-                    )}
                   >
                     {t('inDays', { days: String(days) })}
-                  </button>
+                  </ChoiceChip>
                 );
               })}
             </div>

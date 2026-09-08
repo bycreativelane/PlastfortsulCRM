@@ -1164,7 +1164,8 @@
       "120": "2 horas antes",
       "1440": "1 dia antes"
     },
-    "overdueBadge": "Atrasada"
+    "overdueBadge": "Atrasada",
+    "reminderLabel": "Lembrete"
   },
   "Pipelines": {
     "page": {

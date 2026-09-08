@@ -3,11 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { toast } from 'sonner';
-import {
-  ListChecks,
-  Loader2,
-  Plus,
-} from 'lucide-react';
+import { ListChecks, Loader2, Plus } from 'lucide-react';
 
 import type { Task } from '@/types';
 import { createClient } from '@/lib/supabase/client';
@@ -15,16 +11,13 @@ import { useAuth } from '@/hooks/use-auth';
 import { useBusinessHours } from '@/hooks/use-business-hours';
 import { useMemberDirectory } from '@/hooks/use-member-directory';
 import { localParts } from '@/lib/automations/local-time';
-import {
-  countTasks,
-  loadTasksFor,
-  sortTasks,
-} from '@/lib/tasks/queries';
+import { countTasks, loadTasksFor, sortTasks } from '@/lib/tasks/queries';
 import { completeTask, reopenTask } from '@/lib/tasks/mutations';
 import { notifyTaskCompleted, publishTask } from '@/lib/tasks/notify-client';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { StatePanel } from '@/components/ui/state-panel';
+import { StatusBadge } from '@/components/ui/status-badge';
 import { TaskDialog, type TaskDialogTarget } from './task-dialog';
 import { TaskRow } from './task-row';
 
@@ -126,9 +119,13 @@ export function TaskList({
             {title ?? t('sectionTitle')}
           </h3>
           {counts && counts.overdue > 0 && (
-            <span className="bg-danger-soft text-danger-ink rounded-md px-1.5 py-0.5 text-xs font-medium">
+            // O par tonal já era o `variant="danger"` do StatusBadge, letra
+            // por letra — só sem a altura fixa e sem a forma. E a forma é
+            // significado aqui: o componente documenta que ESTADO é pílula e
+            // TAXONOMIA é retângulo, e "3 atrasadas" é estado.
+            <StatusBadge variant="danger">
               {t('overdueCount', { count: counts.overdue })}
-            </span>
+            </StatusBadge>
           )}
         </div>
 
@@ -166,7 +163,9 @@ export function TaskList({
               todayIso={todayIso}
               locale={locale}
               assignee={
-                task.assigned_to ? (members.get(task.assigned_to) ?? null) : null
+                task.assigned_to
+                  ? (members.get(task.assigned_to) ?? null)
+                  : null
               }
               busy={busy === task.id}
               canWrite={canSendMessages}

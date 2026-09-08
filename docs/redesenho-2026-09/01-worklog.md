@@ -448,3 +448,87 @@ com uma exceção: o item destrutivo fica com a opacidade, porque vermelho a
 
 E os dois ✓ da caixa de entrada tinham tamanhos diferentes.
 
+
+---
+
+## Fase 9 — rótulos, foco e átomos
+
+Doze achados sobre o que um formulário deve ao teclado, ao dedo e a quem não
+está vendo a tela.
+
+### Rótulos que não apontavam para nada (S11, T10)
+
+`grep -n 'id="'` no formulário de negócio não devolvia **uma linha**. Oito
+rótulos, oito controles anônimos: clicar no rótulo não focava o campo, e um
+leitor de tela anunciava o valor sem dizer de quê. No diálogo de tarefa eram
+mais três, e o select de lembrete era o único controle do formulário sem nome
+nenhum — o dia e a hora ao lado já tinham `aria-label`.
+
+"Prazo" não virou `htmlFor` porque ele rotula **três** controles, e um rótulo
+só aponta para um: virou `role="group"` com `aria-labelledby`. Os três
+mantêm os seus próprios nomes — a repetição "Prazo, grupo / Prazo" custa
+menos que um campo anônimo.
+
+### `<button>` cru onde o resto do app usa `Button` (T7, R10, F16)
+
+Os cinco presets de prazo eram `<button>` de 24px. O que a troca entrega não
+é aparência — `size="sm"` já traz o mesmo `rounded-md text-xs` — é o
+`data-slot="button"`, que é por onde o `globals.css` concede o alvo de 44px
+no dedo. Eles conviviam com campos que a mesma folha eleva a 44.
+
+A string `h-7 rounded-md border px-2.5 text-xs font-semibold` aparecia
+idêntica, caractere por caractere, em três arquivos. Virou `ChoiceChip` — e
+não `FilterChip`, porque a forma é significado nesta casa: pílula é estado,
+retângulo é escolha entre poucas. Dos três chamadores, só um escrevia
+`aria-pressed`; nos outros não havia como saber qual opção estava marcada.
+
+E o catálogo tinha o único `<input type="checkbox">` cru do app, 14px pintado
+com `accent-primary`.
+
+### Cor que diz a coisa errada (S10, S13)
+
+"Marcar como ganho" era **azul cheio** — o mesmo tratamento do Salvar ao lado
+— enquanto "Marcar como perdido" era vermelho tingido. O par lia como uma
+ação principal e uma secundária, quando são duas saídas simétricas; e o azul
+disputava com o único "aperte aqui" da sheet. Entrou a variante `ok` no
+`Button`, espelho exato da `destructive`.
+
+"3 atrasadas" era um retângulo com `bg-danger-soft text-danger-ink` — o
+`variant="danger"` do `StatusBadge` escrito à mão, letra por letra, só sem a
+altura fixa e sem a forma. A forma é o que o componente documenta: estado é
+pílula.
+
+### O formulário de produto não era um formulário (F11, F12, F15)
+
+Onze campos soltos com um `onClick` no fim: Enter não salvava, no catálogo
+cujo próprio vazio manda cadastrar dez produtos seguidos. Virou `<form>` com
+`onSubmit`.
+
+A dica ficava **entre** o rótulo e o campo aqui e **abaixo** do campo no
+formulário de contato. Abaixo é a ordem certa, e a razão está escrita no
+cabeçalho do `ui/field.tsx`: embaixo ela é legenda do que acabou de ser lido;
+no meio ela separa o rótulo do campo e vira mais um par de linhas
+competindo.
+
+E `Field` significava duas coisas. O `ui/field.tsx` exporta um `Field` que é
+um `div` de margem sem rótulo nenhum; o catálogo declarava um `Field` local
+com assinatura incompatível. Duas assinaturas sob a mesma palavra é o tipo de
+coisa que só dá errado no dia em que alguém importa a errada. O local virou
+`FieldRow` em `ui/field.tsx`, e o formulário de contato adotou — o que também
+acabou com as **duas espessuras** que ele tinha para a mesma linha
+(`space-y-2` nos quatro campos de cima, `space-y-1.5` nos dez da gaveta).
+
+Três blocos ficaram de fora e está escrito por quê: o telefone (o que vem
+depois do campo é um painel condicional, não dica), as etiquetas (fileira de
+botões, não controle rotulável) e o descadastro (caixa com faixa âmbar).
+
+### E dois detalhes (T12, C14)
+
+O `<span />` de espaçamento no rodapé do diálogo de tarefa cobrava 8px de
+faixa em branco abaixo de `sm` em **toda tarefa nova** — o rodapé é uma
+coluna com `gap-2`, e um irmão vazio ainda é um irmão.
+
+A zona de upload tinha dois ladrilhos: 36px com arquivo escolhido, 40px sem.
+Escolher um arquivo encolhia o ladrilho e refluía a caixa. E 40 nem está na
+escada que o `atoms.test.ts` nomeia.
+

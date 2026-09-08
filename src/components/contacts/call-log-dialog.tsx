@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/dialog';
 import { DateField } from '@/components/ui/date-field';
 import { FieldLabel } from '@/components/ui/field';
+import { ChoiceChip } from '@/components/ui/choice-chip';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
@@ -217,10 +218,9 @@ export function CallLogDialog({
             <FieldLabel>{t('outcomeLabel')}</FieldLabel>
             <div className="flex flex-wrap gap-1.5">
               {OUTCOMES.map((value) => (
-                <button
+                <ChoiceChip
                   key={value}
-                  type="button"
-                  data-slot="button"
+                  active={outcome === value}
                   onClick={() => {
                     setOutcome(value);
                     // "Não atendeu" e "retornar depois" SÃO um próximo
@@ -230,16 +230,9 @@ export function CallLogDialog({
                     // criá-la.
                     setFollowUp(value === 'noAnswer' || value === 'callBack');
                   }}
-                  aria-pressed={outcome === value}
-                  className={cn(
-                    'h-7 rounded-md border px-2.5 text-xs font-semibold transition-colors',
-                    outcome === value
-                      ? 'border-primary bg-primary-soft text-primary'
-                      : 'border-border bg-card text-secondary-foreground hover:bg-muted hover:text-foreground'
-                  )}
                 >
                   {t(`outcomes.${value}`)}
-                </button>
+                </ChoiceChip>
               ))}
             </div>
           </div>

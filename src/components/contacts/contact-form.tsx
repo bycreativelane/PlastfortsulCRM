@@ -35,7 +35,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { FieldLabel } from '@/components/ui/field';
+import { FieldLabel, FieldRow } from '@/components/ui/field';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { AlertTriangle, ChevronDown, Loader2 } from 'lucide-react';
@@ -463,8 +463,7 @@ export function ContactForm({
             }}
           />
 
-          <div className="space-y-2">
-            <FieldLabel htmlFor="cf-name">{t('nameLabel')}</FieldLabel>
+          <FieldRow label={t('nameLabel')} htmlFor="cf-name">
             <Input
               id="cf-name"
               value={name}
@@ -472,7 +471,7 @@ export function ContactForm({
               placeholder={t('namePlaceholder')}
               className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
             />
-          </div>
+          </FieldRow>
 
           <div className="space-y-2">
             <FieldLabel htmlFor="cf-phone">
@@ -528,8 +527,7 @@ export function ContactForm({
             )}
           </div>
 
-          <div className="space-y-2">
-            <FieldLabel htmlFor="cf-email">{t('emailLabel')}</FieldLabel>
+          <FieldRow label={t('emailLabel')} htmlFor="cf-email">
             <Input
               id="cf-email"
               type="email"
@@ -538,10 +536,9 @@ export function ContactForm({
               placeholder={t('emailPlaceholder')}
               className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
             />
-          </div>
+          </FieldRow>
 
-          <div className="space-y-2">
-            <FieldLabel htmlFor="cf-company">{t('companyLabel')}</FieldLabel>
+          <FieldRow label={t('companyLabel')} htmlFor="cf-company">
             <Input
               id="cf-company"
               value={company}
@@ -549,7 +546,7 @@ export function ContactForm({
               placeholder={t('companyPlaceholder')}
               className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
             />
-          </div>
+          </FieldRow>
 
           {/* Commercial detail, behind a disclosure.
               A contact created from an inbound WhatsApp message has a phone
@@ -578,21 +575,15 @@ export function ContactForm({
             {showCommercial && (
               <div className="border-border @container space-y-3 border-t p-3">
                 <div className="grid grid-cols-1 gap-3 @xs:grid-cols-2">
-                  <div className="space-y-1.5">
-                    <FieldLabel htmlFor="cf-job">
-                      {t('jobTitleLabel')}
-                    </FieldLabel>
+                  <FieldRow label={t('jobTitleLabel')} htmlFor="cf-job">
                     <Input
                       id="cf-job"
                       value={jobTitle}
                       onChange={(e) => setJobTitle(e.target.value)}
                       className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
                     />
-                  </div>
-                  <div className="space-y-1.5">
-                    <FieldLabel htmlFor="cf-taxid">
-                      {t('taxIdLabel')}
-                    </FieldLabel>
+                  </FieldRow>
+                  <FieldRow label={t('taxIdLabel')} htmlFor="cf-taxid">
                     <Input
                       id="cf-taxid"
                       value={taxId}
@@ -619,7 +610,11 @@ export function ContactForm({
                           .not('tax_id', 'is', null)
                           .limit(200);
                         const twin = (
-                          (data ?? []) as { id: string; name: string | null; tax_id?: string }[]
+                          (data ?? []) as {
+                            id: string;
+                            name: string | null;
+                            tax_id?: string;
+                          }[]
                         ).find(
                           (row) =>
                             row.id !== contact?.id &&
@@ -641,23 +636,19 @@ export function ContactForm({
                         {t('taxIdDuplicate', { name: taxIdTwin })}
                       </p>
                     ) : null}
-                  </div>
+                  </FieldRow>
                 </div>
 
                 <div className="grid grid-cols-1 gap-3 @xs:grid-cols-[minmax(0,1fr)_5rem]">
-                  <div className="space-y-1.5">
-                    <FieldLabel htmlFor="cf-city">{t('cityLabel')}</FieldLabel>
+                  <FieldRow label={t('cityLabel')} htmlFor="cf-city">
                     <Input
                       id="cf-city"
                       value={city}
                       onChange={(e) => setCity(e.target.value)}
                       className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
                     />
-                  </div>
-                  <div className="space-y-1.5">
-                    <FieldLabel htmlFor="cf-state">
-                      {t('stateLabel')}
-                    </FieldLabel>
+                  </FieldRow>
+                  <FieldRow label={t('stateLabel')} htmlFor="cf-state">
                     <Input
                       id="cf-state"
                       value={state}
@@ -666,25 +657,19 @@ export function ContactForm({
                       placeholder="RS"
                       className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
                     />
-                  </div>
+                  </FieldRow>
                 </div>
 
                 <div className="grid grid-cols-1 gap-3 @xs:grid-cols-2">
-                  <div className="space-y-1.5">
-                    <FieldLabel htmlFor="cf-bday">
-                      {t('birthdayLabel')}
-                    </FieldLabel>
+                  <FieldRow label={t('birthdayLabel')} htmlFor="cf-bday">
                     <DateField
                       id="cf-bday"
                       value={birthday}
                       onValueChange={setBirthday}
                       className="[&_input]:bg-muted [&_input]:border-border [&_input]:text-foreground"
                     />
-                  </div>
-                  <div className="space-y-1.5">
-                    <FieldLabel htmlFor="cf-source">
-                      {t('sourceLabel')}
-                    </FieldLabel>
+                  </FieldRow>
+                  <FieldRow label={t('sourceLabel')} htmlFor="cf-source">
                     <Input
                       id="cf-source"
                       value={source}
@@ -692,39 +677,34 @@ export function ContactForm({
                       placeholder={t('sourcePlaceholder')}
                       className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
                     />
-                  </div>
+                  </FieldRow>
                 </div>
 
                 <div className="grid grid-cols-1 gap-3 @xs:grid-cols-2">
-                  <div className="space-y-1.5">
-                    <FieldLabel htmlFor="cf-last">
-                      {t('lastPurchaseLabel')}
-                    </FieldLabel>
+                  <FieldRow label={t('lastPurchaseLabel')} htmlFor="cf-last">
                     <DateField
                       id="cf-last"
                       value={lastPurchaseAt}
                       onValueChange={setLastPurchaseAt}
                       className="[&_input]:bg-muted [&_input]:border-border [&_input]:text-foreground"
                     />
-                  </div>
-                  <div className="space-y-1.5">
-                    <FieldLabel htmlFor="cf-next">
-                      {t('nextPurchaseLabel')}
-                    </FieldLabel>
+                  </FieldRow>
+                  <FieldRow label={t('nextPurchaseLabel')} htmlFor="cf-next">
                     <DateField
                       id="cf-next"
                       value={nextPurchaseAt}
                       onValueChange={setNextPurchaseAt}
                       className="[&_input]:bg-muted [&_input]:border-border [&_input]:text-foreground"
                     />
-                  </div>
+                  </FieldRow>
                 </div>
 
                 <div className="grid grid-cols-1 gap-3 @xs:grid-cols-2">
-                  <div className="space-y-1.5">
-                    <FieldLabel htmlFor="cf-cycle">
-                      {t('cycleLabel')}
-                    </FieldLabel>
+                  <FieldRow
+                    label={t('cycleLabel')}
+                    htmlFor="cf-cycle"
+                    hint={t('cycleHint')}
+                  >
                     <Input
                       id="cf-cycle"
                       type="number"
@@ -733,14 +713,8 @@ export function ContactForm({
                       onChange={(e) => setCycleDays(e.target.value)}
                       className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
                     />
-                    <p className="text-muted-foreground text-2xs">
-                      {t('cycleHint')}
-                    </p>
-                  </div>
-                  <div className="space-y-1.5">
-                    <FieldLabel htmlFor="cf-ticket">
-                      {t('ticketLabel')}
-                    </FieldLabel>
+                  </FieldRow>
+                  <FieldRow label={t('ticketLabel')} htmlFor="cf-ticket">
                     <Input
                       id="cf-ticket"
                       type="number"
@@ -750,7 +724,7 @@ export function ContactForm({
                       onChange={(e) => setAverageTicket(e.target.value)}
                       className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
                     />
-                  </div>
+                  </FieldRow>
                 </div>
 
                 {/* Amber, and it says what it does. This is the one control

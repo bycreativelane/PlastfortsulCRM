@@ -32,7 +32,8 @@ import { PageActions } from '@/components/layout/page-actions';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { CurrencyInput } from '@/components/ui/currency-input';
-import { FieldLabel } from '@/components/ui/field';
+import { FieldLabel, FieldRow } from '@/components/ui/field';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { OptionSelect } from '@/components/ui/option-select';
 import {
@@ -307,190 +308,211 @@ export function ProductCatalog() {
               <PanelSub>{t('formSub')}</PanelSub>
             </div>
           </PanelHeader>
-          <PanelBody className="space-y-4">
-            <div className="grid gap-3 @md:grid-cols-[2fr_1fr]">
-              <Field label={t('name')} htmlFor="prod-name">
-                <Input
-                  id="prod-name"
-                  value={draft.name}
-                  maxLength={120}
-                  autoFocus
-                  onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-                />
-              </Field>
-              <Field label={t('sku')} htmlFor="prod-sku">
-                <Input
-                  id="prod-sku"
-                  value={draft.sku}
-                  maxLength={60}
-                  placeholder={t('skuPlaceholder')}
-                  onChange={(e) => setDraft({ ...draft, sku: e.target.value })}
-                />
-              </Field>
-            </div>
+          <PanelBody>
+            {/* Um `<form>` de verdade, e não onze campos soltos com um
+                `onClick` no fim. O Enter salva — que é o que o próprio vazio
+                deste catálogo pede ao mandar cadastrar dez produtos
+                seguidos — e é a escrita que o formulário de contato já usa.
 
-            {/* THE MEASUREMENTS, typed (migration 055). The unit is in the
+                O Cancelar ao lado não vira submit: o `Button` da casa é o do
+                Base UI, que injeta `type="button"` em `<button>` nativo. */}
+            <form
+              className="space-y-4"
+              onSubmit={(e) => {
+                e.preventDefault();
+                void commit();
+              }}
+            >
+              <div className="grid gap-3 @md:grid-cols-[2fr_1fr]">
+                <FieldRow label={t('name')} htmlFor="prod-name">
+                  <Input
+                    id="prod-name"
+                    value={draft.name}
+                    maxLength={120}
+                    autoFocus
+                    onChange={(e) =>
+                      setDraft({ ...draft, name: e.target.value })
+                    }
+                  />
+                </FieldRow>
+                <FieldRow label={t('sku')} htmlFor="prod-sku">
+                  <Input
+                    id="prod-sku"
+                    value={draft.sku}
+                    maxLength={60}
+                    placeholder={t('skuPlaceholder')}
+                    onChange={(e) =>
+                      setDraft({ ...draft, sku: e.target.value })
+                    }
+                  />
+                </FieldRow>
+              </div>
+
+              {/* THE MEASUREMENTS, typed (migration 055). The unit is in the
                 label because it is in the column: a catalogue with 40 cm
                 on one row and 400 mm on the next is a catalogue where a
                 search for 40x60 finds half of it. */}
-            <fieldset className="border-border space-y-3 rounded-md border p-3">
-              <legend className="text-muted-foreground px-1 text-xs font-semibold">
-                {t('dimensions')}
-              </legend>
-              <p className="text-muted-foreground text-xs">
-                {t('dimensionsHint')}
-              </p>
-              <div className="grid grid-cols-1 gap-3 @xs:grid-cols-3">
-                <Field label={t('width')} htmlFor="prod-w">
-                  <Input
-                    id="prod-w"
-                    type="number"
-                    inputMode="decimal"
-                    min={0}
-                    step="0.5"
-                    value={draft.widthCm ?? ''}
-                    onChange={(e) =>
-                      setDraft({
-                        ...draft,
-                        widthCm: numberOrNull(e.target.value),
-                      })
-                    }
-                  />
-                </Field>
-                <Field label={t('height')} htmlFor="prod-h">
-                  <Input
-                    id="prod-h"
-                    type="number"
-                    inputMode="decimal"
-                    min={0}
-                    step="0.5"
-                    value={draft.heightCm ?? ''}
-                    onChange={(e) =>
-                      setDraft({
-                        ...draft,
-                        heightCm: numberOrNull(e.target.value),
-                      })
-                    }
-                  />
-                </Field>
-                <Field label={t('thickness')} htmlFor="prod-t">
-                  <Input
-                    id="prod-t"
-                    type="number"
-                    inputMode="numeric"
-                    min={0}
-                    step="1"
-                    value={draft.thicknessMicron ?? ''}
-                    onChange={(e) =>
-                      setDraft({
-                        ...draft,
-                        thicknessMicron: numberOrNull(e.target.value),
-                      })
-                    }
-                  />
-                </Field>
-              </div>
-              <div className="grid grid-cols-1 gap-3 @xs:grid-cols-2">
-                <Field label={t('material')} htmlFor="prod-mat">
-                  <Input
-                    id="prod-mat"
-                    value={draft.material}
-                    maxLength={60}
-                    placeholder={t('materialPlaceholder')}
-                    onChange={(e) =>
-                      setDraft({ ...draft, material: e.target.value })
-                    }
-                  />
-                </Field>
-                <Field label={t('color')} htmlFor="prod-color">
-                  <Input
-                    id="prod-color"
-                    value={draft.color}
-                    maxLength={40}
-                    placeholder={t('colorPlaceholder')}
-                    onChange={(e) =>
-                      setDraft({ ...draft, color: e.target.value })
-                    }
-                  />
-                </Field>
-              </div>
-            </fieldset>
+              <fieldset className="border-border space-y-3 rounded-md border p-3">
+                <legend className="text-muted-foreground px-1 text-xs font-semibold">
+                  {t('dimensions')}
+                </legend>
+                <p className="text-muted-foreground text-xs">
+                  {t('dimensionsHint')}
+                </p>
+                <div className="grid grid-cols-1 gap-3 @xs:grid-cols-3">
+                  <FieldRow label={t('width')} htmlFor="prod-w">
+                    <Input
+                      id="prod-w"
+                      type="number"
+                      inputMode="decimal"
+                      min={0}
+                      step="0.5"
+                      value={draft.widthCm ?? ''}
+                      onChange={(e) =>
+                        setDraft({
+                          ...draft,
+                          widthCm: numberOrNull(e.target.value),
+                        })
+                      }
+                    />
+                  </FieldRow>
+                  <FieldRow label={t('height')} htmlFor="prod-h">
+                    <Input
+                      id="prod-h"
+                      type="number"
+                      inputMode="decimal"
+                      min={0}
+                      step="0.5"
+                      value={draft.heightCm ?? ''}
+                      onChange={(e) =>
+                        setDraft({
+                          ...draft,
+                          heightCm: numberOrNull(e.target.value),
+                        })
+                      }
+                    />
+                  </FieldRow>
+                  <FieldRow label={t('thickness')} htmlFor="prod-t">
+                    <Input
+                      id="prod-t"
+                      type="number"
+                      inputMode="numeric"
+                      min={0}
+                      step="1"
+                      value={draft.thicknessMicron ?? ''}
+                      onChange={(e) =>
+                        setDraft({
+                          ...draft,
+                          thicknessMicron: numberOrNull(e.target.value),
+                        })
+                      }
+                    />
+                  </FieldRow>
+                </div>
+                <div className="grid grid-cols-1 gap-3 @xs:grid-cols-2">
+                  <FieldRow label={t('material')} htmlFor="prod-mat">
+                    <Input
+                      id="prod-mat"
+                      value={draft.material}
+                      maxLength={60}
+                      placeholder={t('materialPlaceholder')}
+                      onChange={(e) =>
+                        setDraft({ ...draft, material: e.target.value })
+                      }
+                    />
+                  </FieldRow>
+                  <FieldRow label={t('color')} htmlFor="prod-color">
+                    <Input
+                      id="prod-color"
+                      value={draft.color}
+                      maxLength={40}
+                      placeholder={t('colorPlaceholder')}
+                      onChange={(e) =>
+                        setDraft({ ...draft, color: e.target.value })
+                      }
+                    />
+                  </FieldRow>
+                </div>
+              </fieldset>
 
-            <div className="grid gap-3 @md:grid-cols-3">
-              <Field label={t('price')} htmlFor="prod-price">
-                <CurrencyInput
-                  id="prod-price"
-                  value={draft.price}
-                  onValueChange={(v) => setDraft({ ...draft, price: v })}
-                  currency={draft.currency}
-                  placeholder={t('pricePlaceholder')}
-                />
-              </Field>
-              <Field label={t('currency')} htmlFor="prod-currency">
-                <OptionSelect
-                  id="prod-currency"
-                  value={draft.currency}
-                  onValueChange={(v) => setDraft({ ...draft, currency: v })}
-                >
-                  {CURRENCIES.map((c) => (
-                    <option key={c.code} value={c.code}>
-                      {c.code}
-                    </option>
-                  ))}
-                </OptionSelect>
-              </Field>
-              <Field label={t('unit')} htmlFor="prod-unit">
+              <div className="grid gap-3 @md:grid-cols-3">
+                <FieldRow label={t('price')} htmlFor="prod-price">
+                  <CurrencyInput
+                    id="prod-price"
+                    value={draft.price}
+                    onValueChange={(v) => setDraft({ ...draft, price: v })}
+                    currency={draft.currency}
+                    placeholder={t('pricePlaceholder')}
+                  />
+                </FieldRow>
+                <FieldRow label={t('currency')} htmlFor="prod-currency">
+                  <OptionSelect
+                    id="prod-currency"
+                    value={draft.currency}
+                    onValueChange={(v) => setDraft({ ...draft, currency: v })}
+                  >
+                    {CURRENCIES.map((c) => (
+                      <option key={c.code} value={c.code}>
+                        {c.code}
+                      </option>
+                    ))}
+                  </OptionSelect>
+                </FieldRow>
+                <FieldRow label={t('unit')} htmlFor="prod-unit">
+                  <Input
+                    id="prod-unit"
+                    value={draft.unit}
+                    maxLength={16}
+                    placeholder={t('unitPlaceholder')}
+                    onChange={(e) =>
+                      setDraft({ ...draft, unit: e.target.value })
+                    }
+                  />
+                </FieldRow>
+              </div>
+
+              <FieldRow
+                label={t('category')}
+                htmlFor="prod-category"
+                hint={t('categoryDesc')}
+              >
                 <Input
-                  id="prod-unit"
-                  value={draft.unit}
-                  maxLength={16}
-                  placeholder={t('unitPlaceholder')}
-                  onChange={(e) => setDraft({ ...draft, unit: e.target.value })}
+                  id="prod-category"
+                  value={draft.category}
+                  maxLength={60}
+                  placeholder={t('categoryPlaceholder')}
+                  onChange={(e) =>
+                    setDraft({ ...draft, category: e.target.value })
+                  }
                 />
-              </Field>
-            </div>
+              </FieldRow>
 
-            <Field
-              label={t('category')}
-              htmlFor="prod-category"
-              hint={t('categoryDesc')}
-            >
-              <Input
-                id="prod-category"
-                value={draft.category}
-                maxLength={60}
-                placeholder={t('categoryPlaceholder')}
-                onChange={(e) =>
-                  setDraft({ ...draft, category: e.target.value })
-                }
-              />
-            </Field>
+              <FieldRow
+                label={t('descriptionLabel')}
+                htmlFor="prod-desc"
+                hint={t('descriptionHint')}
+              >
+                <Textarea
+                  id="prod-desc"
+                  rows={3}
+                  value={draft.description}
+                  onChange={(e) =>
+                    setDraft({ ...draft, description: e.target.value })
+                  }
+                />
+              </FieldRow>
 
-            <Field
-              label={t('descriptionLabel')}
-              htmlFor="prod-desc"
-              hint={t('descriptionHint')}
-            >
-              <Textarea
-                id="prod-desc"
-                rows={3}
-                value={draft.description}
-                onChange={(e) =>
-                  setDraft({ ...draft, description: e.target.value })
-                }
-              />
-            </Field>
-
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setEditing(null)}>
-                <X className="size-4" />
-                {t('cancel')}
-              </Button>
-              <Button onClick={commit} disabled={saving || !draft.name.trim()}>
-                {saving ? <Loader2 className="size-4 animate-spin" /> : null}
-                {t('save')}
-              </Button>
-            </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setEditing(null)}>
+                  <X className="size-4" />
+                  {t('cancel')}
+                </Button>
+                <Button type="submit" disabled={saving || !draft.name.trim()}>
+                  {saving ? <Loader2 className="size-4 animate-spin" /> : null}
+                  {t('save')}
+                </Button>
+              </div>
+            </form>
           </PanelBody>
         </Panel>
       ) : null}
@@ -617,12 +639,13 @@ export function ProductCatalog() {
       </Panel>
 
       {(products ?? []).some((p) => !p.active) && (
+        // 14px pintado com `accent-primary` era o único checkbox cru do
+        // app. O da casa é 16px, com a borda `--control` que o
+        // `theme-contrast.test.ts` mede e um anel de foco.
         <label className="text-muted-foreground flex cursor-pointer items-center gap-2 text-xs">
-          <input
-            type="checkbox"
+          <Checkbox
             checked={showInactive}
-            onChange={(e) => setShowInactive(e.target.checked)}
-            className="accent-primary size-3.5"
+            onCheckedChange={(v) => setShowInactive(v === true)}
           />
           {t('showRetired')}
         </label>
@@ -632,25 +655,6 @@ export function ProductCatalog() {
 }
 
 /** Label, optional hint, control — the form's one row shape. */
-function Field({
-  label,
-  htmlFor,
-  hint,
-  children,
-}: {
-  label: string;
-  htmlFor: string;
-  hint?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="space-y-1.5">
-      <FieldLabel htmlFor={htmlFor}>{label}</FieldLabel>
-      {hint ? <p className="text-muted-foreground text-xs">{hint}</p> : null}
-      {children}
-    </div>
-  );
-}
 
 /**
  * An empty measurement field is NULL, not zero.

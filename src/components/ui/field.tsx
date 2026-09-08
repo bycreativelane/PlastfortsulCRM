@@ -39,4 +39,38 @@ function FieldLabel({
   );
 }
 
-export { Field, FieldLabel };
+/**
+ * A LINHA de formulário: rótulo, controle, e a dica embaixo.
+ *
+ * Nasceu dentro do `product-catalog.tsx` com o nome `Field`, que já era o
+ * nome de outra coisa neste arquivo — um `div` de margem, sem rótulo
+ * nenhum. Duas assinaturas incompatíveis sob a mesma palavra é o tipo de
+ * coisa que só dá errado no dia em que alguém importa a errada.
+ *
+ * A DICA VEM DEPOIS DO CONTROLE. No catálogo ela vinha antes, e o efeito é
+ * o que o cabeçalho deste arquivo descreve ao contrário: entre o rótulo e
+ * o campo, a dica separa os dois e vira mais um par de linhas
+ * competindo; embaixo, ela é legenda do que acabou de ser lido. É a ordem
+ * que o formulário de contato já usava.
+ */
+function FieldRow({
+  label,
+  htmlFor,
+  hint,
+  children,
+}: {
+  label: string;
+  htmlFor: string;
+  hint?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <FieldLabel htmlFor={htmlFor}>{label}</FieldLabel>
+      {children}
+      {hint ? <p className="text-muted-foreground text-xs">{hint}</p> : null}
+    </div>
+  );
+}
+
+export { Field, FieldLabel, FieldRow };

@@ -1164,7 +1164,8 @@
       "120": "2시간 전",
       "1440": "1일 전"
     },
-    "overdueBadge": "지연"
+    "overdueBadge": "지연",
+    "reminderLabel": "알림"
   },
   "Pipelines": {
     "page": {

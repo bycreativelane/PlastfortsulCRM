@@ -457,8 +457,9 @@ export function DealForm({
               single-column form should ever scroll sideways. */}
           <div className="@container flex-1 space-y-4 overflow-x-hidden overflow-y-auto p-4">
             <div className="grid gap-2">
-              <FieldLabel>{t('title')}</FieldLabel>
+              <FieldLabel htmlFor="deal-title">{t('title')}</FieldLabel>
               <Input
+                id="deal-title"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder={t('titlePlaceholder')}
@@ -468,8 +469,9 @@ export function DealForm({
             </div>
 
             <div className="grid gap-2">
-              <FieldLabel>{t('contact')}</FieldLabel>
+              <FieldLabel htmlFor="deal-contact">{t('contact')}</FieldLabel>
               <OptionSelect
+                id="deal-contact"
                 value={contactId}
                 onValueChange={setContactId}
                 disabled={!canWrite}
@@ -504,13 +506,14 @@ export function DealForm({
             <div className="grid gap-4 @lg:grid-cols-2">
               <div className="grid grid-cols-[1fr_110px] gap-3">
                 <div className="grid gap-2">
-                  <FieldLabel>{t('value')}</FieldLabel>
+                  <FieldLabel htmlFor="deal-value">{t('value')}</FieldLabel>
                   {/* Read-only once there are lines. The number is what
                       they add up to, and a field somebody can type over
                       an arithmetic result is a field that makes the
                       total a lie again — which is the whole thing line
                       items were added to stop. */}
                   <CurrencyInput
+                    id="deal-value"
                     value={
                       items.length > 0
                         ? items.reduce((sum, i) => sum + lineTotal(i), 0)
@@ -529,8 +532,11 @@ export function DealForm({
                   ) : null}
                 </div>
                 <div className="grid gap-2">
-                  <FieldLabel>{t('currency')}</FieldLabel>
+                  <FieldLabel htmlFor="deal-currency">
+                    {t('currency')}
+                  </FieldLabel>
                   <OptionSelect
+                    id="deal-currency"
                     value={currency}
                     onValueChange={setCurrency}
                     disabled={!canWrite}
@@ -546,8 +552,11 @@ export function DealForm({
               </div>
 
               <div className="grid gap-2">
-                <FieldLabel>{t('expectedCloseDate')}</FieldLabel>
+                <FieldLabel htmlFor="deal-close-date">
+                  {t('expectedCloseDate')}
+                </FieldLabel>
                 <DateField
+                  id="deal-close-date"
                   value={expectedCloseDate}
                   onValueChange={setExpectedCloseDate}
                   disabled={!canWrite}
@@ -575,8 +584,9 @@ export function DealForm({
 
             <div className="grid gap-4 @sm:grid-cols-2">
               <div className="grid gap-2">
-                <FieldLabel>{t('stage')}</FieldLabel>
+                <FieldLabel htmlFor="deal-stage">{t('stage')}</FieldLabel>
                 <OptionSelect
+                  id="deal-stage"
                   value={stageId}
                   onValueChange={setStageId}
                   disabled={!canWrite}
@@ -591,8 +601,11 @@ export function DealForm({
               </div>
 
               <div className="grid gap-2">
-                <FieldLabel>{t('assignedTo')}</FieldLabel>
+                <FieldLabel htmlFor="deal-assignee">
+                  {t('assignedTo')}
+                </FieldLabel>
                 <OptionSelect
+                  id="deal-assignee"
                   value={assignedTo}
                   onValueChange={setAssignedTo}
                   disabled={!canWrite}
@@ -621,8 +634,9 @@ export function DealForm({
             />
 
             <div className="grid gap-2">
-              <FieldLabel>{t('notes')}</FieldLabel>
+              <FieldLabel htmlFor="deal-notes">{t('notes')}</FieldLabel>
               <Textarea
+                id="deal-notes"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder={t('notesPlaceholder')}
@@ -721,6 +735,12 @@ export function DealForm({
                 <div className="grid gap-2">
                   <Button
                     type="button"
+                    // Verde tingido, e não azul cheio. Ganho e perdido são
+                    // duas saídas simétricas; com um azul sólido ao lado de
+                    // um vermelho tingido, o par lia como ação principal e
+                    // secundária — e o azul cheio disputava com o Salvar,
+                    // que é o único "aperte aqui" desta sheet.
+                    variant="ok"
                     onClick={() => handleStatusChange('won')}
                     disabled={
                       !canWrite || !!statusAction || deal.status === 'won'

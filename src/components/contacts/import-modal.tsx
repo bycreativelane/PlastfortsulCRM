@@ -446,7 +446,11 @@ export function ImportModal({
           >
             {file ? (
               <>
-                <IconTile size="lg" tone="primary" className="ring-primary/25 ring-1">
+                <IconTile
+                  size="lg"
+                  tone="primary"
+                  className="ring-primary/25 ring-1"
+                >
                   <FileText />
                 </IconTile>
                 <p
@@ -461,9 +465,17 @@ export function ImportModal({
               </>
             ) : (
               <>
-                <div className="bg-muted/80 ring-border/80 group-hover:bg-muted flex size-10 items-center justify-center rounded-lg ring-1 transition-colors duration-(--dur-1)">
-                  <Upload className="text-muted-foreground group-hover:text-foreground size-5" />
-                </div>
+                {/* O MESMO ladrilho do ramo com arquivo, acima. Eram 40px
+                    aqui e 36 lá, então escolher um arquivo encolhia o
+                    ladrilho e refluía a caixa inteira — e 40 nem está na
+                    escada que o `atoms.test.ts` nomeia (24, 28, 32, 36). */}
+                <IconTile
+                  size="lg"
+                  tone="neutral"
+                  className="ring-border/80 group-hover:bg-muted ring-1"
+                >
+                  <Upload />
+                </IconTile>
                 <p className="text-muted-foreground text-sm">
                   {t('uploadDropzone')}
                 </p>

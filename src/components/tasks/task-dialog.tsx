@@ -272,8 +272,9 @@ export function TaskDialog({
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="grid gap-2">
-              <FieldLabel>{t('kindLabel')}</FieldLabel>
+              <FieldLabel htmlFor="task-kind">{t('kindLabel')}</FieldLabel>
               <OptionSelect
+                id="task-kind"
                 value={kind}
                 onValueChange={setKind}
                 className="border-border bg-muted text-foreground"
@@ -287,8 +288,11 @@ export function TaskDialog({
             </div>
 
             <div className="grid gap-2">
-              <FieldLabel>{t('assigneeLabel')}</FieldLabel>
+              <FieldLabel htmlFor="task-assignee">
+                {t('assigneeLabel')}
+              </FieldLabel>
               <OptionSelect
+                id="task-assignee"
                 value={assignedTo}
                 onValueChange={setAssignedTo}
                 className="border-border bg-muted text-foreground"
@@ -304,7 +308,15 @@ export function TaskDialog({
           </div>
 
           {/* ---- O prazo ---- */}
-          <div className="grid gap-2">
+          {/* `role="group"` e não `htmlFor`: "Prazo" rotula TRÊS controles
+              — dia, hora e lembrete — e um rótulo só pode apontar para um.
+              Os controles mantêm os seus `aria-label` próprios: a repetição
+              "Prazo, grupo / Prazo" custa menos que um campo anônimo. */}
+          <div
+            className="grid gap-2"
+            role="group"
+            aria-labelledby="task-due-label"
+          >
             {/* O ATRASO segue a tarefa para dentro do diálogo.
 
                 A fileira que abriu este diálogo desenha a pílula vermelha;
@@ -314,7 +326,7 @@ export function TaskDialog({
                 `task` e `todayIso` já estavam os dois aqui — o segundo no
                 fuso da CONTA — e nenhum dos dois era usado para isto. */}
             <div className="flex items-center gap-2">
-              <FieldLabel>{t('dueLabel')}</FieldLabel>
+              <FieldLabel id="task-due-label">{t('dueLabel')}</FieldLabel>
               {task && isOverdue(task, todayIso) && (
                 <StatusBadge variant="danger" size="sm">
                   {t('overdueBadge')}
@@ -329,29 +341,37 @@ export function TaskDialog({
                 const due = presetDue(preset, hours, todayIso, nowTime);
                 const active = dueOn === due.due_on;
                 return (
-                  <button
+                  // `Button` e não `<button>`: `size="sm"` já traz o mesmo
+                  // `rounded-md text-xs`, então a pintura fica — o que entra
+                  // é o `data-slot="button"`, que é por onde o `globals.css`
+                  // concede o alvo de 44px no dedo. Estes cinco conviviam com
+                  // campos que a mesma folha eleva a 44 e ficavam em 24.
+                  <Button
                     key={preset}
                     type="button"
+                    variant="ghost"
+                    size="sm"
                     onClick={() => applyPreset(preset)}
                     className={cn(
-                      'rounded-md px-2 py-1 text-xs font-medium transition-colors',
-                      active
-                        ? 'bg-primary-soft text-primary'
-                        : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                      'font-medium',
+                      active &&
+                        'bg-primary-soft text-primary hover:bg-primary-soft hover:text-primary'
                     )}
                   >
                     {t(`preset.${preset}`)}
-                  </button>
+                  </Button>
                 );
               })}
               {dueOn && (
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="sm"
                   onClick={() => handleDayChange('')}
-                  className="text-muted-foreground hover:bg-muted hover:text-foreground rounded-md px-2 py-1 text-xs font-medium transition-colors"
+                  className="font-medium"
                 >
                   {t('preset.none')}
-                </button>
+                </Button>
               )}
             </div>
 
@@ -371,6 +391,10 @@ export function TaskDialog({
                 aria-label={t('timeLabel')}
               />
               <OptionSelect
+                // O único controle do formulário sem nome próprio: o dia e a
+                // hora ao lado já têm `aria-label`, e este anunciava só o
+                // valor escolhido.
+                aria-label={t('reminderLabel')}
                 value={remind}
                 onValueChange={setRemind}
                 disabled={!dueOn}
@@ -410,7 +434,12 @@ export function TaskDialog({
           </div>
         </div>
 
-        <DialogFooter className="sm:justify-between">
+        {/* Sem `<span />` de espaçamento: abaixo de `sm` o rodapé é uma
+            coluna com `gap-2`, e um irmão vazio cobra 8px de faixa em
+            branco no rodapé de toda tarefa NOVA. Acima de `sm` o
+            `sm:justify-end` do próprio footer já encosta os botões à
+            direita quando não há Excluir. */}
+        <DialogFooter className={cn(task && 'sm:justify-between')}>
           {task ? (
             <Button
               variant="ghost"
@@ -421,9 +450,7 @@ export function TaskDialog({
               <Trash2 className="size-4" />
               {t('delete')}
             </Button>
-          ) : (
-            <span />
-          )}
+          ) : null}
 
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => onOpenChange(false)}>

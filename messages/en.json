@@ -1021,7 +1021,8 @@
         "empty": "The file has only a header row, or is empty.",
         "no-phone-column": "The header has no \"phone\" column.",
         "no-phone-values": "No row has a phone number."
-      }
+      },
+      "importAction": "Import"
     },
     "customFields": {
       "title": "Custom fields",
@@ -1059,7 +1060,8 @@
       "toastSkippedNoPipeline": "Date saved. The deal was not moved: there is no Sales pipeline.",
       "toastSkippedNoStage": "Date saved. The deal was not moved: the Sales pipeline has no Future Purchase stage.",
       "toastSkippedFailed": "Date saved. The deal was not moved — the write failed. Try again.",
-      "pastDate": "Date in the past. The repurchase automation only fires on the date."
+      "pastDate": "Date in the past. The repurchase automation only fires on the date.",
+      "clearDate": "Clear date"
     },
     "occurrences": {
       "title": "Occurrence history",

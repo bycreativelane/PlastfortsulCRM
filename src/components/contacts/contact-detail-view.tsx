@@ -760,9 +760,23 @@ export function ContactDetailView({
                     pushed Save below the fold. */}
                 <TabsContent
                   value="details"
-                  className="@container flex-1 overflow-y-auto px-4 py-3"
+                  className="@container flex min-h-0 flex-1 flex-col overflow-y-auto px-4 py-3"
                 >
-                  <div className="space-y-4">
+                  {/*
+                    `flex flex-col` para o Salvar ter contra o que empurrar.
+
+                    Esta aba tem quatro campos e ocupa a altura de uma gaveta
+                    inteira: o formulário acabava por volta dos 420px e o
+                    botão ficava boiando no meio de ~500px de vazio, o que faz
+                    a ação parecer perdida em vez de terminar a coluna.
+
+                    Com o `mt-auto` abaixo ele desce para o pé quando sobra
+                    altura e continua logo depois do conteúdo quando não sobra
+                    — que é o caso de uma conta com muitos campos
+                    personalizados. Um rodapé fixo não serviria: ele é da aba
+                    Dados, e as outras quatro não têm o que salvar.
+                  */}
+                  <div className="flex min-h-0 flex-1 flex-col space-y-4">
                     {/* `htmlFor`/`id` on every pair: `FieldLabel` renders a
                         real `<label>` but does not wrap its control here, so
                         without the wiring clicking the label focused nothing
@@ -859,11 +873,15 @@ export function ContactDetailView({
 
                     {/* Full width in a narrow panel, its own size in a
                         wide one: a 40rem Save is a target nobody can miss
-                        and a proportion nobody chose. */}
+                        and a proportion nobody chose.
+
+                        `mt-auto` empurra para o pé da coluna — ver a nota no
+                        topo da aba. `self-start` no largo para o `w-auto` não
+                        esticar dentro de uma coluna flex. */}
                     <Button
                       onClick={saveRecord}
                       disabled={savingDetails}
-                      className="bg-primary hover:bg-primary/90 text-primary-foreground w-full @sm:w-auto"
+                      className="bg-primary hover:bg-primary/90 text-primary-foreground mt-auto w-full @sm:w-auto @sm:self-start"
                       size="sm"
                     >
                       {savingDetails ? (

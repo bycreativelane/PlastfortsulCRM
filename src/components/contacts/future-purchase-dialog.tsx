@@ -75,6 +75,11 @@ export function FuturePurchaseDialog({
   /** Hoje pelo relógio local — a coluna é DATE, sem fuso. */
   const pastDate = date !== '' && date < isoInDays(0);
 
+  /** O contato já tinha uma data quando a tela abriu. */
+  const hadDate = Boolean(contact?.next_purchase_expected_at);
+  /** Confirmar com o campo vazio APAGA a data que existia. */
+  const willClear = date === '' && hadDate;
+
   useEffect(() => {
     if (!open) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -217,9 +222,22 @@ export function FuturePurchaseDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             {t('cancel')}
           </Button>
-          <Button onClick={save} disabled={saving}>
+          {/* O BOTÃO DIZ O QUE VAI FAZER.
+              Ele era sempre "Confirmar", sólido, com o campo vazio — e com o
+              campo vazio ele faz uma de duas coisas: LIMPA a data que existia,
+              ou nada, quando não existia nenhuma. Nenhuma das duas é o que
+              "Confirmar" promete numa tela chamada "Registrar compra futura".
+
+              Apagar a data continua sendo um caminho legítimo — o `save`
+              documenta que "sem data" precisa ser dizível, senão desfazer uma
+              data errada exige inventar outra. O que muda é ele se anunciar. */}
+          <Button
+            onClick={save}
+            disabled={saving || (date === '' && !hadDate)}
+            variant={willClear ? 'destructive' : 'default'}
+          >
             {saving && <Loader2 className="size-3.5 animate-spin" />}
-            {t('confirm')}
+            {willClear ? t('clearDate') : t('confirm')}
           </Button>
         </DialogFooter>
       </DialogContent>

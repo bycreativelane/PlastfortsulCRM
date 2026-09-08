@@ -1021,7 +1021,8 @@
         "empty": "O arquivo tem só o cabeçalho, ou está vazio.",
         "no-phone-column": "Falta a coluna \"phone\" no cabeçalho.",
         "no-phone-values": "Nenhuma linha tem telefone preenchido."
-      }
+      },
+      "importAction": "Importar"
     },
     "customFields": {
       "title": "Campos personalizados",
@@ -1059,7 +1060,8 @@
       "toastSkippedNoPipeline": "Data salva. A oportunidade não foi movida: não existe um funil Vendas.",
       "toastSkippedNoStage": "Data salva. A oportunidade não foi movida: o funil Vendas não tem a etapa Compra Futura.",
       "toastSkippedFailed": "Data salva. A oportunidade não foi movida — a gravação falhou. Tente de novo.",
-      "pastDate": "Data no passado. A automação de recompra só dispara na data."
+      "pastDate": "Data no passado. A automação de recompra só dispara na data.",
+      "clearDate": "Limpar data"
     },
     "occurrences": {
       "title": "Histórico de ocorrências",

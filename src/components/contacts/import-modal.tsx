@@ -731,9 +731,18 @@ export function ImportModal({
               className="bg-primary hover:bg-primary/90 text-primary-foreground"
             >
               {importing && <Loader2 className="size-4 animate-spin" />}
+              {/* SEM CONTAR ZERO. O ternário mandava os dois ramos para a
+                  MESMA chamada, então o botão dizia "Importar 0 contato"
+                  antes de existir arquivo — e o singular ali não é engano:
+                  a regra de plural do português no CLDR trata 0 como
+                  singular. Correto e mesmo assim errado de ler.
+
+                  Sem linha nenhuma o botão é só o verbo; ele já está
+                  desabilitado, e um número que só pode ser zero não informa
+                  nada que o vazio da zona acima não tenha dito. */}
               {parsedRows.length > 0
                 ? t('importBtn', { count: parsedRows.length })
-                : t('importBtn', { count: 0 })}
+                : t('importAction')}
             </Button>
           )}
         </DialogFooter>

@@ -9,6 +9,8 @@ import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
 import { useBusinessHours } from '@/hooks/use-business-hours';
 import { localParts } from '@/lib/automations/local-time';
+import { fromISO } from '@/lib/calendar';
+import { formatMonthDay } from '@/lib/i18n/dates';
 import { createTask, presetDue } from '@/lib/tasks/mutations';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -84,6 +86,8 @@ export function CallLogDialog({
   const [outcome, setOutcome] = useState<Outcome>('spoke');
   const [notes, setNotes] = useState('');
   const [followUp, setFollowUp] = useState(false);
+  /** A pessoa já mexeu na caixa de retorno neste registro. */
+  const [followUpTouched, setFollowUpTouched] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const { hours } = useBusinessHours();
@@ -102,8 +106,31 @@ export function CallLogDialog({
         hours,
         localParts(new Date(), hours.timezone).dateKey
       ),
-    [hours]
+    // `open` é dependência de propósito, e não decorativa: uma aba deixada
+    // aberta desde ontem calcularia "amanhã" a partir do dia em que foi
+    // montada, errando o texto E a data que a tarefa grava.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [hours, open]
   );
+
+  /*
+   * "9 set 08:00", e não "2026-09-09".
+   *
+   * `due_on` saía cru na frase, num diálogo que escreve dd/mm/aaaa num
+   * campo de data a poucos pixels dali — e a HORA, que o expediente da
+   * conta decidiu e que a tarefa vai gravar, não aparecia em lugar nenhum.
+   *
+   * `fromISO` e não `new Date`: `due_on` é coluna DATE, e o construtor cru
+   * sobre ela devolve o dia anterior a oeste de Greenwich.
+   */
+  const followUpLabel = [
+    fromISO(followUpDue.due_on)
+      ? formatMonthDay(fromISO(followUpDue.due_on) as Date)
+      : followUpDue.due_on,
+    followUpDue.due_time?.slice(0, 5),
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   useEffect(() => {
     if (!open) return;
@@ -113,6 +140,7 @@ export function CallLogDialog({
     setOutcome('spoke');
     setNotes('');
     setFollowUp(false);
+    setFollowUpTouched(false);
   }, [open]);
 
   async function save() {
@@ -228,7 +256,14 @@ export function CallLogDialog({
                     // necessariamente. Pré-marcar os dois primeiros é a
                     // diferença entre a tarefa existir e alguém lembrar de
                     // criá-la.
-                    setFollowUp(value === 'noAnswer' || value === 'callBack');
+                    //
+                    // …e por isso o palpite só vale enquanto ninguém tocou
+                    // na caixa. Ele rodava nos dois sentidos e sem condição,
+                    // então marcar o retorno à mão e depois corrigir o
+                    // resultado da ligação DESMARCAVA o retorno, em silêncio.
+                    if (!followUpTouched) {
+                      setFollowUp(value === 'noAnswer' || value === 'callBack');
+                    }
                   }}
                 >
                   {t(`outcomes.${value}`)}
@@ -251,7 +286,10 @@ export function CallLogDialog({
           <label className="flex cursor-pointer items-start gap-2">
             <Checkbox
               checked={followUp}
-              onCheckedChange={(next) => setFollowUp(Boolean(next))}
+              onCheckedChange={(next) => {
+                setFollowUpTouched(true);
+                setFollowUp(Boolean(next));
+              }}
               className="mt-0.5"
             />
             <span className="min-w-0">
@@ -259,7 +297,7 @@ export function CallLogDialog({
                 {t('followUpLabel')}
               </span>
               <span className="text-muted-foreground text-2xs block leading-relaxed">
-                {t('followUpHint', { day: followUpDue.due_on })}
+                {t('followUpHint', { day: followUpLabel })}
               </span>
             </span>
           </label>

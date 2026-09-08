@@ -298,9 +298,16 @@ function InboxPageInner() {
   const [occurrencesOpen, setOccurrencesOpen] = useState(false);
   const [futurePurchaseOpen, setFuturePurchaseOpen] = useState(false);
 
-  const handleOpenOccurrences = useCallback(() => {
-    setOccurrencesOpen(true);
-  }, []);
+  /** De qual dos dois pontos de entrada da ficha veio o clique. */
+  const [occurrencesAdding, setOccurrencesAdding] = useState(false);
+
+  const handleOpenOccurrences = useCallback(
+    (_contact: Contact, startAdding?: boolean) => {
+      setOccurrencesAdding(Boolean(startAdding));
+      setOccurrencesOpen(true);
+    },
+    []
+  );
 
   const handleScheduleFuturePurchase = useCallback(() => {
     setFuturePurchaseOpen(true);
@@ -1186,6 +1193,7 @@ function InboxPageInner() {
         open={occurrencesOpen}
         onOpenChange={setOccurrencesOpen}
         contact={activeContact}
+        startAdding={occurrencesAdding}
         onChanged={refreshContactViews}
       />
       <FuturePurchaseDialog

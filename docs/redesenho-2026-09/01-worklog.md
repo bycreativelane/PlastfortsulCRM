@@ -625,3 +625,107 @@ segunda. O parser agora devolve `failure`, e as três estão em teste.
   `bg-muted` em repouso também acaba com as duas aparências de campo no mesmo
   diálogo.
 
+
+---
+
+## Fase 12 — catálogos e comentários
+
+Quinze achados, e a maioria é **texto**: frases da interface e comentários de
+código que afirmam o contrário do que o código faz. São os mais baratos de
+corrigir e os mais caros de deixar, porque quem lê acredita.
+
+### Onze chaves que nunca foram lidas (C5)
+
+`rowsReady_plural`, `toastSkipped_plural`, `ipCount_plural` — onze delas, nos
+três catálogos. Esse sufixo é convenção do **i18next**, e este app roda
+next-intl, que fala ICU e nunca olha a chave irmã. O singular saía sempre:
+*"3 duplicado ignorado"* na importação, *"5 IP permitido"* nos webhooks.
+
+A paridade entre catálogos estava perfeitamente satisfeita — o erro foi
+cometido igual nos três. E o modo de falhar é o que justifica a guarda nova:
+o singular está **certo** em `count: 1`, que é o primeiro caso que qualquer
+pessoa testa à mão.
+
+As onze chaves-base viraram ICU; o coreano leva só a categoria `other`,
+porque a língua não flexiona número. E o `messages.test.ts` passa a reprovar
+qualquer chave terminada em `_plural` — provado contra o catálogo de ontem.
+
+### Frases que afirmam o contrário do código (F2, F9, C1, T1)
+
+- **"O nome é obrigatório"**, no diálogo de contato. A única validação é o
+  telefone, o asterisco está no rótulo do telefone, o nome é gravado como
+  `null` quando vazio e a coluna é nullable desde a 001.
+- **A dica da descrição do produto** manda escrever ali medidas e espessura;
+  quatro controles acima, a dica das dimensões diz *"tipadas, e não escritas
+  na descrição"*, e a 055 criou as três colunas. "Quantos por caixa" não tem
+  coluna nenhuma e por isso continua legítimo na descrição.
+- **"Criar campanha com este público"** não leva público nenhum: o push é
+  seco e o assistente abre em `{ type: all }` — o `AudienceConfig` não tem
+  cidade, UF, compra nem dias parados. O rótulo virou "Nova campanha", e o
+  comentário deixou de prometer um handoff que não existe.
+- **"O lembrete sai às 08:00"** só é verdade na antecedência zero. Nas outras
+  cinco escolhas, `firstOpenTime` é a BASE e a antecedência é subtraída dela
+  — o próprio `reminders.ts` escreve o contraexemplo. A frase passou a dizer
+  o que ela sabe: *"o prazo conta como {time}"*.
+
+### Comentários que discordam entre si (R14, S12, A14)
+
+O diálogo de ocorrências dizia *"WAITING ON A MIGRATION… 042 is written and
+not applied"* enquanto o `kinds.ts` — mais novo, e importado por ele — diz
+que a 042 **foi** aplicada e mediu isso. Dois comentários do mesmo assunto
+discordando é pior que nenhum: o leitor não sabe qual acreditar. O guard de
+tabela ausente fica, agora com o motivo certo escrito.
+
+O formulário de negócio prometia "the newest OPEN one" numa consulta sem
+filtro de status. Aqui o certo era corrigir o **comentário**: a 036 põe
+UNIQUE em `(account_id, contact_id)`, então filtrar por status esconderia a
+única conversa do contato sempre que ela estivesse encerrada.
+
+E a aritmética ao lado do esqueleto da agenda somava 66px onde o componente
+desenha 58. Um esqueleto não pode se medir; a única defesa é a conta escrita
+ao lado — e uma conta errada é pior que nenhuma, porque parece conferida.
+
+### A tabela de contatos (C7, C13, C6)
+
+A linha guardava **etiquetas resolvidas**, montadas contra o `tagsMap` do
+momento com um `.filter(Boolean)` que descartava em silêncio a etiqueta que o
+mapa ainda não conhecia. Uma automação que pendura uma etiqueta nova
+disparava o realtime, a linha era rebuscada — e a etiqueta sumia até o F5,
+que é exatamente o que o comentário do realtime jura evitar. Agora a linha
+guarda **ids** e a resolução acontece na renderização, junto com o mapa; de
+quebra o `tagsMap` saiu das dependências da busca, e com ele a segunda
+consulta não-silenciosa que ele causava no mount.
+
+Quais **três das sete** etiquetas apareciam era indefinido: a consulta de
+`contact_tags` não tem `ORDER BY`, e sem ele o Postgres não promete ordem
+nenhuma. Agora ordena por nome, no mesmo idioma do popover de filtro da
+própria página, e o "+4" ganhou `title` com os nomes que ficaram de fora — o
+número sozinho conta quantas e não diz nenhuma.
+
+E cada tecla na busca era uma consulta `count: exact` **com** troca de tela:
+escrever "Marcos" eram seis. O `fetchSeq` protegia contra resposta fora de
+ordem, não contra disparar por tecla. Entrou o rascunho com 250ms — não é
+número novo, é a mesma janela de rajada do realtime de contatos. O botão de
+limpar lê o rascunho, para aparecer na primeira tecla.
+
+### Os diálogos (R9, R12, R13, C12)
+
+- **"Registrar ocorrência"** na ficha abria o histórico e pedia o mesmo
+  clique de novo, num botão com o **texto idêntico**. Agora abre no
+  formulário, com o cursor no campo, e o botão da esquerda vira Cancelar
+  enquanto se digita — antes a única saída descartava o texto sem dizer.
+- **Trocar o resultado da ligação** desmarcava o retorno que a pessoa tinha
+  marcado à mão. O palpite existe para quem esqueceu; agora ele só vale
+  enquanto ninguém tocou na caixa.
+- **O aviso da tarefa de retorno** imprimia `2026-09-09` cru, num diálogo que
+  escreve dd/mm/aaaa a poucos pixels dali — e escondia a hora, que o
+  expediente da conta decidiu e que a tarefa vai gravar. Agora "9 set 08:00".
+  E o `useMemo` ganhou `open` na lista de dependências: uma aba aberta desde
+  ontem calculava "amanhã" a partir do dia em que foi montada, errando o
+  texto **e** a data gravada.
+- **Cidade na segmentação** era igualdade sensível a maiúsculas num campo sem
+  placeholder: "porto alegre" devolvia zero numa base cheia deles. Virou
+  `ilike`, com os curingas do LIKE escapados e o custo de índice registrado
+  no comentário. A UF continua `eq` — ela vem de um campo que já faz
+  `toUpperCase`.
+

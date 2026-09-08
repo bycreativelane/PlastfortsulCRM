@@ -22,6 +22,10 @@ function spy() {
       calls.push(['eq', c, v]);
       return target;
     },
+    ilike(c, v) {
+      calls.push(['ilike', c, v]);
+      return target;
+    },
     is(c, v) {
       calls.push(['is', c, v]);
       return target;
@@ -76,11 +80,21 @@ describe('applySegmentation', () => {
     expect(calls.some(([, c]) => c === 'opted_out')).toBe(false);
   });
 
-  it('filters city and state exactly', () => {
+  it('matches the state exactly and the city case-insensitively', () => {
+    // A UF vem de um campo de dois caracteres que já faz `.toUpperCase()`.
+    // A cidade é texto livre gravado como a pessoa digitou, e com `eq`
+    // buscar "porto alegre" devolvia zero numa base cheia deles.
     const { target, calls } = spy();
     applySegmentation(target, seg({ city: 'Porto Alegre', state: 'RS' }), NOW);
     expect(calls).toContainEqual(['eq', 'state', 'RS']);
-    expect(calls).toContainEqual(['eq', 'city', 'Porto Alegre']);
+    expect(calls).toContainEqual(['ilike', 'city', 'Porto Alegre']);
+  });
+
+  it('escapes LIKE wildcards in the typed city', () => {
+    // `%` e `_` são curingas do LIKE, e a cidade é texto de usuário.
+    const { target, calls } = spy();
+    applySegmentation(target, seg({ city: '100% Vila_Nova' }), NOW);
+    expect(calls).toContainEqual(['ilike', 'city', '100\\% Vila\\_Nova']);
   });
 
   it("'never bought' asks for a null purchase date", () => {
@@ -125,7 +139,7 @@ describe('applySegmentation', () => {
     expect(calls).toEqual([
       ['eq', 'opted_out', false],
       ['eq', 'state', 'RS'],
-      ['eq', 'city', 'Caxias do Sul'],
+      ['ilike', 'city', 'Caxias do Sul'],
       ['not', 'last_purchase_at', 'is', null],
       ['not', 'last_purchase_at', 'is', null],
       ['lt', 'last_purchase_at', '2026-02-17'],

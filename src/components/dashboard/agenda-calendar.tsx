@@ -719,7 +719,16 @@ function KindFilters({
   );
 }
 
-/** Row: px-4 py-2.5 + (20 title + 2 + 16 subtitle) = 66px. */
+/**
+ * Row: px-4 py-2.5 + (20 title + 2 + 16 subtitle) = 58px.
+ *
+ * Dizia 66. Um esqueleto não pode se medir, e a única defesa é a conta
+ * escrita ao lado dele — uma conta errada é pior que nenhuma, porque
+ * parece conferida. O irmão em `dashboard/page.tsx` fecha certo.
+ *
+ * O `IconTile` (size-7, 28px) não entra: o bloco de texto, 38px, é mais
+ * alto, e é ele que decide a altura da linha.
+ */
 function DaySkeleton() {
   return (
     <div aria-hidden>

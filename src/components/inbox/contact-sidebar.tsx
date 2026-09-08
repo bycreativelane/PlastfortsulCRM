@@ -97,7 +97,12 @@ interface ContactSidebarProps {
   /** Open the full record over the thread instead of navigating to it. */
   onOpenRecord?: (contact: Contact) => void;
   /** Open the occurrence history — and the form that adds to it. */
-  onOpenOccurrences?: (contact: Contact) => void;
+  /**
+   * `startAdding` diz de qual dos dois pontos de entrada veio o clique:
+   * "Registrar ocorrência" abre o formulário, o aviso vermelho abre o
+   * histórico. Os dois abrem o mesmo diálogo.
+   */
+  onOpenOccurrences?: (contact: Contact, startAdding?: boolean) => void;
   /** Write down a call that already happened. */
   onLogCall?: (contact: Contact) => void;
   /** Open the "come back to me in September" dialog. */
@@ -492,7 +497,7 @@ export function ContactSidebar({
               {onOpenOccurrences && (
                 <button
                   type="button"
-                  onClick={() => onOpenOccurrences(contact)}
+                  onClick={() => onOpenOccurrences(contact, true)}
                   className="text-muted-foreground hover:text-foreground text-2xs font-semibold underline-offset-2 hover:underline"
                 >
                   {tSidebar('registerOccurrence')}
@@ -603,7 +608,10 @@ export function ContactSidebar({
             )}
             {contact.next_purchase_expected_at && (
               <KeyValue label={tSidebar('nextPurchase')}>
-                {format.dateTime(isoDay(contact.next_purchase_expected_at), DATE)}
+                {format.dateTime(
+                  isoDay(contact.next_purchase_expected_at),
+                  DATE
+                )}
               </KeyValue>
             )}
             {contact.repurchase_cycle_days != null && (
@@ -696,7 +704,7 @@ export function ContactSidebar({
             <QuickAction
               tone="danger"
               disabled={!onOpenOccurrences}
-              onClick={() => onOpenOccurrences?.(contact)}
+              onClick={() => onOpenOccurrences?.(contact, true)}
             >
               <AlertTriangle />
               {tSidebar('registerOccurrence')}

@@ -50,20 +50,35 @@ function todayIso(): string {
  * deletes: a problem that was fixed is exactly what you want to know before
  * promising the same thing again. Resolving sets `status`; the row stays.
  *
- * WAITING ON A MIGRATION. `042_contact_occurrences.sql` is written and not
- * applied — migrations are applied by Gabriel, never by an agent. Until then
- * every read and write here fails with a missing relation, and the dialog
- * says so in those words rather than showing a database error or, worse, an
- * empty history that looks like good news.
+ * A 042 JÁ FOI APLICADA no banco de `.env.local` — a nota de `kinds.ts`
+ * mediu isso, e a barra lateral da caixa de entrada já trata a coluna
+ * `contacts.occurrence_count` como existente. Este comentário dizia o
+ * contrário, e dois comentários do mesmo assunto discordando é pior que
+ * nenhum: o leitor não sabe qual acreditar.
+ *
+ * O tratamento de tabela ausente FICA, e não por cautela: migrações são
+ * aplicadas à mão, um banco por vez, então "aplicada aqui" não diz nada
+ * sobre a próxima conta que rodar este build. Quem estiver com o banco
+ * atrasado merece "isto depende de uma migração" e não um erro cru — nem
+ * um histórico vazio, que parece boa notícia.
  */
 export function OccurrenceDialog({
   open,
   onOpenChange,
   contact,
+  startAdding,
   onChanged,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /**
+   * Abre já no formulário.
+   *
+   * "Registrar ocorrência" na ficha abria o HISTÓRICO e pedia o mesmo
+   * clique de novo, num botão com o texto idêntico — dois cliques com o
+   * mesmo rótulo para uma coisa só.
+   */
+  startAdding?: boolean;
   contact: Contact | null;
   onChanged: () => void;
 }) {
@@ -109,7 +124,7 @@ export function OccurrenceDialog({
   useEffect(() => {
     if (!open) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setAdding(false);
+    setAdding(Boolean(startAdding));
     /*
      * AS LINHAS VOLTAM A SER `null`, e isto é o conserto de um defeito.
      *
@@ -310,14 +325,24 @@ export function OccurrenceDialog({
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder={t('descriptionPlaceholder')}
                 className="min-h-20"
+                // O formulário abre por causa de um clique que já disse o
+                // que a pessoa quer fazer; o cursor tem de estar no campo
+                // que ela veio preencher.
+                autoFocus
               />
             </div>
           </div>
         )}
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            {t('close')}
+          {/* Cancelar enquanto o formulário está aberto. A única saída
+              era "Fechar", que descartava o texto digitado sem dizer que
+              descartava. */}
+          <Button
+            variant="outline"
+            onClick={() => (adding ? setAdding(false) : onOpenChange(false))}
+          >
+            {adding ? t('cancelAdd') : t('close')}
           </Button>
           {adding ? (
             <Button

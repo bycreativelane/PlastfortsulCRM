@@ -79,6 +79,7 @@ export function idleCutoff(days: number, now: Date = new Date()): string {
  */
 export interface FilterTarget<T> {
   eq(column: string, value: unknown): T;
+  ilike(column: string, value: unknown): T;
   is(column: string, value: unknown): T;
   not(column: string, operator: string, value: unknown): T;
   lt(column: string, value: unknown): T;
@@ -100,7 +101,28 @@ export function applySegmentation<T extends FilterTarget<T>>(
 
   if (s.excludeOptedOut) q = q.eq('opted_out', false);
   if (s.state) q = q.eq('state', s.state);
-  if (s.city) q = q.eq('city', s.city);
+  /*
+   * A CIDADE É `ilike`, e a UF continua `eq`.
+   *
+   * A UF é gravada por um campo de dois caracteres que faz
+   * `.toUpperCase()`; a cidade é texto livre, gravado como a pessoa
+   * digitou. Igualdade sensível a caixa numa coluna assim significa que
+   * "porto alegre" devolve zero contatos numa base cheia deles — e o
+   * campo não tinha nem placeholder para sugerir a grafia esperada.
+   *
+   * `%` e `_` são curingas do LIKE e isto é texto de usuário, então
+   * escapam antes de virar padrão.
+   *
+   * O custo, registrado: a 040 criou `idx_contacts_city_state
+   * (account_id, state, city)`, e o `ilike` tira a cidade de seekable —
+   * `account_id` e `state` continuam como prefixo do índice e a cidade
+   * vira filtro. É o preço de a segmentação achar o que foi digitado.
+   */
+  if (s.city)
+    q = q.ilike(
+      'city',
+      s.city.replace(/[%_]/g, (m) => `\\${m}`)
+    );
 
   if (s.purchase === 'never') {
     q = q.is('last_purchase_at', null);

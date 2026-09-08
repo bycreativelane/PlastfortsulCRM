@@ -411,8 +411,15 @@ export function TaskDialog({
               </OptionSelect>
             </div>
 
-            {/* Sem hora o lembrete cai na abertura do expediente, e é melhor
-                dizer isso do que deixar a pessoa descobrir às 08:00. */}
+            {/* Sem hora, o PRAZO conta a partir da abertura do expediente;
+                o lembrete sai ANTES disso, pela antecedência escolhida.
+                A frase dizia "o lembrete sai às {time}", o que só é
+                verdade na antecedência zero — nas outras cinco escolhas
+                ela nomeia uma hora que não é a do envio.
+
+                Dizer a BASE é melhor do que deixar a pessoa descobrir o
+                horário na hora, e não exige refazer aqui a conta que o
+                `reminderInstant` faz. */}
             {dueOn && !dueTime && remind !== '' && (
               <p className="text-muted-foreground text-xs">
                 {t('reminderNoTimeHint', {

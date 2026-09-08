@@ -220,7 +220,15 @@ export function DealForm({
     };
   }, [open, supabase]);
 
-  // Fetch linked conversation for the selected contact (newest open one).
+  // A conversa do contato — UMA só, pela UNIQUE (account_id, contact_id)
+  // da migração 036; o argumento está escrito em `lib/inbox/conversations`.
+  // NÃO filtra status de propósito: uma thread encerrada continua sendo a
+  // thread deste contato, e escondê-la deixaria o link sem destino. O
+  // `.order()/.limit(1)` é vestigial, e fica como cinto de segurança para
+  // bancos anteriores à 036.
+  //
+  // (Este comentário dizia "newest OPEN one", que a consulta nunca fez.)
+  //
   // Clearing on no-selection is sync with prop state; the populated
   // case runs setLinkedConversation inside the async fetch callback.
   useEffect(() => {

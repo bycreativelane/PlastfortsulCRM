@@ -97,8 +97,69 @@ import { cn } from '@/lib/utils';
 
 const PAGE_SIZE = 25;
 
+/**
+ * Os ids de uma linha viram etiquetas, em ordem alfabética.
+ *
+ * A consulta de `contact_tags` não tem `ORDER BY`, e sem ele o Postgres não
+ * promete ordem nenhuma: QUAIS três das sete etiquetas de um contato
+ * apareciam era indefinido, e podia mudar entre duas cargas da mesma tela.
+ * Ordenar por nome é o mesmo idioma do popover de filtro desta página.
+ */
+function resolveTags(
+  tagIds: string[] | undefined,
+  tagsMap: Record<string, Tag>
+): Tag[] {
+  return (tagIds ?? [])
+    .map((id) => tagsMap[id])
+    .filter(Boolean)
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/** Três etiquetas e um "+N" que diz quais são as outras. */
+function TagsCell({ tags }: { tags: Tag[] }) {
+  return (
+    <div className="flex max-w-[18rem] flex-wrap gap-1.5">
+      {tags.length > 0 ? (
+        tags.slice(0, 3).map((tag) => (
+          <TagChip key={tag.id} color={tag.color} size="sm">
+            {tag.name}
+          </TagChip>
+        ))
+      ) : (
+        <span className="text-muted-foreground text-xs">{EMPTY}</span>
+      )}
+      {tags.length > 3 && (
+        // O `title` com os escondidos: o "+4" sozinho conta quantas ficaram
+        // de fora e não diz nenhuma, que é a única coisa que se quer saber.
+        <span
+          className="text-muted-foreground text-3xs self-center"
+          title={tags
+            .slice(3)
+            .map((tg) => tg.name)
+            .join(', ')}
+        >
+          +{tags.length - 3}
+        </span>
+      )}
+    </div>
+  );
+}
+
+/**
+ * A linha da tabela guarda os IDS das etiquetas, não as etiquetas.
+ *
+ * A resolução acontecia na busca, contra o `tagsMap` do momento, com um
+ * `.filter(Boolean)` que descartava em silêncio a etiqueta que o mapa ainda
+ * não conhecia. Uma automação que pendura uma etiqueta NOVA disparava o
+ * realtime, a linha era rebuscada — e a etiqueta sumia até o F5, que é
+ * exatamente o que o comentário do realtime jura evitar.
+ *
+ * Guardando ids, a resolução passa para a renderização e acompanha o mapa.
+ * De quebra o `tagsMap` sai das dependências da busca, e com ele a segunda
+ * consulta não-silenciosa que ele causava no mount.
+ */
 interface ContactWithTags extends Contact {
-  tags?: Tag[];
+  tagIds?: string[];
 }
 
 // `useSearchParams` (the `?id=` deep link below) needs a Suspense
@@ -123,6 +184,15 @@ function ContactsPageInner() {
   const [contacts, setContacts] = useState<ContactWithTags[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  /*
+   * O que está DIGITADO, separado do que já foi BUSCADO.
+   *
+   * `search` é dependência da busca, e o caminho não-silencioso acende o
+   * carregando e limpa a seleção: escrever "Marcos" eram seis consultas com
+   * `count: exact` e seis trocas de tela. O `fetchSeq` protegia contra
+   * resposta fora de ordem; não contra disparar por tecla.
+   */
+  const [searchDraft, setSearchDraft] = useState('');
   const [page, setPage] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
   /*
@@ -332,24 +402,13 @@ function ContactsPageInner() {
 
       const enriched: ContactWithTags[] = contactRows.map((c) => ({
         ...c,
-        tags: (tagsByContact[c.id] ?? [])
-          .map((tid) => tagsMap[tid])
-          .filter(Boolean),
+        tagIds: tagsByContact[c.id] ?? [],
       }));
 
       setContacts(enriched);
       setLoading(false);
     },
-    [
-      supabase,
-      accountId,
-      page,
-      search,
-      selectedTagIds,
-      segmentation,
-      tagsMap,
-      t,
-    ]
+    [supabase, accountId, page, search, selectedTagIds, segmentation, t]
   );
 
   // Load-once-on-mount-ish data fetches. Each setter inside runs
@@ -365,6 +424,17 @@ function ContactsPageInner() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchContacts();
   }, [fetchContacts]);
+
+  /*
+   * O termo digitado vira termo buscado depois da rajada.
+   *
+   * 250ms não é número novo: é a mesma janela de rajada que o
+   * `use-contact-realtime` usa, com o argumento escrito lá.
+   */
+  useEffect(() => {
+    const id = setTimeout(() => setSearch(searchDraft), 250);
+    return () => clearTimeout(id);
+  }, [searchDraft]);
 
   /*
    * O tamanho da base, uma vez por conta e não a cada tecla.
@@ -397,8 +467,12 @@ function ContactsPageInner() {
    * recarregar é seguro: a tela volta como estava, com o dado novo.
    */
   const refreshContactsQuietly = useCallback(() => {
+    // As DUAS coisas. O evento que interessa aqui costuma ser uma etiqueta
+    // nova pendurada por automação, e recarregar só os contatos traz o id
+    // de uma etiqueta que o mapa não conhece.
+    void fetchTags();
     void fetchContacts({ silent: true });
-  }, [fetchContacts]);
+  }, [fetchTags, fetchContacts]);
   useContactRealtime({ onChange: refreshContactsQuietly });
 
   function openAddForm() {
@@ -512,7 +586,9 @@ function ContactsPageInner() {
    * vazio e o botão que os acompanha — então não vaza para lugar nenhum.
    */
   const hasActiveFilters =
-    search.trim().length > 0 ||
+    // O RASCUNHO, e não o termo debitado: o botão de limpar tem de
+    // aparecer na primeira tecla, não 250ms depois dela.
+    searchDraft.trim().length > 0 ||
     selectedTagIds.length > 0 ||
     isSegmentationActive(segmentation);
 
@@ -584,9 +660,9 @@ function ContactsPageInner() {
           <div className="relative w-full max-w-sm">
             <Search className="text-muted-foreground absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
             <Input
-              value={search}
+              value={searchDraft}
               onChange={(e) => {
-                setSearch(e.target.value);
+                setSearchDraft(e.target.value);
                 // Reset pagination when the query changes — the result
                 // set shrinks/grows, page N may no longer be valid.
                 setPage(0);
@@ -860,6 +936,10 @@ function ContactsPageInner() {
               </FieldLabel>
               <Input
                 id="seg-city"
+                // O vizinho UF tem placeholder, `maxLength` e
+                // `toUpperCase`; a cidade não tinha nada, e a busca era
+                // sensível a maiúsculas.
+                placeholder="Caxias do Sul"
                 disabled={segmentationBlocked}
                 value={segmentation.city ?? ''}
                 onChange={(e) => {
@@ -914,8 +994,16 @@ function ContactsPageInner() {
               {t('segmentation.excludeOptedOut')}
             </label>
 
-            {/* Hands the audience to the broadcast wizard rather than making
-                the operator rebuild the same filter there from memory. */}
+            {/* Abre o assistente de campanha, e SÓ isso.
+
+                O comentário anterior dizia que entregava o público, e o
+                push é seco: o assistente abre em `{ type: all }` e o
+                `AudienceConfig` não tem cidade, UF, compra nem dias
+                parados — não há para onde a segmentação ir. O rótulo
+                dizia a mesma coisa e virou "Nova campanha".
+
+                Serializar a segmentação para um `type: segment` é item de
+                spec separado, com campo novo no tipo do público. */}
             <GatedButton
               variant="outline"
               canAct={canEdit}
@@ -1128,24 +1216,7 @@ function ContactsPageInner() {
                     </div>
                   </TableCell>
                   <TableCell className="hidden md:table-cell">
-                    <div className="flex max-w-[18rem] flex-wrap gap-1.5">
-                      {contact.tags && contact.tags.length > 0 ? (
-                        contact.tags.slice(0, 3).map((tag) => (
-                          <TagChip key={tag.id} color={tag.color} size="sm">
-                            {tag.name}
-                          </TagChip>
-                        ))
-                      ) : (
-                        <span className="text-muted-foreground text-xs">
-                          {EMPTY}
-                        </span>
-                      )}
-                      {contact.tags && contact.tags.length > 3 && (
-                        <span className="text-muted-foreground text-3xs self-center">
-                          +{contact.tags.length - 3}
-                        </span>
-                      )}
-                    </div>
+                    <TagsCell tags={resolveTags(contact.tagIds, tagsMap)} />
                   </TableCell>
                   {/* O ANO SÓ QUANDO NÃO É ESTE.
                       "24 de ago. de 2026" gastava ~110px na coluna menos

@@ -76,4 +76,30 @@ describe('message catalogue parity', () => {
       ).toEqual([]);
     }
   );
+
+  /**
+   * `foo_plural` is not a plural. It is a dead key.
+   *
+   * That suffix is i18next's convention, and this app runs next-intl,
+   * which speaks ICU and never looks the sibling up. Eleven of them sat in
+   * all three catalogues — so parity was perfectly happy — while the
+   * import screen said "3 duplicado ignorado" and the webhook settings said
+   * "5 IP permitido".
+   *
+   * The failure mode is what makes this worth a guard: the singular is
+   * CORRECT at count 1, which is exactly the case anybody testing by hand
+   * hits first.
+   */
+  it.each([SOURCE_LOCALE, ...TRANSLATED_LOCALES])(
+    '%s.json pluralises with ICU, never with a _plural sibling',
+    (locale) => {
+      const suffixed = [...loadKeys(locale)]
+        .filter((k) => k.split('.').pop()?.endsWith('_plural'))
+        .sort();
+      expect(
+        suffixed,
+        `${locale}.json has i18next-style _plural keys — next-intl never reads them, so the base key renders at every count`
+      ).toEqual([]);
+    }
+  );
 });

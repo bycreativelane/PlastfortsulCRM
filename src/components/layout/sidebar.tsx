@@ -15,7 +15,6 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronsUpDown,
-  Crown,
   KanbanSquare,
   ListChecks,
   LayoutDashboard,
@@ -26,9 +25,7 @@ import {
   Package,
   Radio,
   Settings,
-  Shield,
   User,
-  UserCog,
   Users,
   UsersRound,
   Workflow,
@@ -39,39 +36,30 @@ import type { AccountRole } from '@/lib/auth/roles';
 import { BrandMark } from '@/components/brand-mark';
 import { RoadmapCard } from '@/components/layout/roadmap-card';
 import { TeamRoomCard } from '@/components/layout/team-room-card';
+import { ROLE_META } from '@/components/settings/role-meta';
+import { SettingsChip } from '@/components/settings/settings-chip';
 
-// Per-role chip metadata used in the sidebar's account strip + the
-// Members tab roster. Keeping this near both consumers in a single
-// place avoids drift between the two surfaces — when a designer
-// wants to recolour "agent" rows, this is the one diff.
-const ROLE_CHIP: Record<
-  AccountRole,
-  { icon: typeof Crown; labelKey: string; className: string }
-> = {
-  owner: {
-    icon: Crown,
-    labelKey: 'roleOwner',
-    // Amber: scarce, immutable, "the boss" — gets visual emphasis.
-    className: 'border-amber-500/40 bg-amber-500/10 text-amber-300',
-  },
-  admin: {
-    icon: Shield,
-    labelKey: 'roleAdmin',
-    // Primary-tinted: significant but not as scarce as owner.
-    className: 'border-primary/40 bg-primary/10 text-primary',
-  },
-  agent: {
-    icon: UserCog,
-    labelKey: 'roleAgent',
-    // Neutral slate: the operational default.
-    className: 'border-border bg-muted text-foreground',
-  },
-  viewer: {
-    icon: User,
-    labelKey: 'roleViewer',
-    // Muted slate: read-only role; visually quieter than agent.
-    className: 'border-border bg-card text-muted-foreground',
-  },
+/**
+ * O RÓTULO é daqui; a ESCADA não.
+ *
+ * Havia um `ROLE_CHIP` inteiro neste arquivo, e o comentário dele dizia ser
+ * a fonte única compartilhada com a aba de membros. Não era: a aba lê o
+ * `ROLE_META`, e as duas discordavam no papel mais visível — dono era
+ * âmbar aqui e azul lá.
+ *
+ * Âmbar é o erro que o `settings-chip.tsx` documenta ter removido: é a
+ * única cor que este sistema reserva para "uma pessoa precisa agir", e
+ * "dono" é verdade para sempre e não pede nada. E `text-amber-300` é uma
+ * tinta clara escolhida para fundo escuro, num app que é claro por padrão.
+ *
+ * Sobra o que de fato é local: a chave de tradução, porque o texto desta
+ * barra vive no namespace dela.
+ */
+const ROLE_LABEL: Record<AccountRole, string> = {
+  owner: 'roleOwner',
+  admin: 'roleAdmin',
+  agent: 'roleAgent',
+  viewer: 'roleViewer',
 };
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
@@ -845,15 +833,16 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                   // from admins at a glance. Now everyone sees their
                   // role (with a colour cue) regardless of tier.
                   (() => {
-                    const meta = ROLE_CHIP[accountRole];
+                    const meta = ROLE_META[accountRole];
                     const Icon = meta.icon;
                     return (
-                      <span
-                        className={`text-3xs ml-auto inline-flex shrink-0 items-center gap-1 rounded-full border px-1.5 py-0.5 font-medium tracking-wider uppercase ${meta.className}`}
+                      <SettingsChip
+                        variant={meta.variant}
+                        className="ml-auto"
                       >
-                        <Icon className="size-3" />
-                        {t(meta.labelKey as string)}
-                      </span>
+                        <Icon />
+                        {t(ROLE_LABEL[accountRole] as string)}
+                      </SettingsChip>
                     );
                   })()
                 : null}

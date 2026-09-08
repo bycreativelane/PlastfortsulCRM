@@ -257,6 +257,44 @@ const PILL_TONE =
 
 const IS_CONTROL = /aria-pressed|place-items-center/;
 
+/**
+ * A pílula redonda que NÃO diz a própria altura.
+ *
+ * ------------------------------------------------------------------
+ * O DEFEITO QUE ATRAVESSA A FAMÍLIA INTEIRA
+ * ------------------------------------------------------------------
+ *
+ * Das ~61 pílulas artesanais do inventário, o que quase nenhuma fazia era
+ * fixar altura. `rounded-full px-2 py-0.5 text-2xs` pousa onde o
+ * `line-height` da fonte deixar — 20px numa tela, 21 noutra, 18 numa
+ * terceira — e o olho alinha uma linha pela peça mais alta. É o problema
+ * que o `StatusBadge` existe para resolver e o que ele documenta em três
+ * parágrafos.
+ *
+ * Por isso a busca aqui não é por cor: é por FALTA. Redonda, com padding
+ * horizontal, tipo pequeno, peso declarado — e sem `h-` nem `size-`.
+ *
+ * Foi ela que encontrou a terceira escada de papéis: a barra lateral tinha
+ * um `ROLE_CHIP` próprio, com um comentário dizendo ser a fonte única
+ * compartilhada com a aba de membros. Não era — a aba lê o `ROLE_META`, e
+ * as duas discordavam no papel mais visível.
+ */
+/*
+ * Quatro testes separados, e não um encadeado: o Prettier ordena as
+ * classes do Tailwind, então `text-3xs` costuma vir ANTES de
+ * `rounded-full` na mesma string. Um `rounded-full…(?=…)` só olha para a
+ * frente e não vê nada do que ficou atrás — foi assim que a primeira
+ * versão desta regra passou verde sem acusar ninguém.
+ */
+const PILL_PARTS = [
+  /rounded-full/,
+  /\bpx-(1|1\.5|2|2\.5)\b/,
+  /text-(2xs|3xs)/,
+  /font-(bold|semibold|medium)/,
+];
+
+const HAS_HEIGHT = /\bh-\d|\bsize-\d/;
+
 /** Quem implementa a gramática de estado pode citá-la. */
 const PILL_ALLOWED = new Set([
   'status-badge.tsx',
@@ -271,6 +309,16 @@ function pillOffenders(): string[] {
     if (PILL_ALLOWED.has(basename(file))) continue;
     const lines = stripComments(readFileSync(file, 'utf8')).split('\n');
     for (let i = 0; i < lines.length; i++) {
+      // Uma pílula sem altura basta por si só, na própria linha.
+      if (
+        PILL_PARTS.every((part) => part.test(lines[i])) &&
+        !HAS_HEIGHT.test(lines[i]) &&
+        !IS_CONTROL.test(lines[i])
+      ) {
+        found.push(`${file.replace(SRC, 'src')}:${i + 1}`);
+        continue;
+      }
+
       if (!PILL_TONE.test(lines[i])) continue;
 
       // A forma costuma abrir a chamada de `cn` ACIMA do ternário de tons,

@@ -333,6 +333,64 @@ function pillOffenders(): string[] {
   return found;
 }
 
+/**
+ * A receita EXATA do `Panel`, escrita num `<div>`.
+ *
+ * ------------------------------------------------------------------
+ * POR QUE SÓ A RECEITA EXATA
+ * ------------------------------------------------------------------
+ *
+ * `border-border bg-card` aparece em 116 linhas do app. A tentação é
+ * declarar as 116 candidatas a `Panel` — e seria errado: elas se dividem
+ * por raio (41 em `lg`, 15 em `md`, 12 em `xl`, 40 sem raio nenhum), e o
+ * raio é o que diz que objeto cada uma é. O cartão do funil é `rounded-lg`
+ * de propósito; um painel de página é `rounded-xl`; uma barra não tem canto.
+ * Trocar todas por `Panel` moveria 3px de canto em cem superfícies que
+ * ninguém pediu para mexer.
+ *
+ * O que não tem defesa é escrever `border-border bg-card rounded-xl border`
+ * — que é, palavra por palavra, o que o `Panel` faz — e não usar o `Panel`.
+ * Eram seis, e uma delas era o esqueleto de carregamento de uma tela cujo
+ * conteúdo real é `rounded-xl`: o canto mudava quando os dados chegavam.
+ *
+ * ------------------------------------------------------------------
+ * E POR QUE O ELEMENTO IMPORTA
+ * ------------------------------------------------------------------
+ *
+ * `Panel` renderiza um `<div>` e este projeto não tem `Slot`, então não há
+ * `asChild`. Um `<Link>` que veste a mesma receita é um cartão clicável — o
+ * vocabulário dele é `surface-interactive`, não `Panel` — e um `<section>`
+ * carrega uma marca de região que virar `div` apagaria.
+ *
+ * Então a busca olha para trás até achar a etiqueta que abre a linha e só
+ * acusa `<div>`. Não é abrandar o guarda: é a mesma distinção que separa
+ * ladrilho de botão de ícone mais acima.
+ */
+const PANEL_RECIPE = [
+  /(?<![\w:-])border-border\b/,
+  /(?<![\w:-])bg-card(?![-\w])/,
+  /rounded-xl/,
+  /\bborder\b/,
+];
+
+function panelOffenders(): string[] {
+  const found: string[] = [];
+  for (const file of sourceFiles(SRC)) {
+    if (basename(file) === 'panel.tsx') continue;
+    const lines = stripComments(readFileSync(file, 'utf8')).split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      if (!PANEL_RECIPE.every((part) => part.test(lines[i]))) continue;
+
+      let element = '';
+      for (let j = i; j >= Math.max(0, i - 6) && !element; j--) {
+        element = lines[j].match(/<([A-Za-z][\w.]*)/)?.[1] ?? '';
+      }
+      if (element === 'div') found.push(`${file.replace(SRC, 'src')}:${i + 1}`);
+    }
+  }
+  return found;
+}
+
 describe('atoms', () => {
   it('no one hand-rolls a count badge', () => {
     expect(
@@ -359,6 +417,16 @@ describe('atoms', () => {
         'altura, que é o que quase nenhuma dessas pílulas fazia, e nomeia as ' +
         'duas da casa: 20px e 18px (`size="sm"`). Se a peça é um controle, ' +
         'e não um relato, ela não é um StatusBadge.'
+    ).toEqual([]);
+  });
+
+  it('no one hand-rolls a panel', () => {
+    expect(
+      panelOffenders(),
+      'Use `Panel` de @/components/ui/panel — a receita é dele, incluindo o ' +
+        '`rounded-xl` que o comentário do componente defende em dois ' +
+        'parágrafos. Se a superfície é clicável, o vocabulário é ' +
+        '`surface-interactive`, não `Panel`.'
     ).toEqual([]);
   });
 

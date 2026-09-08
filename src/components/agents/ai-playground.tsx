@@ -13,6 +13,13 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import {
+  Panel,
+  PanelActions,
+  PanelHeader,
+  PanelSub,
+  PanelTitle,
+} from '@/components/ui/panel';
 
 interface Turn {
   role: 'user' | 'assistant';
@@ -92,26 +99,23 @@ export function AiPlayground({ onGoToSetup }: { onGoToSetup?: () => void }) {
   };
 
   return (
-    <div className="h-vh-60 border-border bg-card flex min-h-[420px] flex-col rounded-xl border">
-      {/* Header */}
-      <div className="border-border flex items-center justify-between border-b px-4 py-3">
-        <div className="flex items-center gap-2">
-          <Bot className="text-primary h-4 w-4" />
-          <span className="text-foreground text-sm font-medium">
-            {t('title')}
-          </span>
-          <span className="text-muted-foreground text-xs">{t('subtitle')}</span>
-        </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setTurns([])}
-          disabled={turns.length === 0 || sending}
-          className="text-muted-foreground"
-        >
-          <RotateCcw className="mr-1.5 h-3.5 w-3.5" /> {t('reset')}
-        </Button>
-      </div>
+    <Panel className="h-vh-60 flex min-h-[420px] flex-col">
+      <PanelHeader>
+        <Bot className="text-primary size-4" />
+        <PanelTitle>{t('title')}</PanelTitle>
+        <PanelSub>{t('subtitle')}</PanelSub>
+        <PanelActions>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setTurns([])}
+            disabled={turns.length === 0 || sending}
+            className="text-muted-foreground"
+          >
+            <RotateCcw className="mr-1.5 h-3.5 w-3.5" /> {t('reset')}
+          </Button>
+        </PanelActions>
+      </PanelHeader>
 
       {/* Transcript */}
       <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto p-4">
@@ -206,6 +210,6 @@ export function AiPlayground({ onGoToSetup }: { onGoToSetup?: () => void }) {
           )}
         </Button>
       </div>
-    </div>
+    </Panel>
   );
 }

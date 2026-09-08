@@ -5,6 +5,7 @@ import { ArrowDown, ArrowUp } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 import { IconTile } from '@/components/ui/icon-tile';
+import { Panel } from '@/components/ui/panel';
 
 /**
  * The period's headline numbers.
@@ -169,12 +170,7 @@ function MetricHero({
   className?: string;
 }) {
   return (
-    <div
-      className={cn(
-        'border-border bg-card flex flex-col justify-between gap-6 rounded-xl border p-5',
-        className
-      )}
-    >
+    <Panel className={cn('flex flex-col justify-between gap-6 p-5', className)}>
       <div className="flex items-start gap-2">
         {reading.icon ? (
           <IconTile
@@ -225,7 +221,7 @@ function MetricHero({
           loading={loading}
         />
       </div>
-    </div>
+    </Panel>
   );
 }
 
@@ -258,9 +254,9 @@ function Strip({
       : 'sm:grid-cols-3';
 
   return (
-    <div
+    <Panel
       className={cn(
-        'border-border bg-card divide-border grid divide-y overflow-hidden rounded-xl border sm:divide-x sm:divide-y-0',
+        'divide-border grid divide-y overflow-hidden sm:divide-x sm:divide-y-0',
         columns,
         className
       )}
@@ -310,7 +306,7 @@ function Strip({
           </div>
         </div>
       ))}
-    </div>
+    </Panel>
   );
 }
 

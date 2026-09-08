@@ -1,6 +1,7 @@
 import * as React from 'react';
 
 import { cn } from '@/lib/utils';
+import { Panel } from '@/components/ui/panel';
 
 /**
  * Shared skeleton primitive — a pulsing block sized to whatever
@@ -45,12 +46,10 @@ export function Skeleton({ className, ...props }: React.ComponentProps<'div'>) {
  */
 export function SkeletonCard({ className }: { className?: string }) {
   return (
-    <div
-      className={cn('border-border bg-card rounded-xl border p-4', className)}
-    >
+    <Panel className={cn('p-4', className)}>
       <Skeleton className="h-4 w-28" />
       <Skeleton className="mt-1 h-6 w-20" />
       <Skeleton className="mt-1.5 h-4 w-16" />
-    </div>
+    </Panel>
   );
 }

@@ -13,6 +13,7 @@ import {
   type ReleaseChangeKind,
 } from '@/lib/releases';
 import { StatusBadge } from '@/components/ui/status-badge';
+import { Panel } from '@/components/ui/panel';
 
 /**
  * O changelog — a MESMA lista que Configurações › Novidades mostra,
@@ -107,10 +108,7 @@ function ReleaseEntry({
       {release.highlights.length > 0 ? (
         <div className="grid gap-3 sm:grid-cols-2">
           {release.highlights.map((highlight) => (
-            <div
-              key={highlight.key}
-              className="border-border bg-card flex flex-col gap-1.5 rounded-xl border p-3.5"
-            >
+            <Panel key={highlight.key} className="flex flex-col gap-1.5 p-3.5">
               <p className="text-foreground text-sm font-semibold">
                 {t(`highlights.${highlight.key}.title`)}
               </p>
@@ -126,7 +124,7 @@ function ReleaseEntry({
                   <ArrowRight className="size-3.5" />
                 </Link>
               ) : null}
-            </div>
+            </Panel>
           ))}
         </div>
       ) : null}

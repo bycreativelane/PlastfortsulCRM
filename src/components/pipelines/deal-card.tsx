@@ -7,6 +7,7 @@ import { useFormatter, useTranslations } from 'next-intl';
 import { cn } from '@/lib/utils';
 import { MemberAvatar } from '@/components/presence/member-avatar';
 import { StatusBadge } from '@/components/ui/status-badge';
+import { Tag } from '@/components/ui/tag';
 
 interface DealCardProps {
   deal: Deal;
@@ -93,6 +94,11 @@ export function DealCard({
     deal.contact?.name || deal.contact?.phone || t('noContact');
   const assigneeLabel = deal.assignee?.full_name || null;
   const daysHere = daysInStage(deal.stage_entered_at);
+  const tags = deal.contact?.tags ?? [];
+  const closeOverdue =
+    deal.status === 'open' &&
+    !!deal.expected_close_date &&
+    deal.expected_close_date < todayIso();
 
   return (
     <button
@@ -154,6 +160,32 @@ export function DealCard({
         </p>
       )}
 
+      {/*
+        AS ETIQUETAS DO CONTATO, no máximo duas.
+
+        É a fileira de chips que todo cartão das referências tem, e aqui ela
+        finalmente tem material: `Tag` desenha o retângulo com a bolinha na
+        cor da etiqueta, que é exatamente o chip da imagem 2.
+
+        Duas e um excedente, e não todas: uma delas é livre e um contato com
+        seis etiquetas empurraria o cartão para o dobro da altura. Duas
+        respondem "que tipo de cliente é este"; a sexta é para a ficha.
+      */}
+      {tags.length > 0 && (
+        <span className="mt-2 flex flex-wrap items-center gap-1">
+          {tags.slice(0, 2).map((tag) => (
+            <Tag key={tag.id} size="sm" color={tag.color}>
+              {tag.name}
+            </Tag>
+          ))}
+          {tags.length > 2 && (
+            <span className="text-muted-foreground text-2xs tabular-nums">
+              +{tags.length - 2}
+            </span>
+          )}
+        </span>
+      )}
+
       {/* Duas linhas, depois reticências. `deal.title` é texto livre e um
           título longo crescia o cartão para cinco linhas, então o cartão ao
           lado na mesma coluna deixava de alinhar com nada. `line-clamp` e
@@ -207,18 +239,32 @@ export function DealCard({
             </span>
           )}
 
-          {deal.expected_close_date && (
-            <span className="text-muted-foreground text-2xs flex items-center gap-1">
-              <Calendar className="size-3" />
-              {/* Pelo next-intl, então a data lê no idioma do app. Estava
-                  fixada em en-US, o que imprimia "Mar 14, 2026" numa
-                  interface em português. */}
-              {format.dateTime(new Date(deal.expected_close_date), {
-                day: 'numeric',
-                month: 'short',
-              })}
-            </span>
-          )}
+          {/* O PRAZO VENCIDO É VERMELHO, como o de uma tarefa.
+              Ele saía cinza qualquer que fosse a data — um negócio que devia
+              ter fechado há três semanas tinha exatamente a mesma aparência
+              de um que fecha na semana que vem, no lugar do quadro onde essa
+              é a única pergunta que importa. */}
+          {deal.expected_close_date &&
+            (closeOverdue ? (
+              <StatusBadge variant="danger" size="sm" className="tabular-nums">
+                <Calendar />
+                {format.dateTime(new Date(deal.expected_close_date), {
+                  day: 'numeric',
+                  month: 'short',
+                })}
+              </StatusBadge>
+            ) : (
+              <span className="text-muted-foreground text-2xs flex items-center gap-1">
+                <Calendar className="size-3" />
+                {/* Pelo next-intl, então a data lê no idioma do app. Estava
+                    fixada em en-US, o que imprimia "Mar 14, 2026" numa
+                    interface em português. */}
+                {format.dateTime(new Date(deal.expected_close_date), {
+                  day: 'numeric',
+                  month: 'short',
+                })}
+              </span>
+            ))}
 
           {daysHere !== null && (
             <span
@@ -245,6 +291,12 @@ export function DealCard({
       )}
     </button>
   );
+}
+
+/** Hoje, em ISO local — o mesmo formato de `expected_close_date`. */
+function todayIso(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 }
 
 /**

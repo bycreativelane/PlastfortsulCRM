@@ -11,11 +11,11 @@ import { rangeFor, type AgendaView } from '@/lib/agenda/view';
 import { tasksAsAgendaItems } from '@/lib/tasks/to-agenda';
 import type { AgendaItem } from '@/lib/dashboard/agenda';
 import type { Task } from '@/types';
-import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { DayView } from '@/components/agenda/day-view';
 import { MonthView } from '@/components/agenda/month-view';
 import { WeekView } from '@/components/agenda/week-view';
+import { SegBar } from '@/components/ui/seg-bar';
 
 /**
  * As tarefas por data — a visão de calendário de `/tasks`.
@@ -41,6 +41,9 @@ import { WeekView } from '@/components/agenda/week-view';
  * Google vai para `/agenda` — que continua existindo, e saiu do menu
  * justamente porque este é o caminho natural até ela.
  */
+/** As três janelas, na ordem em que a barra as mostra. */
+const RANGES: AgendaView[] = ['month', 'week', 'day'];
+
 export function TasksCalendar({
   tasks,
   onSelectTask,
@@ -90,8 +93,17 @@ export function TasksCalendar({
   const todayIso = toISO(new Date());
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex min-h-0 flex-1 flex-col gap-3">
       <header className="flex flex-wrap items-center gap-2">
+        {/* O PERÍODO PRIMEIRO, e as setas depois dele.
+            A ordem era duas setas, "Hoje" e só então a data — o que faz ler
+            três controles antes de descobrir que semana se está vendo. Toda
+            referência de calendário põe o período como título da faixa, e é
+            ele que responde "onde eu estou". */}
+        <span className="text-foreground text-sm font-semibold first-letter:uppercase">
+          {periodLabel(view, cursor, range.days, format)}
+        </span>
+
         <Button
           variant="ghost"
           size="icon"
@@ -108,32 +120,24 @@ export function TasksCalendar({
         >
           <ChevronRight className="size-4" />
         </Button>
-        <Button variant="outline" size="sm" onClick={() => setCursor(new Date())}>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setCursor(new Date())}
+        >
           {t('today')}
         </Button>
 
-        <span className="text-sm font-medium">
-          {periodLabel(view, cursor, range.days, format)}
-        </span>
-
-        <div className="bg-muted ml-auto flex rounded-md p-0.5">
-          {(['month', 'week', 'day'] as AgendaView[]).map((mode) => (
-            <button
-              key={mode}
-              type="button"
-              onClick={() => setView(mode)}
-              aria-pressed={view === mode}
-              className={cn(
-                'rounded px-2.5 py-1 text-xs font-medium',
-                view === mode
-                  ? 'bg-background shadow-sm'
-                  : 'text-muted-foreground'
-              )}
-            >
-              {t(`range.${mode}`)}
-            </button>
-          ))}
-        </div>
+        <SegBar
+          className="ml-auto"
+          label={t('rangeLabel')}
+          value={view}
+          onValueChange={setView}
+          segments={RANGES.map((mode) => ({
+            value: mode,
+            label: t(`range.${mode}`),
+          }))}
+        />
 
         <Link
           href="/agenda"

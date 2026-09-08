@@ -20,12 +20,7 @@ import {
 import { loadAllTasks } from '@/lib/tasks/queries';
 import { cancelTask, completeTask, reopenTask } from '@/lib/tasks/mutations';
 import { notifyTaskCompleted, publishTask } from '@/lib/tasks/notify-client';
-import {
-  TASK_KINDS,
-  TASK_STATUSES,
-  type Task,
-  type TaskStatus,
-} from '@/types';
+import { TASK_KINDS, TASK_STATUSES, type Task, type TaskStatus } from '@/types';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { MemberAvatar } from '@/components/presence/member-avatar';
@@ -41,6 +36,10 @@ import { TaskRow } from '@/components/tasks/task-row';
 import { Skeleton } from '@/components/dashboard/skeleton';
 import { TasksBoard } from '@/components/tasks/tasks-board';
 import { TasksCalendar } from '@/components/tasks/tasks-calendar';
+import { SegBar } from '@/components/ui/seg-bar';
+import { FilterChip } from '@/components/ui/filter-chip';
+import { Panel } from '@/components/ui/panel';
+import { StatePanel } from '@/components/ui/state-panel';
 
 /**
  * Tarefas — a fila, e não o tempo.
@@ -71,6 +70,9 @@ import { TasksCalendar } from '@/components/tasks/tasks-calendar';
  * vence hoje — visualmente correto e inútil, porque o que venceu é
  * exatamente o que precisa de decisão agora.
  */
+/** As três visões, na ordem em que a barra as mostra. */
+const MODES = ['list', 'board', 'calendar'] as const;
+
 export function TasksPage() {
   const t = useTranslations('TasksPage');
   const tk = useTranslations('Tasks');
@@ -95,9 +97,7 @@ export function TasksPage() {
   const [search, setSearch] = React.useState('');
   const [busy, setBusy] = React.useState<string | null>(null);
   const [showClosed, setShowClosed] = React.useState(false);
-  const [mode, setMode] = React.useState<'list' | 'board' | 'calendar'>(
-    'list'
-  );
+  const [mode, setMode] = React.useState<'list' | 'board' | 'calendar'>('list');
   const [editing, setEditing] = React.useState<Task | null>(null);
   const [creating, setCreating] = React.useState(false);
 
@@ -314,24 +314,19 @@ export function TasksPage() {
             mostra sete atrasadas sem espalhá-las por sete dias passados, e
             nenhum dos dois mostra quantas ficaram pelo caminho.
           */}
-          <div className="bg-muted flex rounded-md p-0.5">
-            {(['list', 'board', 'calendar'] as const).map((option) => (
-              <button
-                key={option}
-                type="button"
-                onClick={() => setMode(option)}
-                aria-pressed={mode === option}
-                className={cn(
-                  'rounded px-2.5 py-1 text-xs font-medium',
-                  mode === option
-                    ? 'bg-background shadow-sm'
-                    : 'text-muted-foreground'
-                )}
-              >
-                {t(`mode.${option}`)}
-              </button>
-            ))}
-          </div>
+          {/* O `SegBar` da casa, e não um controle segmentado escrito à mão.
+              O que estava aqui tinha `rounded` (4px, fora da escada), altura
+              do `line-height` e nenhum anel de foco — e o calendário lá
+              embaixo tinha uma segunda cópia dele, com as mesmas classes. */}
+          <SegBar
+            label={t('viewLabel')}
+            value={mode}
+            onValueChange={setMode}
+            segments={MODES.map((option) => ({
+              value: option,
+              label: t(`mode.${option}`),
+            }))}
+          />
 
           <Button size="sm" onClick={() => setCreating(true)}>
             <Plus className="size-4" />
@@ -341,23 +336,15 @@ export function TasksPage() {
       </header>
 
       <div className="flex shrink-0 flex-wrap gap-1.5 px-4 pt-3 md:px-6">
-        {TASK_KINDS.map((kind) => {
-          const on = !hiddenKinds.has(kind);
-          return (
-            <button
-              key={kind}
-              type="button"
-              onClick={() => toggleKind(kind)}
-              aria-pressed={on}
-              className={cn(
-                'rounded-full border px-2.5 py-1 text-xs',
-                on ? 'bg-background' : 'text-muted-foreground opacity-60'
-              )}
-            >
-              {tk(`kind.${kind}`)}
-            </button>
-          );
-        })}
+        {TASK_KINDS.map((kind) => (
+          <FilterChip
+            key={kind}
+            active={!hiddenKinds.has(kind)}
+            onClick={() => toggleKind(kind)}
+          >
+            {tk(`kind.${kind}`)}
+          </FilterChip>
+        ))}
       </div>
 
       {/*
@@ -372,90 +359,66 @@ export function TasksPage() {
           mode === 'board' ? 'overflow-hidden' : 'overflow-y-auto'
         )}
       >
-      {tasks === null ? (
-        <BoardSkeleton mode={mode} />
-      ) : mode === 'board' ? (
-        <TasksBoard
-          tasks={visible}
-          todayIso={todayIso}
-          busyId={busy}
-          onChangeStatus={changeStatus}
-          onOpen={setEditing}
-          onCreate={() => setCreating(true)}
-        />
-      ) : mode === 'calendar' ? (
-        <TasksCalendar tasks={visible} onSelectTask={setEditing} />
-      ) : groups.length === 0 && closed.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed p-10 text-center">
-          <ListChecks className="text-muted-foreground size-6" />
-          <p className="text-sm font-medium">{t('empty')}</p>
-          <p className="text-muted-foreground text-xs">{t('emptyHint')}</p>
-        </div>
-      ) : (
-        <div className="flex flex-col gap-5">
-          {groups.map((group) => (
-            <section key={group.bucket} className="space-y-1.5">
-              <h2
-                className={cn(
-                  'text-2xs font-semibold tracking-wide uppercase',
-                  group.bucket === 'overdue'
-                    ? 'text-danger-ink'
-                    : 'text-muted-foreground'
-                )}
-              >
-                {t(`bucket.${group.bucket}`)}
-                <span className="ml-1.5 font-normal opacity-70">
-                  {group.tasks.length}
-                </span>
-              </h2>
-              <div className="bg-card space-y-0.5 rounded-lg border p-1">
-                {group.tasks.map((task) => (
-                  <TaskRow
-                    key={task.id}
-                    task={task}
-                    todayIso={todayIso}
-                    locale={locale}
-                    assignee={
-                      task.assigned_to
-                        ? (members.get(task.assigned_to) ?? null)
-                        : null
-                    }
-                    busy={busy === task.id}
-                    canWrite={canSendMessages}
-                    density="comfortable"
-                    contact={
-                      task.contact_id
-                        ? {
-                            href: `/contacts?id=${task.contact_id}`,
-                            label: t('contactLink'),
-                          }
-                        : null
-                    }
-                    onToggle={() => toggle(task)}
-                    onEdit={() => setEditing(task)}
-                    t={tk}
-                  />
-                ))}
-              </div>
-            </section>
-          ))}
+        {tasks === null ? (
+          <BoardSkeleton mode={mode} />
+        ) : mode === 'board' ? (
+          <TasksBoard
+            tasks={visible}
+            todayIso={todayIso}
+            busyId={busy}
+            onChangeStatus={changeStatus}
+            onOpen={setEditing}
+            onCreate={() => setCreating(true)}
+          />
+        ) : mode === 'calendar' ? (
+          <TasksCalendar tasks={visible} onSelectTask={setEditing} />
+        ) : groups.length === 0 && closed.length === 0 ? (
+          // O frame único de vazio da casa. Este era um `border-dashed` com
+          // ícone e dois parágrafos escritos à mão — o mesmo objeto que o
+          // `StatePanel` desenha, com um raio e um espaçamento próprios.
+          <StatePanel
+            framed
+            icon={ListChecks}
+            title={t('empty')}
+            description={t('emptyHint')}
+          />
+        ) : (
+          <div className="flex flex-col gap-5">
+            {groups.map((group) => (
+              <section key={group.bucket} className="space-y-1.5">
+                {/* O MESMO CABEÇALHO DA COLUNA DO QUADRO: bolinha, nome,
+                  contagem. As três visões mostram a mesma tarefa, e não havia
+                  razão para o agrupamento da lista ter uma escrita própria.
 
-          {closed.length > 0 ? (
-            <section className="space-y-1.5">
-              <button
-                type="button"
-                onClick={() => setShowClosed((v) => !v)}
-                className="text-muted-foreground text-2xs flex items-center gap-1 font-semibold tracking-wide uppercase"
-              >
-                <ChevronDown
-                  className={cn('size-3 transition', !showClosed && '-rotate-90')}
-                />
-                {t('bucket.closed')}
-                <span className="font-normal opacity-70">{closed.length}</span>
-              </button>
-              {showClosed ? (
-                <div className="bg-card space-y-0.5 rounded-lg border p-1">
-                  {closed.map((task) => (
+                  `eyebrow` é o micro-rótulo canônico do `globals.css`, e
+                  estava reescrito à mão aqui — com peso 600 em vez de 700 e
+                  um passo de tipografia acima. */}
+                <h2 className="flex items-center gap-1.5 px-1">
+                  <span
+                    aria-hidden
+                    className={cn(
+                      'size-2 shrink-0 rounded-full',
+                      group.bucket === 'overdue'
+                        ? 'bg-danger'
+                        : 'bg-muted-foreground/40'
+                    )}
+                  />
+                  <span
+                    className={cn(
+                      'eyebrow',
+                      group.bucket === 'overdue'
+                        ? 'text-danger-ink'
+                        : 'text-muted-foreground'
+                    )}
+                  >
+                    {t(`bucket.${group.bucket}`)}
+                  </span>
+                  <span className="text-muted-foreground text-2xs tabular-nums">
+                    · {group.tasks.length}
+                  </span>
+                </h2>
+                <Panel className="space-y-0.5 p-1">
+                  {group.tasks.map((task) => (
                     <TaskRow
                       key={task.id}
                       task={task}
@@ -482,12 +445,63 @@ export function TasksPage() {
                       t={tk}
                     />
                   ))}
-                </div>
-              ) : null}
-            </section>
-          ) : null}
-        </div>
-      )}
+                </Panel>
+              </section>
+            ))}
+
+            {closed.length > 0 ? (
+              <section className="space-y-1.5">
+                <button
+                  type="button"
+                  onClick={() => setShowClosed((v) => !v)}
+                  className="text-muted-foreground hover:text-foreground eyebrow flex items-center gap-1 px-1 transition-colors"
+                >
+                  <ChevronDown
+                    className={cn(
+                      'size-3 transition-transform duration-(--dur-1)',
+                      !showClosed && '-rotate-90'
+                    )}
+                  />
+                  {t('bucket.closed')}
+                  <span className="text-2xs font-normal tabular-nums">
+                    · {closed.length}
+                  </span>
+                </button>
+                {showClosed ? (
+                  <Panel className="space-y-0.5 p-1">
+                    {closed.map((task) => (
+                      <TaskRow
+                        key={task.id}
+                        task={task}
+                        todayIso={todayIso}
+                        locale={locale}
+                        assignee={
+                          task.assigned_to
+                            ? (members.get(task.assigned_to) ?? null)
+                            : null
+                        }
+                        busy={busy === task.id}
+                        canWrite={canSendMessages}
+                        density="comfortable"
+                        contact={
+                          task.contact_id
+                            ? {
+                                href: `/contacts?id=${task.contact_id}`,
+                                label: t('contactLink'),
+                              }
+                            : null
+                        }
+                        onToggle={() => toggle(task)}
+                        onEdit={() => setEditing(task)}
+                        t={tk}
+                      />
+                    ))}
+                  </Panel>
+                ) : null}
+              </section>
+            ) : null}
+          </div>
+        )}
       </div>
 
       <TaskDialog

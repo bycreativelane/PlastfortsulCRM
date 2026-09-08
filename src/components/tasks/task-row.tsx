@@ -7,6 +7,7 @@ import { Check, Clock, Loader2, RotateCcw } from 'lucide-react';
 import type { DirectoryMember } from '@/hooks/use-member-directory';
 import { MemberAvatar } from '@/components/presence/member-avatar';
 import { StatusBadge } from '@/components/ui/status-badge';
+import { Tag } from '@/components/ui/tag';
 import { isDueToday, isOverdue } from '@/lib/tasks/queries';
 import { fromISO } from '@/lib/calendar';
 import { formatTime } from '@/components/ui/time-field';
@@ -131,7 +132,11 @@ export function TaskRow({
         ) : null}
       </button>
 
-      <button type="button" onClick={onEdit} className="min-w-0 flex-1 text-left">
+      <button
+        type="button"
+        onClick={onEdit}
+        className="min-w-0 flex-1 text-left"
+      >
         <p
           className={cn(
             'truncate text-sm',
@@ -141,8 +146,12 @@ export function TaskRow({
           {task.title}
         </p>
 
-        <span className="text-muted-foreground text-2xs mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
-          <span>{kindLabel(task.kind, t)}</span>
+        {/* O TIPO E UM CHIP, aqui como no cartao do quadro.
+            Saia como texto cinza cru, indistinguivel do prazo ao lado dele —
+            duas informacoes de naturezas diferentes com a mesma aparencia. E
+            taxonomia, entao e `Tag`: retangulo arredondado, nao pilula. */}
+        <span className="text-muted-foreground text-2xs mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1">
+          <Tag size="sm">{kindLabel(task.kind, t)}</Tag>
 
           {due ? (
             overdue ? (
@@ -206,7 +215,9 @@ export function formatDue(
   t: Translator
 ): string {
   if (!task.due_on) return '';
-  const time = task.due_time ? formatTime(task.due_time.slice(0, 5), locale) : '';
+  const time = task.due_time
+    ? formatTime(task.due_time.slice(0, 5), locale)
+    : '';
 
   if (task.due_on === todayIso) {
     return time ? t('dueTodayAt', { time }) : t('dueToday');
@@ -214,9 +225,10 @@ export function formatDue(
 
   const date = fromISO(task.due_on);
   const day = date
-    ? new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short' }).format(
-        date
-      )
+    ? new Intl.DateTimeFormat(locale, {
+        day: 'numeric',
+        month: 'short',
+      }).format(date)
     : task.due_on;
 
   // A hora acompanha o dia quando existe: "8 set 14:30". Perdê-la aqui

@@ -136,6 +136,14 @@ export function TasksBoard({
 
   return (
     <DndContext
+      // UM ID FIXO, e nao o contador interno do dnd-kit.
+      //
+      // Sem ele a biblioteca numera os `aria-describedby` por ordem de
+      // montagem, e o numero que o servidor escreve nao e o que o cliente
+      // calcula — o React reclama de hidratacao em toda carga. Aparece em
+      // qualquer pagina com dois contextos, que e o caso do `/chart-lab`, e
+      // e latente em qualquer outra que venha a ter.
+      id="tasks-board"
       sensors={sensors}
       collisionDetection={closestCorners}
       onDragStart={(event) => setActiveId(String(event.active.id))}

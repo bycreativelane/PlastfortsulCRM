@@ -23,7 +23,7 @@ import { DealCard } from './deal-card';
 import { DealContextMenu } from './deal-context-menu';
 import { BoardLane } from './board-lane';
 import { StatePanel } from '@/components/ui/state-panel';
-import { GripVertical, Plus } from 'lucide-react';
+import { GripVertical } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { formatCurrency } from '@/lib/currency';
 import { useTranslations } from 'next-intl';
@@ -127,6 +127,14 @@ export function PipelineBoard({
     // being a board — you can no longer compare two columns without
     // scrolling, which is the only thing the layout is for.
     <DndContext
+      // UM ID FIXO, e nao o contador interno do dnd-kit.
+      //
+      // Sem ele a biblioteca numera os `aria-describedby` por ordem de
+      // montagem, e o numero que o servidor escreve nao e o que o cliente
+      // calcula — o React reclama de hidratacao em toda carga. Aparece em
+      // qualquer pagina com dois contextos, que e o caso do `/chart-lab`, e
+      // e latente em qualquer outra que venha a ter.
+      id="pipeline-board"
       sensors={sensors}
       collisionDetection={closestCorners}
       onDragStart={handleDragStart}

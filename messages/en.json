@@ -3930,6 +3930,8 @@
     "dragHandle": "Drag to another column",
     "columnEmpty": "Nothing here.",
     "contactLink": "contact",
-    "dragHint": "drag a card to change status"
+    "dragHint": "drag a card to change status",
+    "viewLabel": "View",
+    "rangeLabel": "Calendar range"
   }
 }

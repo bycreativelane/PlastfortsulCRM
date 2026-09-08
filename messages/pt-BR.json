@@ -3930,6 +3930,8 @@
     "dragHandle": "Arrastar para outra coluna",
     "columnEmpty": "Nada por aqui.",
     "contactLink": "contato",
-    "dragHint": "arraste um cartão para mudar de estado"
+    "dragHint": "arraste um cartão para mudar de estado",
+    "viewLabel": "Visão",
+    "rangeLabel": "Janela do calendário"
   }
 }

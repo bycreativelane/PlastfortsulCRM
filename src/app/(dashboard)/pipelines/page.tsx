@@ -58,6 +58,8 @@ import { formatCurrency } from '@/lib/currency';
 import { SegBar } from '@/components/ui/seg-bar';
 import { StatusDot } from '@/components/ui/status-badge';
 import { CountBadge } from '@/components/ui/count-badge';
+import { flattenDealTags } from '@/lib/deals/tags';
+import { FilterChip } from '@/components/ui/filter-chip';
 
 // Pipeline creation is admin-class (settings-tier write under
 // the new RLS); deal creation is operational and only requires
@@ -174,16 +176,30 @@ function PipelinesPageInner() {
     [supabase]
   );
 
+  /**
+   * As ETIQUETAS DO CONTATO entram no embed, e o cartao as desenha.
+   *
+   * Era a unica taxonomia que o quadro tinha e nao mostrava: as referencias
+   * poem um chip em todo cartao — `Medium`, `Front`, `Enterprise` — e o
+   * nosso nao tinha nenhum, nao por decisao de desenho mas porque a
+   * consulta parava no contato.
+   *
+   * Uma juncao a mais por negocio, e pequena: e a mesma que a caixa de
+   * entrada ja faz para cada conversa. O `contact_tags(tags(*))` devolve as
+   * linhas de juncao; achatar em `contact.tags` e o que o
+   * `normalizeConversation` faz do outro lado, e a razao de existir o campo
+   * `tags?` no tipo `Contact`.
+   */
   const loadDeals = useCallback(
     async (pipelineId: string) => {
       const { data } = await supabase
         .from('deals')
         .select(
-          '*, contact:contacts(*), assignee:profiles!deals_assigned_to_fkey(*)'
+          '*, contact:contacts(*, contact_tags(tags(*))), assignee:profiles!deals_assigned_to_fkey(*)'
         )
         .eq('pipeline_id', pipelineId)
         .order('created_at', { ascending: false });
-      return (data ?? []) as Deal[];
+      return (data ?? []).map(flattenDealTags);
     },
     [supabase]
   );
@@ -870,61 +886,24 @@ function OwnerChips({
 }) {
   return (
     <div className={`flex flex-wrap items-center gap-1.5 ${className ?? ''}`}>
-      <OwnerChip active={ownerFilter === null} onClick={() => onSelect(null)}>
+      <FilterChip active={ownerFilter === null} onClick={() => onSelect(null)}>
         {labelAll}
-      </OwnerChip>
+      </FilterChip>
       {owners.list.map((owner) => (
-        <OwnerChip
+        <FilterChip
           key={owner.id}
           active={ownerFilter === owner.id}
           onClick={() => onSelect(owner.id)}
         >
           {owner.name.split(/\s+/)[0]}
-        </OwnerChip>
+        </FilterChip>
       ))}
       {owners.hasUnowned ? (
-        <OwnerChip active={ownerFilter === ''} onClick={() => onSelect('')}>
+        <FilterChip active={ownerFilter === ''} onClick={() => onSelect('')}>
           {labelNone}
-        </OwnerChip>
+        </FilterChip>
       ) : null}
     </div>
   );
 }
 
-/**
- * A filter chip.
- *
- * Near-black when selected rather than tinted with the accent: "where I am"
- * is a state, and this design reserves colour for things asking to be acted
- * on. A row of blue chips would compete with the amber the board uses for
- * genuine attention.
- */
-function OwnerChip({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  // A real `Button` and not a styled `<button>`: below `sm` these live in a
-  // sheet and are the only things there anyone taps, and only `Button` carries
-  // the coarse-pointer 44px hit shield, the focus ring and the press.
-  return (
-    <Button
-      type="button"
-      variant="outline"
-      size="sm"
-      onClick={onClick}
-      aria-pressed={active}
-      className={
-        active
-          ? 'border-primary-soft-2 bg-primary-soft text-primary hover:bg-primary-soft hover:text-primary rounded-full px-2.5 font-semibold'
-          : 'bg-card dark:bg-card rounded-full px-2.5 font-semibold'
-      }
-    >
-      {children}
-    </Button>
-  );
-}

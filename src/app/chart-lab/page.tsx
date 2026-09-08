@@ -40,6 +40,8 @@ import { StatTile } from '@/components/ui/stat-tile';
 import { BoardLane } from '@/components/pipelines/board-lane';
 import { DealCard } from '@/components/pipelines/deal-card';
 import { TasksBoard } from '@/components/tasks/tasks-board';
+import { TaskRow } from '@/components/tasks/task-row';
+import { useTranslations } from 'next-intl';
 import type { Deal, PipelineStage, Task } from '@/types';
 
 /**
@@ -216,6 +218,14 @@ function labDeal(deal: Partial<Deal> & { id: string; title: string }): Deal {
   } as Deal;
 }
 
+const labTag = (name: string, color: string) => ({
+  id: name,
+  user_id: 'u1',
+  name,
+  color,
+  created_at: '2026-01-01T00:00:00Z',
+});
+
 const daysAgo = (n: number) =>
   new Date(Date.now() - n * 86_400_000).toISOString();
 
@@ -230,6 +240,7 @@ const LAB_DEALS: Record<string, Deal[]> = {
       contact: {
         name: 'Marcos Andrade',
         company: 'Distribuidora Sul Ltda.',
+        tags: [labTag('Cliente antigo', '#10b981')],
       } as Deal['contact'],
       assignee: { full_name: 'Gabriel Spencer' } as Deal['assignee'],
     }),
@@ -248,10 +259,15 @@ const LAB_DEALS: Record<string, Deal[]> = {
       title: 'Contentor 1000L com dispensador — 12 unidades',
       value: 47900,
       stage_entered_at: daysAgo(41),
-      expected_close_date: '2026-09-30',
+      expected_close_date: '2026-08-28',
       contact: {
         name: 'Juliana Prestes',
         company: 'Agroindustrial Vale Verde',
+        tags: [
+          labTag('Alto volume', '#f59e0b'),
+          labTag('Licitacao', '#3b82f6'),
+          labTag('Sul', '#8b5cf6'),
+        ],
       } as Deal['contact'],
       assignee: { full_name: 'Marina Rocha' } as Deal['assignee'],
     }),
@@ -639,6 +655,11 @@ export default function ChartLabPage() {
           />
         </div>
 
+        {/* A LISTA, com a linha real. As tres visoes de /tasks mostram a
+            mesma tarefa, e e aqui que da para conferir se elas concordam. */}
+        <SectionTitle>Tarefas — lista</SectionTitle>
+        <TaskListBench />
+
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <ResponseTimeChart data={RESPONSE} loading={false} />
           {/* The dashboard's density, at the dashboard's width. */}
@@ -654,5 +675,28 @@ export default function ChartLabPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+function TaskListBench() {
+  const t = useTranslations('Tasks');
+  return (
+    <Panel className="max-w-lg space-y-0.5 p-1">
+      {LAB_TASKS.filter((task) => task.status === 'open').map((task) => (
+        <TaskRow
+          key={task.id}
+          task={task}
+          todayIso={LAB_TODAY}
+          locale="pt-BR"
+          assignee={null}
+          busy={false}
+          canWrite
+          density="comfortable"
+          onToggle={() => {}}
+          onEdit={() => {}}
+          t={t}
+        />
+      ))}
+    </Panel>
   );
 }

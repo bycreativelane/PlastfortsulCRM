@@ -763,17 +763,33 @@ export function DealForm({
                       )}
                     </div>
                   )}
-                {/* Stacked, not side by side. `Button` sets
-                    `whitespace-nowrap`, so a pair of them in equal columns
-                    cannot shrink past their own labels: the box got its half
-                    of the row and "Marcar como perdido" ran straight out of
-                    it, which is what put a horizontal scrollbar under the
-                    whole form. Full-width rows cannot clip at any sheet
-                    width, and two decisions this consequential are better
-                    read one under the other than side by side anyway. */}
-                <div className="grid gap-2">
+                {/*
+                  UMA LINHA, e não três barras de largura cheia.
+
+                  Eram três botões esticados e empilhados — verde, vermelho e
+                  o de reabrir — num bloco que a pessoa abre para ver o
+                  negócio, não para encerrá-lo. Dois retângulos tingidos de
+                  ponta a ponta são a coisa mais pesada da gaveta, para uma
+                  decisão que se toma uma vez na vida do negócio.
+
+                  A NOTA ANTIGA ESTAVA CERTA E RESOLVIA O SINTOMA ERRADO. Ela
+                  dizia que "Marcar como perdido" não cabe em meia coluna,
+                  porque o `Button` é `whitespace-nowrap`, e concluía que a
+                  saída era empilhar em largura cheia. A saída era o RÓTULO:
+                  sob uma sobrancelha que já diz SITUAÇÃO, e com o ✓ e o ✕ ao
+                  lado, "Ganho" e "Perdido" dizem a mesma coisa em um quarto
+                  do espaço. São as chaves que o cartão do quadro já usa —
+                  nenhuma nova, e o mesmo vocabulário nas duas superfícies.
+
+                  `flex-wrap` responde ao medo original sem largura cheia: se
+                  a gaveta apertar, eles quebram para a linha de baixo em vez
+                  de vazar. `size="sm"` os põe na altura de ação secundária,
+                  que é o que eles são ao lado do Salvar.
+                */}
+                <div className="flex flex-wrap gap-2">
                   <Button
                     type="button"
+                    size="sm"
                     // Verde tingido, e não azul cheio. Ganho e perdido são
                     // duas saídas simétricas; com um azul sólido ao lado de
                     // um vermelho tingido, o par lia como ação principal e
@@ -784,47 +800,43 @@ export function DealForm({
                     disabled={
                       !canWrite || !!statusAction || deal.status === 'won'
                     }
-                    className="min-w-0 disabled:opacity-50"
                   >
                     {statusAction === 'won' ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <Loader2 className="animate-spin" />
                     ) : (
-                      <>
-                        <Check className="mr-1 h-4 w-4" />
-                        {t('markAsWon')}
-                      </>
+                      <Check />
                     )}
+                    {tCard('won')}
                   </Button>
                   <Button
                     type="button"
+                    size="sm"
                     variant="destructive"
                     onClick={() => handleStatusChange('lost')}
                     disabled={
                       !canWrite || !!statusAction || deal.status === 'lost'
                     }
-                    className="min-w-0"
                   >
                     {statusAction === 'lost' ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <Loader2 className="animate-spin" />
                     ) : (
-                      <>
-                        <X className="mr-1 h-4 w-4" />
-                        {t('markAsLost')}
-                      </>
+                      <X />
                     )}
+                    {tCard('lost')}
                   </Button>
+                  {deal.status && deal.status !== 'open' && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleStatusChange('open')}
+                      disabled={!canWrite || !!statusAction}
+                      className="text-muted-foreground hover:text-foreground"
+                    >
+                      {t('reopenDeal')}
+                    </Button>
+                  )}
                 </div>
-                {deal.status && deal.status !== 'open' && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={() => handleStatusChange('open')}
-                    disabled={!canWrite || !!statusAction}
-                    className="text-muted-foreground hover:text-foreground w-full"
-                  >
-                    {t('reopenDeal')}
-                  </Button>
-                )}
               </div>
             )}
           </div>

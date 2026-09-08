@@ -1283,8 +1283,6 @@
       "notes": "메모",
       "notesPlaceholder": "메모 추가...",
       "status": "상태",
-      "markAsWon": "성사로 표시",
-      "markAsLost": "실패로 표시",
       "reopenDeal": "딜 재개",
       "cancel": "취소",
       "saving": "저장 중...",

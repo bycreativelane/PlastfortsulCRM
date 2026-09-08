@@ -1283,8 +1283,6 @@
       "notes": "Notes",
       "notesPlaceholder": "Add notes...",
       "status": "Status",
-      "markAsWon": "Mark as Won",
-      "markAsLost": "Mark as Lost",
       "reopenDeal": "Reopen deal",
       "cancel": "Cancel",
       "saving": "Saving...",

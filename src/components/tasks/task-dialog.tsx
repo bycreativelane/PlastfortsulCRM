@@ -448,18 +448,39 @@ export function TaskDialog({
             direita quando não há Excluir. */}
         <DialogFooter className={cn(task && 'sm:justify-between')}>
           {task ? (
+            /*
+             * `self-start` PARA O EXCLUIR NÃO VIRAR O BOTÃO LARGO DO RODAPÉ.
+             *
+             * Abaixo de `sm` o `DialogFooter` é `flex-col-reverse`, e um flex
+             * empilhado estica os filhos por padrão. O resultado, visto na
+             * bancada: o Excluir ocupava a largura inteira, com o texto
+             * centrado, no rodapé — a parte mais alcançável de um diálogo num
+             * telefone. A ação sem volta era o alvo mais fácil da tela.
+             *
+             * `self-start` devolve a largura natural e o encosta à esquerda;
+             * `sm:self-auto` deixa o `sm:justify-between` do rodapé mandar de
+             * novo no desktop, onde ele já estava certo.
+             *
+             * O `DialogFooter` é compartilhado por 27 diálogos e não muda
+             * aqui: o empilhamento invertido está certo para os outros, que
+             * não têm uma terceira ação destrutiva.
+             */
             <Button
               variant="ghost"
               onClick={handleDelete}
               disabled={saving}
-              className="text-muted-foreground hover:text-destructive"
+              className="text-muted-foreground hover:text-destructive self-start sm:self-auto"
             >
               <Trash2 className="size-4" />
               {t('delete')}
             </Button>
           ) : null}
 
-          <div className="flex gap-2">
+          {/* `justify-end` em toda largura, e não só no desktop: esticado e
+              sem alinhamento, o par ficava colado na esquerda enquanto o
+              rodapé promete `sm:justify-end` acima de `sm`. Duas posições
+              para o mesmo par, decididas pela largura da janela. */}
+          <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               {t('cancel')}
             </Button>

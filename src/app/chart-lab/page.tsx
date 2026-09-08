@@ -40,6 +40,7 @@ import { StatTile } from '@/components/ui/stat-tile';
 import { BoardLane } from '@/components/pipelines/board-lane';
 import { DealCard } from '@/components/pipelines/deal-card';
 import { TasksBoard } from '@/components/tasks/tasks-board';
+import { TaskDialog } from '@/components/tasks/task-dialog';
 import { TaskRow } from '@/components/tasks/task-row';
 import { TasksCalendar } from '@/components/tasks/tasks-calendar';
 import { FilterChip } from '@/components/ui/filter-chip';
@@ -739,6 +740,12 @@ export default function ChartLabPage() {
         <SectionTitle>Dinheiro — campo mascarado</SectionTitle>
         <MoneyBench />
 
+        {/* O DIÁLOGO DE TAREFA, que é o popup mais aberto do produto.
+            Ele vive em três telas, todas autenticadas, e por isso nunca tinha
+            sido olhado de fora. É o que o Gabriel chama de popup. */}
+        <SectionTitle>Tarefa — diálogo</SectionTitle>
+        <TaskDialogBench />
+
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <ResponseTimeChart data={RESPONSE} loading={false} />
           {/* The dashboard's density, at the dashboard's width. */}
@@ -813,6 +820,25 @@ function FieldsBench() {
           />
         </div>
       </div>
+    </Panel>
+  );
+}
+
+function TaskDialogBench() {
+  const [novo, setNovo] = useState(false);
+  const [edicao, setEdicao] = useState(false);
+  return (
+    <Panel className="flex flex-wrap gap-2 p-4">
+      <Button variant="outline" onClick={() => setNovo(true)}>
+        Abrir — tarefa nova
+      </Button>
+      <Button variant="outline" onClick={() => setEdicao(true)}>
+        Abrir — tarefa atrasada
+      </Button>
+      <TaskDialog open={novo} onOpenChange={setNovo} />
+      {/* A atrasada, porque o selo de atraso e os presets de prazo só
+          aparecem editando — e é o estado que mais se abre. */}
+      <TaskDialog open={edicao} onOpenChange={setEdicao} task={LAB_TASKS[0]} />
     </Panel>
   );
 }

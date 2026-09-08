@@ -4018,7 +4018,9 @@
     "archive": "Orçamentos gerados",
     "generate": "Gerar PDF",
     "generated": "Orçamento gerado e guardado",
-    "generateFailed": "Não foi possível gerar o orçamento"
+    "generateFailed": "Não foi possível gerar o orçamento",
+    "noBrowser": "O servidor não está configurado para gerar PDF (CHROMIUM_PATH). O orçamento ficou guardado.",
+    "openPdf": "Abrir PDF"
   },
   "Quotes": {
     "title": "Orçamentos",

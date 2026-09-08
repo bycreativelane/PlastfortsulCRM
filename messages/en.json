@@ -4018,7 +4018,9 @@
     "archive": "Generated quotes",
     "generate": "Generate PDF",
     "generated": "Quote generated and archived",
-    "generateFailed": "Could not generate the quote"
+    "generateFailed": "Could not generate the quote",
+    "noBrowser": "The server is not set up to render PDFs (CHROMIUM_PATH). The quote was archived.",
+    "openPdf": "Open PDF"
   },
   "Quotes": {
     "title": "Quotes",

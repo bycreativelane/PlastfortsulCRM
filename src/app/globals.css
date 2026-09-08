@@ -1881,105 +1881,19 @@ html[data-mode='dark'] {
 }
 
 /* ============================================================
- * IMPRIMIR: só o orçamento, e sem a moldura do app.
+ * A FOLHA DE IMPRESSÃO SAIU DAQUI em 8 de setembro de 2026.
  *
- * O item 55 do pacote pede duas saídas do MESMO documento — uma boa de
- * ler no celular e um PDF de uma página — e termina dizendo que elas não
- * podem ter cálculos independentes. Elas não têm: o cálculo mora em
- * `lib/quotes/quote.ts` e o desenho é um só. O que muda entre as duas é
- * esta folha.
+ * Ela existia porque o PDF do orçamento era feito pelo NAVEGADOR, com
+ * "Salvar como PDF" no diálogo de impressão. Isso acabou: o documento
+ * passou a ser desenhado pelo servidor com Chrome headless, que devolve
+ * PDF e PNG de verdade — e sem o carimbo de data, URL e número de página
+ * que o diálogo estampa e que nenhum CSS remove.
  *
- * SEM BIBLIOTECA. Gerar PDF no servidor custaria um navegador headless
- * ou um motor de layout inteiro para produzir, de um documento de uma
- * página, o que o próprio navegador já produz com "Salvar como PDF" — e
- * essa saída é vetorial, tem o texto selecionável e sai na fonte certa.
- * A dependência viria com um segundo caminho de renderização, que é
- * exatamente o segundo cálculo que o item 55 proíbe, um andar acima.
+ * A tentativa de manter a impressão como RESERVA foi pior do que não
+ * tê-la: com o documento dentro de um modal posicionado, o que saía era
+ * a metade direita do orçamento numa folha carimbada. Um PDF quebrado é
+ * pior do que um botão que diz que falta configuração.
  *
- * A regra é uma inversão: some tudo, e volta só a árvore marcada. Um
- * `display: none` por elemento indesejado esquece o próximo diálogo que
- * alguém escrever; esconder o `body` inteiro e reexibir um ramo não tem
- * como esquecer nada.
+ * Se um dia algo aqui precisar imprimir de novo, o desenho que funcionava
+ * está no histórico — e o defeito que ele nunca resolveu, também.
  * ============================================================ */
-@media print {
-  /*
-   * A REGRA É UMA SÓ, e ela se lê em voz alta: some tudo que não é o
-   * documento, não está dentro dele, e não o contém.
-   *
-   * A versão anterior escondia `body > *` e mandava reaparecer um
-   * `[data-print-portal]` — um atributo que EU inventei aqui e nunca pus
-   * em elemento nenhum. O diálogo mora num portal que é filho do body,
-   * então ele era escondido pela primeira regra e a segunda nunca casava
-   * com nada. Resultado medido pelo Gabriel: o PDF saía em branco.
-   *
-   * Uma regra que aponta para um seletor que não existe não dá erro. Ela
-   * simplesmente não faz nada, e o que sobra é o efeito da regra ao lado.
-   *
-   * As três negações fazem o trabalho que antes precisaria de recursão:
-   *
-   *   :not(:has([data-print-root]))   — não é ancestral do documento
-   *   :not([data-print-root])         — não é o documento
-   *   :not([data-print-root] *)       — não está dentro do documento
-   *
-   * Sobrando: a cadeia body → portal → … → documento fica de pé, e todo o
-   * resto do app sai da página.
-   */
-  body:has([data-print-root])
-    *:not(:has([data-print-root])):not([data-print-root]):not(
-      [data-print-root] *
-    ) {
-    display: none !important;
-  }
-
-  /*
-   * A cadeia de ancestrais existe, mas ela é MOLDURA: o portal é fixo, o
-   * véu é preto translúcido, e o container do diálogo centraliza numa
-   * viewport que no papel não existe. Sem isto o documento sai no meio de
-   * uma página cinza, ou não sai.
-   */
-  body:has([data-print-root]) *:has([data-print-root]) {
-    position: static !important;
-    display: block !important;
-    overflow: visible !important;
-    background: none !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    max-width: none !important;
-    max-height: none !important;
-    width: auto !important;
-    height: auto !important;
-    transform: none !important;
-  }
-
-  [data-print-root] {
-    position: static !important;
-    display: block !important;
-    width: auto !important;
-    max-width: none !important;
-    max-height: none !important;
-    overflow: visible !important;
-    box-shadow: none !important;
-    border: 0 !important;
-    border-radius: 0 !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    transform: none !important;
-    background: white !important;
-    color: black !important;
-  }
-
-  /* O que existe só para se poder fechar ou imprimir. */
-  [data-print-hide] {
-    display: none !important;
-  }
-
-  /* Uma página. Um orçamento que quebra no meio da tabela de itens perde
-     a única coisa que o item 53 pede: entender em poucos segundos. */
-  [data-print-root] * {
-    break-inside: avoid;
-  }
-
-  @page {
-    margin: 14mm;
-  }
-}

@@ -134,6 +134,8 @@ describe('matchesQuote — a busca da página de documentos', () => {
     id: 'q-1',
     dealId: 'd-1',
     createdAt: '2026-09-08T12:00:00Z',
+    pdfUrl: null,
+    imageUrl: null,
   };
 
   it.each([

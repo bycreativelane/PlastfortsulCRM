@@ -4,6 +4,7 @@ import { useCallback, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { FileDown, FolderOpen, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 import type { Quote } from '@/lib/quotes/quote';
 import {
@@ -70,6 +71,7 @@ export function DealQuote({
   quote,
   brand,
   onGenerate,
+  fileUrl,
   onPrinted,
   archiveHref,
 }: {
@@ -100,6 +102,8 @@ export function DealQuote({
   onPrinted?: () => void;
   /** O caminho do arquivo, quando faz sentido oferecê-lo. */
   archiveHref?: string;
+  /** O PDF que já existe, quando este documento é um arquivado. */
+  fileUrl?: string | null;
 }) {
   const t = useTranslations('Quote');
   const [gerando, setGerando] = useState(false);
@@ -145,17 +149,12 @@ export function DealQuote({
    * entrar num documento que sai com a marca da empresa.
    */
   const gerar = useCallback(async () => {
-    if (!onGenerate) {
-      // O bench, e a página de arquivo: ali o documento é só para ver.
-      window.print();
-      return;
-    }
+    if (!onGenerate) return;
     setGerando(true);
     const ok = await onGenerate(labels);
     setGerando(false);
-    // Sem navegador do outro lado, o caminho velho ainda serve.
-    if (!ok) window.print();
-  }, [onGenerate, labels]);
+    if (!ok) toast.error(t('noBrowser'));
+  }, [onGenerate, labels, t]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -183,8 +182,26 @@ export function DealQuote({
           A prévia e o arquivo passam a ser a MESMA marcação e a MESMA
           folha, e não duas coisas que se parecem.
         */}
-        <style>{QUOTE_CSS}</style>
-        <QuoteDocument quote={quote} labels={labels} brand={brand} />
+        {/*
+          O RECUO DO X MORA AQUI, e não no documento.
+
+          O botão de fechar do diálogo é absoluto no canto e passava por
+          cima da palavra ORÇAMENTO. Eu já tinha corrigido isso com um
+          `pr-7` — e PERDI a correção ao extrair o documento para um
+          arquivo com CSS próprio, que é o preço de mover uma peça: o
+          conserto ficou na moldura antiga.
+
+          Desta vez ele fica onde pertence. O documento não deve saber que
+          existe um X: quem tem o botão é a moldura, então é a moldura que
+          abre espaço para ele. No PDF e na imagem, gerados longe daqui,
+          esta regra não existe e o cabeçalho usa a largura inteira.
+        */}
+        <style>{`${QUOTE_CSS}
+          [data-quote-frame] .q-head { padding-right: 28px; }
+        `}</style>
+        <div data-quote-frame>
+          <QuoteDocument quote={quote} labels={labels} brand={brand} />
+        </div>
 
         {/* Fora do documento, e fora do papel. */}
         <div
@@ -238,14 +255,24 @@ export function DealQuote({
             volta para a impressão, e a linha já foi arquivada de qualquer
             forma.
           */}
-          <Button onClick={() => void gerar()} disabled={gerando}>
-            {gerando ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
+          {onGenerate && (
+            <Button onClick={() => void gerar()} disabled={gerando}>
+              {gerando ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <FileDown className="size-4" />
+              )}
+              {t('generate')}
+            </Button>
+          )}
+          {/* No arquivo, o PDF já existe: abrir o que foi enviado é o que
+              se quer, e não desenhar um parecido de novo. */}
+          {fileUrl && (
+            <Button render={<Link href={fileUrl} target="_blank" />}>
               <FileDown className="size-4" />
-            )}
-            {t('generate')}
-          </Button>
+              {t('openPdf')}
+            </Button>
+          )}
         </div>
       </DialogContent>
     </Dialog>

@@ -87,6 +87,20 @@ automações e os fluxos não rodam, a IA não responde e a faixa de agenda
 da visão geral volta vazia. A aplicação sobe, mas metade dela é
 decorativa.
 
+### `CHROMIUM_PATH`
+
+Onde está o Chrome/Chromium que desenha o orçamento em PDF e PNG.
+
+**Em produção não precisa ser definida**: o `Dockerfile` instala o Chromium
+(`apk add chromium`) e já exporta `CHROMIUM_PATH=/usr/bin/chromium-browser`.
+
+Em desenvolvimento, aponte para o navegador da máquina — no Windows,
+`C:/Program Files/Google/Chrome/Application/chrome.exe`. Sem ela, gerar um
+orçamento arquiva a linha e devolve `no_browser`: a tela avisa que falta
+configuração, em vez de produzir um arquivo torto.
+
+Não é segredo: é um caminho de arquivo, e pode ir para qualquer lugar.
+
 ### `ENCRYPTION_KEY`
 
 Chave AES-256-GCM que protege o token do WhatsApp e as chaves de IA
@@ -221,11 +235,11 @@ Três variáveis, e as três juntas ou nenhuma. Faltando qualquer uma, a tela
 Configurações › Agendas diz que a integração não está configurada e o resto
 do CRM funciona igual.
 
-| Variável | O que é |
-| --- | --- |
-| `GOOGLE_CLIENT_ID` | O ID do cliente OAuth, do Google Cloud Console |
-| `GOOGLE_CLIENT_SECRET` | O segredo do mesmo cliente |
-| `GOOGLE_OAUTH_REDIRECT_URI` | Para onde a Google devolve a autorização |
+| Variável                    | O que é                                        |
+| --------------------------- | ---------------------------------------------- |
+| `GOOGLE_CLIENT_ID`          | O ID do cliente OAuth, do Google Cloud Console |
+| `GOOGLE_CLIENT_SECRET`      | O segredo do mesmo cliente                     |
+| `GOOGLE_OAUTH_REDIRECT_URI` | Para onde a Google devolve a autorização       |
 
 No Google Cloud Console: criar um projeto, ativar a **Google Calendar API**,
 configurar a tela de consentimento (tipo "Interno" se a empresa usa

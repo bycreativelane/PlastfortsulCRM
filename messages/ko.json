@@ -4018,7 +4018,9 @@
     "archive": "생성된 견적서",
     "generate": "PDF 생성",
     "generated": "견적서를 생성하고 보관했습니다",
-    "generateFailed": "견적서를 생성하지 못했습니다"
+    "generateFailed": "견적서를 생성하지 못했습니다",
+    "noBrowser": "서버에 PDF 생성이 설정되어 있지 않습니다(CHROMIUM_PATH). 견적서는 보관되었습니다.",
+    "openPdf": "PDF 열기"
   },
   "Quotes": {
     "title": "견적서",

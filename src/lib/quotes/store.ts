@@ -16,6 +16,9 @@ export interface StoredQuote extends Quote {
   id: string;
   dealId: string | null;
   createdAt: string;
+  /** O arquivo, quando a geração do servidor chegou a produzi-lo. */
+  pdfUrl: string | null;
+  imageUrl: string | null;
 }
 
 /** Um banco sem a 071. Mesma convenção de `products/catalog`. */
@@ -49,6 +52,8 @@ interface Linha {
   owner: string | null;
   notes: string | null;
   created_at: string;
+  pdf_url: string | null;
+  image_url: string | null;
 }
 
 /**
@@ -71,6 +76,8 @@ function daLinha(row: Linha): StoredQuote {
     id: row.id,
     dealId: row.deal_id,
     createdAt: row.created_at,
+    pdfUrl: row.pdf_url ?? null,
+    imageUrl: row.image_url ?? null,
     orderNumber: row.order_number,
     issuedOn: row.issued_on,
     company: row.company,

@@ -175,6 +175,7 @@ export function QuotesArea() {
           onOpenChange={(v) => !v && setAberto(null)}
           quote={aberto}
           brand={brandFromAccount(account)}
+          fileUrl={aberto.pdfUrl}
         />
       )}
     </div>

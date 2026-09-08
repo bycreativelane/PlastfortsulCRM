@@ -63,6 +63,44 @@ escrita em dois lugares do repositório e violada em sete.
 **A regra para quem for usar o 02:** abrir o arquivo citado antes de agir.
 Se a evidência não estiver na linha, o achado morreu ali.
 
+## Onde isto parou
+
+A segunda auditoria — a que saiu dos 16 prints da plataforma — produziu 79
+achados. Oito foram descartados na verificação; **os 71 restantes estão
+aplicados**, em sete commits, um por família:
+
+| Fase | Commit | O que era |
+| --- | --- | --- |
+| 8 | *calendário: chip, estado e o que falta* | 5 · a tarefa concluída não some, a faixa "Dia todo" ganha teto, o mês para de anunciar "não pressionado" 42 vezes |
+| 10 | *o que o banco já sabia e a tela não dizia* | 11 · colunas gravadas com cuidado e nunca lidas — atraso, falha, dono, motivo da perda, `resolved_at` |
+| 5 | *vazios e contagens que mentem* | 7 · o vazio que culpa quem filtrou, e quatro números que não batem com o clique que os produz |
+| 6 | *a caixa de entrada, e os menus do app inteiro* | 9 · a fila de espera mostrando a idade errada, a barra inerte, e 44px que chegava ao gatilho e parava |
+| 9 | *rótulos, foco e átomos* | 12 · onze rótulos sem `htmlFor`, cinco `<button>` crus, e "ganho" em azul de ação principal |
+| 11 | *formulários longos* | 12 · o aviso de CNPJ duplicado que nunca rodou, o rascunho que sumia, e o CSV que derrubava a aplicação |
+| 12 | *catálogos e comentários* | 15 · onze chaves `_plural` que o next-intl nunca leu, e sete frases que afirmam o contrário do código |
+
+Cada fase passou `tsc`, `eslint`, `vitest` e `build` antes da seguinte. Três
+guardas novos entraram junto e **acusam a versão anterior**: `date-only`
+(colunas DATE contra `new Date`), o caso de Encerradas em
+`conversation-filters.test.ts`, e o `_plural` em `messages.test.ts`.
+
+### O que continua aberto
+
+- **`tasks.duration_minutes` não tem escritor.** Nem tela, nem API — só
+  leitores (`google/map.ts` usa `?? 30`, a API v1 devolve sempre `null`). A
+  regra "trinta minutos" está escrita em `lib/agenda/view.ts`, no
+  `durationOf`, com o motivo. Decidir se a coluna ganha um campo ou se a
+  regra vira definitiva é do Gabriel.
+- **A segmentação não viaja para a campanha.** O botão abre o assistente e
+  só; o rótulo e o comentário agora dizem isso. Serializar `Segmentation`
+  num `type: segment` é spec separado, com campo novo no `AudienceConfig`.
+- **Cidade e UF da segmentação disparam por tecla**, como a busca disparava
+  antes da fase 12. Ficaram de fora porque vivem dentro do objeto
+  `segmentation`, o que é um segundo passo.
+- **`DialogFooter` grudado é só no formulário de contato.** A variante
+  compartilhada exigiria trocar a grade do `DialogContent` por flex e uma
+  passada visual nos 27 diálogos.
+
 ## O método, e por que ele foi assim
 
 Três coisas apareceram nesta passada e valem para a próxima:

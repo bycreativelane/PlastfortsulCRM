@@ -326,7 +326,14 @@ export function TaskDialog({
                 `task` e `todayIso` já estavam os dois aqui — o segundo no
                 fuso da CONTA — e nenhum dos dois era usado para isto. */}
             <div className="flex items-center gap-2">
-              <FieldLabel id="task-due-label">{t('dueLabel')}</FieldLabel>
+              {/* `mb-0`: o `FieldLabel` traz `mb-1` para separar do campo,
+                  e aqui ele não está acima de campo nenhum — está ao lado de
+                  um selo. A margem empurrava o texto 2px para cima do centro
+                  da pílula. Mesmo detalhe na gaveta do negócio, para os dois
+                  serem iguais e não quase iguais. */}
+              <FieldLabel id="task-due-label" className="mb-0">
+                {t('dueLabel')}
+              </FieldLabel>
               {task && isOverdue(task, todayIso) && (
                 <StatusBadge variant="danger" size="sm">
                   {t('overdueBadge')}

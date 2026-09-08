@@ -579,9 +579,33 @@ export function DealForm({
               </div>
 
               <div className="grid gap-2">
-                <FieldLabel htmlFor="deal-close-date">
-                  {t('expectedCloseDate')}
-                </FieldLabel>
+                {/* O SELO AO LADO DO RÓTULO, e não pendurado sob o campo.
+
+                    Era eu quem tinha posto embaixo, e ele ficava órfão: uma
+                    pílula vermelha sozinha entre campos cinzas, sem encostar
+                    no que qualifica — e a coisa mais pesada da linha, para
+                    dizer uma informação, não um alarme.
+
+                    Pior: dentro de uma GRADE de duas colunas, ele crescia
+                    só a célula da direita. A linha inteira acompanhava, e a
+                    coluna da esquerda (Valor/Moeda) ficava com um buraco
+                    embaixo que não existia do outro lado.
+
+                    O diálogo de tarefa já resolve isto do jeito certo, com
+                    o "Atrasada" colado no rótulo "Prazo". Duas telas dizendo
+                    a mesma coisa de duas formas era a divergência. */}
+                <div className="flex items-center gap-2">
+                  <FieldLabel htmlFor="deal-close-date" className="mb-0">
+                    {t('expectedCloseDate')}
+                  </FieldLabel>
+                  {deal?.status === 'open' &&
+                    expectedCloseDate &&
+                    expectedCloseDate < todayIso && (
+                      <StatusBadge variant="danger" size="sm">
+                        {t('expectedCloseOverdue')}
+                      </StatusBadge>
+                    )}
+                </div>
                 <DateField
                   id="deal-close-date"
                   value={expectedCloseDate}
@@ -589,27 +613,15 @@ export function DealForm({
                   disabled={!canWrite}
                   className="[&_input]:border-border [&_input]:bg-muted [&_input]:text-foreground"
                 />
-                {/* O PRAZO VENCIDO, na tela onde se muda a data.
-
-                    O cartão do quadro já pinta de vermelho a previsão
-                    atrasada; ao abrir a ficha para remarcar, o campo era
-                    igual ao de um fechamento da semana que vem. Pílula e
-                    não tinta, como em `task-row.tsx`. Só com o negócio
-                    aberto: um fechado não tem prazo a vencer.
-
-                    Comparação de strings ISO — `expected_close_date` é
-                    DATE, e `new Date()` sobre ela devolve ontem. */}
-                {deal?.status === 'open' &&
-                  expectedCloseDate &&
-                  expectedCloseDate < todayIso && (
-                    <StatusBadge variant="danger" size="sm" className="w-fit">
-                      {t('expectedCloseOverdue')}
-                    </StatusBadge>
-                  )}
               </div>
             </div>
 
-            <div className="grid gap-4 @sm:grid-cols-2">
+            {/* `@lg`, o MESMO da linha acima. Eram dois limiares para duas
+                linhas que se leem como uma grade só: entre 24rem e 32rem de
+                gaveta, Etapa/Responsável já estavam lado a lado enquanto
+                Valor/Moeda/Previsão ainda estavam empilhados, e as colunas
+                do formulário deixavam de se alinhar nessa faixa. */}
+            <div className="grid gap-4 @lg:grid-cols-2">
               <div className="grid gap-2">
                 <FieldLabel htmlFor="deal-stage">{t('stage')}</FieldLabel>
                 <OptionSelect

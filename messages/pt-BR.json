@@ -913,7 +913,8 @@
       "productInterestDesc": "O que este contato compra ou perguntou. É por aqui que uma campanha por produto filtra.",
       "taxIdInvalid": "Os dígitos verificadores não batem — vale conferir.",
       "taxIdDuplicate": "“{name}” já tem esse número. Dois cadastros para uma empresa significa metade do histórico em cada um.",
-      "birthdayHint": "A data completa; só o dia e o mês são usados."
+      "birthdayHint": "A data completa; só o dia e o mês são usados.",
+      "phoneIncomplete": "O número parece incompleto — confira os dígitos."
     },
     "detailView": {
       "tabs": {
@@ -980,7 +981,8 @@
       "toastCustomFieldsFailed": "Não foi possível salvar os campos personalizados",
       "toastTemplateSent": "Template \"{name}\" enviado",
       "toastNetworkError": "erro de rede",
-      "toastTemplateFailed": "Não foi possível enviar o template: {reason}"
+      "toastTemplateFailed": "Não foi possível enviar o template: {reason}",
+      "toastPhoneIncomplete": "O número parece incompleto — confira os dígitos."
     },
     "importModal": {
       "title": "Importar contatos",

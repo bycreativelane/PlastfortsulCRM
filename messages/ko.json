@@ -913,7 +913,8 @@
       "productInterestDesc": "이 고객이 구매했거나 문의한 제품입니다. 제품별 캠페인의 필터 기준이 됩니다.",
       "taxIdInvalid": "검증 숫자가 맞지 않습니다 — 확인해 보세요.",
       "taxIdDuplicate": "“{name}”에 이미 이 번호가 있습니다. 한 회사에 두 개의 레코드가 있으면 이력이 나뉩니다.",
-      "birthdayHint": "전체 날짜를 입력하세요. 사용되는 것은 일과 월뿐입니다."
+      "birthdayHint": "전체 날짜를 입력하세요. 사용되는 것은 일과 월뿐입니다.",
+      "phoneIncomplete": "번호가 불완전해 보입니다. 자릿수를 확인하세요."
     },
     "detailView": {
       "tabs": {
@@ -980,7 +981,8 @@
       "toastCustomFieldsFailed": "커스텀 필드를 저장하지 못했습니다",
       "toastTemplateSent": "\"{name}\" 템플릿을 보냈습니다",
       "toastNetworkError": "네트워크 오류",
-      "toastTemplateFailed": "템플릿을 보내지 못했습니다: {reason}"
+      "toastTemplateFailed": "템플릿을 보내지 못했습니다: {reason}",
+      "toastPhoneIncomplete": "번호가 불완전해 보입니다. 자릿수를 확인하세요."
     },
     "importModal": {
       "title": "연락처 가져오기",

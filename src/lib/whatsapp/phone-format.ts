@@ -197,3 +197,32 @@ export function toE164(phone: string | null | undefined): string {
  * `isValidE164` in `./phone-utils` is what answers the second question.
  */
 export const MAX_PHONE_DIGITS = 15;
+
+/**
+ * Dá para salvar este número, ou ele está pela metade?
+ *
+ * Os dois editores de contato só perguntavam se o campo estava VAZIO. Um
+ * `+55 (51) 9` passava: ia para o banco, e a primeira notícia de que ninguém
+ * conseguia falar com aquele cliente vinha lá na frente, num envio que falha
+ * longe de quem digitou — e sem dizer que o problema era o número.
+ *
+ * DOIS COMPRIMENTOS PARA O BRASIL E NENHUM OUTRO: 12 dígitos no fixo
+ * (55 + DDD + 8) e 13 no celular (55 + DDD + 9). Não existe número brasileiro
+ * de outro tamanho, então aqui dá para ser exato — e `+55` é o código do
+ * Brasil e de mais ninguém, então o teste do prefixo não pega estrangeiro por
+ * engano.
+ *
+ * FORA DO BRASIL, a régua larga do E.164 e nada além dela. O cabeçalho do
+ * `formatPhone` explica que esta conta fala com transportadoras e
+ * fornecedores no exterior, e não há como saber o comprimento certo de um
+ * número paraguaio ou chileno daqui. Recusar o que não se sabe julgar seria
+ * inventar uma regra e cobrar por ela.
+ */
+export function isCompletePhone(phone: string | null | undefined): boolean {
+  const digits = normalizePhone(phone ?? '');
+  if (!digits) return false;
+  if (digits.startsWith(BR))
+    return digits.length === 12 || digits.length === 13;
+  // 7 a 15 dígitos, começando por não-zero — o que o E.164 permite.
+  return /^[1-9]\d{6,14}$/.test(digits);
+}

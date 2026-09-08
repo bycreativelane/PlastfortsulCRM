@@ -6,7 +6,11 @@ import { addContactTag, deleteContactTag } from '@/lib/contacts/tag-api';
 import { useContactRealtime } from '@/hooks/use-contact-realtime';
 import { withManualName } from '@/lib/contacts/name-source';
 import { PhoneInput } from '@/components/ui/phone-input';
-import { formatPhone, toE164 } from '@/lib/whatsapp/phone-format';
+import {
+  formatPhone,
+  toE164,
+  isCompletePhone,
+} from '@/lib/whatsapp/phone-format';
 import { useAuth } from '@/hooks/use-auth';
 import { formatCurrency } from '@/lib/currency';
 import { toast } from 'sonner';
@@ -280,6 +284,14 @@ export function ContactDetailView({
   async function saveRecord() {
     if (!contactId || !editPhone.trim()) {
       toast.error(t('toastPhoneRequired'));
+      return;
+    }
+
+    // E completo, não só preenchido — a mesma regra do formulário de
+    // cadastro. Ver a nota em `isCompletePhone`: exata para o Brasil, larga
+    // para o resto.
+    if (!isCompletePhone(editPhone)) {
+      toast.error(t('toastPhoneIncomplete'));
       return;
     }
 

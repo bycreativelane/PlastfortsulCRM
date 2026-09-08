@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import { withManualName } from '@/lib/contacts/name-source';
 import { ContactAvatarField } from './contact-avatar-field';
 import { PhoneInput } from '@/components/ui/phone-input';
+import { isCompletePhone } from '@/lib/whatsapp/phone-format';
 import {
   CHAT_MEDIA_BUCKET,
   uploadAccountMedia,
@@ -265,6 +266,23 @@ export function ContactForm({
 
     if (!phone.trim()) {
       toast.error(t('phoneRequired'));
+      return;
+    }
+
+    /*
+     * E COMPLETO, não só preenchido.
+     *
+     * A única checagem daqui era "o campo está vazio", então um `+55 (51) 9`
+     * ia para o banco. A primeira notícia de que ninguém consegue falar com
+     * aquele cliente vinha num envio que falha muito depois, longe de quem
+     * digitou, sem dizer que o problema era o número.
+     *
+     * `isCompletePhone` é exato para o Brasil (12 ou 13 dígitos, os dois
+     * únicos comprimentos que existem) e larga para o resto — ver a nota
+     * dela sobre por que não dá para julgar um número paraguaio daqui.
+     */
+    if (!isCompletePhone(phone)) {
+      toast.error(t('phoneIncomplete'));
       return;
     }
 

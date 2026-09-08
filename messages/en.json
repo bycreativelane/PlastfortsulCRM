@@ -913,7 +913,8 @@
       "productInterestDesc": "What this customer buys or asked about. This is what a campaign by product filters on.",
       "taxIdInvalid": "The check digits do not agree — worth a second look.",
       "taxIdDuplicate": "“{name}” already has this number. Two records for one company means half the history is on each.",
-      "birthdayHint": "The full date; only the day and month are used."
+      "birthdayHint": "The full date; only the day and month are used.",
+      "phoneIncomplete": "That number looks incomplete — check the digits."
     },
     "detailView": {
       "tabs": {
@@ -980,7 +981,8 @@
       "toastCustomFieldsFailed": "Failed to save custom fields",
       "toastTemplateSent": "Template \"{name}\" sent",
       "toastNetworkError": "network error",
-      "toastTemplateFailed": "Failed to send template: {reason}"
+      "toastTemplateFailed": "Failed to send template: {reason}",
+      "toastPhoneIncomplete": "That number looks incomplete — check the digits."
     },
     "importModal": {
       "title": "Import Contacts",

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatPhone, toE164 } from './phone-format';
+import { formatPhone, toE164, isCompletePhone } from './phone-format';
 
 describe('formatPhone', () => {
   it('groups a Brazilian mobile the way people write it', () => {
@@ -129,5 +129,39 @@ describe('formatPhone não perde dígito', () => {
   it('faz round-trip com toE164 acima de treze dígitos', () => {
     const stored = '+55519900000012';
     expect(toE164(formatPhone(stored))).toBe(stored);
+  });
+});
+
+describe('isCompletePhone', () => {
+  it('aceita os dois comprimentos que o Brasil tem', () => {
+    expect(isCompletePhone('+5551990000001')).toBe(true); // celular, 13
+    expect(isCompletePhone('+555199000001')).toBe(true); // fixo, 12
+  });
+
+  it('recusa o número brasileiro pela metade', () => {
+    // O que passava antes: o campo só era testado por "vazio".
+    expect(isCompletePhone('+55')).toBe(false);
+    expect(isCompletePhone('+5551')).toBe(false);
+    expect(isCompletePhone('+55519900')).toBe(false);
+    expect(isCompletePhone('+55519900000')).toBe(false); // 11, falta um
+  });
+
+  it('recusa o brasileiro comprido demais', () => {
+    // O dígito a mais que o formatador escondia até hoje de manhã.
+    expect(isCompletePhone('+55519900000012')).toBe(false);
+  });
+
+  it('não inventa regra para número estrangeiro', () => {
+    // Fora do Brasil vale a régua larga do E.164 e nada além: não há como
+    // saber daqui o comprimento certo de um número paraguaio.
+    expect(isCompletePhone('+595991234567')).toBe(true);
+    expect(isCompletePhone('+15551234567')).toBe(true);
+    expect(isCompletePhone('+351912345678')).toBe(true);
+  });
+
+  it('recusa o vazio e o curto demais para qualquer país', () => {
+    expect(isCompletePhone('')).toBe(false);
+    expect(isCompletePhone(null)).toBe(false);
+    expect(isCompletePhone('+123')).toBe(false);
   });
 });

@@ -34,6 +34,7 @@ import { Button } from '@/components/ui/button';
 import { CurrencyInput } from '@/components/ui/currency-input';
 import { FieldLabel, FieldRow } from '@/components/ui/field';
 import { Checkbox } from '@/components/ui/checkbox';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 import { Input } from '@/components/ui/input';
 import { OptionSelect } from '@/components/ui/option-select';
 import {
@@ -102,6 +103,7 @@ function matchesTerm(p: Product, term: string): boolean {
 export function ProductCatalog() {
   const t = useTranslations('Products');
   const { accountId, user, defaultCurrency } = useAuth();
+  const { confirm } = useConfirm();
   /** Correcting what a product IS. */
   const canEdit = useCan('send-messages');
   /** Adding one, or taking one out of everybody's catalogue. */
@@ -190,23 +192,55 @@ export function ProductCatalog() {
     setDraft(empty(defaultCurrency));
   }, [defaultCurrency]);
 
-  const startEdit = useCallback((product: Product) => {
-    setEditing(product.id);
-    setDraft({
-      name: product.name,
-      sku: product.sku ?? '',
-      description: product.description ?? '',
-      unit: product.unit ?? '',
-      price: product.price,
-      currency: product.currency,
-      category: product.category ?? '',
-      widthCm: product.width_cm ?? null,
-      heightCm: product.height_cm ?? null,
-      thicknessMicron: product.thickness_micron ?? null,
-      material: product.material ?? '',
-      color: product.color ?? '',
-    });
-  }, []);
+  /*
+   * O LÁPIS PERGUNTA ANTES DE APAGAR O RASCUNHO.
+   *
+   * O painel do formulário e a lista com os lápis ficam na tela ao mesmo
+   * tempo. Com "Novo produto" meio preenchido, clicar num lápis
+   * sobrescrevia os onze campos — e o painel NÃO desmonta (só troca
+   * `editing` de `new` para um id), então nem o foco se move: nada muda na
+   * tela e o trabalho some.
+   *
+   * A comparação é com o rascunho VAZIO e não com `draft.name`: sem nome o
+   * Salvar já está desabilitado, e é justamente o caso em que o que se
+   * perde é o resto — medidas, material, cor, preço.
+   *
+   * Os lápis não são desabilitados: um controle que está sempre lá e
+   * sempre recusa ensina a desconfiar da linha, não do botão.
+   */
+  const startEdit = useCallback(
+    async (product: Product) => {
+      const dirty =
+        editing === 'new' &&
+        JSON.stringify(draft) !== JSON.stringify(empty(defaultCurrency));
+      if (
+        dirty &&
+        !(await confirm({
+          title: t('discardDraftTitle'),
+          description: t('discardDraftBody'),
+          destructive: true,
+        }))
+      ) {
+        return;
+      }
+      setEditing(product.id);
+      setDraft({
+        name: product.name,
+        sku: product.sku ?? '',
+        description: product.description ?? '',
+        unit: product.unit ?? '',
+        price: product.price,
+        currency: product.currency,
+        category: product.category ?? '',
+        widthCm: product.width_cm ?? null,
+        heightCm: product.height_cm ?? null,
+        thicknessMicron: product.thickness_micron ?? null,
+        material: product.material ?? '',
+        color: product.color ?? '',
+      });
+    },
+    [confirm, draft, editing, defaultCurrency, t]
+  );
 
   const commit = useCallback(async () => {
     if (!accountId || !draft.name.trim()) {
@@ -409,6 +443,17 @@ export function ProductCatalog() {
                     />
                   </FieldRow>
                 </div>
+                {/* A CHAVE DE BUSCA, enquanto ela é digitada.
+
+                    `size_label` é coluna GENERATED: a lista a imprime e a
+                    busca casa contra ela — "40x60" é como o produto é pedido
+                    no telefone. Quem cadastra só via a string depois de
+                    salvar, que é tarde para notar que digitou 400. */}
+                {sizeLabel(draft.widthCm, draft.heightCm) ? (
+                  <p className="text-muted-foreground text-2xs tabular-nums">
+                    {sizeLabel(draft.widthCm, draft.heightCm)}
+                  </p>
+                ) : null}
                 <div className="grid grid-cols-1 gap-3 @xs:grid-cols-2">
                   <FieldRow label={t('material')} htmlFor="prod-mat">
                     <Input
@@ -602,7 +647,7 @@ export function ProductCatalog() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => startEdit(product)}
+                        onClick={() => void startEdit(product)}
                       >
                         <Pencil className="size-4" />
                         <span className="sr-only">{t('edit')}</span>
@@ -694,6 +739,22 @@ function describe(
    */
   console.error('Catálogo de produtos:', error);
   return t('genericError');
+}
+
+/**
+ * O espelho em JS de `products.size_label` (migração 055).
+ *
+ * Os QUATRO ramos, e não só o completo: a prévia precisa falar no
+ * meio-preenchido, que é justamente onde o erro de digitação aparece.
+ */
+function sizeLabel(w: number | null, h: number | null): string | null {
+  // A coluna é NUMERIC(8,2): arredondar antes, senão a prévia mostra
+  // 40.567 onde o banco vai guardar 40.57.
+  const n = (v: number) => String(Number(v.toFixed(2)));
+  if (w == null && h == null) return null;
+  if (w == null) return `${n(h as number)}cm`;
+  if (h == null) return `${n(w)}cm`;
+  return `${n(w)}x${n(h)}cm`;
 }
 
 function empty(currency: string): ProductDraft {

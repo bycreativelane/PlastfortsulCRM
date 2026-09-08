@@ -157,8 +157,14 @@ export function CustomFieldsPanel() {
 
   async function handleDelete(field: CustomField) {
     if (
+      // Três frases numa chave só iam inteiras para o `<DialogTitle>`, e o
+      // botão caía no "Confirmar" genérico — enquanto `description` e
+      // `confirmLabel` existiam no componente e não eram usados. Um botão
+      // destrutivo deve dizer o que destrói.
       !(await confirm({
-        title: t('deleteConfirm', { name: field.field_name }),
+        title: t('deleteTitle'),
+        description: t('deleteConfirm', { name: field.field_name }),
+        confirmLabel: t('deleteConfirmAction'),
         destructive: true,
       }))
     ) {
@@ -271,7 +277,12 @@ function FieldRow({
           if (e.key === 'Enter') e.currentTarget.blur();
         }}
         aria-label={t('renameAria', { name: field.field_name })}
-        className="text-foreground hover:border-border border-transparent bg-transparent"
+        // `bg-muted` em repouso. Sem fundo e sem borda, o único sinal de
+        // que ali se digita era o `hover:border-border` — e num toque não
+        // existe hover, então nunca havia sinal nenhum. Onze linhas acima,
+        // no mesmo diálogo, o campo de criação já é `bg-muted`: isto também
+        // acaba com as duas aparências de campo na mesma tela.
+        className="text-foreground bg-muted hover:border-border border-transparent"
       />
       <Button
         variant="ghost"

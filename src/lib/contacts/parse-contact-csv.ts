@@ -31,18 +31,36 @@ export function parseTagCell(value: string | undefined): string[] {
   return names;
 }
 
+/**
+ * Why `rows` came back empty.
+ *
+ * Three different failures used to collapse into one empty array, and the
+ * screen answered all three with the message for the second one. "The file
+ * only has a header" and "no row has a phone number" are different
+ * problems with different fixes.
+ */
+export type ParseContactCsvFailure =
+  'empty' | 'no-phone-column' | 'no-phone-values';
+
 export interface ParseContactCsvResult {
   rows: ParsedContactRow[];
   /** True when the CSV header includes a `tags` column. */
   hasTagsColumn: boolean;
   /** True when the CSV header includes a `company` column. */
   hasCompanyColumn: boolean;
+  /** Set only when `rows` is empty. Absent on success. */
+  failure?: ParseContactCsvFailure;
 }
 
 export function parseContactCsv(text: string): ParseContactCsvResult {
   const lines = text.trim().split(/\r?\n/);
   if (lines.length < 2) {
-    return { rows: [], hasTagsColumn: false, hasCompanyColumn: false };
+    return {
+      rows: [],
+      hasTagsColumn: false,
+      hasCompanyColumn: false,
+      failure: 'empty',
+    };
   }
 
   const headers = lines[0]
@@ -51,7 +69,12 @@ export function parseContactCsv(text: string): ParseContactCsvResult {
 
   const phoneIdx = headers.indexOf('phone');
   if (phoneIdx === -1) {
-    return { rows: [], hasTagsColumn: false, hasCompanyColumn: false };
+    return {
+      rows: [],
+      hasTagsColumn: false,
+      hasCompanyColumn: false,
+      failure: 'no-phone-column',
+    };
   }
 
   const nameIdx = headers.indexOf('name');
@@ -92,6 +115,7 @@ export function parseContactCsv(text: string): ParseContactCsvResult {
     rows,
     hasTagsColumn: tagsIdx >= 0,
     hasCompanyColumn: companyIdx >= 0,
+    ...(rows.length === 0 ? { failure: 'no-phone-values' as const } : {}),
   };
 }
 

@@ -912,7 +912,8 @@
       "productInterest": "관심 제품",
       "productInterestDesc": "이 고객이 구매했거나 문의한 제품입니다. 제품별 캠페인의 필터 기준이 됩니다.",
       "taxIdInvalid": "검증 숫자가 맞지 않습니다 — 확인해 보세요.",
-      "taxIdDuplicate": "“{name}”에 이미 이 번호가 있습니다. 한 회사에 두 개의 레코드가 있으면 이력이 나뉩니다."
+      "taxIdDuplicate": "“{name}”에 이미 이 번호가 있습니다. 한 회사에 두 개의 레코드가 있으면 이력이 나뉩니다.",
+      "birthdayHint": "전체 날짜를 입력하세요. 사용되는 것은 일과 월뿐입니다."
     },
     "detailView": {
       "tabs": {
@@ -1022,7 +1023,12 @@
       "toastSkipped_plural": "중복 {count}건을 건너뛰었습니다",
       "toastFailed": "연락처 {count}개를 가져오지 못했습니다",
       "toastFailed_plural": "연락처 {count}개를 가져오지 못했습니다",
-      "toastError": "가져오기 실패"
+      "toastError": "가져오기 실패",
+      "reject": {
+        "empty": "파일에 헤더만 있거나 비어 있습니다.",
+        "no-phone-column": "헤더에 \"phone\" 열이 없습니다.",
+        "no-phone-values": "전화번호가 있는 행이 없습니다."
+      }
     },
     "customFields": {
       "title": "커스텀 필드",
@@ -1040,7 +1046,8 @@
       "toastCreated": "\"{name}\"을(를) 만들었습니다.",
       "toastRenameFailed": "필드 이름을 변경할 수 없습니다.",
       "toastDeleteFailed": "필드를 삭제할 수 없습니다.",
-      "toastDeleted": "\"{name}\"을(를) 삭제했습니다."
+      "toastDeleted": "\"{name}\"을(를) 삭제했습니다.",
+      "deleteConfirmAction": "필드 삭제"
     },
     "futurePurchase": {
       "title": "향후 구매 등록",
@@ -3785,7 +3792,9 @@
     "genericError": "저장하지 못했습니다. 다시 시도하세요.",
     "retired": "{name} 카탈로그에서 제외됨",
     "restored": "{name} 카탈로그로 복귀",
-    "showRetiredCount": "보관된 제품 {count}개 표시"
+    "showRetiredCount": "보관된 제품 {count}개 표시",
+    "discardDraftTitle": "작성 중인 제품을 버릴까요?",
+    "discardDraftBody": "새 제품이 아직 저장되지 않았습니다. 다른 제품을 편집하려고 열면 입력한 내용이 사라집니다."
   },
   "Playbook": {
     "title": "플레이북",

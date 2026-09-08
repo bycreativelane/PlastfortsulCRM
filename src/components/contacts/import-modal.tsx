@@ -11,6 +11,7 @@ import {
 import {
   parseContactCsv,
   type ParsedContactRow,
+  type ParseContactCsvFailure,
 } from '@/lib/contacts/parse-contact-csv';
 import {
   assignImportedContactTags,
@@ -143,8 +144,15 @@ export function ImportModal({
     tagsAssigned: number;
   } | null>(null);
 
+  /** Por que o CSV escolhido foi recusado. `null` enquanto nenhum foi. */
+  const [parseFailure, setParseFailure] =
+    useState<ParseContactCsvFailure | null>(null);
+  /** Um arquivo está pairando sobre o diálogo agora. */
+  const [dragging, setDragging] = useState(false);
+
   function reset() {
     setFile(null);
+    setParseFailure(null);
     setParsedRows([]);
     setHasTagsColumn(false);
     setHasCompanyColumn(false);
@@ -161,19 +169,31 @@ export function ImportModal({
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const selected = e.target.files?.[0];
     if (!selected) return;
+    await handleFile(selected);
+  }
 
+  /*
+   * O caminho do arquivo, separado do evento do `<input>`.
+   *
+   * A extração é o que torna o ARRASTAR possível: um `drop` entrega um
+   * `File` pelo `dataTransfer`, não um `ChangeEvent<HTMLInputElement>`.
+   */
+  async function handleFile(selected: File) {
     setFile(selected);
     setResult(null);
+    setParseFailure(null);
 
     const text = await selected.text();
     const {
       rows,
       hasTagsColumn: csvHasTags,
       hasCompanyColumn: csvHasCompany,
+      failure,
     } = parseContactCsv(text);
 
     if (rows.length === 0) {
       toast.error(t('toastNoValidRows'));
+      setParseFailure(failure ?? 'no-phone-values');
       setParsedRows([]);
       setHasTagsColumn(false);
       setHasCompanyColumn(false);
@@ -404,7 +424,36 @@ export function ImportModal({
           declaration, and two separate `max-height` rules cannot compose into
           a min(). Divided by `--zoom` by hand so it tracks the utility if the
           zoom experiment in globals.css is ever switched back on. */}
-      <DialogContent className="border-border/80 bg-popover text-popover-foreground flex max-h-[min(calc(90dvh/var(--zoom)),45rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl">
+      {/* OS HANDLERS DE ARRASTO VÃO NO DIÁLOGO INTEIRO.
+
+          A borda tracejada é o convite universal a arrastar um arquivo, e
+          este diálogo não tinha um `onDrop` sequer: soltar o CSV fazia o
+          NAVEGADOR abri-lo como documento e levava a aplicação junto,
+          com o trabalho não salvo e a sessão.
+
+          `preventDefault` só na zona ainda deixaria a página cair se o
+          arquivo fosse solto dois centímetros ao lado — que é o normal.
+          O realce visual, esse sim, fica só na zona.
+
+          O `contains` no `dragLeave` é o que impede a piscada: sem ele,
+          cruzar a borda de qualquer filho conta como sair do diálogo. */}
+      <DialogContent
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragging(true);
+        }}
+        onDragLeave={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget as Node))
+            setDragging(false);
+        }}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragging(false);
+          const dropped = e.dataTransfer.files?.[0];
+          if (dropped) void handleFile(dropped);
+        }}
+        className="border-border/80 bg-popover text-popover-foreground flex max-h-[min(calc(90dvh/var(--zoom)),45rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl"
+      >
         <div className="border-border/80 shrink-0 space-y-4 border-b px-6 pt-6 pb-5">
           <DialogHeader className="gap-1.5">
             <DialogTitle className="text-popover-foreground text-lg">
@@ -439,17 +488,30 @@ export function ImportModal({
             }}
             className={cn(
               'group flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed p-5 transition-colors duration-(--dur-1)',
-              file
-                ? 'border-primary/35 bg-primary/[0.04]'
-                : 'hover:border-primary/40 border-border/80 bg-background/40 hover:bg-background/70'
+              // A RECUSA NÃO PODE PARECER ACEITAÇÃO. O arquivo era posto no
+              // estado ANTES do parse, então um CSV rejeitado ficava com a
+              // moldura azul, o ladrilho azul e a pílula "0 linhas prontas"
+              // — a aparência exata de sucesso. Azul aqui estava dizendo
+              // "deu certo", que não é o que azul quer dizer.
+              parseFailure
+                ? 'border-danger-ink/25 bg-danger-soft'
+                : dragging
+                  ? 'border-primary/60 bg-primary/[0.06]'
+                  : file
+                    ? 'border-primary/35 bg-primary/[0.04]'
+                    : 'hover:border-primary/40 border-border/80 bg-background/40 hover:bg-background/70'
             )}
           >
             {file ? (
               <>
                 <IconTile
                   size="lg"
-                  tone="primary"
-                  className="ring-primary/25 ring-1"
+                  tone={parseFailure ? 'danger' : 'primary'}
+                  className={cn(
+                    parseFailure
+                      ? 'ring-danger-ink/20 ring-1'
+                      : 'ring-primary/25 ring-1'
+                  )}
                 >
                   <FileText />
                 </IconTile>
@@ -459,9 +521,15 @@ export function ImportModal({
                 >
                   {truncateFilename(file.name)}
                 </p>
-                <TagChip>
-                  {t('rowsReady', { count: parsedRows.length })}
-                </TagChip>
+                {parseFailure ? (
+                  <p className="text-danger-ink text-2xs">
+                    {t(`reject.${parseFailure}`)}
+                  </p>
+                ) : (
+                  <TagChip>
+                    {t('rowsReady', { count: parsedRows.length })}
+                  </TagChip>
+                )}
               </>
             ) : (
               <>

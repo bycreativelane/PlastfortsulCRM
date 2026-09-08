@@ -912,7 +912,8 @@
       "productInterest": "Produtos de interesse",
       "productInterestDesc": "O que este contato compra ou perguntou. É por aqui que uma campanha por produto filtra.",
       "taxIdInvalid": "Os dígitos verificadores não batem — vale conferir.",
-      "taxIdDuplicate": "“{name}” já tem esse número. Dois cadastros para uma empresa significa metade do histórico em cada um."
+      "taxIdDuplicate": "“{name}” já tem esse número. Dois cadastros para uma empresa significa metade do histórico em cada um.",
+      "birthdayHint": "A data completa; só o dia e o mês são usados."
     },
     "detailView": {
       "tabs": {
@@ -1022,7 +1023,12 @@
       "toastSkipped_plural": "{count} duplicados ignorados",
       "toastFailed": "{count} contato não pôde ser importado",
       "toastFailed_plural": "{count} contatos não puderam ser importados",
-      "toastError": "A importação falhou"
+      "toastError": "A importação falhou",
+      "reject": {
+        "empty": "O arquivo tem só o cabeçalho, ou está vazio.",
+        "no-phone-column": "Falta a coluna \"phone\" no cabeçalho.",
+        "no-phone-values": "Nenhuma linha tem telefone preenchido."
+      }
     },
     "customFields": {
       "title": "Campos personalizados",
@@ -1040,7 +1046,8 @@
       "toastCreated": "\"{name}\" criado.",
       "toastRenameFailed": "Não foi possível renomear o campo.",
       "toastDeleteFailed": "Não foi possível excluir o campo.",
-      "toastDeleted": "\"{name}\" excluído."
+      "toastDeleted": "\"{name}\" excluído.",
+      "deleteConfirmAction": "Excluir campo"
     },
     "futurePurchase": {
       "title": "Registrar compra futura",
@@ -3785,7 +3792,9 @@
     "genericError": "Não foi possível salvar. Tente de novo.",
     "retired": "{name} saiu do catálogo",
     "restored": "{name} voltou ao catálogo",
-    "showRetiredCount": "{count, plural, =1 {Mostrar 1 aposentado} other {Mostrar # aposentados}}"
+    "showRetiredCount": "{count, plural, =1 {Mostrar 1 aposentado} other {Mostrar # aposentados}}",
+    "discardDraftTitle": "Descartar o produto que você começou?",
+    "discardDraftBody": "O novo produto ainda não foi salvo. Abrir outro para editar apaga o que já está preenchido."
   },
   "Playbook": {
     "title": "Playbook",

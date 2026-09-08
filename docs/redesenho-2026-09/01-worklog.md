@@ -532,3 +532,96 @@ A zona de upload tinha dois ladrilhos: 36px com arquivo escolhido, 40px sem.
 Escolher um arquivo encolhia o ladrilho e refluía a caixa. E 40 nem está na
 escada que o `atoms.test.ts` nomeia.
 
+
+---
+
+## Fase 11 — formulários longos
+
+Doze achados nos três formulários de entrada de dados. Dois deles são código
+que nunca rodou; um é uma perda de trabalho silenciosa; um derruba a
+aplicação.
+
+### Código morto que parecia funcionar (F1, F5)
+
+O aviso de **CNPJ duplicado nunca disparou**. A consulta era
+`.select('id, name')` e a comparação lia `row.tax_id` — sempre `undefined`,
+`normalizeTaxId(undefined)` devolvendo string vazia, nunca igual aos dígitos
+digitados. O bloco que imprime "já existe um contato com este CNPJ" era
+inalcançável desde que foi escrito.
+
+De quebra, o corte no banco era "qualquer linha com CNPJ" com `.limit(200)` e
+sem `order`: acima de 200 contatos com CNPJ na conta, um falso negativo
+garantido mesmo com a coluna na projeção. Agora é `.in` das duas grafias — e
+não `.eq` dos dígitos, porque a coluna não tem CHECK nem trigger de
+normalização e linhas antigas podem estar pontuadas.
+
+E "CNPJ inválido" piscava **sob o cursor**: `isValidTaxId(taxId)` era
+avaliado a cada render, e no 11º dígito de um CNPJ a função cai no ramo de
+CPF e reprova. O próprio campo já dizia, no comentário do `onBlur`, que a
+checagem é na saída; e a `tax-id.ts` diz por quê — *a form that says "CNPJ
+inválido" over three digits is a form people learn to ignore*. O veredito
+agora é gravado no blur, e apagar o campo o limpa.
+
+### Trabalho que some (F7)
+
+O painel do formulário e a lista com os lápis ficam na tela ao mesmo tempo.
+Com "Novo produto" meio preenchido, clicar num lápis sobrescrevia os onze
+campos — e o painel **não desmonta**, porque só troca `editing` de `new` para
+um id. Nada se move na tela e o trabalho some. Agora pergunta, e só quando há
+rascunho sujo; a comparação é com o rascunho vazio e não com o nome, porque
+sem nome o Salvar já está desabilitado e é justamente aí que o que se perde é
+o resto.
+
+### Soltar um arquivo derrubava a aplicação (C9)
+
+`grep onDrop` no modal de importação não retornava nada. A borda tracejada é
+o convite universal a arrastar, e sem `preventDefault` o navegador abre o CSV
+como documento e leva a aplicação junto — trabalho não salvo, sessão. Os
+handlers foram para o **diálogo inteiro**, não só para a zona: `preventDefault`
+só na zona ainda deixa a página cair se o arquivo for solto dois centímetros
+ao lado, que é o normal. O realce, esse sim, fica na zona.
+
+Isso exigiu separar o caminho do arquivo do evento do `<input>`: um `drop`
+entrega um `File`, não um `ChangeEvent<HTMLInputElement>`.
+
+### Recusa com cara de aceitação (C10)
+
+O arquivo era posto no estado **antes** do parse, então um CSV rejeitado
+ficava com a moldura azul, o ladrilho azul e a pílula "0 linhas prontas" — a
+aparência exata de sucesso. Azul dizendo "deu certo", que não é o que azul
+quer dizer.
+
+E as três causas de "nenhuma linha" — arquivo só com cabeçalho, sem coluna
+`phone`, nenhum telefone preenchido — devolviam o mesmo aviso, que nomeia a
+segunda. O parser agora devolve `failure`, e as três estão em teste.
+
+### O resto (F6, F8, F13, F17, F18, C11, C15)
+
+- **A gaveta comercial** abria por sete campos e edita onze. Origem, ticket
+  médio, ciclo de recompra e UF — todos impressos na ficha — ficavam
+  escondidos ao abrir a edição, que é exatamente o que o comentário logo
+  acima jurava evitar. Virou lista nomeada: o próximo campo entra por
+  acréscimo, e esquecer é visível.
+- **Ticket médio** era um `type="number"` cru enquanto todo o resto do
+  dinheiro do produto passa pelo `CurrencyInput` — e a ficha imprime esse
+  mesmo valor com `formatCurrency`. Fica registrado o efeito: um ticket com
+  centavos passa a ser exibido arredondado, e regravado inteiro **se** a
+  pessoa mexer no campo. É o que já acontece com o preço do produto.
+- **O aniversário** cobra um ano que o tipo, a migração e a automação dizem
+  os três que ninguém usa. Ganhou dica — e ela ensina a data completa de
+  propósito, porque o `DateField` engole "15/03" em silêncio.
+- **O "40x60cm"** é coluna gerada, a lista imprime e a busca casa contra ela.
+  Quem cadastra só via a string depois de salvar, que é tarde para notar que
+  digitou 400. Agora tem prévia, com os quatro ramos do CASE da migração —
+  não só o completo, porque é no meio-preenchido que o erro aparece.
+- **O rodapé do formulário de contato** rolava para fora do diálogo. A
+  correção é de uma linha e vale **só aqui**: o `DialogContent` é uma grade,
+  e um filho direto de grade com `sticky` tem curso zero — este é o único
+  diálogo que embrulha o corpo num `<form>`.
+- **O diálogo de excluir campo** punha três frases no título e um "Confirmar"
+  genérico no botão, com `description` e `confirmLabel` existindo no
+  componente e sem uso.
+- **O campo de renomear** só se anunciava no hover, e no toque não há hover.
+  `bg-muted` em repouso também acaba com as duas aparências de campo no mesmo
+  diálogo.
+

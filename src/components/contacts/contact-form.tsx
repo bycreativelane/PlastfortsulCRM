@@ -35,12 +35,38 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { CurrencyInput } from '@/components/ui/currency-input';
 import { FieldLabel, FieldRow } from '@/components/ui/field';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { AlertTriangle, ChevronDown, Loader2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { DateField } from '@/components/ui/date-field';
+
+/**
+ * Os onze campos que a gaveta "Dados comerciais" edita.
+ *
+ * A gaveta abre quando o contato já carrega qualquer um deles, para que
+ * abrir a edição nunca esconda um dado que a ficha mostra. A checagem
+ * anterior listava SETE — faltavam origem, ticket médio, ciclo de recompra
+ * e UF, todos impressos na barra lateral da caixa de entrada.
+ *
+ * Uma lista e não uma expressão booleana justamente por isso: o próximo
+ * campo entra por acréscimo, e esquecer de acrescentar é visível.
+ */
+const COMMERCIAL_KEYS = [
+  'job_title',
+  'tax_id',
+  'city',
+  'state',
+  'source',
+  'birthday',
+  'last_purchase_at',
+  'next_purchase_expected_at',
+  'repurchase_cycle_days',
+  'average_ticket',
+  'opted_out',
+] as const satisfies readonly (keyof Contact)[];
 
 interface ContactFormProps {
   open: boolean;
@@ -63,7 +89,7 @@ export function ContactForm({
 }: ContactFormProps) {
   const t = useTranslations('Contacts.form');
   const supabase = createClient();
-  const { accountId } = useAuth();
+  const { accountId, defaultCurrency } = useAuth();
   const isEdit = !!contact;
 
   const [name, setName] = useState('');
@@ -99,6 +125,16 @@ export function ContactForm({
    * decide.
    */
   const [taxIdTwin, setTaxIdTwin] = useState<string | null>(null);
+  /*
+   * O veredito é gravado NO BLUR, não recalculado a cada tecla.
+   *
+   * `isValidTaxId(taxId)` avaliado no render pisca "CNPJ inválido" sob o
+   * cursor: no 11º dígito de um CNPJ a função cai no ramo de CPF e quase
+   * sempre reprova. O próprio campo já dizia, no comentário do `onBlur`,
+   * que a checagem é na saída — e a `tax-id.ts` diz por quê: "a form that
+   * says CNPJ inválido over three digits is a form people learn to ignore".
+   */
+  const [taxIdInvalid, setTaxIdInvalid] = useState(false);
   const [city, setCity] = useState('');
   const [state, setState] = useState('');
   const [source, setSource] = useState('');
@@ -106,7 +142,7 @@ export function ContactForm({
   const [lastPurchaseAt, setLastPurchaseAt] = useState('');
   const [nextPurchaseAt, setNextPurchaseAt] = useState('');
   const [cycleDays, setCycleDays] = useState('');
-  const [averageTicket, setAverageTicket] = useState('');
+  const [averageTicket, setAverageTicket] = useState<number | null>(null);
   const [optedOut, setOptedOut] = useState(false);
 
   const [saving, setSaving] = useState(false);
@@ -160,22 +196,16 @@ export function ContactForm({
           ? String(contact.repurchase_cycle_days)
           : ''
       );
-      setAverageTicket(
-        contact?.average_ticket != null ? String(contact.average_ticket) : ''
-      );
+      setAverageTicket(contact?.average_ticket ?? null);
       setOptedOut(contact?.opted_out ?? false);
-      // Open the section when the contact already carries any of it, so an
-      // edit never hides data the user can see on the record.
+      // A lista está no escopo do módulo, e é a mesma que a gaveta edita.
+      // Faltavam quatro — origem, ticket médio, ciclo de recompra e UF —
+      // todos impressos na ficha, e todos escondidos ao abrir a edição.
       setShowCommercial(
-        !!(
-          contact?.job_title ||
-          contact?.tax_id ||
-          contact?.city ||
-          contact?.birthday ||
-          contact?.last_purchase_at ||
-          contact?.next_purchase_expected_at ||
-          contact?.opted_out
-        )
+        COMMERCIAL_KEYS.some((k) => {
+          const v = contact?.[k];
+          return v != null && v !== '' && v !== false;
+        })
       );
       setSelectedTagIds(contactTags.map((ct) => ct.tag_id));
       setProductInterest(
@@ -309,7 +339,7 @@ export function ContactForm({
               last_purchase_at: lastPurchaseAt || null,
               next_purchase_expected_at: nextPurchaseAt || null,
               repurchase_cycle_days: cycleDays ? Number(cycleDays) : null,
-              average_ticket: averageTicket ? Number(averageTicket) : null,
+              average_ticket: averageTicket,
               // Left out entirely when the catalogue does not exist:
               // naming a column the database has not got would fail the
               // whole save over an optional field.
@@ -355,7 +385,7 @@ export function ContactForm({
               last_purchase_at: lastPurchaseAt || null,
               next_purchase_expected_at: nextPurchaseAt || null,
               repurchase_cycle_days: cycleDays ? Number(cycleDays) : null,
-              average_ticket: averageTicket ? Number(averageTicket) : null,
+              average_ticket: averageTicket,
               // Left out entirely when the catalogue does not exist:
               // naming a column the database has not got would fail the
               // whole save over an optional field.
@@ -590,7 +620,9 @@ export function ContactForm({
                       inputMode="numeric"
                       onChange={(e) => {
                         setTaxId(e.target.value);
+                        // Um veredito velho não sobrevive a uma edição.
                         setTaxIdTwin(null);
+                        setTaxIdInvalid(false);
                       }}
                       // Punctuated and checked on the way OUT of the
                       // field, never under the caret: reformatting while
@@ -598,16 +630,33 @@ export function ContactForm({
                       // person using it.
                       onBlur={async (e) => {
                         const digits = normalizeTaxId(e.target.value);
+                        // Antes do early return: apagar o campo LIMPA o
+                        // erro, em vez de deixar um erro velho na tela.
+                        setTaxIdInvalid(isValidTaxId(digits) === false);
                         if (!digits) return;
                         setTaxId(formatTaxId(digits));
                         if (!accountId || digits.length < 11) return;
                         // Both spellings reduce to the same digits, which
                         // is what makes the twin findable at all.
+                        // `tax_id` NA PROJEÇÃO. Sem ela `row.tax_id` era
+                        // sempre `undefined`, `normalizeTaxId(undefined)`
+                        // devolvia string vazia, a comparação nunca batia e
+                        // o aviso de CNPJ duplicado logo abaixo era código
+                        // morto desde que foi escrito.
+                        //
+                        // E o corte no banco é `.in` das DUAS grafias, não
+                        // mais "qualquer linha com CNPJ": o `.limit(200)`
+                        // sem `order` sobre todos os contatos com CNPJ era
+                        // um falso negativo garantido acima de 200 na conta.
+                        // `.in` e não `.eq(digits)` porque a coluna não tem
+                        // CHECK nem trigger de normalização (040), então
+                        // linhas antigas podem estar pontuadas — e o `.find`
+                        // com `normalizeTaxId` continua como segunda rede.
                         const { data } = await supabase
                           .from('contacts')
-                          .select('id, name')
+                          .select('id, name, tax_id')
                           .eq('account_id', accountId)
-                          .not('tax_id', 'is', null)
+                          .in('tax_id', [digits, formatTaxId(digits)])
                           .limit(200);
                         const twin = (
                           (data ?? []) as {
@@ -626,7 +675,7 @@ export function ContactForm({
                       }}
                       className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
                     />
-                    {isValidTaxId(taxId) === false ? (
+                    {taxIdInvalid ? (
                       <p className="text-danger-ink text-2xs">
                         {t('taxIdInvalid')}
                       </p>
@@ -661,7 +710,20 @@ export function ContactForm({
                 </div>
 
                 <div className="grid grid-cols-1 gap-3 @xs:grid-cols-2">
-                  <FieldRow label={t('birthdayLabel')} htmlFor="cf-bday">
+                  {/* A dica existe porque o campo COBRA um ano que nada
+                      usa: o tipo, a migração 040 e a automação de
+                      aniversário dizem os três que só o dia e o mês contam.
+
+                      E ela ensina a data COMPLETA de propósito: o
+                      `DateField` engole "15/03" em silêncio (menos de três
+                      grupos de dígitos não vira valor), então uma dica
+                      dizendo "dia e mês bastam" ensinaria um formato que o
+                      campo recusa — pior que o rótulo de hoje. */}
+                  <FieldRow
+                    label={t('birthdayLabel')}
+                    htmlFor="cf-bday"
+                    hint={t('birthdayHint')}
+                  >
                     <DateField
                       id="cf-bday"
                       value={birthday}
@@ -714,14 +776,27 @@ export function ContactForm({
                       className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
                     />
                   </FieldRow>
+                  {/* O campo de dinheiro da casa, como todo o resto do
+                      dinheiro deste produto — e a ficha já imprime este
+                      mesmo valor com `formatCurrency`.
+
+                      Registrado de propósito: o componente é de unidades
+                      inteiras, então um ticket que já tenha centavos passa a
+                      ser EXIBIDO arredondado e, se a pessoa mexer no campo, é
+                      regravado inteiro. É o que já acontece com o preço do
+                      produto, e o que o `currency-input.tsx` defende: não há
+                      centavos em lugar nenhum deste produto, e um campo que
+                      os aceitasse seria o único lugar onde eles existem.
+                      Sem toque, o valor com centavos é regravado como está.
+
+                      O `? :` que estava no payload engolia um ticket de zero;
+                      agora o valor vai como está, `null` incluído. */}
                   <FieldRow label={t('ticketLabel')} htmlFor="cf-ticket">
-                    <Input
+                    <CurrencyInput
                       id="cf-ticket"
-                      type="number"
-                      min={0}
-                      step="0.01"
                       value={averageTicket}
-                      onChange={(e) => setAverageTicket(e.target.value)}
+                      onValueChange={setAverageTicket}
+                      currency={defaultCurrency}
                       className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
                     />
                   </FieldRow>
@@ -838,7 +913,23 @@ export function ContactForm({
             </div>
           )}
 
-          <DialogFooter className="bg-popover border-border">
+          {/* GRUDADO, e só aqui.
+
+              O `DialogContent` é quem rola, e o rodapé é um filho comum:
+              num formulário de contato aberto por inteiro o Salvar sai de
+              vista. `sticky` não cria um segundo scroller, então a objeção
+              escrita no `dialog.tsx` não se aplica — mas a correção seria
+              INERTE nos outros 26 diálogos, porque o `DialogContent` é uma
+              grade e um filho direto de grade tem curso zero. Só este
+              embrulha o corpo num `<form>`, o que dá ao rodapé um bloco
+              contido alto o bastante para grudar.
+
+              `-bottom-4` e não `bottom-0`: o offset é medido contra a caixa
+              de padding do scroller, e o `DialogContent` tem `p-4` — com
+              zero sobraria uma faixa de 16px rolando por baixo do rodapé. O
+              `-mb-4` que o `DialogFooter` já traz casa exatamente com isso,
+              então em repouso nada muda. */}
+          <DialogFooter className="bg-popover border-border sticky -bottom-4 z-10">
             <Button
               type="button"
               variant="outline"

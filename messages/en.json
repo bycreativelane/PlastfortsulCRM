@@ -912,7 +912,8 @@
       "productInterest": "Products of interest",
       "productInterestDesc": "What this customer buys or asked about. This is what a campaign by product filters on.",
       "taxIdInvalid": "The check digits do not agree — worth a second look.",
-      "taxIdDuplicate": "“{name}” already has this number. Two records for one company means half the history is on each."
+      "taxIdDuplicate": "“{name}” already has this number. Two records for one company means half the history is on each.",
+      "birthdayHint": "The full date; only the day and month are used."
     },
     "detailView": {
       "tabs": {
@@ -1022,7 +1023,12 @@
       "toastSkipped_plural": "{count} duplicates skipped",
       "toastFailed": "{count} contact failed to import",
       "toastFailed_plural": "{count} contacts failed to import",
-      "toastError": "Import failed"
+      "toastError": "Import failed",
+      "reject": {
+        "empty": "The file has only a header row, or is empty.",
+        "no-phone-column": "The header has no \"phone\" column.",
+        "no-phone-values": "No row has a phone number."
+      }
     },
     "customFields": {
       "title": "Custom fields",
@@ -1040,7 +1046,8 @@
       "toastCreated": "Created \"{name}\".",
       "toastRenameFailed": "Could not rename field.",
       "toastDeleteFailed": "Could not delete field.",
-      "toastDeleted": "Deleted \"{name}\"."
+      "toastDeleted": "Deleted \"{name}\".",
+      "deleteConfirmAction": "Delete field"
     },
     "futurePurchase": {
       "title": "Schedule a future purchase",
@@ -3785,7 +3792,9 @@
     "genericError": "Could not save. Try again.",
     "retired": "{name} left the catalogue",
     "restored": "{name} is back in the catalogue",
-    "showRetiredCount": "{count, plural, =1 {Show 1 retired product} other {Show # retired products}}"
+    "showRetiredCount": "{count, plural, =1 {Show 1 retired product} other {Show # retired products}}",
+    "discardDraftTitle": "Discard the product you started?",
+    "discardDraftBody": "The new product has not been saved. Opening another one to edit clears what you have filled in."
   },
   "Playbook": {
     "title": "Playbook",

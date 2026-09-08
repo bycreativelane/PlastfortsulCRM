@@ -28,6 +28,7 @@ import {
 } from '@/lib/occurrences/kinds';
 import { APP_LOCALE } from '@/lib/i18n/locale';
 import type { Contact } from '@/types';
+import { fromISO } from '@/lib/calendar';
 
 function todayIso(): string {
   const d = new Date();
@@ -202,7 +203,9 @@ export function OccurrenceDialog({
                   </p>
                   <div className="mt-1.5 flex items-center justify-between gap-2">
                     <span className="text-muted-foreground text-2xs">
-                      {new Date(row.occurred_on).toLocaleDateString(
+                      {/* `fromISO`: `occurred_on` é DATE, e `new Date`
+                          sobre ela devolve o dia anterior no Brasil. */}
+                      {(fromISO(row.occurred_on) ?? new Date()).toLocaleDateString(
                         APP_LOCALE,
                         {
                           day: '2-digit',

@@ -40,6 +40,7 @@ import {
   SidePanelLabel,
   SidePanelSection,
 } from '@/components/ui/side-panel';
+import { fromISO } from '@/lib/calendar';
 
 /**
  * This panel's section, one gutter narrower than the shared primitive.
@@ -49,6 +50,24 @@ import {
  * 12px — two rails framing the same conversation with different gutters is
  * the first asymmetry the eye finds in a three-column layout.
  */
+/**
+ * Uma coluna DATE do banco, como `Date` LOCAL.
+ *
+ * `new Date('2026-09-08')` parseia como meia-noite UTC, que a oeste de
+ * Greenwich e o dia anterior — no Brasil a ficha imprimia "07/09" para uma
+ * previsao de fechamento no dia 8. O `lib/calendar.ts` documenta esse
+ * defeito no cabecalho dele e existe para evita-lo; quatro campos desta
+ * barra o cometiam mesmo assim.
+ *
+ * O `?? new Date()` nunca dispara na pratica — todos os call sites ja
+ * checam o valor antes — e esta aqui para o tipo, nao como fallback de
+ * verdade: uma data invalida vinda do banco vira hoje, que e visivelmente
+ * errado e portanto reportavel, em vez de "Invalid Date".
+ */
+function isoDay(iso: string): Date {
+  return fromISO(iso) ?? new Date();
+}
+
 function Section({
   className,
   ...props
@@ -550,7 +569,10 @@ export function ContactSidebar({
               )}
               {currentDeal.expected_close_date && (
                 <KeyValue label={tSidebar('dealClose')}>
-                  {format.dateTime(new Date(currentDeal.expected_close_date), {
+                  {/* `fromISO` e não `new Date`: coluna DATE lida como
+                      meia-noite UTC volta o dia anterior no Brasil. Ver a
+                      nota no topo de `lib/calendar.ts`. */}
+                  {format.dateTime(isoDay(currentDeal.expected_close_date), {
                     day: '2-digit',
                     month: '2-digit',
                     year: 'numeric',
@@ -576,15 +598,12 @@ export function ContactSidebar({
             </SidePanelLabel>
             {contact.last_purchase_at && (
               <KeyValue label={tSidebar('lastPurchase')}>
-                {format.dateTime(new Date(contact.last_purchase_at), DATE)}
+                {format.dateTime(isoDay(contact.last_purchase_at), DATE)}
               </KeyValue>
             )}
             {contact.next_purchase_expected_at && (
               <KeyValue label={tSidebar('nextPurchase')}>
-                {format.dateTime(
-                  new Date(contact.next_purchase_expected_at),
-                  DATE
-                )}
+                {format.dateTime(isoDay(contact.next_purchase_expected_at), DATE)}
               </KeyValue>
             )}
             {contact.repurchase_cycle_days != null && (
@@ -772,7 +791,7 @@ export function ContactSidebar({
             <KeyValue label={tSidebar('birthday')}>
               {/* Day and month only. The year on a birthday is either unknown
                   or nobody's business, and the automation ignores it too. */}
-              {format.dateTime(new Date(contact.birthday), {
+              {format.dateTime(isoDay(contact.birthday), {
                 day: '2-digit',
                 month: '2-digit',
               })}

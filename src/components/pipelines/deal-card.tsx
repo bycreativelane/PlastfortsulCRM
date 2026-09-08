@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import { MemberAvatar } from '@/components/presence/member-avatar';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Tag } from '@/components/ui/tag';
+import { fromISO } from '@/lib/calendar';
 
 interface DealCardProps {
   deal: Deal;
@@ -99,6 +100,22 @@ export function DealCard({
     deal.status === 'open' &&
     !!deal.expected_close_date &&
     deal.expected_close_date < todayIso();
+
+  /*
+   * `fromISO`, e NUNCA `new Date(iso)`.
+   *
+   * `expected_close_date` é uma coluna DATE — `2026-09-08`, sem hora. O
+   * `new Date()` parseia isso como MEIA-NOITE UTC, que a oeste de Greenwich
+   * é o dia anterior: no fuso de São Paulo o cartão imprimia "7 de set." para
+   * um negócio que fecha no dia 8.
+   *
+   * O `lib/calendar.ts` documenta exatamente este defeito no cabeçalho —
+   * "the off-by-one that shows a deal closing on the 22nd" — e existe para
+   * evitá-lo. Sete telas o cometiam mesmo assim.
+   */
+  const closeDate = deal.expected_close_date
+    ? fromISO(deal.expected_close_date)
+    : null;
 
   return (
     <button
@@ -244,11 +261,11 @@ export function DealCard({
               ter fechado há três semanas tinha exatamente a mesma aparência
               de um que fecha na semana que vem, no lugar do quadro onde essa
               é a única pergunta que importa. */}
-          {deal.expected_close_date &&
+          {closeDate &&
             (closeOverdue ? (
               <StatusBadge variant="danger" size="sm" className="tabular-nums">
                 <Calendar />
-                {format.dateTime(new Date(deal.expected_close_date), {
+                {format.dateTime(closeDate, {
                   day: 'numeric',
                   month: 'short',
                 })}
@@ -259,7 +276,7 @@ export function DealCard({
                 {/* Pelo next-intl, então a data lê no idioma do app. Estava
                     fixada em en-US, o que imprimia "Mar 14, 2026" numa
                     interface em português. */}
-                {format.dateTime(new Date(deal.expected_close_date), {
+                {format.dateTime(closeDate, {
                   day: 'numeric',
                   month: 'short',
                 })}

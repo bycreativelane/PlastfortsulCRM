@@ -34,7 +34,9 @@ describe('the funnel templates', () => {
 
   it('has exactly one automation that opens the funnel', () => {
     const entradas = funnel.filter((slug) =>
-      AUTOMATION_TEMPLATES[slug].steps.some((s) => s.step_type === 'create_deal')
+      AUTOMATION_TEMPLATES[slug].steps.some(
+        (s) => s.step_type === 'create_deal'
+      )
     );
     expect(entradas).toEqual(['funnel_new_lead']);
   });
@@ -157,6 +159,10 @@ const LOOKUP: TemplateLookup = {
     { id: 's-open', name: 'Em Aberto', pipeline_id: 'p-sales' },
     { id: 's-followup', name: 'Follow-up', pipeline_id: 'p-sales' },
     { id: 's-neg', name: 'Em negociacao', pipeline_id: 'p-sales' },
+    // Faltava aqui também, e é parte de por que a omissão passou: um
+    // quadro de teste sem `Ligação` não tinha como acusar uma lista de
+    // cancelamento sem `Ligação`.
+    { id: 's-call', name: 'Ligação', pipeline_id: 'p-sales' },
     { id: 's-prog', name: 'Em Andamento', pipeline_id: 'p-sales' },
     { id: 's-served', name: 'Atendido', pipeline_id: 'p-sales' },
     { id: 's-after', name: 'Pós-venda', pipeline_id: 'p-sales' },
@@ -194,6 +200,7 @@ describe('resolveTemplateReferences', () => {
       cancel_on_reply: true,
       cancel_when_stage_in: [
         's-neg',
+        's-call',
         's-prog',
         's-served',
         's-lost',
@@ -212,8 +219,9 @@ describe('resolveTemplateReferences', () => {
     expect(r.unresolved).toEqual([]);
     expect(r.trigger_config.quick_reply_id).toBe('q-prog');
     expect(r.steps[0].step_config).toEqual({ stage_id: 's-prog' });
-    expect(r.steps[1].step_config).toEqual({ tag_id: 't-lead' });
-    expect(r.steps[2].step_config).toEqual({ tag_id: 't-cli' });
+    // Só `Cliente`: o passo que tirava a etiqueta `Lead` saiu na auditoria
+    // de 8 de setembro. Itens 23 e 35 do pacote.
+    expect(r.steps[1].step_config).toEqual({ tag_id: 't-cli' });
   });
 
   it('fills a stage list for the deal_in_stage condition', () => {
@@ -223,7 +231,8 @@ describe('resolveTemplateReferences', () => {
     );
     expect(r.steps[0].step_config).toEqual({
       subject: 'deal_in_stage',
-      stage_ids: ['s-followup', 's-f30', 's-f60', 's-future'],
+      // `s-open` primeiro: item 21, e era a etapa que faltava.
+      stage_ids: ['s-open', 's-followup', 's-f30', 's-f60', 's-future'],
     });
   });
 
@@ -257,6 +266,170 @@ describe('resolveTemplateReferences', () => {
 describe('normalizeName', () => {
   it('ignores case, accents and stray spaces', () => {
     expect(normalizeName('  Em  Negociação ')).toBe('em negociacao');
-    expect(normalizeName('PÓS-VENDA')).toBe('pos-venda');
+    // Sem hífen desde a auditoria de 8 de setembro: o quadro real escreve
+    // `Pós-venda` e este arquivo declara `Pós-venda`, mas o pacote também
+    // escreve `Compra-futura` para uma etapa declarada `Compra Futura`.
+    // Ver a suíte da auditoria abaixo.
+    expect(normalizeName('PÓS-VENDA')).toBe('pos venda');
+  });
+
+  it('treats every dash as a space, on both sides', () => {
+    expect(normalizeName('Compra-futura')).toBe(normalizeName('Compra Futura'));
+    expect(normalizeName('Geladeira-30D')).toBe(normalizeName('Geladeira 30D'));
+    // Travessão colado de uma planilha.
+    expect(normalizeName('Follow—up')).toBe('follow up');
+  });
+});
+
+/**
+ * A AUDITORIA DO ITEM 6 DO P0, virada em guarda.
+ *
+ * `docs/spec-correcoes-2026-09.md` pedia "comparar as onze automações
+ * instaladas contra as especificações item a item". Uma comparação feita a
+ * olho vale uma tarde; estas asserções valem para sempre, e cada uma cita o
+ * item do pacote (`docs/pacote-correcoes-v2.md`) que a exige.
+ */
+describe('a auditoria do pacote — itens 16 a 31', () => {
+  /**
+   * A lista que os itens 19, 20 e 22 repetem palavra por palavra. `Ligação`
+   * era a que faltava, e `FUNNEL.call` não era referenciado em lugar nenhum
+   * do arquivo — declarado e órfão.
+   */
+  const SEIS = [
+    FUNNEL.negotiating,
+    FUNNEL.call,
+    FUNNEL.inProgress,
+    FUNNEL.served,
+    FUNNEL.futurePurchase,
+    FUNNEL.lost,
+  ];
+
+  /** As que esperam dias e por isso podem ser canceladas no meio. */
+  const LONGAS = [
+    'funnel_open_24h',
+    'funnel_followup',
+    'funnel_fridge_30d',
+    'funnel_future_purchase',
+  ] as const;
+
+  it.each(LONGAS)(
+    '%s cancela nas seis etapas dos itens 19, 20, 22 e 24',
+    (slug) => {
+      const def = AUTOMATION_TEMPLATES[slug];
+      const gatilho = def.triggerRefs?.stage;
+      // Uma automação não pode se cancelar ao entrar na etapa que a
+      // dispara: a Compra Futura carrega cinco das seis, sem a própria.
+      const esperado = SEIS.filter((s) => s !== gatilho);
+      expect(new Set(def.rules?.cancel_when_stage_in ?? [])).toEqual(
+        new Set(esperado)
+      );
+    }
+  );
+
+  it.each(LONGAS)('%s também para quando o cliente responde', (slug) => {
+    expect(AUTOMATION_TEMPLATES[slug].rules?.cancel_on_reply).toBe(true);
+  });
+
+  /**
+   * Item 21. Cinco etapas em que a resposta move para Em Negociação, e sete
+   * em que ela não pode mover. `Em aberto` é a primeira da lista e era a que
+   * faltava — o vendedor manda o orçamento com `/aberto`, o cliente
+   * responde, e nada acontecia.
+   */
+  it('cliente respondeu: as cinco etapas do item 21, e só elas', () => {
+    const condicao = AUTOMATION_TEMPLATES.funnel_customer_replied.steps[0];
+    expect(new Set(condicao.refs?.stages ?? [])).toEqual(
+      new Set([
+        FUNNEL.open,
+        FUNNEL.followUp,
+        FUNNEL.futurePurchase,
+        FUNNEL.fridge30,
+        FUNNEL.fridge60,
+      ])
+    );
+  });
+
+  it('cliente respondeu: nunca nas sete que o item 21 recusa', () => {
+    const proibidas = [
+      FUNNEL.newLead,
+      FUNNEL.negotiating,
+      FUNNEL.call,
+      FUNNEL.inProgress,
+      FUNNEL.served,
+      FUNNEL.afterSale,
+      FUNNEL.lost,
+    ];
+    const lista =
+      AUTOMATION_TEMPLATES.funnel_customer_replied.steps[0].refs?.stages;
+    for (const etapa of proibidas) expect(lista).not.toContain(etapa);
+  });
+
+  /**
+   * Itens 23 e 35: a etiqueta `Lead` não entra nem sai por automação. A
+   * etapa `Novo Lead` já representa o estado.
+   *
+   * Não é só doutrina. Nada neste produto CRIA uma etiqueta `Lead`, então
+   * `findTag` devolvia `null`, o passo instalava com `tag_id: ''` e
+   * `validate.ts` recusava a ativação — a automação da venda não subia numa
+   * conta limpa.
+   */
+  it('nenhuma automação do funil toca na etiqueta Lead', () => {
+    for (const slug of funnel) {
+      for (const step of AUTOMATION_TEMPLATES[slug].steps) {
+        expect(
+          normalizeName(step.refs?.tag ?? ''),
+          `${slug} mexe na etiqueta Lead`
+        ).not.toBe('lead');
+      }
+    }
+  });
+
+  /** Um nome de etapa fora de `FUNNEL` é um erro de digitação que só
+   *  aparece na instalação, como uma referência que não resolve. */
+  it('toda etapa citada por um modelo do funil existe em FUNNEL', () => {
+    const conhecidas = new Set<string>(Object.values(FUNNEL));
+    for (const slug of funnel) {
+      const def = AUTOMATION_TEMPLATES[slug];
+      const citadas = [
+        def.triggerRefs?.stage,
+        ...(def.rules?.cancel_when_stage_in ?? []),
+        ...def.steps.flatMap((s) => [s.refs?.stage, ...(s.refs?.stages ?? [])]),
+      ].filter((s): s is string => Boolean(s));
+      for (const etapa of citadas) {
+        expect(conhecidas, `${slug} cita "${etapa}"`).toContain(etapa);
+      }
+    }
+  });
+
+  /**
+   * O quadro real escreve os nomes com hífen — é assim que eles aparecem em
+   * todas as 2138 linhas do pacote. Um nome que não resolve instala a
+   * automação com `stage_id: ''`, e é o mesmo erro do item 3.
+   */
+  it('resolve o quadro escrito como o pacote escreve', () => {
+    const lookup: TemplateLookup = {
+      pipelines: [{ id: 'p1', name: 'VENDAS' }],
+      stages: [
+        { id: 's-cf', pipeline_id: 'p1', name: 'Compra-futura' },
+        { id: 's-g30', pipeline_id: 'p1', name: 'Geladeira-30D' },
+        { id: 's-g60', pipeline_id: 'p1', name: 'Geladeira-60D' },
+        { id: 's-neg', pipeline_id: 'p1', name: 'Em negociação' },
+        { id: 's-lig', pipeline_id: 'p1', name: 'Ligação' },
+        { id: 's-and', pipeline_id: 'p1', name: 'Em andamento' },
+        { id: 's-at', pipeline_id: 'p1', name: 'Atendido' },
+        { id: 's-vp', pipeline_id: 'p1', name: 'Venda perdida' },
+      ],
+      tags: [],
+      quickReplies: [],
+    };
+    const resolvido = resolveTemplateReferences(
+      localizeTemplate(AUTOMATION_TEMPLATES.funnel_future_purchase, t),
+      lookup
+    );
+    expect(resolvido.unresolved).toEqual([]);
+    expect(resolvido.trigger_config.stage_id).toBe('s-cf');
+    expect(new Set(resolvido.rules.cancel_when_stage_in)).toEqual(
+      new Set(['s-neg', 's-lig', 's-and', 's-at', 's-vp'])
+    );
   });
 });

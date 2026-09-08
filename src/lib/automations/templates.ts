@@ -114,14 +114,40 @@ export const FUNNEL = {
   lost: 'Venda Perdida',
 } as const;
 
-/** §22 of the official flow: entering any of these ends a follow-up. */
+/**
+ * §22 do fluxo oficial: entrar em qualquer uma destas encerra a sequência.
+ *
+ * SEIS, e eram cinco. Os itens 19, 20 e 22 do pacote repetem a mesma lista
+ * palavra por palavra — Em negociação, **Ligação**, Em andamento, Atendido,
+ * Compra-futura, Venda perdida — e `Ligação` era a que faltava. `FUNNEL.call`
+ * estava declarado e não era referenciado por linha nenhuma do arquivo, que é
+ * a assinatura de uma omissão e não de uma decisão.
+ *
+ * O que isso custava: o vendedor combina de ligar, arrasta o cartão para
+ * Ligação, e o robô segue mandando D1, D2, D3 e D30 para alguém com quem a
+ * empresa acabou de marcar uma conversa por telefone.
+ */
 const FOLLOWUP_CANCEL_STAGES = [
   FUNNEL.negotiating,
+  FUNNEL.call,
   FUNNEL.inProgress,
   FUNNEL.served,
   FUNNEL.lost,
   FUNNEL.futurePurchase,
 ];
+
+/**
+ * A mesma lista, para quem é disparado ao ENTRAR em Compra Futura.
+ *
+ * Compra Futura não pode se cancelar ao entrar na própria etapa que a
+ * dispara, e por isso a automação dela carregava uma lista curta e escrita à
+ * mão: `[negociação, em andamento, perdida]`. Faltavam `Atendido` e
+ * `Ligação` — e o item 24 do pacote é explícito em exigir que `/atendido`
+ * cancele a Compra Futura pendente.
+ */
+const FUTURE_PURCHASE_CANCEL_STAGES = FOLLOWUP_CANCEL_STAGES.filter(
+  (stage) => stage !== FUNNEL.futurePurchase
+);
 
 const PT_BR = 'pt_BR';
 
@@ -141,10 +167,11 @@ const PT_BR = 'pt_BR';
  * structure (which trigger, which steps, which branch) is code and
  * belongs in code; the words are content and belong with the content.
  *
- * The `funnel_*` templates are the ten automations of the official sales
- * flow (docs/spec-automacoes-fluxo.md, Parte E). They name stages, tags
- * and quick replies rather than carrying ids, and every Meta template
- * they send is one of `src/lib/whatsapp/plastfortsul-templates.ts`.
+ * The `funnel_*` templates are the eleven automations of the official
+ * sales flow (docs/spec-automacoes-fluxo.md, Parte E; auditadas contra
+ * `docs/pacote-correcoes-v2.md` em 8 de setembro de 2026). They name
+ * stages, tags and quick replies rather than carrying ids, and every Meta
+ * template they send is one of `src/lib/whatsapp/approved-templates.ts`.
  */
 export const AUTOMATION_TEMPLATES: Record<
   TemplateSlug,
@@ -256,7 +283,6 @@ export const AUTOMATION_TEMPLATES: Record<
     rules: { pipeline: FUNNEL.pipeline },
   },
 
-  /** §2 — 24 h in Em Aberto without a reply → Follow-up. */
   /**
    * §1 — toda conversa nova vira oportunidade em Novo Lead.
    *
@@ -301,6 +327,7 @@ export const AUTOMATION_TEMPLATES: Record<
     },
   },
 
+  /** §2 — 24 h in Em Aberto without a reply → Follow-up. */
   funnel_open_24h: {
     slug: 'funnel_open_24h',
     group: 'funnel',
@@ -411,7 +438,21 @@ export const AUTOMATION_TEMPLATES: Record<
     },
   },
 
-  /** §7, §13 — the customer wrote while parked → Em Negociação. */
+  /**
+   * §7, §13 — the customer wrote while parked → Em Negociação.
+   *
+   * EM ABERTO ESTAVA FORA DA LISTA, e é o caso mais comum do funil
+   * inteiro. O item 21 nomeia cinco etapas em que a resposta do cliente
+   * move a oportunidade, e a primeira delas é `Em aberto` — o vendedor
+   * mandou o orçamento com `/aberto` e a pessoa respondeu. Sem ela, a
+   * resposta boa não movia nada: a oportunidade ficava em Em Aberto, o
+   * relógio de 24 h a via respondida e encerrava com `customer_replied`,
+   * e o cartão parava ali sem automação nenhuma pendurada.
+   *
+   * `Novo Lead` continua de fora de propósito — o item 21 é explícito, e
+   * é a etapa em que a primeira mensagem do cliente ACABOU de criar a
+   * oportunidade. Mover dali seria a automação reagindo a si mesma.
+   */
   funnel_customer_replied: {
     slug: 'funnel_customer_replied',
     group: 'funnel',
@@ -423,6 +464,7 @@ export const AUTOMATION_TEMPLATES: Record<
         step_config: { subject: 'deal_in_stage', stage_ids: [] },
         refs: {
           stages: [
+            FUNNEL.open,
             FUNNEL.followUp,
             FUNNEL.fridge30,
             FUNNEL.fridge60,
@@ -482,7 +524,7 @@ export const AUTOMATION_TEMPLATES: Record<
     },
   },
 
-  /** §8 — `/andamento` → Em Andamento, Lead off, Cliente on. */
+  /** §8 — `/andamento` → Em Andamento, e a etiqueta `Cliente`. */
   funnel_in_progress: {
     slug: 'funnel_in_progress',
     group: 'funnel',
@@ -495,11 +537,22 @@ export const AUTOMATION_TEMPLATES: Record<
         step_config: { stage_id: '' },
         refs: { stage: FUNNEL.inProgress },
       },
-      {
-        step_type: 'remove_tag',
-        step_config: { tag_id: '' },
-        refs: { tag: 'Lead' },
-      },
+      /*
+       * SÓ `Cliente`. O passo que TIRAVA a etiqueta `Lead` saiu, e ele era
+       * mais caro do que parecia.
+       *
+       * O item 23 do pacote diz "não adicionar/remover etiqueta `Lead`" e o
+       * item 35 proíbe pôr a etiqueta automaticamente — então nada neste
+       * produto cria uma etiqueta `Lead`, e o passo removia algo que não
+       * existe. O custo: `findTag` devolve `null` quando a conta não tem
+       * essa etiqueta, o passo instala com `tag_id: ''`, e `validate.ts:103`
+       * recusa isso com "tag is required".
+       *
+       * Ou seja, numa conta limpa esta automação — `/andamento`, a que
+       * marca a VENDA — não conseguia ser ativada. É o mesmo
+       * "Cannot keep automation active with invalid configuration" do
+       * item 3, por uma terceira causa.
+       */
       {
         step_type: 'add_tag',
         step_config: { tag_id: '' },
@@ -612,11 +665,7 @@ export const AUTOMATION_TEMPLATES: Record<
     rules: {
       pipeline: FUNNEL.pipeline,
       cancel_on_reply: true,
-      cancel_when_stage_in: [
-        FUNNEL.negotiating,
-        FUNNEL.inProgress,
-        FUNNEL.lost,
-      ],
+      cancel_when_stage_in: FUTURE_PURCHASE_CANCEL_STAGES,
       reentry_policy: 'after_complete',
     },
   },
@@ -761,14 +810,38 @@ const STAGE_ALIASES: Record<string, string[]> = {
   [FUNNEL.afterSale]: ['Pos-venda', 'Pós venda', 'Pos venda'],
 };
 
-/** Case, accents and surrounding space do not make two names different. */
+/**
+ * Case, accents, hyphens and surrounding space do not make two names
+ * different.
+ *
+ * O HÍFEN ENTROU, e ele estava a um caractere de derrubar o funil inteiro.
+ * O pacote de correções escreve as etapas do jeito que elas aparecem na
+ * tela do Gabriel — `Compra-futura`, `Geladeira-30D`, `Geladeira-60D`,
+ * `Pós-venda` — e este arquivo as declara sem hífen. `normalizeName` tirava
+ * acento, caixa e espaço sobrando, e deixava o hífen: `compra-futura` nunca
+ * ia casar com `compra futura`.
+ *
+ * O que acontece quando um nome não resolve não é um erro barulhento. O
+ * `findStage` devolve `null`, o passo instala com `stage_id: ''`, e
+ * `validate.ts` recusa a ativação com "Cannot keep automation active with
+ * invalid configuration" — o mesmo texto do item 3, por mais uma causa.
+ *
+ * Os dois lados passam por aqui, então a regra é simétrica: um quadro
+ * escrito com hífen e um modelo escrito sem se encontram no meio.
+ */
 export function normalizeName(name: string): string {
-  return name
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, ' ');
+  return (
+    name
+      .normalize('NFD')
+      .replace(/[̀-ͯ]/g, '')
+      .trim()
+      .toLowerCase()
+      // A família inteira do traço, e não só o ASCII: quem cola um nome de
+      // uma planilha traz travessão sem saber.
+      .replace(/[-‐‑‒–—―]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+  );
 }
 
 function findStage(

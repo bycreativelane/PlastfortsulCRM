@@ -158,12 +158,12 @@ ele fica.
 
 A do próprio pacote (item 34), com o 37 recolocado.
 
-|        |                                       | Estado                       |
-| ------ | ------------------------------------- | ---------------------------- |
-| **P0** | bugs que bloqueiam operação           | 5 de 6                       |
-| **P1** | experiência de atendimento            | 1 de 6 (o 9 já estava feito) |
-| **P2** | produtividade                         | não começou                  |
-| —      | itens 38–59: oportunidade e orçamento | não começou                  |
+|        |                                       | Estado                                                                     |
+| ------ | ------------------------------------- | -------------------------------------------------------------------------- |
+| **P0** | bugs que bloqueiam operação           | 5,5 de 6 — a auditoria corrigiu 5 defeitos; sobra o que só a Meta responde |
+| **P1** | experiência de atendimento            | 1 de 6 (o 9 já estava feito)                                               |
+| **P2** | produtividade                         | não começou                                                                |
+| —      | itens 38–59: oportunidade e orçamento | não começou                                                                |
 
 ---
 
@@ -251,7 +251,7 @@ da letra travaria a segunda venda ao mesmo cliente para sempre — o oposto do
 que o funil de recompra existe para fazer. A trava implementada é sobre
 oportunidade **aberta**: uma ganha ou perdida não bloqueia um novo ciclo.
 
-### ⬜ 6. Auditoria das automações (itens 16–31)
+### 🟡 6. Auditoria das automações (itens 16–31)
 
 Comparar as onze automações instaladas contra as especificações item a item.
 As correções de estrutura que já entraram, dos itens 20, 22 e 25:
@@ -278,12 +278,112 @@ Dois itens que a auditoria pode riscar já, verificados em 8 de setembro:
   o mesmo em `message-thread.tsx:1010`. Cancelar não grava, e o refetch devolve
   o card à coluna anterior.
 
-**O que sobra da auditoria é o mais chato e o mais provável de doer:** cada
-automação declara `variables` por template — `posvenda20d` manda uma,
+#### A auditoria, feita em 8 de setembro
+
+As onze automações lidas contra os itens 17–31, uma a uma. Está tudo em
+`templates-funnel.test.ts`, na suíte **"a auditoria do pacote — itens 16 a
+31"**: uma auditoria em prosa apodrece na primeira edição do arquivo, e cada
+asserção lá cita o item que a exige. Sete delas acusam o `HEAD` anterior.
+
+**Cinco defeitos, e três deles eram a mesma ativação recusada do item 3.**
+
+**A1 — `Ligação` faltava nas três listas de cancelamento (itens 19, 20, 22).**
+Os três itens repetem a mesma lista de seis etapas; o código tinha cinco.
+`FUNNEL.call` estava declarado e **não era referenciado por linha nenhuma** do
+arquivo, que é a assinatura de uma omissão e não de uma escolha. O custo: o
+vendedor combina de ligar, arrasta o cartão para Ligação, e o robô segue
+mandando D1, D2, D3 e D30 para quem acabou de marcar uma conversa por
+telefone.
+
+**A2 — `Em Aberto` faltava em "Cliente respondeu" (item 21), e é o caso mais
+comum do funil.** O item nomeia cinco etapas em que a resposta move a
+oportunidade para Em Negociação, e `Em aberto` é a primeira. Sem ela: o
+vendedor manda o orçamento com `/aberto`, o cliente responde — o melhor
+desfecho que existe antes da venda — e nada acontece. Pior: o relógio de 24 h
+via a resposta, encerrava com `customer_replied`, e o cartão ficava parado em
+Em Aberto sem automação nenhuma pendurada.
+
+**A3 — `/atendido` não cancelava a Compra Futura (item 24).** A lista da
+Compra Futura era curta e escrita à mão (`negociação, em andamento,
+perdida`), sem `Atendido` nem `Ligação`. Agora é a mesma lista das outras,
+menos a própria etapa que a dispara — uma automação não pode se cancelar ao
+entrar na etapa do próprio gatilho.
+
+**A4 — a etiqueta `Lead` impedia a ativação da automação da VENDA.** O
+`/andamento` tinha um passo `remove_tag` da etiqueta `Lead`. Os itens 23 e 35
+proíbem mexer nessa etiqueta e **nada neste produto a cria** — então
+`findTag` devolvia `null`, o passo instalava com `tag_id: ''`, e
+`validate.ts:103` recusa isso com "tag is required". Numa conta limpa,
+`/andamento → Em Andamento` **não conseguia ficar ativa**. É o
+"Cannot keep automation active with invalid configuration" do item 3 por uma
+terceira causa.
+
+**A5 — o resolvedor era cego a hífen, e o pacote escreve tudo com hífen.**
+`normalizeName` tirava acento, caixa e espaço sobrando, e deixava o traço.
+O pacote escreve as etapas como elas aparecem na tela — `Compra-futura`,
+`Geladeira-30D`, `Geladeira-60D` — e este arquivo as declara sem hífen:
+`compra-futura` nunca casaria com `compra futura`. Um nome que não resolve
+instala o passo com `stage_id: ''`, que é a **quarta** causa do mesmo erro de
+ativação. Agora a família inteira do traço vira espaço, dos dois lados.
+
+#### Verificado e correto, sem mexer
+
+| Item | Automação                 |                                                                                             |
+| ---- | ------------------------- | ------------------------------------------------------------------------------------------- |
+| 17   | Nova conversa → Novo Lead | `conversation_created`, `once_per_conversation`, sem etiqueta                               |
+| 18   | `/aberto` → Em Aberto     | um passo, exato                                                                             |
+| 22   | Geladeira 30D             | 30 d → `reativacao30dgeladeira30d` → 60D                                                    |
+| 25   | Pós-venda e recompra      | D20/D60/D120 acumulados; só a Venda Perdida cancela                                         |
+| 26   | Compra Futura             | espera até a data, 09:00, `comprafutura`                                                    |
+| 27   | Aniversário               | sem mudar funil; `opted_out` filtrado na própria RPC; `trigger_key` garante uma vez por dia |
+| 29   | Motivo obrigatório        | inclusive no arrasto do Kanban                                                              |
+| 30   | Seletor de etapa          | corrigido no P0 §2                                                                          |
+
+#### A6 — a décima segunda automação não deve ser criada
+
+O item 28 pede um card "Venda Perdida" que cancele as quatro pendentes. As
+cinco automações longas **já** cancelam ao entrar em Venda Perdida, por
+`cancel_when_stage_in`. Uma automação cujo único trabalho é repetir uma regra
+que já está em vigor é uma segunda fonte da verdade sobre cancelamento — e a
+primeira coisa a divergir. **Recomendação: não criar**, e riscar o item 28 com
+esta justificativa.
+
+#### A7 — aberto, e é o que o cliente lê
+
+`funnel_followup` manda `{{deal.title}}` como segunda variável do D1, D2 e D3.
+O corpo do protótipo diz o que essa variável é:
+
+> "Olá {{1}}! Passando para saber se conseguiu dar uma olhada no orçamento de
+> **{{2}}** que enviamos." — `sample_values: ['Marcos', 'sacos de lixo 100L']`
+
+`{{2}}` é o **produto orçado**. E desde o item 3, `resolveDealTitle` preenche
+o título com o **nome do contato** — e desde o item 17 é assim que nasce toda
+oportunidade. O cliente recebe, três vezes:
+
+> "Olá Euclides! …uma olhada no orçamento de **Euclides Fernando Goncalves**
+> que enviamos."
+
+**Não consertei, de propósito.** O corpo real do `followup_orcamento_d1` não
+existe neste repositório — o `plastfortsul-templates.ts` só tem o
+`followup_d1` aposentado — e chutar a contagem de variáveis de um template da
+Meta foi exatamente o que produziu o #132000. Isto se resolve junto com o
+**item 39**: o campo que deveria nomear o orçamento é o "Pedido de venda", e
+não o título gerado por automação (R6).
+
+#### O que ainda depende da Meta
+
+Cada automação declara `variables` por template — `posvenda20d` manda uma,
 `recompra_60d` manda duas. Se esses corpos foram recriados sem variável, como
 `comprafutura` e `aniversario` foram, é o **#132000 de novo**, um template de
-cada vez. Isso não dá para verificar em teste (P0 §3): depende de sincronizar
+cada vez. Não dá para verificar em teste (P0 §3): depende de sincronizar
 `message_templates` com a Meta.
+
+E uma verificação que só a conta real responde: **os nomes das etapas do
+quadro do Gabriel.** A5 tirou o hífen do caminho, mas um nome genuinamente
+diferente ("Orçamento" em vez de "Em Aberto") continua não resolvendo. O
+`resolveTemplateReferences` já devolve `unresolved` com os nomes que ninguém
+atendeu — vale olhar essa lista na instalação real antes de dar o item por
+fechado.
 
 ---
 

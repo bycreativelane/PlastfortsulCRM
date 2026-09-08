@@ -164,7 +164,14 @@ vi.mock('@/lib/whatsapp/meta-api', () => ({
 // `importOriginal` mantém o resto do módulo real: `send-message.ts` importa
 // só esta função, mas o grafo de imports não é só ele.
 const { runAutomationsForTrigger } = vi.hoisted(() => ({
-  runAutomationsForTrigger: vi.fn(async () => undefined),
+  runAutomationsForTrigger: vi.fn(
+    async (_input: {
+      triggerType: string
+      accountId?: string
+      contactId?: string
+      context?: Record<string, unknown>
+    }) => undefined,
+  ),
 }))
 vi.mock('@/lib/automations/engine', async (original) => ({
   ...(await original<Record<string, unknown>>()),
@@ -269,14 +276,13 @@ describe('POST /api/whatsapp/send — contact_id template path', () => {
     await postContactTemplate()
 
     const disparos = runAutomationsForTrigger.mock.calls.map(
-      (c) => (c[0] as { triggerType: string }).triggerType,
+      (c) => c[0].triggerType,
     )
     expect(disparos).toContain('conversation_created')
 
     const chamada = runAutomationsForTrigger.mock.calls.find(
-      (c) => (c[0] as { triggerType: string }).triggerType ===
-        'conversation_created',
-    )![0] as Record<string, unknown>
+      (c) => c[0].triggerType === 'conversation_created',
+    )![0]
     expect(chamada).toMatchObject({
       accountId: 'acct-1',
       contactId: 'contact-1',
@@ -291,7 +297,7 @@ describe('POST /api/whatsapp/send — contact_id template path', () => {
     await postContactTemplate()
 
     const disparos = runAutomationsForTrigger.mock.calls.map(
-      (c) => (c[0] as { triggerType: string }).triggerType,
+      (c) => c[0].triggerType,
     )
     const criada = disparos.indexOf('conversation_created')
     const enviada = disparos.indexOf('team_message_sent')
@@ -310,7 +316,7 @@ describe('POST /api/whatsapp/send — contact_id template path', () => {
     await postContactTemplate()
 
     const disparos = runAutomationsForTrigger.mock.calls.map(
-      (c) => (c[0] as { triggerType: string }).triggerType,
+      (c) => c[0].triggerType,
     )
     expect(disparos).not.toContain('conversation_created')
   })

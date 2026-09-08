@@ -675,14 +675,12 @@
       "optedOutHint": "캠페인과 자동화가 이 연락처에 도달하지 않습니다.",
       "occurrenceHistory": "고객 이력",
       "occurrenceWarning": "주의 — 이 고객은 이슈 이력이 있습니다",
-      "occurrenceHint": "기록된 이슈가 있습니다. 납기나 조건을 약속하기 전에 이력을 확인하세요.",
       "noOccurrences": "기록된 이슈 없음",
       "editDeal": "기회 편집",
       "dealOwner": "담당자",
       "registerOccurrence": "이슈 등록",
       "futurePurchase": "향후 구매",
       "logCall": "통화 기록",
-      "occurrenceCount": "기록된 이슈 {count}건 — 납기를 약속하기 전에 확인하세요.",
       "products": "제품"
     },
     "aiBanner": {

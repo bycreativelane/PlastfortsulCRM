@@ -675,14 +675,12 @@
       "optedOutHint": "No broadcast or automation will reach this contact.",
       "occurrenceHistory": "Customer history",
       "occurrenceWarning": "Careful — this customer has had a problem",
-      "occurrenceHint": "An occurrence is on record. Read the history before promising a date or a price.",
       "noOccurrences": "No occurrences on record",
       "editDeal": "Edit opportunity",
       "dealOwner": "Owner",
       "registerOccurrence": "Record occurrence",
       "futurePurchase": "Future purchase",
       "logCall": "Log a call",
-      "occurrenceCount": "{count} {count, plural, =1 {occurrence} other {occurrences}} on record — read them before promising a date.",
       "products": "Products"
     },
     "aiBanner": {

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { setConversationStatus } from '@/lib/conversations/actions';
 import { ConversationMenu } from './conversation-menu';
+import { PlaybookSheet } from '@/components/playbook/playbook-sheet';
 import { useAuth } from '@/hooks/use-auth';
 import { usePresence } from '@/hooks/use-presence';
 import { PresenceDot } from '@/components/presence/presence-dot';
@@ -36,6 +37,7 @@ import {
   Info,
   Phone,
   RefreshCw,
+  BookOpen,
   MoreVertical,
 } from 'lucide-react';
 import { format, isToday, isYesterday } from 'date-fns';
@@ -228,6 +230,10 @@ export function MessageThread({
   const tTimer = useTranslations('Inbox.sessionTimer');
   const tQuote = useTranslations('Inbox.replyQuote');
   const tPresence = useTranslations('Presence');
+  // O namespace do próprio Playbook, para o botão não inventar um rótulo
+  // paralelo ao nome que a área já tem no menu.
+  const tPlaybook = useTranslations('Playbook');
+  const [playbookOpen, setPlaybookOpen] = useState(false);
 
   const { user, defaultCurrency } = useAuth();
   const { getPresence, getRow, now } = usePresence();
@@ -1355,6 +1361,29 @@ export function MessageThread({
             </button>
           )}
 
+          {/* CONSULTA, AO LADO DA CONVERSA — item 15 do pacote.
+
+              O Playbook é onde estão o script, a objeção e a regra, e
+              até aqui chegar nele custava a conversa: é uma rota, e sair
+              daqui leva junto o rascunho e o lugar na lista. O botão fica
+              no cabeçalho do thread porque é onde as outras consultas
+              sobre esta conversa já estão — a ficha, a ligação, o
+              histórico.
+
+              `sm:inline-flex` como os irmãos: no celular ele vive no menu
+              de excesso logo abaixo, que é o combinado deste cabeçalho
+              para tudo que não cabe em 360px. */}
+          <button
+            type="button"
+            onClick={() => setPlaybookOpen(true)}
+            aria-label={tPlaybook('title')}
+            title={tPlaybook('title')}
+            data-slot="button"
+            className="text-muted-foreground hover:bg-muted hover:text-foreground hidden size-7 shrink-0 items-center justify-center rounded-md transition-colors duration-(--dur-1) sm:inline-flex"
+          >
+            <BookOpen className="size-4" />
+          </button>
+
           {/* Status dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger
@@ -1488,6 +1517,10 @@ export function MessageThread({
               variant="dropdown"
               leadingItems={
                 <>
+                  <DropdownMenuItem onClick={() => setPlaybookOpen(true)}>
+                    <BookOpen className="mr-2 size-4" />
+                    {tPlaybook('title')}
+                  </DropdownMenuItem>
                   {onOpenContactSheet && (
                     <DropdownMenuItem onClick={onOpenContactSheet}>
                       <Info className="mr-2 size-4" />
@@ -1707,6 +1740,11 @@ export function MessageThread({
         replyTo={replyTo}
         onClearReply={() => setReplyTo(null)}
       />
+
+      {/* A consulta comercial por cima da conversa — item 15 do pacote.
+          Montada aqui, ao lado dos outros painéis do atendimento, e não na
+          página: o ponto do item é justamente não sair daqui. */}
+      <PlaybookSheet open={playbookOpen} onOpenChange={setPlaybookOpen} />
 
       <TemplatePicker
         open={templateModalOpen}

@@ -1,13 +1,12 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { Users } from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
-import { useMemberDirectory } from '@/hooks/use-member-directory';
 import {
   countUnreadTeamMessages,
   lastSeenTeamMessage,
@@ -15,10 +14,7 @@ import {
   type TeamMessage,
 } from '@/lib/team/messages';
 import { loadTeamRooms, roomName, type TeamRoom } from '@/lib/team/rooms';
-import { formatListTime } from '@/lib/i18n/dates';
 import { cn } from '@/lib/utils';
-import { teamMessagePreview } from '@/lib/team/media';
-import { MemberAvatar } from '@/components/presence/member-avatar';
 import { CountBadge } from '@/components/ui/count-badge';
 
 /**
@@ -30,11 +26,9 @@ import { CountBadge } from '@/components/ui/count-badge';
  * knowing a colleague just asked them something, and a room you only
  * discover by navigating to it is a room that gets used twice.
  *
- * So the rail carries the tail of the conversation and a count. Not a
- * second inbox — three lines and a click that opens the real thing. The
- * rail is the only surface in this app that is on screen on every route,
- * which is exactly the property this needs and the reason it is here
- * rather than in the header.
+ * So the rail carries a way in and a count. The rail is the only surface
+ * in this app that is on screen on every route, which is exactly the
+ * property this needs and the reason it is here rather than in the header.
  *
  * BELOW THE ROADMAP CARD, above the account tile. The tile is the rail's
  * floor — it holds "Sair" and it is where the eye goes to leave — so
@@ -47,56 +41,45 @@ import { CountBadge } from '@/components/ui/count-badge';
  * An EMPTY room still draws, which is the correction: hiding it until
  * somebody had written made the feature invisible on the day it shipped, and
  * nobody writes the first message in a place they cannot find.
- */
-
-/**
- * How many lines of history the card carries.
  *
- * It was one, and one line is a notification: somebody said something.
- * Three is the smallest number that shows a CONVERSATION — a question and
- * an answer still fit, and "Vitor asked, Ana answered, Vitor agreed" is a
- * thread you can decide not to open. That decision is the entire job of
- * this card.
+ * ------------------------------------------------------------------
+ * ÍCONE, TÍTULO, SUBTÍTULO — E MAIS NADA (item 37 do pacote)
+ * ------------------------------------------------------------------
+ *
+ * Este card carregava três linhas do histórico, com o rosto de quem
+ * escreveu, o primeiro nome e o horário de cada turno. O item 37 pede que
+ * ele fique tão simples quanto a linha "Minha equipe" da caixa de entrada,
+ * e essa linha existe: é o `TeamRoomRow` do `inbox/conversation-list.tsx`,
+ * com `Inbox.team.title` e `Inbox.team.rowHint` — as mesmas duas chaves
+ * que a "referência desejada" do pacote transcreve, palavra por palavra.
+ * Então não havia um desenho a inventar: havia um a copiar.
+ *
+ * O QUE SE TROCA, e vale estar escrito porque este arquivo defendia o
+ * contrário. A nota que saiu dizia que uma linha é uma notificação e três
+ * são uma CONVERSA — uma pergunta e uma resposta ainda cabem, e decidir se
+ * vale abrir era o trabalho inteiro do card. Isso deixa de ser possível
+ * daqui: o card passa a dizer que há coisa nova e não o que é.
+ *
+ * O que NÃO saiu foi o contador. A lista de remoções do item 37 é
+ * específica — nome, data, prévia de áudio, prévia de texto, mensagens
+ * empilhadas, histórico, avatar — e o número não está nela. Ele também é a
+ * única coisa que ainda diferencia este card de um item de menu comum, e é
+ * o que faz o trilho valer a pena: sem ele, uma sala que ninguém abre não
+ * chama ninguém.
  */
-const LINES = 3;
-
-/** How far back to look for them. See the room-picking note below. */
-const LOOKBACK = 20;
-
 export function TeamRoomCard() {
   const t = useTranslations('Inbox.team');
-
-  /**
-   * Os rótulos dos quatro tipos de anexo, para a linha de prévia.
-   * Memoizados porque `teamMessagePreview` é chamado uma vez por
-   * mensagem visível e reconstruir o objeto a cada chamada faria o
-   * `useMemo` das runs invalidar sozinho.
-   */
-  const mediaLabels = useMemo(
-    () => ({
-      image: t('attachImage'),
-      video: t('attachVideo'),
-      audio: t('attachAudio'),
-      document: t('attachDocument'),
-    }),
-    [t]
-  );
-  const { accountId, user } = useAuth();
-  /** Newest last, the way they are drawn. */
-  const [recent, setRecent] = useState<TeamMessage[]>([]);
+  const { accountId } = useAuth();
   const [unreadCount, setUnreadCount] = useState(0);
   const [rooms, setRooms] = useState<TeamRoom[]>([]);
   /** True once we know the table exists — see the fetch below. */
   const [available, setAvailable] = useState(false);
-  const directory = useMemberDirectory();
 
   const refreshUnread = useCallback(
     async (db = createClient()) => {
       if (!accountId) return;
-      // Across every room, on purpose. The lines below show the room the
-      // newest message is in; the badge answers "how much have I missed",
-      // and missing four messages in a room this card is not currently
-      // quoting still counts as missing them.
+      // Across every room, on purpose: "how much have I missed" does not
+      // care which room it was missed in.
       setUnreadCount(
         await countUnreadTeamMessages(db, accountId, lastSeenTeamMessage())
       );
@@ -110,19 +93,21 @@ export function TeamRoomCard() {
     let cancelled = false;
 
     (async () => {
-      const { data, error } = await supabase
+      // UMA LINHA, e só para saber se a tabela existe. Antes eram vinte,
+      // porque o card desenhava as últimas três mensagens; sem a prévia,
+      // trazer o histórico em toda navegação seria pagar por um dado que
+      // ninguém mais lê.
+      const { error } = await supabase
         .from('team_messages')
-        .select('*')
+        .select('id')
         .eq('account_id', accountId)
-        .order('created_at', { ascending: false })
-        .limit(LOOKBACK);
+        .limit(1);
       // Pre-046 the error IS "the table is not there", which is the only
       // reason to stay hidden — and not worth a console line on every page
       // load. No error means the room exists, with or without rows: two
       // different facts, and the card needs the first one.
       if (error || cancelled) return;
       setAvailable(true);
-      setRecent(((data ?? []) as TeamMessage[]).slice().reverse());
       void refreshUnread(supabase);
     })();
 
@@ -147,11 +132,6 @@ export function TeamRoomCard() {
         (payload) => {
           if (cancelled) return;
           const row = payload.new as TeamMessage;
-          setRecent((prev) =>
-            prev.some((m) => m.id === row.id)
-              ? prev
-              : [...prev, row].slice(-LOOKBACK)
-          );
           // Counted rather than recounted: the round trip would be one
           // query per message received, on every route, for a number this
           // browser can derive exactly.
@@ -184,26 +164,6 @@ export function TeamRoomCard() {
     return () => window.removeEventListener(TEAM_SEEN_EVENT, recheck);
   }, [refreshUnread]);
 
-  const latest = recent.length ? recent[recent.length - 1] : null;
-
-  /**
-   * The tail of ONE conversation, not of the account.
-   *
-   * With more than one room, the last three messages account-wide can be
-   * three different conversations stacked — which is the opposite of what
-   * three lines are for. So the newest message picks the room, and the
-   * lines are that room's. `LOOKBACK` is what makes it likely three of
-   * them are in the window; fewer is fine, and shows what there is.
-   *
-   * `?? null` on both sides so a pre-052 row (no column at all) compares
-   * equal to another pre-052 row.
-   */
-  const lines = useMemo(() => {
-    if (!latest) return [];
-    const room = latest.room_id ?? null;
-    return recent.filter((m) => (m.room_id ?? null) === room).slice(-LINES);
-  }, [recent, latest]);
-
   const unread = unreadCount > 0;
 
   // Hidden ONLY before migration 046, when the room does not exist. It used
@@ -214,93 +174,17 @@ export function TeamRoomCard() {
   // so the feature shipped invisible, and got reported as missing.
   if (!available) return null;
 
-  const room = latest?.room_id
-    ? (rooms.find((r) => r.id === latest.room_id) ?? null)
-    : (rooms.find((r) => r.is_default) ?? null);
-  const heading = roomName(room, t('title'));
-
-  const speaker = latest ? directory.get(latest.author_id) : null;
-  /** You wrote the last line. Two things below turn on this. */
-  const mine = !!latest && !!user && latest.author_id === user.id;
-
   /**
-   * WHOSE FACE — and never your own.
+   * O nome da sala padrão, e não o da sala em que alguém falou por último.
    *
-   * The disc used to be the same `Users` glyph on every account for every
-   * message, which at 62px — the collapsed rail, where this disc is the
-   * ENTIRE card — meant the one always-visible announcement that a
-   * colleague had written could not say which colleague. A face answers
-   * that before the text column has rendered, and the text column is the
-   * half that disappears when the rail collapses.
-   *
-   * Then it did too much. The account tile sits a few pixels below this
-   * one and is, always, a photograph of you — so the moment YOU wrote the
-   * last line the rail ended in the same face twice, which reads as a
-   * rendering fault rather than as two controls. Which is how it got
-   * reported.
-   *
-   * The fix is not a smaller disc or a different shape. It is that "which
-   * colleague" is a question with no content when the answer is you: you
-   * know what you just wrote. So your own turn falls back to the room's
-   * own glyph, and the face is kept for the case it was added for. The
-   * two cards can now never show the same person — one of them is always
-   * you and the other never is.
+   * Enquanto o card citava mensagens, o título tinha que dizer de qual sala
+   * elas eram. Sem elas, o título é o nome do lugar para onde o clique vai
+   * — e o clique vai para a área, não para uma sala.
    */
-  const face = !mine ? (speaker ?? null) : null;
-
-  /**
-   * The name, short.
-   *
-   * "Gabriel Spencer" spent most of a 200px card saying who, in full,
-   * directly above a tile saying the same name in full again. First name
-   * is how a room of four people refers to each other, and "Você" is
-   * shorter than any of them.
-   */
-  const speakerLabel = (authorId: string): string => {
-    if (user && authorId === user.id) return t('cardYou');
-    return (
-      directory.get(authorId)?.full_name?.trim().split(/\s+/)[0] ??
-      t('unknownAuthor')
-    );
-  };
-
-  /**
-   * The lines, grouped into runs by author — ONE NAME, ABOVE.
-   *
-   * It was `Vitor: mensagem` inline, and inline is what breaks. The rail
-   * gives this text about 150px: the name takes a third of it and the
-   * sentence is truncated a third of the way in, so what the card shows
-   * is who spoke and almost nothing of what they said. With three lines
-   * it got worse, because the name was paid for again on every run.
-   *
-   * Above, once per run, it costs one short line and gives every message
-   * line the full width. It is also what the room's own bubbles do — the
-   * author's name sits over the first bubble of a turn, not inside it —
-   * so the card and the room finally read the same way.
-   *
-   * E É ONDE O HORÁRIO CABE.
-   *
-   * O pedido era "mostrar a hora da última mensagem". Uma hora só, no
-   * rodapé do card, responderia — e desperdiçaria o que já está montado:
-   * a linha do nome existe, é curta ("Você" tem quatro letras) e sobra
-   * largura nela. Um carimbo por turno custa zero linha nova e diz mais
-   * do que um: lendo de cima para baixo aparece o RITMO da conversa —
-   * uma pergunta às 9h12 e a resposta às 11h40 é uma sala devagar, e as
-   * duas às 9h12 é uma sala ao vivo.
-   *
-   * O horário é o da ÚLTIMA mensagem do turno, não da primeira: o turno
-   * é uma coisa só na tela e a pergunta que o carimbo responde é "quão
-   * recente é isto", que a última responde e a primeira não.
-   */
-  const runs: Array<{ authorId: string; messages: TeamMessage[] }> = [];
-  for (const message of lines) {
-    const last = runs[runs.length - 1];
-    if (last && last.authorId === message.author_id) {
-      last.messages.push(message);
-    } else {
-      runs.push({ authorId: message.author_id, messages: [message] });
-    }
-  }
+  const heading = roomName(
+    rooms.find((room) => room.is_default) ?? null,
+    t('title')
+  );
 
   return (
     <Link
@@ -314,14 +198,12 @@ export function TeamRoomCard() {
       // column below carries `data-nav-label` and leaves on its own;
       // `data-nav-row` centres the disc in what is left.
       data-nav-row
-      // The full sentence, for a card that can only afford a first name.
-      title={
-        latest && speaker
-          ? `${heading} — ${speaker.full_name}: ${teamMessagePreview(latest, mediaLabels)}`
-          : heading
-      }
+      title={heading}
       className={cn(
-        'group/team mb-3 flex w-full items-start gap-2.5 rounded-xl px-3 py-2.5 text-left transition-colors',
+        // `items-center` e não `items-start`: com duas linhas de altura fixa
+        // não há mais o que alinhar pelo topo, e o disco centrado é o que a
+        // linha da caixa de entrada faz.
+        'group/team mb-3 flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left transition-colors',
         // NO FILL AT REST, which is the other half of the duplicate.
         //
         // It was `bg-muted`: the same fill, at nearly the same radius, as
@@ -340,27 +222,26 @@ export function TeamRoomCard() {
         unread ? 'bg-primary-soft hover:bg-primary-soft/70' : 'hover:bg-muted'
       )}
     >
-      <span className="relative mt-0.5 shrink-0">
-        {face ? (
-          <MemberAvatar
-            name={face.full_name}
-            avatarUrl={face.avatar_url}
-            size="xs"
-          />
-        ) : (
-          // The room itself — your own turn, and a room nobody has written
-          // in yet. Tinted rather than filled at rest so the disc carries
-          // the same visual weight as a face, and the column does not
-          // flicker between two densities as messages arrive.
-          <span
-            className={cn(
-              'grid size-6 place-items-center rounded-full',
-              unread ? 'bg-primary text-white' : 'bg-primary-soft text-primary'
-            )}
-          >
-            <Users className="size-3" />
-          </span>
-        )}
+      <span className="relative shrink-0">
+        {/*
+          SEMPRE O GLIFO DA SALA, e nunca mais o rosto de quem escreveu por
+          último. O item 37 tira o avatar da última pessoa da lista do que o
+          card mostra, e ele era a diferença mais visível entre este card e
+          a linha que ele passa a imitar.
+
+          De quebra, some um defeito que estava documentado logo abaixo
+          dele: quando quem tinha escrito por último era você, o trilho
+          terminava na mesma foto duas vezes — esta e a do bloco da conta,
+          poucos pixels abaixo — e isso lia como falha de renderização.
+        */}
+        <span
+          className={cn(
+            'grid size-7 place-items-center rounded-full',
+            unread ? 'bg-primary text-white' : 'bg-muted text-primary'
+          )}
+        >
+          <Users className="size-3.5" />
+        </span>
         {/* The collapsed rail's copy of the count. The badge beside the
             heading goes with the text; this one rides the disc, so "there
             is something new" survives at 62px — the width where the card
@@ -379,19 +260,15 @@ export function TeamRoomCard() {
         <span className="flex items-center gap-1.5">
           <span
             className={cn(
-              'min-w-0 flex-1 truncate text-xs font-semibold',
+              'min-w-0 flex-1 truncate text-sm font-semibold',
               unread ? 'text-primary' : 'text-foreground'
             )}
           >
             {heading}
           </span>
-          {/* A COUNT, not a dot — which reverses what this card used to
-              say ("how many unread lines are in it is not a number
-              anybody acts on differently"). That was a judgement about a
-              room nobody had used yet. In use, one message and eleven
-              messages are different situations: the first is a remark you
-              can read later, the second is a conversation you have missed
-              and are now behind on.
+          {/* A COUNT, not a dot. Um recado e onze recados são situações
+              diferentes: o primeiro se lê depois, o segundo é uma conversa
+              que já passou sem você.
 
               Capped at 99+ because three digits change the card's width
               and nothing above 99 is a different decision. */}
@@ -402,57 +279,13 @@ export function TeamRoomCard() {
           )}
         </span>
 
-        {/* THE TAIL OF THE CONVERSATION, oldest at the top, the way the
-            room itself reads. Each line truncates on its own rather than
-            the block wrapping: three whole messages half-shown beats one
-            message shown whole and two missing, because what the card is
-            for is deciding whether to open the room. */}
-        {runs.length > 0 ? (
-          <span className="mt-1 block space-y-1">
-            {runs.map((run) => (
-              <span key={run.messages[0].id} className="block">
-                {/* The name, on its own line, at the room's own eyebrow
-                    weight — it is a label over the turn, not part of the
-                    sentence.
-
-                    O nome trunca, o horário não: `min-w-0 truncate` de um
-                    lado e `shrink-0` do outro. Ao contrário, um nome
-                    comprido empurraria o carimbo para fora do card e a
-                    única coisa que sumiria seria justamente a que foi
-                    pedida — um "Gabriel" cortado em "Gabri" ainda diz
-                    quem falou; um horário cortado não diz nada. */}
-                <span className="text-muted-foreground/80 text-3xs flex items-baseline gap-1.5 font-semibold">
-                  <span className="min-w-0 truncate">
-                    {speakerLabel(run.authorId)}
-                  </span>
-                  <span className="text-muted-foreground/60 shrink-0 font-normal tabular-nums">
-                    {formatListTime(
-                      run.messages[run.messages.length - 1].created_at
-                    )}
-                  </span>
-                </span>
-                {run.messages.map((message) => (
-                  <span
-                    key={message.id}
-                    className={cn(
-                      'text-muted-foreground text-2xs block truncate leading-snug',
-                      // Sem legenda a linha é o TIPO do anexo, não algo
-                      // que alguém escreveu — o itálico diz isso sem
-                      // gastar um ícone numa linha de 11px.
-                      !message.body?.trim() && message.media_path && 'italic'
-                    )}
-                  >
-                    {teamMessagePreview(message, mediaLabels)}
-                  </span>
-                ))}
-              </span>
-            ))}
-          </span>
-        ) : (
-          <span className="text-muted-foreground text-2xs mt-0.5 block truncate leading-snug">
-            {t('cardEmpty')}
-          </span>
-        )}
+        {/* A MESMA FRASE DA CAIXA DE ENTRADA, e é a chave que ela já usa.
+            Escrever outra aqui seriam duas traduções para a mesma ideia,
+            divergindo com o tempo — o mesmo argumento que a faixa de
+            descadastro da ficha do contato já segue. */}
+        <span className="text-muted-foreground text-2xs block truncate leading-snug">
+          {t('rowHint')}
+        </span>
       </span>
     </Link>
   );

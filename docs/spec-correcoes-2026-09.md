@@ -162,7 +162,7 @@ A do próprio pacote (item 34), com o 37 recolocado.
 | ------ | ------------------------------------- | -------------------------------------------------------------------------- |
 | **P0** | bugs que bloqueiam operação           | 5,5 de 6 — a auditoria corrigiu 5 defeitos; sobra o que só a Meta responde |
 | **P1** | experiência de atendimento            | 6 de 6 — fechado em 8 de setembro                                          |
-| **P2** | produtividade                         | não começou                                                                |
+| **P2** | produtividade                         | 3 de 4 — falta a revisão visual em tela autenticada                        |
 | —      | itens 38–59: oportunidade e orçamento | não começou                                                                |
 
 ---
@@ -587,19 +587,83 @@ não pode subir no `/chart-lab`.
 
 | #   | Item                                                     | Estado              |
 | --- | -------------------------------------------------------- | ------------------- |
-| 13  | Botão rápido de Playbook no atendimento (item 15)        | ⬜                  |
-| 14  | Remover descrição curta do alerta de ocorrência (item 2) | ⬜                  |
-| 15  | **Chat Interno igual a "Minha equipe" (item 37)**        | ⬜ — ver R1, R2, R3 |
+| 13  | Botão rápido de Playbook no atendimento (item 15)        | ✅ 8 de setembro    |
+| 14  | Remover descrição curta do alerta de ocorrência (item 2) | ✅ 8 de setembro    |
+| 15  | **Chat Interno igual a "Minha equipe" (item 37)**        | ✅ — ver R1, R2, R3 |
 | 16  | Revisão visual e testes de regressão                     | ⬜                  |
 
-**Item 2 — a frase exata.** `Contacts.detailView.occurrenceCount` =
-`"{count} {count, plural, …} no histórico — leia antes de prometer prazo."`
-É só o card de alerta; `occurrenceHint` (a frase longa, dentro do histórico)
-fica. Existe também `hasOccurrence` na lista, que não é o alvo.
+### ✅ 13. O Playbook por cima da conversa (item 15)
 
-**Item 15 (Playbook)** — nada em `components/inbox/` referencia playbook hoje.
-O módulo existe e não deve ser recriado (item 35): é um painel que lê o que já
-está lá.
+**O mesmo componente da página, e é o ponto.** O item abre com "não recriar o
+módulo", e o que ele pede — pesquisar, visualizar, copiar script, copiar
+resposta de objeção — é, item por item, o que `PlaybookArea` já faz. Uma
+segunda tela de consulta seriam duas buscas para manter iguais, e duas que
+divergem: exatamente o defeito que o item 9 relata sobre a ficha do contato,
+de novo e por escolha.
+
+Um booleano `embedded` tira o cabeçalho de página, que a gaveta já tem. Nada
+mais mudou no módulo.
+
+A busca é a parte que mais se ganha reaproveitando: ela atravessa os três
+tipos de uma vez porque a base é **uma tabela com `type`** (o argumento está
+no topo da migração 064), então quem digita "frete" no meio do atendimento
+acha o script, a objeção e a regra sem escolher antes em qual das três a
+empresa guardou. Produtos vêm junto — o item permite, e no meio de uma
+conversa sobre preço é a seção mais consultada.
+
+O botão fica no cabeçalho do thread, onde as outras consultas sobre esta
+conversa já estão (a ficha, a ligação, o histórico), com `sm:inline-flex`
+como os irmãos e um item no menu de excesso do celular — que é o combinado
+deste cabeçalho para tudo que não cabe em 360px.
+
+### ✅ 14. O alerta de ocorrência, em uma linha (item 2)
+
+Sai `1 ocorrência no histórico — leia antes de prometer prazo.`, fica
+`Atenção — cliente com histórico de ocorrência`. Nada do histórico é tocado,
+e o card continua sendo o botão que o abre.
+
+**O que se troca, porque o código defendia o contrário.** A nota que saiu
+dizia que a CONTAGEM é a diferença entre um acidente e um padrão, e é a
+coisa de que alguém prestes a prometer um prazo precisa. A troca é
+deliberada: o aviso fica, e o número está a um clique — do outro lado deste
+mesmo botão, que é onde as ocorrências de verdade estão.
+
+`occurrenceCount` e `occurrenceHint` saíram dos três catálogos: eram as duas
+metades da frase removida e nada mais as lia.
+
+### ✅ 15. O card do trilho vira a linha da caixa de entrada (item 37)
+
+Como R2 mapeou, não havia desenho a inventar — havia um a copiar. O card
+agora é ícone, `Inbox.team.title` e `Inbox.team.rowHint`, que são as mesmas
+duas chaves da linha da caixa de entrada e as mesmas duas frases que a
+"referência desejada" do pacote transcreve.
+
+Saíram: as três linhas de histórico, o rosto de quem escreveu por último, o
+primeiro nome e o horário por turno. De quebra some um defeito que estava
+documentado ali — quando quem tinha escrito por último era você, o trilho
+terminava na mesma foto duas vezes, esta e a do bloco da conta poucos pixels
+abaixo, e isso lia como falha de renderização.
+
+**O contador ficou.** A lista de remoções do item 37 é específica — nome,
+data, prévia de áudio, prévia de texto, mensagens empilhadas, histórico,
+avatar — e o número não está nela. Ele também é a única coisa que ainda
+diferencia este card de um item de menu comum, e é o que faz o trilho valer:
+sem ele, uma sala que ninguém abre não chama ninguém.
+
+A consulta encolheu junto: eram vinte mensagens em toda navegação para
+desenhar três; agora é `limit(1)`, só para saber se a tabela existe.
+
+**O que R3 avisou continua valendo**: sem prévia, este card é um item de
+navegação, e o trilho já tem uma lista de navegação. Se um dia ele incomodar
+por ser um terceiro padrão de card, a saída é virar uma linha do menu — não
+voltar a prévia.
+
+### ⬜ 16. Revisão visual
+
+**Nada de P2 foi visto em tela.** O trilho, o alerta de ocorrência e o
+cabeçalho do atendimento exigem sessão, e o `/chart-lab` não pode montar
+nenhum dos três — todos consultam o Supabase. O que existe é `tsc`, `eslint`,
+a suíte e a build de produção, que compila todas as rotas.
 
 ---
 

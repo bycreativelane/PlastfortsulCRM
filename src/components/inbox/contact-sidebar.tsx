@@ -299,8 +299,9 @@ export function ContactSidebar({
     contact.average_ticket != null;
   // `contacts.occurrence_count` (migration 042, maintained by trigger) with
   // the old tag as a fallback — see `contactHasOccurrence` for why the tag
-  // was never a reliable answer.
-  const occurrenceCount = contact.occurrence_count ?? 0;
+  // was never a reliable answer. A CONTAGEM saiu junto com a linha que a
+  // imprimia (item 2 do pacote): quem decide se o aviso aparece é isto, que
+  // já lê a coluna e a etiqueta antiga.
   const occurrence = contactHasOccurrence({ ...contact, tags });
 
   return (
@@ -473,19 +474,21 @@ export function ContactSidebar({
             >
               <AlertTriangle className="mt-0.5 size-4 shrink-0" />
               <div className="min-w-0">
+                {/*
+                  UMA LINHA. Item 2 do pacote, e é a única coisa que ele
+                  pede aqui: "remover completamente esta descrição curta".
+                  Nem o histórico nem os dados de ocorrência são tocados.
+
+                  O que sai é `1 ocorrência no histórico — leia antes de
+                  prometer prazo.`, e vale registrar o que se troca, porque
+                  o comentário que estava aqui defendia o contrário: a
+                  CONTAGEM é a diferença entre um acidente e um padrão. A
+                  troca é deliberada — o card fica com o aviso, e o número
+                  está a um clique, do outro lado deste mesmo botão, que é
+                  onde as ocorrências de verdade estão.
+                */}
                 <p className="text-xs font-semibold">
                   {tSidebar('occurrenceWarning')}
-                </p>
-                <p className="text-2xs leading-relaxed">
-                  {/* "2 ocorrências no histórico" beats "já teve um
-                      problema": how MANY is the difference between an
-                      accident and a pattern, and it is the thing an agent
-                      about to promise a delivery date needs. Falls back to
-                      the old sentence for a contact carrying only the
-                      legacy tag, where there is no number to show. */}
-                  {occurrenceCount > 0
-                    ? tSidebar('occurrenceCount', { count: occurrenceCount })
-                    : tSidebar('occurrenceHint')}
                 </p>
               </div>
             </button>

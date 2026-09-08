@@ -675,14 +675,12 @@
       "optedOutHint": "Nenhuma campanha ou automação alcança este contato.",
       "occurrenceHistory": "Histórico do contato",
       "occurrenceWarning": "Atenção — cliente com histórico de ocorrência",
-      "occurrenceHint": "Este cliente já registrou um problema. Confira o histórico antes de prometer prazo ou condição.",
       "noOccurrences": "Sem ocorrências registradas",
       "editDeal": "Editar oportunidade",
       "dealOwner": "Responsável",
       "registerOccurrence": "Registrar ocorrência",
       "futurePurchase": "Compra futura",
       "logCall": "Registrar ligação",
-      "occurrenceCount": "{count} {count, plural, =1 {ocorrência} other {ocorrências}} no histórico — leia antes de prometer prazo.",
       "products": "Produtos"
     },
     "aiBanner": {

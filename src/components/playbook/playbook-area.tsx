@@ -103,7 +103,20 @@ const SECTION_ICON: Record<Section, typeof ScrollText> = {
   products: Package,
 };
 
-export function PlaybookArea() {
+/**
+ * Embutido: sem o cabeçalho de página.
+ *
+ * A gaveta de consulta do atendimento (item 15 do pacote) monta este mesmo
+ * componente — "não recriar o módulo" —, e ela já tem título próprio. Duas
+ * "Playbook" empilhadas, uma da gaveta e uma daqui, é a duplicata que o
+ * item 9 nomeia por outro caminho.
+ *
+ * UM BOOLEANO E NÃO UM SEGUNDO COMPONENTE: tudo que a gaveta precisa — a
+ * busca que atravessa os três tipos, as seções, o cartão com o botão de
+ * copiar — é exatamente o que esta tela já faz. O que muda entre as duas é
+ * uma moldura.
+ */
+export function PlaybookArea({ embedded = false }: { embedded?: boolean }) {
   const t = useTranslations('Playbook');
   const { accountId, user } = useAuth();
   // `edit-settings` é o portão que o produto já usa para "isto é
@@ -203,7 +216,9 @@ export function PlaybookArea() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title={t('title')} description={t('description')} />
+      {!embedded && (
+        <PageHeader title={t('title')} description={t('description')} />
+      )}
 
       {/* A BUSCA FICA ACIMA DAS ABAS, e não dentro de uma delas.
           Ela atravessa os três tipos — pôr uma caixa por seção diria o
@@ -378,9 +393,7 @@ function EntryCard({
           <h3 className="text-foreground min-w-0 text-sm font-semibold">
             {entry.title}
           </h3>
-          {entry.category && (
-            <Tag>{entry.category}</Tag>
-          )}
+          {entry.category && <Tag>{entry.category}</Tag>}
           {showType && (
             <span className="text-muted-foreground text-2xs">
               {t(`tab.${entry.type}`)}

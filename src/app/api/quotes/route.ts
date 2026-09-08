@@ -155,17 +155,43 @@ export async function POST(request: Request) {
       throw err;
     }
 
-    // O caminho leva o id da conta e o do documento: o bucket é público
-    // (a Meta precisa buscar o arquivo pelo link), então o que protege
-    // cada documento é o UUID no caminho — a mesma postura que
-    // `chat-media` já tem para toda foto que este CRM manda.
-    const base = `${accountId}/${linha.id}`;
+    /*
+     * `account-<id>/<orçamento>`, e o prefixo não é enfeite.
+     *
+     * É o que a política de escrita da 073 lê para autorizar o upload:
+     * `(storage.foldername(name))[1]` tem de ser a conta de quem está
+     * gravando. Sem o prefixo, a primeira pasta seria um UUID cru e a
+     * política não casaria — o PDF simplesmente não subiria.
+     *
+     * A convenção é a da 023, e o produto passa a ter uma só: a primeira
+     * pasta diz de quem é o arquivo.
+     *
+     * A LEITURA é pública, e vale dizer sem rodeio: o que protege um
+     * orçamento é este UUID ser impossível de adivinhar, não a RLS. É
+     * obrigatório — a Meta busca o arquivo pelo link para entregá-lo ao
+     * cliente — e é a mesma troca que `chat-media` já faz para toda foto
+     * que este CRM manda ou recebe.
+     */
+    const base = `account-${accountId}/${linha.id}`;
     const enviar = async (nome: string, corpo: Buffer, tipo: string) => {
       const caminho = `${base}/${nome}`;
       const { error } = await supabase.storage
         .from('quotes')
         .upload(caminho, corpo, { contentType: tipo, upsert: true });
-      if (error) return null;
+      if (error) {
+        // ELE DIZ O QUE ACONTECEU, porque este `return null` era mudo.
+        //
+        // A 072 não deu política de escrita ao bucket e a rota usa o
+        // cliente do USUÁRIO — não a service key, como o comentário dela
+        // afirmava. O upload seria recusado pela RLS, a linha ficaria
+        // arquivada com as URLs nulas, e a tela diria só "não foi
+        // possível gerar". Um defeito que só aparece na primeira vez que
+        // alguém usa a função, sem nada no log para explicá-lo.
+        //
+        // A política veio na 073; a linha de log fica de qualquer forma.
+        console.error(`[quotes] upload de ${nome} falhou:`, error.message);
+        return null;
+      }
       const {
         data: { publicUrl },
       } = supabase.storage.from('quotes').getPublicUrl(caminho);

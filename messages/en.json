@@ -1166,7 +1166,11 @@
       "1440": "1 day before"
     },
     "overdueBadge": "Overdue",
-    "reminderLabel": "Reminder"
+    "reminderLabel": "Reminder",
+    "menu": {
+      "open": "Open task",
+      "actions": "Actions"
+    }
   },
   "Pipelines": {
     "page": {

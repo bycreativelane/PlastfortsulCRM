@@ -21,6 +21,7 @@ import { useMemberDirectory } from '@/hooks/use-member-directory';
 import { MemberAvatar } from '@/components/presence/member-avatar';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { BoardLane } from '@/components/pipelines/board-lane';
+import { TaskContextMenu } from '@/components/tasks/task-context-menu';
 import { Tag } from '@/components/ui/tag';
 import { formatDue } from '@/components/tasks/task-row';
 import { StatePanel } from '@/components/ui/state-panel';
@@ -162,6 +163,7 @@ export function TasksBoard({
             tasks={columns.get(status) ?? []}
             todayIso={todayIso}
             busyId={busyId}
+            onChangeStatus={onChangeStatus}
             onOpen={onOpen}
             onCreate={onCreate}
           />
@@ -199,6 +201,7 @@ function Column({
   tasks,
   todayIso,
   busyId,
+  onChangeStatus,
   onOpen,
   onCreate,
 }: {
@@ -206,6 +209,7 @@ function Column({
   tasks: Task[];
   todayIso: string;
   busyId: string | null;
+  onChangeStatus: (task: Task, status: TaskStatus) => void;
   onOpen: (task: Task) => void;
   onCreate: () => void;
 }) {
@@ -234,6 +238,7 @@ function Column({
           task={task}
           todayIso={todayIso}
           busy={busyId === task.id}
+          onChangeStatus={(next) => onChangeStatus(task, next)}
           onOpen={() => onOpen(task)}
         />
       ))}
@@ -257,11 +262,13 @@ function DraggableCard({
   task,
   todayIso,
   busy,
+  onChangeStatus,
   onOpen,
 }: {
   task: Task;
   todayIso: string;
   busy: boolean;
+  onChangeStatus: (status: TaskStatus) => void;
   onOpen: () => void;
 }) {
   const tPage = useTranslations('TasksPage');
@@ -284,10 +291,24 @@ function DraggableCard({
       // `touch-manipulation` e não `touch-action: none`: os cartões cobrem a
       // coluna quase inteira, e proibir o arrasto de tela em cada um deixaria
       // o dedo sem como rolar nem a coluna nem o quadro.
-      className="relative touch-manipulation"
+      // `group/task` nomeado, e não um grupo anônimo: o botão de ações
+      // aparece no hover DESTE cartão, e um grupo sem nome casaria com
+      // qualquer ancestral que ganhasse `group` depois. Mesma escrita do
+      // `group/deal` no quadro do funil.
+      className="group/task relative touch-manipulation"
       style={{ opacity: isDragging ? 0.3 : 1 }}
     >
-      <Card task={task} todayIso={todayIso} busy={busy} onOpen={onOpen} />
+      {/* O menu fica DENTRO do arrastável, como no funil: o dnd-kit ignora
+          o botão 2, então os dois nunca disputam a mesma pressão, e manter
+          o nó de arrasto no elemento de fora deixa a geometria do sensor
+          exatamente como estava. */}
+      <TaskContextMenu
+        task={task}
+        onOpen={onOpen}
+        onChangeStatus={onChangeStatus}
+      >
+        <Card task={task} todayIso={todayIso} busy={busy} onOpen={onOpen} />
+      </TaskContextMenu>
 
       {/* A polegada quadrada do cartão que não rola. Só em ponteiro grosso:
           com mouse o cartão inteiro já é a alça. */}

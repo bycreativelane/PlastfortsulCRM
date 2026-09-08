@@ -1166,7 +1166,11 @@
       "1440": "1일 전"
     },
     "overdueBadge": "지연",
-    "reminderLabel": "알림"
+    "reminderLabel": "알림",
+    "menu": {
+      "open": "작업 열기",
+      "actions": "작업"
+    }
   },
   "Pipelines": {
     "page": {

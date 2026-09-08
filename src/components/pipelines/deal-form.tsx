@@ -508,7 +508,14 @@ export function DealForm({
                  */
                 <Link
                   href={`/inbox?c=${linkedConversation.id}`}
-                  className="bg-primary/10 text-primary hover:bg-primary/20 mt-1 inline-flex items-center gap-1.5 self-start rounded-md px-2 py-1 text-xs"
+                  // `w-fit`, e não `self-start`. O pai é uma GRADE: ali
+                  // `self-start` alinha no eixo do bloco e não encolhe a
+                  // largura, então o link esticava de ponta a ponta e virava
+                  // uma faixa azul de largura cheia — lia como aviso, não
+                  // como link. `justify-self-start` também serviria; `w-fit`
+                  // vale em grade e em flex, que é o que sobrevive a mexer
+                  // no pai.
+                  className="bg-primary/10 text-primary hover:bg-primary/20 mt-1 inline-flex w-fit items-center gap-1.5 rounded-md px-2 py-1 text-xs"
                 >
                   <MessageSquare className="h-3 w-3" />
                   {t('linkToConversation')}
@@ -811,11 +818,15 @@ export function DealForm({
           </div>
 
           <div className="border-border/50 bg-popover/80 border-t p-4">
-            <div className="flex gap-2">
+            {/* LARGURA NATURAL, à direita — o mesmo rodapé do diálogo de
+                tarefa. Os dois eram `flex-1`, então dividiam a gaveta ao
+                meio: um "Cancelar" de 330px ao lado de um "Salvar" de
+                330px, com o mesmo peso visual e nenhuma hierarquia. */}
+            <div className="flex justify-end gap-2">
               <Button
                 variant="outline"
                 onClick={() => onOpenChange(false)}
-                className="border-border text-muted-foreground hover:bg-muted flex-1 bg-transparent"
+                className="border-border text-muted-foreground hover:bg-muted bg-transparent"
               >
                 {t('cancel')}
               </Button>
@@ -824,7 +835,6 @@ export function DealForm({
                 disabled={
                   !canWrite || saving || !title.trim() || !contactId || !stageId
                 }
-                className="flex-1"
               >
                 {saving
                   ? t('saving')
@@ -874,7 +884,15 @@ export function DealForm({
                   variant="ghost"
                   size="sm"
                   onClick={() => setConfirmDelete(true)}
-                  className="text-muted-foreground hover:text-destructive mt-3 w-full font-semibold"
+                  // `w-full` NUM BOTÃO QUE EXCLUI. Ele ficava com a largura
+                  // inteira da gaveta, logo abaixo do Salvar e com o mesmo
+                  // tamanho dele — o alvo mais fácil do rodapé era a ação
+                  // sem volta. Mesmo conserto do diálogo de tarefa, que já
+                  // passou por aqui: largura natural, encostado à esquerda.
+                  //
+                  // A faixa de confirmação acima continua ocupando a largura
+                  // toda, e ali está certo: ela é um aviso, não um alvo.
+                  className="text-muted-foreground hover:text-destructive mt-3 self-start font-semibold"
                 >
                   <Trash2 className="mr-1 size-3" />
                   {t('deleteDeal')}

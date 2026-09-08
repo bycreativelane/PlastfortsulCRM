@@ -149,10 +149,19 @@ export function TaskList({
           <Loader2 className="text-muted-foreground size-4 animate-spin" />
         </div>
       ) : tasks.length === 0 ? (
+        // `min-h-24` e nao os 160px que o `StatePanel` traz.
+        //
+        // Aquele piso e altura de REGIAO DE PAGINA. Dentro de uma gaveta o
+        // que e escasso e a altura, e esta sheet empilha DOIS vazios — o de
+        // produtos e o de tarefas — somando ~320px de quase nada entre o
+        // valor e as observacoes. A mesma correcao das colunas vazias do
+        // quadro, e pela mesma razao: o vazio cobrava tinta proporcional a
+        // nada.
         <StatePanel
           icon={ListChecks}
           title={t('empty')}
           description={emptyHint}
+          className="min-h-24"
         />
       ) : (
         <div className="space-y-1">

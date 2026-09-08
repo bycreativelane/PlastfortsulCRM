@@ -165,7 +165,12 @@ export function DealItemsEditor({
         // MESMA sheet, com o painel da casa e um ícone. Duas formas de vazio
         // numa superfície só é o tipo de divergência que só se enxerga com as
         // duas abertas ao mesmo tempo — que é o caso aqui, sempre.
-        <StatePanel icon={Package} title={t('empty')} size="sm" />
+        <StatePanel
+          icon={Package}
+          title={t('empty')}
+          size="sm"
+          className="min-h-24"
+        />
       ) : (
         <ul className="border-border divide-border divide-y rounded-md border">
           {items.map((item, index) => (

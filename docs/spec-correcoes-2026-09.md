@@ -727,6 +727,44 @@ olhar sem sessão — `DealQuote` recebe um objeto e não consulta nada:
 | completo   | `100 × R$ 4,25 → R$ 425,00`; `200 × R$ 1,00 · 10% → R$ 180,00`; Produtos R$ 605,00; Frete R$ 120,00; **Total R$ 725,00** |
 | só o valor | sem pedido, sem produtos, sem frete, sem transportador, sem observações — Produtos e Total R$ 625,00                     |
 
+### Documentos → Orçamentos (pedido de 8 de setembro)
+
+Fora do bloco 38–59: o Gabriel pediu ao testar que **todo orçamento gerado
+fique salvo**, numa seção que "pode ficar fora do menu principal". Migração
+**071** e a rota `/documentos/orcamentos`, que não entra na barra lateral —
+chega-se por um link no rodapé do próprio documento, onde a pergunta "cadê o
+anterior?" nasce.
+
+**O que fica guardado é o documento, não o arquivo PDF.** O PDF nasce no
+navegador de quem imprime; o servidor nunca vê aqueles bytes, nem sabe se a
+pessoa salvou ou cancelou. Guardar os dados é melhor do que guardar o
+arquivo: a página redesenha pelo MESMO componente e pelo MESMO cálculo (um
+PDF guardado seria uma segunda verdade sobre o total, que é o que o item 55
+proíbe), dá para procurar por cliente, pedido ou produto, e ocupa bytes.
+
+Uma linha por **geração**, sem UPDATE e sem DELETE na RLS: o negócio muda
+depois que o orçamento sai, e o que o cliente recebeu foi a versão daquele
+dia.
+
+**Conferido contra o banco em 8 de setembro**, com a primeira linha real já
+gravada pelo Gabriel:
+
+|                                 |                                                                           |
+| ------------------------------- | ------------------------------------------------------------------------- |
+| `deal_quotes` com as 18 colunas | OK                                                                        |
+| controle (coluna inexistente)   | reprovou com 400                                                          |
+| `lines`                         | volta como array, com `name, total, quantity, unitPrice, discountPercent` |
+| a conta, relida                 | produtos + frete = total gravado; soma das linhas = produtos              |
+| RLS                             | service-role vê a linha, anônimo vê zero                                  |
+
+O último só significa alguma coisa porque existe uma linha — com a tabela
+vazia os dois veriam zero, e o teste não provaria nada.
+
+**E um guard achou o que eu ia deixar passar:** a rota nova não estava em
+`PROTECTED_PATHS`, e o arquivo de tudo que a empresa orçou ficaria de pé sem
+sessão. Uma rota que nenhum menu aponta é uma rota que ninguém lembra de
+proteger; quem lembrou foi o `proxy.test.ts`, varrendo `app/(dashboard)`.
+
 ### O que ficou de fora, e por quê
 
 **A migração 070 está aplicada** (8 de setembro, pelo Gabriel). Conferido

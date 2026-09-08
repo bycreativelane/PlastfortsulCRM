@@ -52,11 +52,16 @@ interface Linha {
 }
 
 /**
- * NUMERIC volta como string do PostgREST.
+ * NUMERIC pode voltar como número ou como texto, e isto aceita os dois.
  *
- * `NUMERIC(14,2)` não cabe em `double` sem perda no caso geral, então o
- * driver entrega texto para não decidir por você. Ler direto no `<p>`
- * imprimiria `"605.00"` — com ponto, sem símbolo — no lugar de um valor.
+ * Medido contra o banco em 8 de setembro: os três vieram como NÚMERO.
+ * Esta função foi escrita esperando texto — `NUMERIC(14,2)` não cabe em
+ * `double` sem perda no caso geral, e há versões e configurações do
+ * PostgREST que entregam string por isso.
+ *
+ * A guarda fica, e o comentário deixa de afirmar o que não acontece. Ela
+ * custa uma comparação e cobre a diferença entre um total que aparece e
+ * um `"605.00"` cru — com ponto e sem símbolo — no lugar de um valor.
  */
 const numero = (v: number | string | null | undefined): number =>
   v === null || v === undefined ? 0 : typeof v === 'number' ? v : Number(v);

@@ -40,6 +40,8 @@ import {
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useTranslations } from 'next-intl';
+import { useDrafts } from '@/hooks/use-drafts';
+import { draftPreview } from '@/lib/inbox/drafts';
 import { useAuth } from '@/hooks/use-auth';
 import { useTheme } from '@/hooks/use-theme';
 import { Button } from '@/components/ui/button';
@@ -187,6 +189,15 @@ export function ConversationList({
   const tTeam = useTranslations('Inbox.team');
   const { user } = useAuth();
   const { mode } = useTheme();
+  /**
+   * Uma assinatura para a lista inteira, e não uma por linha.
+   *
+   * O compositor copia o que está sendo escrito para cá a cada 400 ms, e é
+   * daqui que sai o selo "Rascunho:" do item 14. Cem linhas assinando o
+   * mesmo store seriam cem `addEventListener` para responder à mesma
+   * pergunta.
+   */
+  const drafts = useDrafts();
 
   // Scope is the always-visible split (owned vs unclaimed); `filterId` is the
   // one option chosen from the menu, or null. They combine with AND — see
@@ -799,6 +810,7 @@ export function ConversationList({
                     showWaiting={
                       scope === 'esperando' && !activeOption?.replacesScope
                     }
+                    draft={drafts[conv.id] ?? ''}
                     t={t}
                   />
                 </SwipeRow>
@@ -854,6 +866,14 @@ interface ConversationItemProps {
    * PARQUEAMENTO, e não a da última mensagem.
    */
   showWaiting: boolean;
+  /**
+   * O que foi digitado nesta conversa e não foi enviado, já em uma linha.
+   *
+   * Vem de cima porque `useDrafts` assina um store: chamado aqui dentro,
+   * cada uma das cem linhas abriria a própria assinatura para ler o mesmo
+   * mapa. A lista lê uma vez e reparte.
+   */
+  draft: string;
   t: ReturnType<typeof useTranslations>;
 }
 
@@ -882,6 +902,7 @@ function ConversationItem({
   surface,
   agentNames,
   showWaiting,
+  draft,
   t,
 }: ConversationItemProps) {
   const contact = conversation.contact;
@@ -1087,50 +1108,87 @@ function ConversationItem({
               lote" is two facts, and before migration 047 the row could only
               carry one of them: a captioned photo stored the caption and
               looked exactly like a text message. */}
-          {preview.thumbnailUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={preview.thumbnailUrl}
-              alt=""
-              loading="lazy"
-              // `bg-muted` under it so a slow or dead URL is a grey square
-              // rather than a broken-image glyph in the middle of a row.
-              className="bg-muted size-7 shrink-0 rounded object-cover"
-            />
-          ) : preview.media ? (
-            <MediaIcon
-              className="text-muted-foreground size-3 shrink-0"
-              aria-hidden
-            />
-          ) : null}
-          {/* Ticks, then the name, then what was said — the order the eye
-              reads and the order WhatsApp uses. Both sit OUTSIDE the
-              truncating paragraph: inside it, a long message would push the
-              answer to "who replied" off the end of the line, which is the
-              one thing this row exists to show. */}
-          {outbound && conversation.last_message_status ? (
-            <MessageTicks status={conversation.last_message_status} />
-          ) : null}
-          {senderName ? (
-            // Medium, not bold. It is a label on the message, and a row
-            // whose loudest word is a colleague's name buries the customer.
-            <span className="text-muted-foreground max-w-[7rem] shrink-0 truncate text-xs font-medium">
-              {t('senderPrefix', { name: senderName })}
-            </span>
-          ) : null}
-          <p
-            className={cn(
-              'text-secondary-foreground min-w-0 flex-1 truncate text-xs',
-              // The KIND is a label, not something anybody wrote — italic
-              // keeps it from reading as the customer's own words.
-              preview.media && !preview.text && 'italic'
-            )}
-          >
-            {preview.text ||
-              (preview.media
-                ? t(MEDIA_LABEL_KEY[preview.media])
-                : t('noMessagesYet'))}
-          </p>
+          {/*
+            O RASCUNHO TOMA A LINHA INTEIRA, como no WhatsApp.
+
+            Item 14 do pacote, com a referência transcrita: uma conversa com
+            texto digitado e não enviado mostra "Rascunho: …" no lugar da
+            prévia. No lugar, e não ao lado — a prévia responde "o que foi
+            dito por último" e o rascunho responde "o que falta você mandar",
+            e a segunda é a que muda o que a pessoa faz agora. Empilhar as
+            duas numa coluna de 320px não caberia de qualquer jeito.
+
+            Some sozinho no envio: o compositor zera o texto, e zerar não
+            espera os 400 ms do resto.
+
+            `text-human-ink` porque um rascunho é um "volte aqui" — a mesma
+            família do contador de não lidas que fica no fim desta linha. O
+            selo não disputa com ele: os dois dizem "você".
+
+            A ORDEM DA LISTA NÃO MUDA. O item 14 pede isso em uma frase, e
+            sai de graça: isto é uma troca de pintura dentro da linha, e
+            quem ordena são as consultas lá em cima.
+          */}
+          {draft ? (
+            <>
+              <span className="text-human-ink shrink-0 text-xs font-medium">
+                {t('draftPrefix')}
+              </span>
+              <p className="text-secondary-foreground min-w-0 flex-1 truncate text-xs">
+                {draftPreview(draft)}
+              </p>
+            </>
+          ) : (
+            <>
+              {preview.thumbnailUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={preview.thumbnailUrl}
+                  alt=""
+                  loading="lazy"
+                  // `bg-muted` under it so a slow or dead URL is a grey
+                  // square rather than a broken-image glyph in the middle
+                  // of a row.
+                  className="bg-muted size-7 shrink-0 rounded object-cover"
+                />
+              ) : preview.media ? (
+                <MediaIcon
+                  className="text-muted-foreground size-3 shrink-0"
+                  aria-hidden
+                />
+              ) : null}
+              {/* Ticks, then the name, then what was said — the order the
+                  eye reads and the order WhatsApp uses. Both sit OUTSIDE
+                  the truncating paragraph: inside it, a long message would
+                  push the answer to "who replied" off the end of the line,
+                  which is the one thing this row exists to show. */}
+              {outbound && conversation.last_message_status ? (
+                <MessageTicks status={conversation.last_message_status} />
+              ) : null}
+              {senderName ? (
+                // Medium, not bold. It is a label on the message, and a row
+                // whose loudest word is a colleague's name buries the
+                // customer.
+                <span className="text-muted-foreground max-w-[7rem] shrink-0 truncate text-xs font-medium">
+                  {t('senderPrefix', { name: senderName })}
+                </span>
+              ) : null}
+              <p
+                className={cn(
+                  'text-secondary-foreground min-w-0 flex-1 truncate text-xs',
+                  // The KIND is a label, not something anybody wrote —
+                  // italic keeps it from reading as the customer's own
+                  // words.
+                  preview.media && !preview.text && 'italic'
+                )}
+              >
+                {preview.text ||
+                  (preview.media
+                    ? t(MEDIA_LABEL_KEY[preview.media])
+                    : t('noMessagesYet'))}
+              </p>
+            </>
+          )}
           {conversation.unread_count > 0 && (
             <CountBadge tone="human">{conversation.unread_count}</CountBadge>
           )}

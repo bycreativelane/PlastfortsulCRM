@@ -440,6 +440,7 @@
       "emptyScope": "Nothing in this tab right now.",
       "emptyWithFilter": "Nothing in {scope} matches {filter}.",
       "senderPrefix": "{name}:",
+      "draftPrefix": "Draft:",
       "noMessagesYet": "No messages yet",
       "unknown": "Unknown",
       "filterOccurrence": "With an occurrence",

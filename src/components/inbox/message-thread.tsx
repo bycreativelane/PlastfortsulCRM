@@ -1675,8 +1675,23 @@ export function MessageThread({
         }}
       />
 
-      {/* Composer */}
+      {/*
+        A `key` É A CORREÇÃO, e ela vale por um parágrafo.
+
+        Sem ela, trocar de conversa só trocava um prop: o React reaproveitava
+        a mesma instância do compositor e TODO o estado interno dele
+        atravessava a troca. O texto era o sintoma que o item 13 do pacote
+        reportou com print — digitar para a Ana e achar o texto na conversa
+        do João —, mas o anexo já enviado ao storage e ainda não mandado, a
+        gravação de áudio em curso e o cursor do painel `@` viajavam junto.
+
+        Com ela, cada conversa tem o próprio compositor. O rascunho não se
+        perde na desmontagem porque ele não mora mais aqui dentro: mora em
+        `lib/inbox/drafts.ts`, que é o que faz "voltar para X e o texto ainda
+        estar lá" continuar valendo.
+      */}
       <MessageComposer
+        key={conversation.id}
         conversationId={conversation.id}
         // The signature's default: who is signed in, by name.
         agentName={

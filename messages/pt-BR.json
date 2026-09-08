@@ -440,6 +440,7 @@
       "emptyScope": "Nada nesta aba no momento.",
       "emptyWithFilter": "Nada em {scope} com o filtro {filter}.",
       "senderPrefix": "{name}:",
+      "draftPrefix": "Rascunho:",
       "noMessagesYet": "Nenhuma mensagem ainda",
       "unknown": "Desconhecido",
       "filterOccurrence": "Com ocorrência",

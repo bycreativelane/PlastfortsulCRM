@@ -48,6 +48,7 @@ import { useCan } from '@/hooks/use-can';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { MISSING_MIGRATION_CODE } from '@/lib/quick-replies/errors';
+import { getDraft, setDraft as saveDraft } from '@/lib/inbox/drafts';
 import {
   uploadAccountMedia,
   deleteAccountMedia,
@@ -222,7 +223,21 @@ export function MessageComposer({
   const t = useTranslations('Inbox.composer');
   const { prompt } = useConfirm();
 
-  const [text, setText] = useState('');
+  /**
+   * O rascunho desta conversa, se houver um.
+   *
+   * `MessageThread` monta este componente com `key={conversation.id}`, então
+   * cada conversa tem a própria instância e este inicializador roda uma vez
+   * por conversa aberta — não existe caminho em que o texto de uma apareça
+   * na outra, que era o item 13 do pacote.
+   *
+   * Preguiçoso e não num efeito: o valor já existe antes do primeiro
+   * render, e restaurar depois faria o campo piscar vazio. Sem risco de
+   * divergência com o servidor porque `MessageThread` só chega aqui depois
+   * de carregar a conversa no cliente — antes disso ele desenha o estado
+   * vazio.
+   */
+  const [text, setText] = useState(() => getDraft(conversationId));
   // The quick reply behind the current text, if one was picked. Cleared
   // when the field is emptied or the message goes out. Read at send time
   // and posted with the message so the server can record it.
@@ -230,6 +245,52 @@ export function MessageComposer({
   const [sending, setSending] = useState(false);
   const [drafting, setDrafting] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  /**
+   * O espelho do rascunho, para a lista de conversas e para a próxima vez.
+   *
+   * QUEM MANDA NO TEXTO É O `useState` ACIMA. Este efeito só copia, e por
+   * isso digitar continua custando um `setState` local — trocar a fonte da
+   * verdade por um store externo poria `localStorage` no caminho de cada
+   * tecla, no componente que menos pode engasgar do produto.
+   *
+   * Esperar 400 ms para copiar tem um motivo além do disco: a lista de
+   * conversas assina esse mapa, e uma escrita por tecla re-renderizaria as
+   * cem linhas dela a cada letra. Meio segundo de atraso num selo
+   * "Rascunho:" ninguém percebe.
+   *
+   * ESVAZIAR NÃO ESPERA. Enviar, `Escape` no painel `/`, atribuir por `@` —
+   * os cinco caminhos que zeram o campo passam por aqui, e o item 14 pede
+   * que o selo suma no envio. Sumir 400 ms depois seria a lista dizendo que
+   * há um rascunho numa conversa que acabou de mandar a mensagem.
+   */
+  useEffect(() => {
+    if (text === '') {
+      saveDraft(conversationId, '');
+      return;
+    }
+    const id = window.setTimeout(() => saveDraft(conversationId, text), 400);
+    return () => window.clearTimeout(id);
+  }, [conversationId, text]);
+
+  /**
+   * E o que estava na espera quando a conversa trocou.
+   *
+   * Sem isto, digitar e trocar de conversa em menos de 400 ms perderia as
+   * últimas letras: a limpeza do efeito acima cancela o `setTimeout` sem
+   * gravar. Como o componente é montado com `key`, esta limpeza roda uma
+   * vez, na saída, com o último texto que o render viu.
+   */
+  const textoRef = useRef(text);
+  useEffect(() => {
+    textoRef.current = text;
+  }, [text]);
+  useEffect(
+    () => () => {
+      saveDraft(conversationId, textoRef.current);
+    },
+    [conversationId]
+  );
 
   // Interactive-message builder dialog + quick-reply picker.
   const [interactiveOpen, setInteractiveOpen] = useState(false);

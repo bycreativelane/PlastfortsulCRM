@@ -391,23 +391,67 @@ fechado.
 
 | #   | Item                                                 | Estado                                   |
 | --- | ---------------------------------------------------- | ---------------------------------------- |
-| 7   | Rascunho por conversa (item 13)                      | ⬜ **bug confirmado, causa localizada**  |
-| 8   | "Rascunho:" na lista (item 14)                       | ⬜                                       |
+| 7   | Rascunho por conversa (item 13)                      | ✅ 8 de setembro                         |
+| 8   | "Rascunho:" na lista (item 14)                       | ✅ 8 de setembro                         |
 | 9   | Editor de contatos unificado (item 9)                | ✅ **já estava feito** — ver R4          |
 | 10  | +55 automático (item 10)                             | ⬜ **decisão fechada, é só implementar** |
 | 11  | Botão grande "Abrir conversa" (item 11)              | ⬜                                       |
 | 12  | Nome em vez de UUID em Editar oportunidade (item 12) | ⬜ **causa localizada**                  |
 
-**Item 13 — a causa.** `message-thread.tsx:1679` monta
-`<MessageComposer conversationId={conversation.id} …>` **sem `key`**. O React
-reaproveita a instância entre conversas e o `useState('')` do texto atravessa
-a troca. Digitar na X, abrir a Y, e o texto está lá.
+### ✅ 7 e 8. Os rascunhos (itens 13 e 14)
 
-Uma `key` conserta o vazamento e **cria** o segundo defeito: desmontar
-descarta o rascunho, e o item 13 exige que voltar para X ainda mostre o texto.
-Então são as duas metades — isolar por `conversation_id` **e** persistir fora
-do componente. A persistência é também o que o item 14 vai ler para desenhar
-"Rascunho:" na lista, o que faz do 7 e do 8 um item só.
+**Um item só, e sempre foram.** A causa do 13 é uma linha que não existia:
+`message-thread.tsx` montava `<MessageComposer conversationId={…}>` **sem
+`key`**, então trocar de conversa só trocava um prop — o React reaproveitava a
+instância e o `useState('')` do texto atravessava a troca. Digitar na X, abrir
+a Y, e o texto está lá.
+
+A `key` conserta o vazamento e **cria** o segundo defeito, que o mesmo item 13
+proíbe: desmontar joga o rascunho fora, e "voltar para X e o texto ainda estar
+lá" é metade do pedido. Por isso a `key` veio acompanhada de
+`src/lib/inbox/drafts.ts` — e esse mesmo armazenamento é o que o item 14 lê
+para desenhar o selo. Os dois se resolvem uma vez ou não se resolvem.
+
+**Onde mora.** `localStorage`, num mapa só, e não no banco. Um rascunho é um
+pensamento pela metade: não precisa atravessar máquinas, ninguém mais na
+equipe precisa vê-lo, e sincronizá-lo custaria uma tabela, uma migração — num
+momento em que a numeração 070+ está disputada — e uma escrita por tecla. O
+que ele precisa é sobreviver a trocar de conversa e a um F5.
+
+Um mapa numa chave só, e não uma chave por conversa, porque a lista precisa
+responder sobre TODAS as linhas de uma vez. Teto de 50, saída por
+menos-recentemente-escrito: sem isso cada conversa em que alguém digitou e
+desistiu deixa uma linha para sempre.
+
+**O texto continua morando no `useState` do compositor.** O store é um
+espelho, escrito com 400 ms de atraso — trocar a fonte da verdade poria
+`localStorage` no caminho de cada tecla do componente que menos pode engasgar
+do produto, e a lista de conversas assina esse mapa: uma escrita por tecla
+re-renderizaria as cem linhas dela a cada letra. **Esvaziar não espera**: os
+cinco caminhos que zeram o campo — enviar, `Escape` no painel `/`, atribuir
+por `@` — limpam na hora, porque o item 14 pede que o selo suma no envio.
+
+**O que a `key` corrigiu junto.** O texto era o sintoma reportado, mas o anexo
+já subido e ainda não mandado, a gravação de áudio em curso e o cursor do
+painel `@` viajavam entre conversas do mesmo jeito. Uma foto preparada para a
+Ana aparecendo no compositor do João é pior do que o texto. A limpeza de
+desmontagem do compositor já fazia GC do arquivo preparado e não enviado — e
+`sendDraft` zera esse estado depois de mandar, então nada que foi enviado é
+apagado do storage.
+
+**O selo toma a linha inteira**, no lugar da prévia e não ao lado: a prévia
+responde "o que foi dito por último" e o rascunho responde "o que falta você
+mandar", e numa coluna de 320px as duas não cabem empilhadas. Em
+`text-human-ink`, a mesma família do contador de não lidas no fim da linha —
+os dois dizem "você". A ordem da lista não muda: é pintura dentro da linha, e
+quem ordena são as consultas.
+
+**O que ficou provado e o que não.** `drafts.test.ts` tem 25 asserções sobre
+o armazenamento — isolamento por conversa, limpar ao esvaziar, referência
+estável para não re-renderizar à toa, o teto, o mapa podre, a outra aba
+escrevendo. O que **não** está provado é a tela: o `/inbox` exige sessão e o
+`/chart-lab` não pode montar uma lista que consulta o Supabase. **Isto pede
+um olhar na tela real** — digitar na Ana, abrir o João, voltar.
 
 **Item 12 — a causa, e ela já tem remédio no repositório.** `OptionSelect` é o
 `Select` do base-ui: `Select.Value` resolve o rótulo a partir de `items`, e

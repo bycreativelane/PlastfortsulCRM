@@ -89,8 +89,11 @@ export function MonthGrid({
   const locale = useLocale();
   const weekStart = React.useMemo(() => firstDayOfWeek(locale), [locale]);
 
+  // O mês grande tem 200px por coluna e cabe o nome abreviado; o do
+  // campo de data tem 34px e só cabe a letra. Ver a nota em
+  // `weekdayLabels` sobre o D S T Q Q S S do português.
   const weekdays = React.useMemo(
-    () => weekdayLabels(locale, weekStart),
+    () => weekdayLabels(locale, weekStart, size === 'md' ? 'short' : 'narrow'),
     [locale, weekStart]
   );
 
@@ -164,7 +167,12 @@ export function MonthGrid({
             aria-pressed={selected === undefined ? undefined : day.selected}
             aria-current={day.today ? 'date' : undefined}
             className={cn(
-              'grid place-items-center rounded-md tabular-nums transition-colors',
+              // `min-w-0` e nao decoracao: numa `grid-cols-7` a coluna nao
+              // encolhe abaixo do conteudo dela, entao um chip com titulo
+              // longo empurrava a celula e as sete colunas deixavam de ter
+              // a mesma largura — os numeros dos dias saiam de ordem e os
+              // chips atravessavam a coluna vizinha.
+              'grid min-w-0 place-items-center rounded-md tabular-nums transition-colors',
               md
                 ? cn(
                     'w-full content-start gap-0.5 py-1 text-xs',

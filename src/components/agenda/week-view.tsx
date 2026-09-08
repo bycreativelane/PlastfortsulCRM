@@ -16,12 +16,15 @@ export function WeekView({
   hours,
   todayIso,
   onSelectTask,
+  onPickDay,
 }: {
   days: string[];
   items: AgendaItem[];
   hours: BusinessHours;
   todayIso: string;
   onSelectTask: (item: AgendaItem) => void;
+  /** Levar ao dia, quando a coluna não cabe o que há nela. */
+  onPickDay?: (iso: string) => void;
 }) {
   const format = useFormatter();
 
@@ -31,6 +34,7 @@ export function WeekView({
       items={items}
       hours={hours}
       onSelectTask={onSelectTask}
+      onPickDay={onPickDay}
       renderHeader={(iso) => {
         const date = fromISO(iso);
         if (!date) return null;

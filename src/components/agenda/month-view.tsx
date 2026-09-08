@@ -64,7 +64,10 @@ export function MonthView({
         const rest = list.length - shown.length;
         return (
           <div
-            className={cn('mt-0.5 space-y-0.5', day.outside && 'opacity-50')}
+            className={cn(
+              'mt-0.5 w-full min-w-0 space-y-0.5',
+              day.outside && 'opacity-50'
+            )}
           >
             {/*
               SEM `onSelect` AQUI, e não é esquecimento.

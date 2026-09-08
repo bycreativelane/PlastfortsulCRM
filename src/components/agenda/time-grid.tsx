@@ -13,6 +13,7 @@ import {
   laneOf,
   positionOf,
   timedItems,
+  overflowOf,
 } from '@/lib/agenda/view';
 import { cn } from '@/lib/utils';
 
@@ -54,6 +55,7 @@ export function TimeGrid({
   items,
   hours,
   onSelectTask,
+  onPickDay,
   renderHeader,
 }: {
   days: string[];
@@ -61,6 +63,13 @@ export function TimeGrid({
   items: AgendaItem[];
   hours: BusinessHours;
   onSelectTask: (item: AgendaItem) => void;
+  /**
+   * Levar para o dia inteiro, quando a coluna não cabe o que há nela.
+   *
+   * É a mesma saída que o "+N" do mês já oferece. Ausente, o excedente
+   * ainda é contado — só não é clicável.
+   */
+  onPickDay?: (iso: string) => void;
   /**
    * O rótulo de cada coluna. Ausente, a faixa inteira não é desenhada.
    *
@@ -104,6 +113,23 @@ export function TimeGrid({
   // de altura conforme a janela torna impossível comparar dois dias.
   const slotHeight = hours.slotMinutes >= 60 ? 56 : 40;
   const bodyHeight = slots.length * slotHeight;
+
+  /*
+   * QUANTAS FAIXAS A COLUNA COMPORTA.
+   *
+   * Dividir a largura por quantos colidem funciona até três: numa semana
+   * de sete colunas isso dá fatias de 60px, e uma fatia de 60px não
+   * mostra nem a hora nem o título — mostra uma tira de cor. Medido: três
+   * tarefas às 09:00 viravam três slivers ilegíveis.
+   *
+   * Então a coluna mostra o que cabe e DIZ quantas ficaram, com a mesma
+   * saída que o "+N" do mês já dá: leva ao dia, onde a coluna é uma só e
+   * as mesmas três aparecem inteiras. Uma regra de excedente no produto,
+   * não duas.
+   *
+   * No dia não há teto porque não há aperto: uma coluna só reparte 640px.
+   */
+  const maxLanes = days.length === 1 ? 4 : 2;
 
   /*
    * A LINHA DO AGORA.
@@ -201,11 +227,28 @@ export function TimeGrid({
 
       {/* O eixo. */}
       <div className="overflow-y-auto">
+        {/*
+          UM DIA NÃO É UMA PÁGINA.
+
+          Com `repeat(1, 1fr)` a coluna do dia comia a largura inteira, e
+          uma tarefa de trinta minutos virava uma barra de 1355 × 40 px —
+          medido. Proporção de 34 para 1: aquilo lê como uma régua, não
+          como um compromisso.
+
+          O teto vale só quando há um dia. Numa semana as sete colunas
+          dividem ~195px cada, que é largura de coluna de calendário, e
+          apertá-las seria trocar um defeito por outro.
+
+          É a mesma decisão do cal.com por outro caminho: lá nenhuma
+          visão tem coluna elástica — a `column_view` mostra seis colunas
+          justamente para que um dia sozinho nunca ocupe a tela toda.
+        */}
         <div
           className="grid"
           style={{
             gridTemplateColumns: `4rem repeat(${days.length}, 1fr)`,
             height: bodyHeight,
+            maxWidth: days.length === 1 ? '44rem' : undefined,
           }}
         >
           {/*
@@ -220,18 +263,26 @@ export function TimeGrid({
             porque para eles existe linha acima e abaixo.
           */}
           <div className="relative">
-            {slots.map((slot, i) => (
-              <div
-                key={slot}
-                className={cn(
-                  'text-muted-foreground text-2xs absolute right-2 tabular-nums',
-                  i > 0 && '-translate-y-1/2'
-                )}
-                style={{ top: (i / slots.length) * 100 + '%' }}
-              >
-                {slot}
-              </div>
-            ))}
+            {slots.map((slot, i) =>
+              // SÓ A HORA CHEIA GANHA NÚMERO. Com meia em meia hora a
+              // régua virava uma coluna de vinte e quatro números para um
+              // dia com quatro tarefas, e o eixo competia com o conteúdo.
+              // A subdivisão continua existindo para posicionar e para o
+              // encaixe — ela só não tem mais régua, que é o que o
+              // cal.com faz e escreve o porquê.
+              slot.endsWith(':00') ? (
+                <div
+                  key={slot}
+                  className={cn(
+                    'text-muted-foreground text-2xs absolute right-2 tabular-nums',
+                    i > 0 && '-translate-y-1/2'
+                  )}
+                  style={{ top: (i / slots.length) * 100 + '%' }}
+                >
+                  {slot}
+                </div>
+              ) : null
+            )}
           </div>
 
           {days.map((iso) => {
@@ -248,14 +299,20 @@ export function TimeGrid({
                   closed && 'bg-muted/20'
                 )}
               >
-                {slots.map((slot, i) => (
-                  <div
-                    key={slot}
-                    className="border-border/60 absolute inset-x-0 border-t"
-                    style={{ top: (i / slots.length) * 100 + '%' }}
-                    aria-hidden
-                  />
-                ))}
+                {/* Uma linha por HORA, e não por meia hora. Eram
+                    vinte e quatro réguas atravessando a coluna inteira;
+                    metade delas não separava nada que a pessoa fosse
+                    ler. A meia hora continua no cálculo de posição. */}
+                {slots.map((slot, i) =>
+                  slot.endsWith(':00') ? (
+                    <div
+                      key={slot}
+                      className="border-border/60 absolute inset-x-0 border-t"
+                      style={{ top: (i / slots.length) * 100 + '%' }}
+                      aria-hidden
+                    />
+                  ) : null
+                )}
                 {/*
                   A LINHA DO AGORA, só na coluna de hoje.
                   `z-20` para passar por cima dos cartões: ela é a régua
@@ -280,6 +337,10 @@ export function TimeGrid({
                     durationOf(item)
                   );
                   if (!pos) return null;
+                  // Fora do teto: não desenha, e o contador abaixo o
+                  // conta. A faixa que ele ocuparia fica com o "+N".
+                  const laneOfItem = lanes.get(iso)?.get(item.id);
+                  if ((laneOfItem?.index ?? 0) >= maxLanes) return null;
                   /*
                     A FAIXA. Dois itens na mesma hora ficavam um EXATAMENTE
                     em cima do outro, e o de baixo sumia — nem o título, nem
@@ -287,8 +348,8 @@ export function TimeGrid({
                     informação mais cara da tela, e era a única que ela não
                     sabia mostrar.
                   */
-                  const lane = lanes.get(iso)?.get(item.id);
-                  const of = lane?.of ?? 1;
+                  const lane = laneOfItem;
+                  const of = Math.min(lane?.of ?? 1, maxLanes);
                   const index = lane?.index ?? 0;
                   return (
                     <AgendaChip
@@ -306,6 +367,24 @@ export function TimeGrid({
                     />
                   );
                 })}
+
+                {/* O "+N" do excedente, uma vez por colisão. */}
+                {overflowOf(timed, lanes.get(iso), maxLanes, {
+                  startHour,
+                  endHour,
+                }).map((group) => (
+                  <button
+                    key={group.top}
+                    type="button"
+                    disabled={!onPickDay}
+                    onClick={() => onPickDay?.(iso)}
+                    title={group.titles.join(', ')}
+                    className="bg-muted text-secondary-foreground hover:bg-muted-2 focus-visible:ring-ring text-3xs absolute right-1 z-10 rounded px-1 font-semibold tabular-nums focus-visible:ring-2 focus-visible:outline-none disabled:pointer-events-none"
+                    style={{ top: `calc(${group.top}% + 0.125rem)` }}
+                  >
+                    +{group.count}
+                  </button>
+                ))}
               </div>
             );
           })}

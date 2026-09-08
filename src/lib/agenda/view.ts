@@ -272,3 +272,52 @@ export function allDayItems(items: AgendaItem[]): AgendaItem[] {
 export function timedItems(items: AgendaItem[]): AgendaItem[] {
   return items.filter((item) => item.time);
 }
+
+/**
+ * O excedente de uma coluna: quantos ficaram de fora, e onde.
+ *
+ * A grade reparte a largura entre os itens que colidem, e isso funciona até
+ * dois numa semana de sete colunas — três dão fatias de 60px, que não mostram
+ * nem a hora nem o título. Acima do teto a coluna passa a DIZER quantos são,
+ * com a mesma saída que o "+N" do mês: leva ao dia.
+ *
+ * Um contador por COLISÃO e não por item: três tarefas às 09:00 com teto de
+ * duas produzem um "+1", não um "+1" por cabeça. Agrupa por posição vertical
+ * arredondada porque itens que colidem começam na mesma altura — é o mesmo
+ * critério que os pôs na mesma cadeia de faixas.
+ */
+export function overflowOf(
+  items: AgendaItem[],
+  lanes: Map<string, Lane> | undefined,
+  maxLanes: number,
+  bounds: { startHour: number; endHour: number },
+  duration: (item: Pick<AgendaItem, 'kind'>) => number = durationOf
+): { top: number; count: number; titles: string[] }[] {
+  const groups = new Map<number, { count: number; titles: string[] }>();
+
+  for (const item of items) {
+    const index = lanes?.get(item.id)?.index ?? 0;
+    if (index < maxLanes) continue;
+
+    const pos = positionOf(
+      item,
+      bounds.startHour,
+      bounds.endHour,
+      duration(item)
+    );
+    if (!pos) continue;
+
+    // Uma casa decimal: itens da mesma colisão começam no mesmo minuto, e
+    // arredondar demais juntaria colisões de horas diferentes na mesma
+    // etiqueta.
+    const key = Math.round(pos.top * 10) / 10;
+    const group = groups.get(key) ?? { count: 0, titles: [] };
+    group.count += 1;
+    group.titles.push(item.title);
+    groups.set(key, group);
+  }
+
+  return [...groups.entries()]
+    .map(([top, group]) => ({ top, ...group }))
+    .sort((a, b) => a.top - b.top);
+}

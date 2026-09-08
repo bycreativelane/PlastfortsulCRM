@@ -169,6 +169,16 @@ export function TasksCalendar({
             hours={hours}
             todayIso={todayIso}
             onSelectTask={open}
+            // A MESMA SAÍDA DO "+N" DO MÊS. Quando a coluna da semana não
+            // cabe o que colide nela, o excedente leva ao dia — onde a
+            // coluna é uma só e as mesmas tarefas aparecem inteiras. Uma
+            // regra de excedente no produto, não duas.
+            onPickDay={(iso) => {
+              const date = fromISO(iso);
+              if (!date) return;
+              setCursor(date);
+              setView('day');
+            }}
           />
         ) : (
           <DayView

@@ -121,8 +121,20 @@ export function monthMatrix(cursor: Date, weekStart: number): Date[] {
 }
 
 /** The seven column headings, starting on this locale's first day. */
-export function weekdayLabels(locale: string, weekStart: number): string[] {
-  const format = new Intl.DateTimeFormat(locale, { weekday: 'narrow' });
+/**
+ * Os sete rótulos, na ordem em que a semana da conta começa.
+ *
+ * `narrow` em português devolve D S T Q Q S S — com DOIS S (segunda e
+ * sábado) e DOIS Q (quarta e quinta). Numa coluna de 240px do campo de
+ * data isso é o preço de caber; num mês de largura inteira, onde cada
+ * coluna tem 200px, é ambiguidade sem motivo.
+ */
+export function weekdayLabels(
+  locale: string,
+  weekStart: number,
+  style: 'narrow' | 'short' = 'narrow'
+): string[] {
+  const format = new Intl.DateTimeFormat(locale, { weekday: style });
   // 2026-02-01 is a Sunday, so index 0 of this walk is day 0.
   return Array.from({ length: 7 }, (_, i) =>
     format.format(new Date(2026, 1, 1 + ((weekStart + i) % 7)))

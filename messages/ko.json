@@ -2770,7 +2770,8 @@
       "rooms": "팀 대화방",
       "ai-tools": "AI 도구",
       "hooks": "웹훅",
-      "calendars": "캘린더"
+      "calendars": "캘린더",
+      "company": "회사"
     },
     "groups": {
       "account": "계정",
@@ -3408,6 +3409,32 @@
       "unnamedAutomation": "이름 없는 자동화",
       "payload": "수신 내용",
       "varsHint": "자동화에서 위의 각 필드는 변수입니다. 중첩된 필드는 이름.하위이름 형태가 됩니다."
+    },
+    "company": {
+      "title": "회사",
+      "description": "문서를 발행하는 주체입니다. 모두 선택 사항 — 견적서는 있는 것만 인쇄합니다.",
+      "legal_name": "법인명",
+      "legal_namePlaceholder": "Acme Packaging Ltd.",
+      "tax_id": "사업자등록번호",
+      "tax_idPlaceholder": "123-45-67890",
+      "company_phone": "전화",
+      "company_phonePlaceholder": "02-1234-5678",
+      "company_email": "이메일",
+      "company_emailPlaceholder": "sales@yourcompany.com",
+      "company_site": "웹사이트",
+      "company_sitePlaceholder": "yourcompany.com",
+      "company_address": "주소",
+      "company_addressPlaceholder": "도로명 주소 · 시/도",
+      "noLogo": "로고 없음",
+      "logoUpload": "로고 올리기",
+      "logoReplace": "로고 교체",
+      "logoRemove": "제거",
+      "logoHint": "PNG, JPG, WEBP 또는 SVG. 투명 배경이 문서에 더 잘 어울립니다.",
+      "logoSaved": "로고를 업데이트했습니다",
+      "logoTooBig": "이미지가 너무 큽니다",
+      "save": "저장",
+      "saved": "회사 정보를 저장했습니다",
+      "saveFailed": "저장하지 못했습니다"
     }
   },
   "Notifications": {

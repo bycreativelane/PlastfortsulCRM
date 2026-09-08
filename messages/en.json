@@ -2770,7 +2770,8 @@
       "rooms": "Team rooms",
       "ai-tools": "AI tools",
       "hooks": "Webhooks",
-      "calendars": "Calendars"
+      "calendars": "Calendars",
+      "company": "Company"
     },
     "groups": {
       "account": "Account",
@@ -3408,6 +3409,32 @@
       "unnamedAutomation": "Unnamed automation",
       "payload": "What arrived",
       "varsHint": "In automations each field above is a variable; a nested field becomes name.of.field."
+    },
+    "company": {
+      "title": "Company",
+      "description": "Who issues the documents. All optional — the quote prints what is there and omits the rest.",
+      "legal_name": "Legal name",
+      "legal_namePlaceholder": "Acme Packaging Ltd.",
+      "tax_id": "Tax ID",
+      "tax_idPlaceholder": "12.345.678/0001-90",
+      "company_phone": "Phone",
+      "company_phonePlaceholder": "(555) 333-4444",
+      "company_email": "Email",
+      "company_emailPlaceholder": "sales@yourcompany.com",
+      "company_site": "Website",
+      "company_sitePlaceholder": "yourcompany.com",
+      "company_address": "Address",
+      "company_addressPlaceholder": "Street, number · City/State",
+      "noLogo": "no logo",
+      "logoUpload": "Upload logo",
+      "logoReplace": "Replace logo",
+      "logoRemove": "Remove",
+      "logoHint": "PNG, JPG, WEBP or SVG. A transparent background looks better on the document.",
+      "logoSaved": "Logo updated",
+      "logoTooBig": "That image is too large",
+      "save": "Save",
+      "saved": "Company details saved",
+      "saveFailed": "Could not save"
     }
   },
   "Notifications": {

@@ -1,6 +1,7 @@
 import type { ComponentType } from 'react';
 import {
   Bot,
+  Building2,
   CalendarClock,
   CalendarSync,
   Coins,
@@ -110,6 +111,14 @@ export const SETTINGS_SECTIONS = [
   'rooms',
 
   // ---- The account's own shape -------------------------------------
+  // PRIMEIRA do grupo, porque é o fato mais básico sobre a conta:
+  // quem é a empresa. Tudo o mais aqui — campos, moeda, horário,
+  // agenda — é como ela trabalha, e vem depois de quem ela é.
+  //
+  // Ela existe porque o orçamento precisava dela: até a 072 este CRM
+  // não sabia dizer razão social, CNPJ, telefone próprio nem logo, e
+  // o documento saía com o nome da conta e nada mais.
+  'company',
   'fields',
   'deals',
   // Logo depois de Oportunidades, porque é a outra metade da mesma
@@ -175,6 +184,14 @@ export const SECTION_META: Record<SettingsSection, SectionMeta> = {
     label: 'Overview',
     icon: LayoutGrid,
     group: 'top',
+  },
+
+  company: {
+    id: 'company',
+    label: 'Company',
+    icon: Building2,
+    group: 'workspace',
+    capability: 'settings.manage',
   },
 
   profile: {

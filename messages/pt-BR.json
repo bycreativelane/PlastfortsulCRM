@@ -2770,7 +2770,8 @@
       "rooms": "Salas da equipe",
       "ai-tools": "Ferramentas de IA",
       "hooks": "Webhooks",
-      "calendars": "Agendas"
+      "calendars": "Agendas",
+      "company": "Empresa"
     },
     "groups": {
       "account": "Conta",
@@ -3408,6 +3409,32 @@
       "unnamedAutomation": "Automação sem nome",
       "payload": "O que chegou",
       "varsHint": "Nas automações, cada campo acima é uma variável; um campo aninhado vira nome.do.campo."
+    },
+    "company": {
+      "title": "Empresa",
+      "description": "Quem emite os documentos. Tudo opcional — o orçamento imprime o que houver e omite o resto.",
+      "legal_name": "Razão social",
+      "legal_namePlaceholder": "Plastfort Sul Embalagens Ltda.",
+      "tax_id": "CNPJ",
+      "tax_idPlaceholder": "12.345.678/0001-90",
+      "company_phone": "Telefone",
+      "company_phonePlaceholder": "(47) 3333-4444",
+      "company_email": "E-mail",
+      "company_emailPlaceholder": "comercial@suaempresa.com.br",
+      "company_site": "Site",
+      "company_sitePlaceholder": "suaempresa.com.br",
+      "company_address": "Endereço",
+      "company_addressPlaceholder": "Rua, número, bairro · Cidade/UF",
+      "noLogo": "sem logo",
+      "logoUpload": "Subir logo",
+      "logoReplace": "Trocar logo",
+      "logoRemove": "Remover",
+      "logoHint": "PNG, JPG, WEBP ou SVG. Fundo transparente fica melhor no documento.",
+      "logoSaved": "Logo atualizada",
+      "logoTooBig": "A imagem é grande demais",
+      "save": "Salvar",
+      "saved": "Dados da empresa salvos",
+      "saveFailed": "Não foi possível salvar"
     }
   },
   "Notifications": {

@@ -1438,7 +1438,7 @@ export function MessageThread({
                         {p.full_name}
                         {p.user_id === user?.id ? t('me') : ''}
                       </span>
-                      {isSelected && <Check className="ml-2 h-3 w-3" />}
+                      {isSelected && <Check className="ml-2 size-3.5" />}
                     </DropdownMenuItem>
                   );
                 })

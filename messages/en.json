@@ -459,7 +459,8 @@
       "mediaLocation": "Location",
       "mediaContacts": "Contact",
       "waitingSince": "Waiting for {duration}",
-      "filterClosed": "Finished"
+      "filterClosed": "Finished",
+      "emptyReplacedScope": "Nothing in {filter} right now."
     },
     "messageThread": {
       "toastSendFailed": "Could not send: {reason}",

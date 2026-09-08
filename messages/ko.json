@@ -459,7 +459,8 @@
       "mediaLocation": "위치",
       "mediaContacts": "연락처",
       "waitingSince": "{duration} 대기 중",
-      "filterClosed": "종료됨"
+      "filterClosed": "종료됨",
+      "emptyReplacedScope": "지금 {filter}에 아무것도 없습니다."
     },
     "messageThread": {
       "toastSendFailed": "전송하지 못했습니다: {reason}",

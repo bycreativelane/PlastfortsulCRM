@@ -459,7 +459,8 @@
       "mediaLocation": "Localização",
       "mediaContacts": "Contato",
       "waitingSince": "Esperando há {duration}",
-      "filterClosed": "Encerradas"
+      "filterClosed": "Encerradas",
+      "emptyReplacedScope": "Nada em {filter} no momento."
     },
     "messageThread": {
       "toastSendFailed": "Não deu para enviar: {reason}",

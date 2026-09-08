@@ -369,3 +369,82 @@ O caso de Encerradas virou teste, e o teste acusa a versão anterior: uma
 conversa `closed` + `hidden_at` dá `count: 0` em Encerradas e `count: 1` em
 Ocultas. Contra o código de ontem, `expected 1 to be +0`.
 
+
+---
+
+## Fase 6 — a caixa de entrada, e os menus do app inteiro
+
+Nove achados. Seis são da lista de conversas; três saíram dela e viraram
+regra de átomo, porque o defeito não era da inbox.
+
+### O número da direita, na fila de espera (M1)
+
+Esperando ordena por `waiting_since` — a mais antiga em cima, e é a única aba
+que ordena assim. A linha imprimia a idade da **última mensagem**. Como
+parquear normalmente é uma resposta, a conversa parqueada há três dias com um
+"já te retorno" recente aparecia acima de uma com número menor: a lista
+parecia ordenada ao contrário, e a suspeita natural é de bug na ordenação.
+
+Só a base do cálculo mudou; o número curto é o mesmo, e ganhou `title` com a
+frase inteira. A chave `waitingSince` já existia nos três catálogos e não era
+usada em lugar nenhum de `src` — estava escrita esperando por isto.
+
+### A barra que não fazia nada (M2)
+
+Com Encerradas ou Ocultas em vigor, o escopo é substituído: a barra
+Entrada/Esperando continuava acesa, clicável e inerte. Agora clicar num
+segmento **larga o filtro** e vai para a aba. Não foi desabilitada de
+propósito — apagar a barra tiraria a saída mais rápida do estado em que a
+pessoa está presa, e é ali que ela mais precisa dela.
+
+O vazio também mentia: *"Nada em Esperando com o filtro Encerradas"* descreve
+uma interseção que o código nunca calculou.
+
+### O menu de filtro (M6, M7, M8, M3)
+
+Quatro defeitos empilhados no mesmo menu:
+
+- **A opção ligada aparecia desabilitada.** As contagens são medidas antes do
+  filtro, então ler as três não-lidas zera a linha que está em vigor — e o
+  menu trancava a única saída visível dela. A exceção agora está nomeada no
+  comentário, ao lado da regra que ela excetua.
+- **Clicar na opção ativa não fazia nada.** Virou toggle, o mesmo destino do
+  X ao lado do gatilho.
+- **A marca de "ligado" era só negrito.** O ternário de cor comparava
+  `--foreground` com `--popover-foreground`, que são o **mesmo oklch nos dois
+  modos** — código que parece pintar e não pinta. Entrou o ✓ que as cinco
+  marcas do menu vizinho já usam. A pílula de contagem fica neutra: são ~24
+  numa lista só, e uma significando "onde você está" enquanto as outras
+  significam "quantas são" é ruído, não marcador.
+- **Os cabeçalhos de grupo eram `<div>` cru dentro de `role="menu"`.**
+  Viraram `DropdownMenuGroup` + `DropdownMenuLabel`, o padrão do
+  `flow-builder.tsx` — `role="group"`, cabeçalho anunciável, e o `px-1.5` do
+  rótulo alinhando com os itens em vez do `px-2` que os deixava meio
+  caractere fora da coluna.
+
+E o rótulo do gatilho ganhou teto: ele é vocabulário livre da conta (o nome
+de um funil, o de uma etapa) e abaixo de `lg` divide a linha com a busca.
+
+### Os menus do app inteiro (M9, M10, M13)
+
+Dois destes começaram como achados da inbox e terminaram em `globals.css` e
+em dois átomos, porque o defeito nunca foi de lá.
+
+**44px chega ao gatilho e para.** A regra do dedo cobre botões, gatilhos e
+campos; o menu que eles abrem tinha linhas de 28px (dropdown) e de 32px
+(contexto) — e o menu de contexto é justamente o que a lista abre por
+**long-press**, um gesto de telefone respondido com alvo de mouse. Sete slots
+passaram a crescer de verdade, e não pelo escudo `::before`: o comentário
+daquele bloco já explica que numa grade apertada o escudo rouba o toque do
+vizinho, e um menu é exatamente uma grade apertada — meia linha ficaria
+dentro da linha de cima.
+
+**Desabilitado era ilegível.** `opacity-50` sobre um item que existe *para
+ser lido* — o menu desabilita as opções zeradas justamente porque "não há
+nenhuma agora" é uma resposta, e uma resposta que não dá para ler não é
+resposta. Agora é `text-muted-foreground` em opacidade cheia, nos dois menus,
+com uma exceção: o item destrutivo fica com a opacidade, porque vermelho a
+100% sem sinal nenhum de desabilitado seria pior que o problema.
+
+E os dois ✓ da caixa de entrada tinham tamanhos diferentes.
+

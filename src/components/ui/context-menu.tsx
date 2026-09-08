@@ -246,7 +246,7 @@ function ContextMenuLabel({
     <ContextMenuPrimitive.GroupLabel
       data-slot="context-menu-label"
       className={cn(
-        'text-muted-foreground truncate px-2 pt-1.5 pb-1 text-2xs font-semibold',
+        'text-muted-foreground text-2xs truncate px-2 pt-1.5 pb-1 font-semibold',
         className
       )}
       {...props}
@@ -254,8 +254,11 @@ function ContextMenuLabel({
   );
 }
 
+// Mesmo tratamento do `DropdownMenuItem`, e pela mesma razão — dois
+// dialetos de "desabilitado" no mesmo app é o defeito. Este menu é o que a
+// lista de conversas abre por long-press.
 const itemClass =
-  "group/context-menu-item focus:bg-accent focus:text-accent-foreground relative flex cursor-default items-center gap-2 rounded-lg px-2 py-1.5 text-sm outline-hidden select-none not-data-[variant=destructive]:focus:**:text-accent-foreground data-inset:pl-8 data-disabled:pointer-events-none data-disabled:opacity-45 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4";
+  "group/context-menu-item focus:bg-accent focus:text-accent-foreground relative flex cursor-default items-center gap-2 rounded-lg px-2 py-1.5 text-sm outline-hidden select-none not-data-[variant=destructive]:focus:**:text-accent-foreground data-inset:pl-8 data-disabled:pointer-events-none data-disabled:opacity-45 data-disabled:not-data-[variant=destructive]:text-muted-foreground data-disabled:not-data-[variant=destructive]:opacity-100 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4";
 
 function ContextMenuItem({
   className,
@@ -375,7 +378,7 @@ function ContextMenuShortcut({
     <span
       data-slot="context-menu-shortcut"
       className={cn(
-        'text-muted-foreground group-focus/context-menu-item:text-accent-foreground ml-auto pl-4 text-2xs tabular-nums',
+        'text-muted-foreground group-focus/context-menu-item:text-accent-foreground text-2xs ml-auto pl-4 tabular-nums',
         className
       )}
       {...props}

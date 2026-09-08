@@ -1,6 +1,13 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import {
+  Fragment,
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+} from 'react';
 import { createClient } from '@/lib/supabase/client';
 import {
   CONVERSATION_SELECT,
@@ -12,6 +19,7 @@ import { NotificationsMenu } from '@/components/layout/notifications-menu';
 import { MessageTicks } from './message-ticks';
 import type { Conversation } from '@/types';
 import {
+  Check,
   ChevronDown,
   Contact,
   FileText,
@@ -40,7 +48,10 @@ import { StatePanel } from '@/components/ui/state-panel';
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -528,7 +539,17 @@ export function ConversationList({
           label={t('scopeLabel')}
           segments={segments}
           value={scope}
-          onValueChange={setScope}
+          // Clicar num segmento com Encerradas ou Ocultas em vigor LARGA o
+          // filtro. Antes a barra ficava acesa, clicável e inerte: o filtro
+          // substitui o escopo, então trocar de escopo não mudava nada.
+          //
+          // Ela não é desabilitada de propósito. Apagar a barra tiraria a
+          // saída mais rápida do estado em que a pessoa está presa, e é
+          // justamente ali que ela mais precisa dela.
+          onValueChange={(v) => {
+            setScope(v);
+            if (activeOption?.replacesScope) setFilterId(null);
+          }}
         />
 
         {/* SEARCH AND FILTER SHARE A LINE ON A PHONE.
@@ -573,42 +594,89 @@ export function ConversationList({
                 )}
               >
                 <Filter className="size-3.5" />
-                {activeOption?.label ?? t('filterButton')}
+                {/* Com teto: o rótulo é vocabulário livre da conta — o nome
+                    de um funil ou de uma etapa — e abaixo de `lg` este
+                    gatilho divide a linha com a busca. "Aguardando aprovação
+                    do orçamento" empurrava a busca para fora. */}
+                <span className="max-w-28 truncate">
+                  {activeOption?.label ?? t('filterButton')}
+                </span>
                 <ChevronDown className="size-3" />
               </DropdownMenuTrigger>
               <DropdownMenuContent
                 align="start"
                 className="max-h-vh-62 w-60 overflow-y-auto"
               >
-                {groupOptions(options).map(([group, items]) => (
-                  <div key={group}>
-                    <div className="text-muted-foreground eyebrow px-2 pt-2 pb-1">
-                      {group}
-                    </div>
-                    {items.map((option) => (
-                      <DropdownMenuItem
-                        key={option.id}
-                        // Zero-result options are disabled, never hidden. A menu
-                        // whose entries come and go teaches you to distrust it,
-                        // and "there are none right now" is itself an answer.
-                        disabled={option.count === 0}
-                        onClick={() => setFilterId(option.id)}
-                        className={cn(
-                          'text-sm',
-                          option.id === filterId
-                            ? 'text-foreground font-semibold'
-                            : 'text-popover-foreground'
-                        )}
-                      >
-                        <span className="min-w-0 flex-1 truncate">
-                          {option.label}
-                        </span>
-                        <CountBadge className="ml-auto">
-                          {option.count}
-                        </CountBadge>
-                      </DropdownMenuItem>
-                    ))}
-                  </div>
+                {/* Grupo de verdade, e não dois `<div>` dentro de um
+                    `role="menu"`. O padrão é o do `flow-builder.tsx`: o
+                    `DropdownMenuGroup` dá `role="group"`, o
+                    `DropdownMenuLabel` faz o cabeçalho anunciável e o seu
+                    `px-1.5` alinha com os itens — o `px-2` de antes deixava
+                    o cabeçalho meio caractere fora da coluna. */}
+                {groupOptions(options).map(([group, items], i) => (
+                  <Fragment key={group}>
+                    {i > 0 && <DropdownMenuSeparator />}
+                    <DropdownMenuGroup>
+                      <DropdownMenuLabel className="text-muted-foreground eyebrow">
+                        {group}
+                      </DropdownMenuLabel>
+                      {items.map((option) => (
+                        <DropdownMenuItem
+                          key={option.id}
+                          // Zero-result options are disabled, never hidden. A
+                          // menu whose entries come and go teaches you to
+                          // distrust it, and "there are none right now" is
+                          // itself an answer.
+                          //
+                          // The exception is the option that IS ON. Counts are
+                          // measured before the filter, so reading the three
+                          // unread threads zeroes the very row in force — and
+                          // disabling it would lock away the only visible way
+                          // out of it.
+                          disabled={
+                            option.count === 0 && option.id !== filterId
+                          }
+                          // Toggle: clicking the active row turns it off, the
+                          // same destination as the X beside the trigger.
+                          // Without it the row is clickable and does nothing.
+                          onClick={() =>
+                            setFilterId(
+                              option.id === filterId ? null : option.id
+                            )
+                          }
+                          // No colour pair here: `--foreground` and
+                          // `--popover-foreground` are the same oklch in both
+                          // modes, so the ternary that used to be here only
+                          // ever delivered the weight.
+                          className={cn(
+                            'text-sm',
+                            option.id === filterId && 'font-semibold'
+                          )}
+                        >
+                          <span className="min-w-0 flex-1 truncate">
+                            {option.label}
+                          </span>
+                          {/* The check the rest of the app uses for "this one".
+                              The count badge stays neutral on purpose: there are
+                              ~24 of them in this one list, and one meaning "where
+                              you are" while the others mean "how many" reads as
+                              noise rather than as a marker. */}
+                          {option.id === filterId && (
+                            <Check className="size-3.5" />
+                          )}
+                          <CountBadge
+                            className={cn(
+                              'ml-auto',
+                              option.count === 0 &&
+                                'text-muted-foreground bg-transparent'
+                            )}
+                          >
+                            {option.count}
+                          </CountBadge>
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuGroup>
+                  </Fragment>
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
@@ -671,10 +739,16 @@ export function ConversationList({
             title={t('noConversations')}
             description={
               activeOption
-                ? t('emptyWithFilter', {
-                    scope: t(SCOPE_LABEL_KEY[scope]),
-                    filter: activeOption.label,
-                  })
+                ? activeOption.replacesScope
+                  ? // Encerradas e Ocultas SUBSTITUEM o escopo, então citar a
+                    // aba seria culpar quem não filtrou nada: "Nada em
+                    // Esperando com Encerradas" descreve uma interseção que o
+                    // código nunca calculou.
+                    t('emptyReplacedScope', { filter: activeOption.label })
+                  : t('emptyWithFilter', {
+                      scope: t(SCOPE_LABEL_KEY[scope]),
+                      filter: activeOption.label,
+                    })
                 : t('emptyScope')
             }
             actions={
@@ -719,6 +793,12 @@ export function ConversationList({
                     onSelect={handleSelect}
                     surface={surface}
                     agentNames={agentNames}
+                    // `!replacesScope` é obrigatório: com Encerradas ou
+                    // Ocultas em vigor, `inScope` devolve linhas que não são
+                    // a fila de espera, escopo nenhum.
+                    showWaiting={
+                      scope === 'esperando' && !activeOption?.replacesScope
+                    }
                     t={t}
                   />
                 </SwipeRow>
@@ -769,6 +849,11 @@ interface ConversationItemProps {
   surface: typeof LIGHT_SURFACE;
   /** auth user id -> display name, for the owner slot. */
   agentNames: Map<string, string>;
+  /**
+   * Esperando é a única aba em que o número da direita é a idade do
+   * PARQUEAMENTO, e não a da última mensagem.
+   */
+  showWaiting: boolean;
   t: ReturnType<typeof useTranslations>;
 }
 
@@ -796,6 +881,7 @@ function ConversationItem({
   onSelect,
   surface,
   agentNames,
+  showWaiting,
   t,
 }: ConversationItemProps) {
   const contact = conversation.contact;
@@ -806,8 +892,23 @@ function ConversationItem({
     onSelect(conversation);
   }, [onSelect, conversation]);
 
-  const timeAgo = conversation.last_message_at
-    ? formatDistanceToNow(new Date(conversation.last_message_at), {
+  /*
+   * NA FILA DE ESPERA, O NÚMERO É A ESPERA.
+   *
+   * Esperando ordena por `waiting_since` — a mais antiga em cima, e é a
+   * única aba que ordena assim — e a linha imprimia a idade da ÚLTIMA
+   * MENSAGEM. Como parquear é uma resposta, a conversa parqueada há três
+   * dias com um "já te retorno" recente aparecia acima de uma com número
+   * menor: a lista parecia ordenada ao contrário.
+   *
+   * Só a BASE do cálculo muda; o número curto é o mesmo. E cai de volta na
+   * última mensagem para as linhas anteriores à 045, que não têm
+   * `waiting_since` — essas ficam sem o rótulo, sem afirmar nada falso.
+   */
+  const waitingAt = showWaiting ? (conversation.waiting_since ?? null) : null;
+  const timeBase = waitingAt ?? conversation.last_message_at;
+  const timeAgo = timeBase
+    ? formatDistanceToNow(new Date(timeBase), {
         addSuffix: false,
         locale: dateLocale,
       })
@@ -924,7 +1025,15 @@ function ConversationItem({
               <AlertTriangle className="size-2.5" aria-hidden />
             </span>
           ) : null}
-          <span className="text-muted-foreground text-2xs shrink-0 tabular-nums">
+          <span
+            className="text-muted-foreground text-2xs shrink-0 tabular-nums"
+            title={
+              waitingAt ? t('waitingSince', { duration: timeAgo }) : undefined
+            }
+            aria-label={
+              waitingAt ? t('waitingSince', { duration: timeAgo }) : undefined
+            }
+          >
             {timeAgo}
           </span>
         </div>

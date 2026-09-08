@@ -1695,6 +1695,39 @@ html[data-mode='dark'] {
   [data-slot='option-select'] {
     min-height: 2.75rem;
   }
+
+  /* ----------------------------------------------------------------
+   * AND THE MENUS THEY OPEN.
+   *
+   * The rule above gives the TRIGGER 44px and stops there, so every
+   * menu in the app opened onto 28px rows (dropdown: `px-1.5 py-1`) or
+   * 32px rows (context: `px-2 py-1.5`) — including the context menu the
+   * conversation list opens by long-press, which is a phone gesture
+   * answering with a mouse-sized target.
+   *
+   * These GROW rather than getting the `::before` shield above, and for
+   * the reason that block already states: a shield in a tight grid
+   * overlaps its neighbours and steals their taps. A menu is exactly a
+   * tight grid — a stack of rows with no gap — so a 44px shield on each
+   * row would put half of every row inside the row above it. Growing is
+   * honest: the row you can see is the row you can hit.
+   *
+   * The whole family at once, on purpose. Rows of 44 mixed with rows of
+   * 28 in one menu reads as broken in a way that a uniformly dense menu
+   * does not.
+   *
+   * Seven slots, not eight: `context-menu.tsx` never renders a radio
+   * item, so there is no `context-menu-radio-item` to name.
+   * ---------------------------------------------------------------- */
+  [data-slot='dropdown-menu-item'],
+  [data-slot='dropdown-menu-checkbox-item'],
+  [data-slot='dropdown-menu-radio-item'],
+  [data-slot='dropdown-menu-sub-trigger'],
+  [data-slot='context-menu-item'],
+  [data-slot='context-menu-checkbox-item'],
+  [data-slot='context-menu-sub-trigger'] {
+    min-height: 2.75rem;
+  }
 }
 
 /* ============================================================

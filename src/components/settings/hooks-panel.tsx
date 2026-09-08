@@ -33,6 +33,7 @@ import { StatePanel } from '@/components/ui/state-panel';
 import { Switch } from '@/components/ui/switch';
 import { HookDeliveries } from '@/components/settings/hook-deliveries';
 import { cn } from '@/lib/utils';
+import { StatusBadge } from '@/components/ui/status-badge';
 
 /**
  * The doors Typebot, n8n and a landing page knock on.
@@ -372,9 +373,7 @@ export function HooksPanel() {
                   </div>
 
                   {hook.scopes.includes('messages') && (
-                    <span className="bg-human-soft text-human-ink text-2xs rounded-full px-2 py-0.5 font-semibold">
-                      {t('canSend')}
-                    </span>
+                    <StatusBadge variant="human">{t('canSend')}</StatusBadge>
                   )}
 
                   <div className="flex items-center gap-2">

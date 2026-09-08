@@ -12,6 +12,7 @@ import { useCan } from '@/hooks/use-can';
 import { cn } from '@/lib/utils';
 import type { PlaybookStep } from '@/types';
 import { PlaybookEditor } from './playbook-editor';
+import { StatusBadge } from '@/components/ui/status-badge';
 
 interface PlaybookChecklistProps {
   dealId: string;
@@ -187,14 +188,13 @@ export function PlaybookChecklist({
         <p className="text-muted-foreground eyebrow flex-1">
           {t('title')}
         </p>
-        <span
-          className={cn(
-            'text-3xs shrink-0 rounded-full px-1.5 font-bold tabular-nums',
-            complete ? 'bg-ok-soft text-ok-ink' : 'bg-human-soft text-human-ink'
-          )}
+        <StatusBadge
+          size="sm"
+          variant={complete ? 'ok' : 'human'}
+          className="tabular-nums"
         >
           {doneCount}/{steps.length}
-        </span>
+        </StatusBadge>
         {canEdit && (
           // `Button` for the same 28px box plus the coarse-pointer hit
           // shield: this is the smallest target in a sheet used one-handed.

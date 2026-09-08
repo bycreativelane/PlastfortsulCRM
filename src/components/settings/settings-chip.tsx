@@ -24,7 +24,13 @@ import { cn } from '@/lib/utils';
  * See the note in status-badge.tsx: the app has exactly two chip
  * heights and this used to be a third (`py-0.5` + `text-xs` ≈ 21).
  */
-export type ChipVariant = 'owner' | 'admin' | 'ok' | 'warn' | 'muted';
+export type ChipVariant =
+  | 'owner'
+  | 'admin'
+  | 'ok'
+  | 'warn'
+  | 'muted'
+  | 'quiet';
 
 const VARIANTS: Record<ChipVariant, string> = {
   owner: 'border-primary-soft-2 bg-primary-soft text-primary',
@@ -32,6 +38,11 @@ const VARIANTS: Record<ChipVariant, string> = {
   ok: 'border-ok/25 bg-ok-soft text-ok-ink',
   warn: 'border-human-border bg-human-soft text-human-ink',
   muted: 'border-border bg-muted text-muted-foreground',
+  // O ultimo degrau da escada: contorno sem preenchimento, para ficar
+  // mais quieto que o agente preenchido nos dois modos. Existia so como
+  // string solta no ROLE_META, o que fazia o mesmo papel aparecer de duas
+  // formas conforme a tela.
+  quiet: 'border-border bg-transparent text-muted-foreground',
 };
 
 export function SettingsChip({

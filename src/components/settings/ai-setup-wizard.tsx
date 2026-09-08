@@ -20,7 +20,6 @@ import { fetchAccountMembers, memberLabel } from '@/lib/account/members';
 import { AI_PROVIDER_DEFAULT_MODEL } from '@/lib/ai/defaults';
 import { AI_TOOLS } from '@/lib/ai/tools';
 import type { AiProvider } from '@/lib/ai/types';
-import { cn } from '@/lib/utils';
 import type { AccountMember } from '@/types';
 import { AiKnowledgeCard } from '@/components/settings/ai-knowledge';
 import { StepFlow, type Step } from '@/components/settings/step-flow';
@@ -39,6 +38,7 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { sectionHref } from '@/components/settings/settings-sections';
+import { StatusBadge } from '@/components/ui/status-badge';
 
 /**
  * Setting up the assistant, as six questions in an order.
@@ -846,17 +846,10 @@ export function AiSetupWizard({ onOpenAdvanced }: { onOpenAdvanced: () => void }
       {/* Progress as a sentence, not a bar. "4 de 6" is the same
           information and it does not need a legend. */}
       <div className="flex flex-wrap items-center gap-2">
-        <span
-          className={cn(
-            'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold',
-            done === steps.length
-              ? 'bg-ok-soft text-ok-ink'
-              : 'bg-muted text-muted-foreground'
-          )}
-        >
-          <BadgeCheck className="size-3.5" />
+        <StatusBadge variant={done === steps.length ? 'ok' : 'neutral'}>
+          <BadgeCheck />
           {t('progress', { done, total: steps.length })}
-        </span>
+        </StatusBadge>
         <button
           type="button"
           onClick={onOpenAdvanced}

@@ -19,6 +19,7 @@ import { Skeleton } from '@/components/dashboard/skeleton';
 import { StatePanel } from '@/components/ui/state-panel';
 import { cn } from '@/lib/utils';
 import { IconTile } from '@/components/ui/icon-tile';
+import { StatusBadge } from '@/components/ui/status-badge';
 
 /**
  * What arrived, and what it caused.
@@ -199,18 +200,19 @@ export function HookDeliveries({ hookId }: { hookId: string }) {
                     <div key={run.id} className="space-y-1">
                       <p className="text-foreground text-xs font-medium">
                         {automation?.name ?? t('unnamedAutomation')}
-                        <span
-                          className={cn(
-                            'ml-2 rounded-full px-1.5 py-0.5 text-3xs font-semibold',
+                        <StatusBadge
+                          size="sm"
+                          className="ml-2"
+                          variant={
                             run.status === 'failed'
-                              ? 'bg-danger-soft text-danger-ink'
+                              ? 'danger'
                               : run.status === 'partial'
-                                ? 'bg-human-soft text-human-ink'
-                                : 'bg-muted text-muted-foreground'
-                          )}
+                                ? 'human'
+                                : 'neutral'
+                          }
                         >
                           {run.status}
-                        </span>
+                        </StatusBadge>
                       </p>
                       {run.error_message && (
                         <p className="text-danger-ink text-2xs">

@@ -50,6 +50,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Tag } from '@/components/ui/tag';
 
 /**
  * A base de consulta comercial.
@@ -377,9 +378,7 @@ function EntryCard({
             {entry.title}
           </h3>
           {entry.category && (
-            <span className="bg-muted text-secondary-foreground text-2xs rounded-full px-2 py-0.5 font-medium">
-              {entry.category}
-            </span>
+            <Tag>{entry.category}</Tag>
           )}
           {showType && (
             <span className="text-muted-foreground text-2xs">

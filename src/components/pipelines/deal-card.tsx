@@ -126,17 +126,25 @@ export function DealCard({
               moment the list is finished rather than turning green: "done"
               is the absence of a demand, not a second announcement. */}
           {playbook && (
-            <span
-              title={t('playbook')}
-              className={
-                playbook.done >= playbook.total
-                  ? 'text-muted-foreground text-2xs flex items-center gap-1 tabular-nums'
-                  : 'bg-human-soft text-human-ink text-2xs flex items-center gap-1 rounded-full px-1.5 font-semibold tabular-nums'
-              }
-            >
-              <ListChecks className="size-3" />
-              {playbook.done}/{playbook.total}
-            </span>
+            playbook.done >= playbook.total ? (
+              <span
+                title={t('playbook')}
+                className="text-muted-foreground text-2xs flex items-center gap-1 tabular-nums"
+              >
+                <ListChecks className="size-3" />
+                {playbook.done}/{playbook.total}
+              </span>
+            ) : (
+              <StatusBadge
+                title={t('playbook')}
+                variant="human"
+                size="sm"
+                className="tabular-nums"
+              >
+                <ListChecks />
+                {playbook.done}/{playbook.total}
+              </StatusBadge>
+            )
           )}
           {deal.expected_close_date && (
             <span className="text-muted-foreground text-2xs flex items-center gap-1">

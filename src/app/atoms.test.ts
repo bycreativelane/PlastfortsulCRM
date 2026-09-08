@@ -1,5 +1,5 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
@@ -209,6 +209,70 @@ function tileOffenders(): string[] {
   return found;
 }
 
+/**
+ * O par tonal numa pílula: a assinatura de um `StatusBadge` escrito à mão.
+ *
+ * ------------------------------------------------------------------
+ * POR QUE O PAR, E NÃO A GEOMETRIA
+ * ------------------------------------------------------------------
+ *
+ * A pílula artesanal tem quatro escritas (`px-1.5` ou `px-2`, `py-0.5` ou
+ * altura fixa, `font-semibold` ou `font-bold`) e a geometria sozinha acusa
+ * meia interface: um filtro de etiqueta, uma reação de emoji e um contador
+ * são todos redondos com padding e texto pequeno, e nenhum deles é um
+ * estado.
+ *
+ * O que separa é o PAR `bg-{tom}-soft` + `text-{tom}-ink`. Ele é a
+ * gramática de estado da casa — está no `statusBadgeVariants` e no
+ * `TONE_CHIP` da agenda, e em lugar nenhum mais por acidente. Quem o
+ * escreve numa pílula está reimplementando o `StatusBadge`.
+ *
+ * ------------------------------------------------------------------
+ * AS DUAS EXCEÇÕES, E POR QUE ELAS NÃO SÃO ESTADO
+ * ------------------------------------------------------------------
+ *
+ * `aria-pressed` diz que a peça é um CONTROLE: a etiqueta excluída de um
+ * disparo e a reação de emoji vestem o par tonal para dizer "ligado", não
+ * para relatar. Um botão não vira `StatusBadge`.
+ *
+ * `place-items-center` num disco diz que dentro há um GLIFO, não uma
+ * palavra: a marca de ocorrência da lista de conversas tem um comentário
+ * defendendo o círculo — *"a square reads as a control"* — e o passo de log
+ * de automação é a mesma peça. Forçá-los ao chip mudaria o objeto.
+ */
+const PILL_TONE =
+  /(?<![\w:-])bg-(human|ok|danger|auto)-soft\b[^\n]*text-\1-ink\b|(?<![\w:-])text-(human|ok|danger|auto)-ink\b[^\n]*bg-\2-soft\b/;
+
+const IS_CONTROL = /aria-pressed|place-items-center/;
+
+/** Quem implementa a gramática de estado pode citá-la. */
+const PILL_ALLOWED = new Set([
+  'status-badge.tsx',
+  'icon-tile.tsx',
+  'settings-chip.tsx',
+  'tokens.ts',
+]);
+
+function pillOffenders(): string[] {
+  const found: string[] = [];
+  for (const file of sourceFiles(SRC)) {
+    if (PILL_ALLOWED.has(basename(file))) continue;
+    const lines = stripComments(readFileSync(file, 'utf8')).split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      if (!PILL_TONE.test(lines[i])) continue;
+
+      // A forma costuma abrir a chamada de `cn` ACIMA do ternário de tons,
+      // então a janela olha para trás também — ao contrário do ladrilho,
+      // onde a forma é sempre a primeira linha.
+      const win = lines.slice(Math.max(0, i - SPAN), i + SPAN).join(' ');
+      if (IS_CIRCLE.test(win) && !IS_CONTROL.test(win)) {
+        found.push(`${file.replace(SRC, 'src')}:${i + 1}`);
+      }
+    }
+  }
+  return found;
+}
+
 describe('atoms', () => {
   it('no one hand-rolls a count badge', () => {
     expect(
@@ -225,6 +289,16 @@ describe('atoms', () => {
       'Use `IconTile` de @/components/ui/icon-tile — ele encadeia tamanho e ' +
         'raio, que eram dois eixos soltos. Se o ícone É a ação, o componente ' +
         'certo é `<Button variant="ghost" size="icon">`.'
+    ).toEqual([]);
+  });
+
+  it('no one hand-rolls a status badge', () => {
+    expect(
+      pillOffenders(),
+      'Use `StatusBadge` de @/components/ui/status-badge — ele fixa a ' +
+        'altura, que é o que quase nenhuma dessas pílulas fazia, e nomeia as ' +
+        'duas da casa: 20px e 18px (`size="sm"`). Se a peça é um controle, ' +
+        'e não um relato, ela não é um StatusBadge.'
     ).toEqual([]);
   });
 

@@ -4,7 +4,6 @@ import { useMemo, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { Loader2, Play, X } from 'lucide-react';
 
-import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -12,6 +11,7 @@ import { FieldLabel } from '@/components/ui/field';
 import type { Method } from '@/lib/api-docs/types';
 import { CodeBlock } from './code-block';
 import { MethodBadge } from './method-badge';
+import { StatusBadge } from '@/components/ui/status-badge';
 
 /**
  * O "Try it" da referência do Chatwoot, e ele funciona de verdade aqui
@@ -240,18 +240,18 @@ export function Playground({
       {result ? (
         <div className="space-y-2">
           <div className="flex items-center gap-2">
-            <span
-              className={cn(
-                'text-2xs inline-flex h-5 items-center rounded-full px-2 font-mono font-semibold',
+            <StatusBadge
+              className="font-mono"
+              variant={
                 result.status < 300
-                  ? 'bg-ok-soft text-ok-ink'
+                  ? 'ok'
                   : result.status < 500
-                    ? 'bg-human-soft text-human-ink'
-                    : 'bg-danger-soft text-danger-ink'
-              )}
+                    ? 'human'
+                    : 'danger'
+              }
             >
               {result.status}
-            </span>
+            </StatusBadge>
             <span className="text-muted-foreground text-2xs">
               {result.ms} ms
             </span>

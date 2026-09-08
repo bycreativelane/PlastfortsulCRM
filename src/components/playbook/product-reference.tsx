@@ -8,6 +8,7 @@ import { Check, Copy } from 'lucide-react';
 import { formatCurrency } from '@/lib/currency';
 import { Button } from '@/components/ui/button';
 import { Panel, PanelBody } from '@/components/ui/panel';
+import { Tag } from '@/components/ui/tag';
 
 /**
  * A FICHA de um produto, não a linha dele no catálogo.
@@ -121,9 +122,7 @@ export function ProductReferenceCard({
             {product.name}
           </h3>
           {product.category && (
-            <span className="bg-muted text-secondary-foreground text-2xs rounded-full px-2 py-0.5 font-medium">
-              {product.category}
-            </span>
+            <Tag>{product.category}</Tag>
           )}
           {/* O PREÇO É O SEGUNDO ITEM MAIS PERGUNTADO, depois do nome —
               então vive no cabeçalho, não perdido entre as medidas.

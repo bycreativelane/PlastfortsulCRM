@@ -13,6 +13,7 @@ import {
 } from 'recharts';
 
 import { cn } from '@/lib/utils';
+import { StatusBadge } from '@/components/ui/status-badge';
 
 /**
  * One grammar for every chart in the product.
@@ -682,9 +683,7 @@ export function ChartBarRow({
               The bar beside it already carries the identity. The chip
               only has to carry a number. */}
           {chip != null ? (
-            <span className="bg-muted text-secondary-foreground text-2xs inline-flex h-5 shrink-0 items-center rounded-full px-1.5 font-semibold whitespace-nowrap tabular-nums">
-              {chip}
-            </span>
+            <StatusBadge className="tabular-nums">{chip}</StatusBadge>
           ) : null}
         </span>
       </div>

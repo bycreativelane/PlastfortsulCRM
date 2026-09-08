@@ -15,41 +15,26 @@ import type { ChipVariant } from './settings-chip';
  * chips). Previously duplicated in both files; hoisted here so a label,
  * icon, or colour change lands once.
  *
- * `variant` drives the token-based <SettingsChip>; `className` is the
- * inline Tailwind string the Members tab applies to its own spans. Both
- * now describe the SAME privilege ladder in a single hue — owner filled,
- * admin outlined, agent/viewer neutral. Owner used to be amber, which in
- * this system is reserved for "a person must act"; a role that is true
- * forever is never that.
+ * The ladder is a single hue — owner filled, admin outlined,
+ * agent neutral, viewer quiet. Owner used to be amber, which in this
+ * system is reserved for "a person must act"; a role that is true forever
+ * is never that.
+ *
+ * There used to be a `className` field beside `variant`: the same ladder
+ * written twice, once as a token variant for <SettingsChip> and once as a
+ * raw Tailwind string for the two spans the Members tab drew by hand. They
+ * had already drifted — `viewer` was outline in the string and filled in
+ * the variant, so the same role looked like two different roles depending
+ * on which screen you were on. One ladder, one encoding.
  */
 export const ROLE_META: Record<
   AccountRole,
-  { icon: LucideIcon; label: string; variant: ChipVariant; className: string }
+  { icon: LucideIcon; label: string; variant: ChipVariant }
 > = {
-  owner: {
-    icon: Crown,
-    label: 'owner',
-    variant: 'owner',
-    className: 'border-primary-soft-2 bg-primary-soft text-primary',
-  },
-  admin: {
-    icon: Shield,
-    label: 'admin',
-    variant: 'admin',
-    className: 'border-primary-soft-2 bg-transparent text-primary',
-  },
-  agent: {
-    icon: UserCog,
-    label: 'agent',
-    variant: 'muted',
-    className: 'border-border bg-muted text-muted-foreground',
-  },
-  viewer: {
-    icon: UserIcon,
-    label: 'viewer',
-    variant: 'muted',
-    // Outline-only so it stays quieter than the filled Agent chip in
-    // both modes — bg-card would blend into a card surface in light mode.
-    className: 'border-border bg-transparent text-muted-foreground',
-  },
+  owner: { icon: Crown, label: 'owner', variant: 'owner' },
+  admin: { icon: Shield, label: 'admin', variant: 'admin' },
+  agent: { icon: UserCog, label: 'agent', variant: 'muted' },
+  // Outline-only so it stays quieter than the filled Agent chip in both
+  // modes — bg-card would blend into a card surface in light mode.
+  viewer: { icon: UserIcon, label: 'viewer', variant: 'quiet' },
 };

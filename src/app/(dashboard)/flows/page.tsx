@@ -222,12 +222,13 @@ export default function FlowsPage() {
         title={t('title')}
         description={t('description')}
         badge={
-          // Same chip the sidebar's Beta row renders, down to the token —
-          // it was hand-rolled amber here and `human-*` there, so the two
-          // drifted apart in the dark mode nobody checked.
-          <span className="border-human-border bg-human-soft text-human-ink eyebrow rounded-full border px-1.5 py-0.5">
-            {t('beta')}
-          </span>
+          // CINZA, e nao ambar. O comentario que estava aqui dizia que este
+          // chip era igual ao da barra lateral "down to the token" — e a
+          // barra lateral MUDOU depois, com o argumento escrito la: ninguem
+          // precisa fazer nada sobre um recurso estar em beta, e ambar e a
+          // cor que este sistema reserva para "uma pessoa precisa agir".
+          // Ficou uma afirmacao falsa apontando para a versao antiga.
+          <StatusBadge size="sm">{t('beta')}</StatusBadge>
         }
       />
 

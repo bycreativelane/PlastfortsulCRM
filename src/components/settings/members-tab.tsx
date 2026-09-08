@@ -78,6 +78,7 @@ import { SettingsPanelHead } from './settings-panel-head';
 import { ROLE_META } from './role-meta';
 import { APP_LOCALE } from '@/lib/i18n/locale';
 import { avatarInitials } from '@/lib/avatar-color';
+import { SettingsChip } from './settings-chip';
 
 interface Member {
   user_id: string;
@@ -494,12 +495,10 @@ export function MembersTab() {
                         </SelectContent>
                       </Select>
                     ) : (
-                      <span
-                        className={`text-2xs inline-flex h-5 shrink-0 items-center gap-1.5 rounded-full border px-2 font-medium whitespace-nowrap ${roleMeta.className}`}
-                      >
-                        <RoleIcon className="size-3 shrink-0" />
+                      <SettingsChip variant={roleMeta.variant}>
+                        <RoleIcon />
                         {tRoles(member.role)}
-                      </span>
+                      </SettingsChip>
                     )}
 
                     {/* Remove. Admin+ only; never on the owner row;
@@ -577,12 +576,10 @@ export function MembersTab() {
                             <span className="text-foreground text-sm font-medium">
                               {inv.label || t('untitledInvite')}
                             </span>
-                            <span
-                              className={`text-2xs inline-flex h-5 shrink-0 items-center gap-1.5 rounded-full border px-2 font-medium whitespace-nowrap ${inviteRoleMeta.className}`}
-                            >
-                              <InviteRoleIcon className="size-3 shrink-0" />
+                            <SettingsChip variant={inviteRoleMeta.variant}>
+                              <InviteRoleIcon />
                               {tRoles(inv.role)}
-                            </span>
+                            </SettingsChip>
                           </div>
                           <p className="text-muted-foreground mt-0.5 text-xs">
                             {t('created', { date: fmtDate(inv.created_at) })} ·{' '}

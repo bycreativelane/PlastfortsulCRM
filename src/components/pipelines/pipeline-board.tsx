@@ -31,6 +31,7 @@ import {
   usePlaybookProgress,
   type PlaybookProgress,
 } from '@/hooks/use-playbook-progress';
+import { CountBadge } from '@/components/ui/count-badge';
 
 interface PipelineBoardProps {
   stages: PipelineStage[];
@@ -254,9 +255,7 @@ function StageColumn({
           <h3 className="text-foreground min-w-0 flex-1 truncate text-sm font-bold tracking-tight">
             {stage.name}
           </h3>
-          <span className="bg-card text-secondary-foreground text-3xs shrink-0 rounded-full px-1.5 font-bold">
-            {deals.length}
-          </span>
+          <CountBadge tone="card">{deals.length}</CountBadge>
         </div>
         <p className="text-muted-foreground text-2xs font-medium tabular-nums">
           {formatCurrency(totalValue, currency)}

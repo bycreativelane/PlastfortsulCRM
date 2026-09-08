@@ -19,6 +19,7 @@ import { formatListTime } from '@/lib/i18n/dates';
 import { cn } from '@/lib/utils';
 import { teamMessagePreview } from '@/lib/team/media';
 import { MemberAvatar } from '@/components/presence/member-avatar';
+import { CountBadge } from '@/components/ui/count-badge';
 
 /**
  * The team room, from wherever you happen to be.
@@ -395,9 +396,9 @@ export function TeamRoomCard() {
               Capped at 99+ because three digits change the card's width
               and nothing above 99 is a different decision. */}
           {unread && (
-            <span className="bg-primary text-3xs grid h-4 min-w-4 shrink-0 place-items-center rounded-full px-1 font-semibold text-white tabular-nums">
+            <CountBadge size="dot" tone="primary">
               {unreadCount > 99 ? '99+' : unreadCount}
-            </span>
+            </CountBadge>
           )}
         </span>
 

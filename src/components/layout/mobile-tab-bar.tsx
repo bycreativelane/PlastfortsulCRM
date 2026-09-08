@@ -16,6 +16,7 @@ import { useCapability } from '@/hooks/use-can';
 import { useTotalUnread } from '@/hooks/use-total-unread';
 import type { Capability } from '@/lib/auth/capabilities';
 import { cn } from '@/lib/utils';
+import { CountBadge } from '@/components/ui/count-badge';
 
 /**
  * The phone's navigation, in the thumb's reach.
@@ -185,9 +186,13 @@ export function MobileTabBar({ onOpenMenu }: { onOpenMenu: () => void }) {
             <span className="relative">
               <Icon className="size-5" aria-hidden />
               {tab.badge && unread > 0 && (
-                <span className="bg-human-strong text-3xs absolute -top-1 -right-2 grid h-4 min-w-4 place-items-center rounded-full px-1 font-bold text-white tabular-nums">
+                <CountBadge
+                  size="dot"
+                  tone="human"
+                  className="absolute -top-1 -right-2"
+                >
                   {unread > 99 ? '99+' : unread}
-                </span>
+                </CountBadge>
               )}
             </span>
             <span className="max-w-full truncate px-1">{t(tab.labelKey)}</span>

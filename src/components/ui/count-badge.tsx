@@ -25,6 +25,28 @@ import { cn } from '@/lib/utils';
  * inteira em que ele pousasse.
  *
  * ------------------------------------------------------------------
+ * E O DEGRAU DE 16px, QUE PARECE VIOLAR ISSO
+ * ------------------------------------------------------------------
+ *
+ * `dot` é 16px, e o motivo de não ser uma terceira altura de chip é a razão
+ * pela qual a lei existe. O `status-badge.tsx` a escreve assim: *"o olho
+ * alinha uma linha pela peça mais alta, então um chip de 22px levanta o
+ * ritmo da linha de 20 ao lado dele."* A lei é sobre chips que dividem uma
+ * LINHA.
+ *
+ * O `dot` nunca divide uma. Ele pousa em cima de um ícone — a sineta, o
+ * ícone da aba do celular — ou logo ao lado de um, e não tem vizinho com
+ * quem se alinhar. Aos 18px ele encobre uma sineta de 18: o menu de
+ * notificações tem um comentário inteiro sobre isso, escrito depois de o
+ * ícone ser descrito como *"ofuscado"*.
+ *
+ * As quatro chamadas que usam esta medida a escreviam de quatro jeitos —
+ * `font-bold` e `font-semibold`, `px-1` e nenhum padding, `min-w-4` e
+ * `size-4`. A última delas, no painel de acessos, quebra com dois dígitos:
+ * um disco de largura fixa não cresce, e onze exceções saem por fora do
+ * círculo. `min-w-4 px-1` é o par que resolve, e agora é o único.
+ *
+ * ------------------------------------------------------------------
  * O TOM DIZ O QUE O NÚMERO QUER
  * ------------------------------------------------------------------
  *
@@ -35,9 +57,15 @@ import { cn } from '@/lib/utils';
  * tem.
  */
 const countBadgeVariants = cva(
-  'grid h-4.5 min-w-4.5 shrink-0 place-items-center rounded-full px-1.5 text-2xs font-bold tabular-nums',
+  'grid shrink-0 place-items-center rounded-full font-bold tabular-nums',
   {
     variants: {
+      size: {
+        /** 18px — o contador ao lado de um rótulo, numa linha de chips. */
+        default: 'h-4.5 min-w-4.5 px-1.5 text-2xs',
+        /** 16px — o que pousa SOBRE um ícone. Ver a nota acima. */
+        dot: 'h-4 min-w-4 px-1 text-3xs',
+      },
       tone: {
         /** O padrão: quantos são. */
         neutral: 'bg-muted text-secondary-foreground',
@@ -51,11 +79,12 @@ const countBadgeVariants = cva(
         inverse: 'bg-foreground text-background',
       },
     },
-    defaultVariants: { tone: 'neutral' },
+    defaultVariants: { size: 'default', tone: 'neutral' },
   }
 );
 
 export function CountBadge({
+  size,
   tone,
   className,
   children,
@@ -64,7 +93,7 @@ export function CountBadge({
   return (
     <span
       data-slot="count-badge"
-      className={cn(countBadgeVariants({ tone }), className)}
+      className={cn(countBadgeVariants({ size, tone }), className)}
       {...props}
     >
       {children}

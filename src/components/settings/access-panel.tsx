@@ -56,6 +56,7 @@ import { StatePanel } from '@/components/ui/state-panel';
 import { Switch } from '@/components/ui/switch';
 
 import { formatDistance } from 'date-fns';
+import { CountBadge } from '@/components/ui/count-badge';
 
 /**
  * Acesso e permissões — who may do what, and what has already been done.
@@ -262,9 +263,9 @@ function PermissionsSection() {
                         somebody configured last month is to click all of
                         them. */}
                     {count > 0 && (
-                      <span className="bg-primary text-3xs grid size-4 place-items-center rounded-full font-semibold text-white">
+                      <CountBadge size="dot" tone="primary">
                         {count}
-                      </span>
+                      </CountBadge>
                     )}
                   </button>
                 );

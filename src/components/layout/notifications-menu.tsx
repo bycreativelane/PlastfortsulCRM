@@ -38,6 +38,7 @@ import {
 } from '@/components/ui/popover';
 import { IconTile } from '@/components/ui/icon-tile';
 import { sectionHref } from '@/components/settings/settings-sections';
+import { CountBadge } from '@/components/ui/count-badge';
 
 /** One icon per type. New ones are a line each. */
 const TYPE_ICON: Record<Notification['type'], typeof Bell> = {
@@ -215,9 +216,13 @@ export function NotificationsMenu({ className }: { className?: string }) {
           // surface colour is what keeps it legible there: without it the
           // badge and whatever it overlaps share an edge and read as one
           // smudged shape.
-          <span className="bg-human-strong text-3xs ring-card absolute -top-1 -right-1 grid h-4 min-w-4 place-items-center rounded-full px-1 font-bold text-white ring-2">
+          <CountBadge
+            size="dot"
+            tone="human"
+            className="ring-card absolute -top-1 -right-1 ring-2"
+          >
             {unread > 9 ? '9+' : unread}
-          </span>
+          </CountBadge>
         ) : (
           // A dot, never a "1": the connection is a state, not an unread
           // item, and folding it into the count would make the number lie

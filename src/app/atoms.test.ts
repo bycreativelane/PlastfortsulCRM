@@ -37,8 +37,20 @@ import { describe, expect, it } from 'vitest';
 
 const SRC = join(process.cwd(), 'src');
 
-/** A pílula de contagem: altura e largura mínima da casa, redonda. */
-const HAND_ROLLED_COUNT = /h-4\.5[^"'`]*min-w-4\.5[^"'`]*rounded-full/;
+/**
+ * A pílula de contagem: altura e largura mínima da casa, redonda.
+ *
+ * As DUAS medidas, porque o átomo tem duas: 18px na linha, 16px sobre um
+ * ícone. A busca por 18 sozinha deixou passar quatro contadores de 16 — a
+ * aba do celular, a sineta, o cartão da sala e o painel de acessos — que
+ * eram o mesmo objeto escrito de quatro maneiras.
+ *
+ * `size-4` entra junto porque foi como o painel de acessos escreveu o disco,
+ * e é a escrita que quebra: largura fixa não cresce, então uma contagem de
+ * dois dígitos sai por fora do círculo.
+ */
+const HAND_ROLLED_COUNT =
+  /h-4\.5[^"'`]*min-w-4\.5[^"'`]*rounded-full|h-4[^"'`.]*min-w-4[^"'`]*rounded-full|\bsize-4\b[^"'`]*rounded-full[^"'`]*font-(semibold|bold)/;
 
 /**
  * O ladrilho: quadrado com preenchimento tonal EM REPOUSO e ícone centrado.

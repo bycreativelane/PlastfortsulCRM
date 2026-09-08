@@ -25,6 +25,7 @@ import { StatePanel } from '@/components/ui/state-panel';
 import { bucketOf } from '@/lib/tasks/board';
 import { TASK_STATUSES, type Task, type TaskStatus } from '@/types';
 import { cn } from '@/lib/utils';
+import { CountBadge } from '@/components/ui/count-badge';
 
 /**
  * O quadro de tarefas, por status.
@@ -200,9 +201,7 @@ function Column({
           <h3 className="text-foreground min-w-0 flex-1 truncate text-sm font-bold tracking-tight">
             {tPage(`status.${status}`)}
           </h3>
-          <span className="bg-card text-secondary-foreground text-3xs shrink-0 rounded-full px-1.5 font-bold">
-            {tasks.length}
-          </span>
+          <CountBadge tone="card">{tasks.length}</CountBadge>
         </div>
       </div>
 

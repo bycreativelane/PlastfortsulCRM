@@ -729,3 +729,115 @@ limpar lê o rascunho, para aparecer na primeira tecla.
   no comentário. A UF continua `eq` — ela vem de um campo que já faz
   `toUpperCase`.
 
+
+---
+
+## O campo de telefone — 8 de setembro
+
+O Gabriel mandou um print da ficha do contato: o campo Telefone com a caixa
+curta, sem contorno, o número colado na margem esquerda, ao lado de três
+irmãos normais. Eram **dois** defeitos, e o que ele viu era o menor.
+
+### O que dava para ver
+
+O `PhoneInput` desenhava um `<input>` NU — `className={cn(className)}` e mais
+nada. Nunca usou o `Input` da casa. Medido no navegador contra o campo E-mail
+da mesma grade:
+
+| | Input da casa | PhoneInput |
+| --- | --- | --- |
+| largura | acompanha a coluna | travada em ~215px (o `size` padrão do UA) |
+| altura | 32px | 24px |
+| padding | 10px | 0 |
+| borda | 1px | 0 |
+| raio | 8px | 0 |
+| `data-slot` | `input` | ausente |
+
+A borda é a parte que engana. Os dois call sites passavam `border-border`, que
+é **cor**; o preflight zera `border-width` em tudo, então pintar uma borda que
+não existe não desenha nada. Ninguém tinha escrito uma linha errada — o defeito
+era o que não estava lá, e é por isso que ele atravessou revisão.
+
+O `data-slot` é o que menos se via e mais custava: é por ele que o
+`globals.css` dá 44px no ponteiro grosso, e aquele bloco explica que num
+`<input>` o escudo `::before` não funciona, então o atributo é a única regra
+que alcança um campo. O telefone era o alvo de 24px do formulário — no
+componente cujo `type="tel"` existe, diz o comentário dele, *porque é do
+celular que a maioria dos contatos é cadastrada*.
+
+O segundo call site vinha pelo caminho oposto: `contact-form.tsx` recopiava a
+receita à mão e diferente dela — `h-9` contra `h-8`, `rounded-md` contra
+`rounded-lg`, `px-3` contra `px-2.5`, mais um `shadow-xs` que campo nenhum
+deste app tem. O `className` do call site entra depois no `cn`, então ele
+vencia: ali o telefone era 4px mais alto e mais quadrado que os quatro irmãos.
+
+### O que não dava para ver, e é pior
+
+`formatPhone` desenhava no máximo nove dígitos locais — treze no total — e o
+campo aceita quinze. Seria inofensivo se a função só pintasse texto; mas o
+campo é **controlado** por ela, então os dígitos a mais existiam no estado e
+não na tela. Medido, lendo o estado do React pelo fiber:
+
+```
+na tela   +55 (51) 99000-0001    (não mudava mais, teclasse o que teclasse)
+salvo     +55519900000017        (o 14º existia e ninguém o via)
+```
+
+A tela congela porque o próximo caractere é reinterpretado a partir do texto
+VISÍVEL, que já perdeu o dígito: cada tecla substituía o invisível. Pelo mesmo
+motivo um Backspace no fim apagava **dois** dígitos de uma vez.
+
+E nada rio abaixo pega — `isValidE164` aceita de 7 a 15 dígitos, então o número
+de 14 passa por toda validação e só falha no envio pela Meta, longe de quem
+digitou. O contato ia para o banco com um telefone que a ficha nunca mostrou.
+
+O conserto é um caractere, e o teto não é o culpado: este é o único ponto de
+entrada de telefone do produto e a conta fala com fornecedores fora do Brasil.
+E.164 vai a quinze; baixar para treze trocaria um defeito brasileiro por um
+paraguaio. Quem tinha de parar de mentir era o formatador.
+
+### O método, e uma nota honesta sobre ele
+
+A varredura foi um workflow de 43 agentes — cinco lentes e dois céticos por
+achado, um atacando a evidência e outro a correção. Ela devolveu 19 achados e
+**derrubou 17**.
+
+Isso não é a camada cética funcionando bem. É que eu estava corrigindo o
+arquivo enquanto os agentes o liam: metade das refutações diz alguma variação
+de *"o achado descreve um estado que o arquivo não tem mais"* ou *"ele cita
+como código um trecho que hoje é comentário"* — o comentário que eu tinha
+acabado de escrever explicando a correção. **Não rodar auditoria sobre árvore
+que está sendo editada**, ou o relatório vira arqueologia do próprio commit.
+
+Os dois que sobreviveram sobreviveram por serem sobre arquivos que eu não
+tinha tocado: o `formatPhone` e o `hours-panel`.
+
+### O que ficou aberto
+
+A varredura levantou um inventário que confere (reproduzido à mão) e que não
+entrou nesta passada, porque não é o que o Gabriel apontou:
+
+- **12 `<input>` desenhados à mão sem `data-slot="input"`** fora de `ui/`,
+  entre eles `layout/global-search.tsx:248`, `tasks/tasks-page.tsx:253` e
+  `docs/docs-sidebar.tsx:66`. Nem todos são defeito — no `global-search` quem
+  desenha a caixa é o `<label>` em volta, e o `<input>` interno é
+  deliberadamente sem altura.
+- **`dashboard/period-picker.tsx:139,151`** usa dois `<input type="date">`
+  nativos — o controle que o `date-field.tsx` documenta como proibido, porque
+  o painel segue o tema do sistema — e a 36px num app de 32.
+- **Dois `<input type="checkbox">` nativos** fora do átomo, em
+  `settings/calendars-panel.tsx:239` e `interactive/interactive-builder.tsx:159`.
+- **Backspace sobre um separador** não apaga nada e leva o cursor para o fim
+  do campo. O diagnóstico foi confirmado no fonte do react-dom instalado
+  (`restoreStateOfTarget` → `updateInput`); a correção é que não é óbvia.
+- **Nenhum editor de contato valida o comprimento do telefone** antes de
+  salvar. `isValidE164` existe e os 13 call sites dela são todos de
+  servidor/lib — nenhum em `components/`.
+
+A guarda nova (`field-slot.test.ts`) para de propósito em `components/ui/`: um
+átomo que perde a receita multiplica o defeito por todos os call sites — este
+multiplicou por dois — e uma tela que desenha um `<input>` à mão erra sozinha.
+Esconder os cinco itens acima numa lista de exceções seria transformar a guarda
+naquilo que este documento já reclamou duas vezes: um teste que passa verde sem
+procurar nada.
+

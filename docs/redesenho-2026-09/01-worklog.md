@@ -812,7 +812,7 @@ que está sendo editada**, ou o relatório vira arqueologia do próprio commit.
 Os dois que sobreviveram sobreviveram por serem sobre arquivos que eu não
 tinha tocado: o `formatPhone` e o `hours-panel`.
 
-### O que ficou aberto
+### O que ficou aberto — e foi fechado na sequência
 
 A varredura levantou um inventário que confere (reproduzido à mão) e que não
 entrou nesta passada, porque não é o que o Gabriel apontou:
@@ -840,4 +840,101 @@ multiplicou por dois — e uma tela que desenha um `<input>` à mão erra sozinh
 Esconder os cinco itens acima numa lista de exceções seria transformar a guarda
 naquilo que este documento já reclamou duas vezes: um teste que passa verde sem
 procurar nada.
+
+
+---
+
+## A sequência de UX — 8 de setembro, à tarde
+
+> Da continuidade, foca no UX
+
+A lista aberta acima, do começo ao fim, filtrada por uma pergunta: **o que a
+pessoa sente?** Consistência interna que ninguém percebe ficou de fora.
+
+### O Backspace que não apagava nada
+
+O mais felt dos cinco, e no campo que abriu tudo isto. Caret logo depois do
+`)` em `+55 (51) 99000-0001`: Backspace deixava o campo **igual** e mandava o
+cursor de 8 para 19 — o fim do número. O próximo Backspace então apagava o
+último dígito, que não é onde a pessoa estava. O app brigando com quem digita.
+
+O mecanismo fecha certinho: apagar um separador não muda os dígitos, então o
+valor não muda, o texto formatado não muda, e o efeito que recoloca o cursor
+— que depende dele — não roda. Enquanto isso o React reescreve o valor no
+`<input>` para ressincronizar o campo controlado, e atribuir `.value` num
+input estaciona o cursor no fim.
+
+A regra que entrou: **separador não é conteúdo, é desenho**. Backspace apaga o
+dígito à esquerda, Delete o da direita, e uma seleção não passa por ali —
+quem marcou um pedaço à mão quer apagar aquilo. Verificado no navegador:
+segurar Backspace agora some com o número um dígito por vez, os treze, com as
+parênteses e o traço caindo sozinhos (`9900-0` → `9900`, `+55 (5` → `+55`).
+
+A decisão saiu para `deleteAcrossSeparator`, pura e exportada — o ambiente de
+teste é `node`, sem DOM, e é assim que esta casa testa campo mascarado desde o
+`parseTimeInput`.
+
+### Os dois últimos `<input type="date">` do produto
+
+O `date-field.tsx` abre com dois parágrafos sobre por que o nativo é proibido
+— o painel segue o tema do SISTEMA e não o do app — e termina em *"none of
+that is reachable from CSS. The only fix is to stop asking for it"*. O
+seletor de período de `/reports` fazia exatamente isso, duas vezes.
+
+O que segurava a troca não era gosto: o `DateField` abre um Popover, aqueles
+campos já vivem dentro de um, e **este repo não aninha Popover em lugar
+nenhum**. Montei o seletor no `/chart-lab` e testei antes de trocar: os dois
+ficam abertos, escolher um dia fecha só o de dentro, o valor chega ao campo, e
+o painel de fora atualiza ao vivo ("30 dias no período" → "35 dias").
+
+O `max` de "hoje" se perde na troca, e está registrado por quê: o painel já
+diz `errorFuture` e desabilita o Aplicar. Passa de "não dá para escolher" para
+"escolheu, e o painel explica" — o mesmo tratamento dos outros dois erros.
+
+### Três controles crus
+
+- **Configurações › Agendas** tinha um `<input type="checkbox">` **sem
+  className nenhuma** — o quadradinho do sistema operacional, numa linha com
+  um `OptionSelect` da casa ao lado. E a forma certa nem era checkbox:
+  `patchSource` grava na hora, e o comentário dele já chamava aquilo de
+  "chavinha". Nesta casa checkbox é valor de formulário que ainda vai ser
+  salvo; `Switch` é o ajuste que vale agora.
+- **O interactive builder** tinha um nativo de 14px com `accent-primary`:
+  dois pixels menor que o átomo, sem a borda `--control` que o
+  `theme-contrast` fixa em 3:1.
+- **A busca de `/tasks`** era a receita recopiada e errada em três pontos —
+  `rounded-md` onde a casa é `rounded-lg`, `text-xs` (12px, e abaixo de 16 o
+  Safari do iPhone dá zoom ao focar) e nenhum `focus-visible`. Sem
+  `data-slot="input"` ela também ficava fora dos 44px no dedo, numa barra de
+  tela feita para o celular.
+
+A **busca global ficou como está**, e isso é decisão e não esquecimento: ali
+quem desenha a caixa é o `<label>` em volta, com `focus-within:`, e o
+`<input>` interno é transparente e sem altura de propósito. É composição
+certa. O inventário da varredura dizia "12 inputs à mão" e essa contagem
+incluía casos assim — foi por isso que cada um foi aberto antes de mexer.
+
+### Salvar um telefone pela metade
+
+Os dois editores de contato só perguntavam se o campo estava VAZIO. Um
+`+55 (51) 9` passava, ia para o banco, e a primeira notícia de que ninguém
+consegue falar com aquele cliente vinha num envio que falha muito depois.
+
+`isCompletePhone` é **exato para o Brasil e largo para o resto**, e a
+assimetria é a decisão inteira: o Brasil tem dois comprimentos e nenhum outro
+(12 no fixo, 13 no celular), e `+55` é do Brasil e de mais ninguém — dá para
+ser exato sem risco. Fora dele, a régua do E.164 e nada além, porque não há
+como saber daqui o comprimento certo de um número paraguaio. Recusar o que
+não se sabe julgar seria inventar uma regra e cobrar por ela.
+
+### O que sobrou, e por quê
+
+- **`toE164` não acrescenta código de país.** Um número digitado como
+  `51990000001` vira `+51990000001`, que é o Peru. O `isCompletePhone` agora
+  aceita isso como estrangeiro válido, porque pelo que está na string ele é.
+  Consertar exige decidir um país padrão para a conta, o que é uma decisão de
+  produto e não de campo.
+- **`docs-sidebar.tsx` e os `<input type="file">`** ficam: os primeiros são
+  busca dentro de caixa desenhada, como a global, e os segundos são escondidos
+  por definição.
 

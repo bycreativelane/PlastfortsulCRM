@@ -10,6 +10,7 @@ import { formatCurrencyExact } from '@/lib/currency';
 import { fromISO } from '@/lib/calendar';
 import { APP_LOCALE } from '@/lib/i18n/locale';
 import { loadQuotes, matchesQuote, type StoredQuote } from '@/lib/quotes/store';
+import { brandFromAccount } from '@/lib/quotes/brand';
 import { DealQuote } from '@/components/pipelines/deal-quote';
 import { Input } from '@/components/ui/input';
 import { PageHeader } from '@/components/layout/page-header';
@@ -42,7 +43,7 @@ import { Skeleton } from '@/components/dashboard/skeleton';
  */
 export function QuotesArea() {
   const t = useTranslations('Quotes');
-  const { accountId } = useAuth();
+  const { account, accountId } = useAuth();
 
   const [quotes, setQuotes] = useState<StoredQuote[] | null>(null);
   const [missing, setMissing] = useState(false);
@@ -173,6 +174,7 @@ export function QuotesArea() {
           open
           onOpenChange={(v) => !v && setAberto(null)}
           quote={aberto}
+          brand={brandFromAccount(account)}
         />
       )}
     </div>

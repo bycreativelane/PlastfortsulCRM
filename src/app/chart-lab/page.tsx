@@ -861,6 +861,19 @@ function TaskDialogBench() {
  * um orçamento só de valor, sem produto nenhum, é o caminho mais comum
  * hoje, antes de o catálogo estar preenchido.
  */
+/** A identidade que a 072 passou a guardar, para o documento ter o que
+ *  imprimir no cabeçalho e no rodapé. */
+const MARCA = {
+  name: 'PlastfortSul',
+  legalName: 'Plastfort Sul Embalagens Ltda.',
+  taxId: 'CNPJ 12.345.678/0001-90',
+  phone: '+55 (47) 3333-4444',
+  email: 'comercial@plastfortsul.com.br',
+  site: 'plastfortsul.com.br',
+  address: 'Joinville · SC',
+  logoUrl: null,
+};
+
 function QuoteBench() {
   const [completo, setCompleto] = useState(false);
   const [magro, setMagro] = useState(false);
@@ -912,8 +925,20 @@ function QuoteBench() {
       <Button variant="outline" onClick={() => setMagro(true)}>
         Abrir — só o valor
       </Button>
-      <DealQuote open={completo} onOpenChange={setCompleto} quote={cheio} />
-      <DealQuote open={magro} onOpenChange={setMagro} quote={enxuto} />
+      <DealQuote
+        open={completo}
+        onOpenChange={setCompleto}
+        quote={cheio}
+        brand={MARCA}
+      />
+      {/* Sem marca nenhuma: é o estado de uma conta que ainda não
+          preencheu a identidade, e o documento tem de sair mesmo assim. */}
+      <DealQuote
+        open={magro}
+        onOpenChange={setMagro}
+        quote={enxuto}
+        brand={{ name: 'PlastfortSul' }}
+      />
     </Panel>
   );
 }

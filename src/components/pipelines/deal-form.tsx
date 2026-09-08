@@ -46,6 +46,7 @@ import { useBusinessHours } from '@/hooks/use-business-hours';
 import { localParts } from '@/lib/automations/local-time';
 import { buildQuote } from '@/lib/quotes/quote';
 import { saveQuote } from '@/lib/quotes/store';
+import { brandFromAccount } from '@/lib/quotes/brand';
 import { DealQuote } from './deal-quote';
 import { ChoiceChip } from '@/components/ui/choice-chip';
 import { PlaybookChecklist } from './playbook-checklist';
@@ -1280,6 +1281,7 @@ export function DealForm({
         open={quoteOpen}
         onOpenChange={setQuoteOpen}
         quote={orcamento}
+        brand={brandFromAccount(account)}
         archiveHref="/documentos/orcamentos"
         // "Todo orçamento gerado em PDF precisa ficar salvo." O documento
         // não sabe de conta, oportunidade nem usuário — quem sabe é esta

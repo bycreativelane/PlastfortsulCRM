@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import {
   createContext,
@@ -9,26 +9,23 @@ import {
   useMemo,
   useRef,
   type ReactNode,
-} from "react";
-import { createClient } from "@/lib/supabase/client";
-import { isUnknownColumn } from "@/lib/supabase/pg-errors";
-import type { User } from "@supabase/supabase-js";
-import { DEFAULT_CURRENCY } from "@/lib/currency";
-import {
-  DEFAULT_TIMEZONE,
-  safeTimeZone,
-} from "@/lib/automations/local-time";
+} from 'react';
+import { createClient } from '@/lib/supabase/client';
+import { isUnknownColumn } from '@/lib/supabase/pg-errors';
+import type { User } from '@supabase/supabase-js';
+import { DEFAULT_CURRENCY } from '@/lib/currency';
+import { DEFAULT_TIMEZONE, safeTimeZone } from '@/lib/automations/local-time';
 import {
   canEditSettings as canEditSettingsFor,
   canManageMembers as canManageMembersFor,
   canSendMessages as canSendMessagesFor,
   isAccountRole,
   type AccountRole,
-} from "@/lib/auth/roles";
+} from '@/lib/auth/roles';
 import {
   parseOverrides,
   type PermissionOverrides,
-} from "@/lib/auth/capabilities";
+} from '@/lib/auth/capabilities';
 
 interface Profile {
   id: string;
@@ -64,6 +61,21 @@ interface AccountSummary {
    * which is what the whole product assumed before the column existed.
    */
   timezone: string | null;
+  /**
+   * A identidade que vai num documento comercial (migração 072).
+   *
+   * Tudo opcional, e tudo `null` num banco anterior à 072 — o orçamento
+   * imprime o que existe e omite o resto, como já faz com frete e
+   * observações. `legal_name` é separada de `name` porque uma é a razão
+   * social e a outra é como a empresa aparece na barra lateral.
+   */
+  legal_name: string | null;
+  tax_id: string | null;
+  company_phone: string | null;
+  company_email: string | null;
+  company_site: string | null;
+  company_address: string | null;
+  logo_url: string | null;
 }
 
 /**
@@ -77,13 +89,13 @@ interface AccountSummary {
  */
 export type AccountStatus =
   /** Profile row still in flight. */
-  | "loading"
+  | 'loading'
   /** Account + role resolved; normal operation. */
-  | "ready"
+  | 'ready'
   /** Signed in, but no profile row / no account / no role on it. */
-  | "unlinked"
+  | 'unlinked'
   /** The profile lookup itself failed after retrying. */
-  | "error";
+  | 'error';
 
 interface AuthContextValue {
   user: User | null;
@@ -186,7 +198,7 @@ function sleep(ms: number) {
  * able to ask again without it — see the note at the retry.
  */
 const PROFILE_COLUMNS =
-  "id, full_name, email, avatar_url, role, beta_features, account_id, account_role";
+  'id, full_name, email, avatar_url, role, beta_features, account_id, account_role';
 
 /** Shape of the `profiles` select below. */
 interface ProfileRow {
@@ -237,9 +249,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       let data: ProfileRow | null = null;
       for (let attempt = 1; ; attempt++) {
         let result = await supabase
-          .from("profiles")
+          .from('profiles')
           .select(`${PROFILE_COLUMNS}, permission_overrides`)
-          .eq("user_id", userId)
+          .eq('user_id', userId)
           .maybeSingle();
 
         // `permission_overrides` arrives with migration 050, which is
@@ -252,9 +264,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // "whatever the role says".
         if (result.error && isUnknownColumn(result.error)) {
           result = await supabase
-            .from("profiles")
+            .from('profiles')
             .select(PROFILE_COLUMNS)
-            .eq("user_id", userId)
+            .eq('user_id', userId)
             .maybeSingle();
         }
 
@@ -264,7 +276,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         const error = result.error;
-        console.error("[AuthProvider] fetchProfile error:", {
+        console.error('[AuthProvider] fetchProfile error:', {
           message: error.message,
           details: error.details,
           hint: error.hint,
@@ -307,22 +319,51 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             name: string;
             default_currency: string | null;
             timezone?: string | null;
+            legal_name?: string | null;
+            tax_id?: string | null;
+            company_phone?: string | null;
+            company_email?: string | null;
+            company_site?: string | null;
+            company_address?: string | null;
+            logo_url?: string | null;
           } | null = null;
           let accountErr = null as { message?: string } | null;
 
+          // A lista mais completa primeiro. A 072 trouxe a identidade da
+          // empresa e, como as migrações aqui são aplicadas à mão, a
+          // consulta precisa sobreviver a um banco que ainda não a tem —
+          // exatamente como a 066 fez com `timezone`.
           const withZone = await supabase
-            .from("accounts")
-            .select("id, name, default_currency, timezone")
-            .eq("id", data.account_id)
+            .from('accounts')
+            .select(
+              'id, name, default_currency, timezone, legal_name, tax_id, company_phone, company_email, company_site, company_address, logo_url'
+            )
+            .eq('id', data.account_id)
             .maybeSingle();
 
-          if (withZone.error && isUnknownColumn(withZone.error)) {
+          // Um degrau abaixo: sem a identidade da 072, com o fuso da 066.
+          const semMarca =
+            withZone.error && isUnknownColumn(withZone.error)
+              ? await supabase
+                  .from('accounts')
+                  .select('id, name, default_currency, timezone')
+                  .eq('id', data.account_id)
+                  .maybeSingle()
+              : null;
+
+          if (
+            semMarca &&
+            !(semMarca.error && isUnknownColumn(semMarca.error))
+          ) {
+            account = semMarca.data;
+            accountErr = semMarca.error;
+          } else if (withZone.error && isUnknownColumn(withZone.error)) {
             // default_currency added in migration 021; narrowed to the
             // USD fallback below for older schemas where it reads null.
             const legacy = await supabase
-              .from("accounts")
-              .select("id, name, default_currency")
-              .eq("id", data.account_id)
+              .from('accounts')
+              .select('id, name, default_currency')
+              .eq('id', data.account_id)
               .maybeSingle();
             account = legacy.data;
             accountErr = legacy.error;
@@ -332,13 +373,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
 
           if (accountErr) {
-            console.error("[AuthProvider] fetchAccount error:", accountErr);
+            console.error('[AuthProvider] fetchAccount error:', accountErr);
           } else if (account) {
             accountRow = {
               id: account.id,
               name: account.name,
               default_currency: account.default_currency ?? DEFAULT_CURRENCY,
               timezone: account.timezone ?? null,
+              legal_name: account.legal_name ?? null,
+              tax_id: account.tax_id ?? null,
+              company_phone: account.company_phone ?? null,
+              company_email: account.company_email ?? null,
+              company_site: account.company_site ?? null,
+              company_address: account.company_address ?? null,
+              logo_url: account.logo_url ?? null,
             };
           }
         }
@@ -389,10 +437,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // provider is a console error on every load of the app. The
         // builder is a `PromiseLike` with no `.catch`, so the second
         // handler on `.then` is where that goes.
-        void supabase.rpc("record_sign_in").then(
+        void supabase.rpc('record_sign_in').then(
           ({ error }) => {
-            if (error && error.code !== "PGRST202") {
-              console.error("[AuthProvider] record_sign_in:", error.message);
+            if (error && error.code !== 'PGRST202') {
+              console.error('[AuthProvider] record_sign_in:', error.message);
             }
           },
           () => {}
@@ -405,17 +453,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // failure as a WARNING) or one predating that migration.
           // Every insert and update they attempt will be denied by RLS.
           setStatusDetail(
-            `profile ${data.id} has no ${!data.account_id ? "account_id" : "account_role"}`,
+            `profile ${data.id} has no ${!data.account_id ? 'account_id' : 'account_role'}`
           );
         }
       } else {
         lastFetchedUserIdRef.current = null;
-        setStatusDetail("no profiles row for the signed-in user");
+        setStatusDetail('no profiles row for the signed-in user');
       }
     } catch (err) {
-      console.error("[AuthProvider] fetchProfile threw:", err);
+      console.error('[AuthProvider] fetchProfile threw:', err);
       lastFetchedUserIdRef.current = null;
-      setStatusDetail(err instanceof Error ? err.message : "profile fetch failed");
+      setStatusDetail(
+        err instanceof Error ? err.message : 'profile fetch failed'
+      );
     } finally {
       setProfileLoading(false);
     }
@@ -427,7 +477,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const safetyTimer = setTimeout(() => {
       if (mounted) {
-        console.warn("[AuthProvider] getSession() timed out after 3s");
+        console.warn('[AuthProvider] getSession() timed out after 3s');
         setLoading(false);
         setProfileLoading(false);
       }
@@ -440,7 +490,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           error,
         } = await supabase.auth.getSession();
 
-        if (error) console.error("[AuthProvider] getSession error:", error.message);
+        if (error)
+          console.error('[AuthProvider] getSession error:', error.message);
 
         if (!mounted) return;
         const currentUser = session?.user ?? null;
@@ -459,7 +510,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setProfileLoading(false);
         }
       } catch (err) {
-        console.error("[AuthProvider] init threw:", err);
+        console.error('[AuthProvider] init threw:', err);
       } finally {
         if (mounted) setLoading(false);
         clearTimeout(safetyTimer);
@@ -502,7 +553,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     setProfile(null);
     setAccount(null);
-    window.location.href = "/login";
+    window.location.href = '/login';
   }, []);
 
   const refreshProfile = useCallback(async () => {
@@ -520,10 +571,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       accountRole: role,
       accountId: profile?.account_id ?? null,
       permissionOverrides: profile?.permission_overrides ?? {},
-      isOwner: role === "owner",
-      isAdmin: role === "admin",
-      isAgent: role === "agent",
-      isViewer: role === "viewer",
+      isOwner: role === 'owner',
+      isAdmin: role === 'admin',
+      isAgent: role === 'agent',
+      isViewer: role === 'viewer',
       canManageMembers: role ? canManageMembersFor(role) : false,
       canEditSettings: role ? canEditSettingsFor(role) : false,
       canSendMessages: role ? canSendMessagesFor(role) : false,
@@ -537,14 +588,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Signed out is not a broken account — the shell redirects to /login
   // before anything reads this.
   const accountStatus: AccountStatus = !user
-    ? "loading"
+    ? 'loading'
     : profileLoading
-      ? "loading"
+      ? 'loading'
       : !profile
-        ? "error"
+        ? 'error'
         : derived.accountId && derived.accountRole
-          ? "ready"
-          : "unlinked";
+          ? 'ready'
+          : 'unlinked';
 
   return (
     <AuthContext.Provider
@@ -585,7 +636,7 @@ export function useAuth(): AuthContextValue {
       loading: false,
       profileLoading: false,
       signOut: async () => {
-        window.location.href = "/login";
+        window.location.href = '/login';
       },
       refreshProfile: async () => {},
       account: null,
@@ -593,7 +644,7 @@ export function useAuth(): AuthContextValue {
       accountTimeZone: DEFAULT_TIMEZONE,
       // Outside the provider there is nothing to resolve yet — 'loading'
       // keeps the access alert from firing on, say, the login page.
-      accountStatus: "loading",
+      accountStatus: 'loading',
       accountStatusDetail: null,
       accountId: null,
       accountRole: null,

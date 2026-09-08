@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
-import { useFormatter, useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import {
   DndContext,
   DragOverlay,
@@ -19,8 +19,9 @@ import { GripVertical, Plus } from 'lucide-react';
 
 import { useMemberDirectory } from '@/hooks/use-member-directory';
 import { MemberAvatar } from '@/components/presence/member-avatar';
+import { StatusBadge } from '@/components/ui/status-badge';
+import { formatDue } from '@/components/tasks/task-row';
 import { StatePanel } from '@/components/ui/state-panel';
-import { fromISO } from '@/lib/calendar';
 import { bucketOf } from '@/lib/tasks/board';
 import { TASK_STATUSES, type Task, type TaskStatus } from '@/types';
 import { cn } from '@/lib/utils';
@@ -314,12 +315,12 @@ function Card({
   onOpen: () => void;
 }) {
   const tTask = useTranslations('Tasks');
-  const format = useFormatter();
+  const locale = useLocale();
   const members = useMemberDirectory();
 
   const overdue =
     task.status === 'open' && bucketOf(task, todayIso) === 'overdue';
-  const due = task.due_on ? fromISO(task.due_on) : null;
+  const due = task.due_on ? formatDue(task, todayIso, locale, tTask) : null;
   const owner = task.assigned_to ? members.get(task.assigned_to) : undefined;
 
   return (
@@ -337,6 +338,11 @@ function Card({
         busy && 'opacity-60'
       )}
     >
+      {/* Aqui NÃO existe caixa de concluir, e isso é decidido: no quadro a
+          COLUNA é o estado, então marcar a caixa e arrastar para "Concluída"
+          seriam duas maneiras de dizer a mesma coisa — e no toque a caixa
+          disputaria o alvo com a alça de arrasto. O resto do desenho é o
+          mesmo da linha: o mesmo risco, a mesma pílula, a mesma foto. */}
       <span
         className={cn(
           'text-foreground block text-sm leading-tight font-semibold',
@@ -351,18 +357,19 @@ function Card({
           {tTask(`kind.${task.kind}`)}
         </span>
 
+        {/* O mesmo prazo que a linha da lista imprime, pela mesma função:
+            a hora respeita o relógio do idioma em vez de sair sempre em 24h,
+            e "Atrasada" é a MESMA pílula, não uma escrita à mão sem altura. */}
         {due ? (
-          <span
-            className={cn(
-              'text-2xs tabular-nums',
-              overdue
-                ? 'bg-danger-soft text-danger-ink rounded-full px-1.5 font-semibold'
-                : 'text-muted-foreground'
-            )}
-          >
-            {format.dateTime(due, { day: 'numeric', month: 'short' })}
-            {task.due_time ? ` ${task.due_time.slice(0, 5)}` : ''}
-          </span>
+          overdue ? (
+            <StatusBadge variant="danger" size="sm">
+              {due}
+            </StatusBadge>
+          ) : (
+            <span className="text-muted-foreground text-2xs tabular-nums">
+              {due}
+            </span>
+          )
         ) : null}
 
         {/* O rosto no fim da linha, como no cartão da oportunidade: numa

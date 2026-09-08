@@ -4,27 +4,19 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import {
-  Check,
-  Clock,
   ListChecks,
   Loader2,
   Plus,
-  RotateCcw,
 } from 'lucide-react';
 
 import type { Task } from '@/types';
-import { TASK_KINDS } from '@/types';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
 import { useBusinessHours } from '@/hooks/use-business-hours';
 import { useMemberDirectory } from '@/hooks/use-member-directory';
 import { localParts } from '@/lib/automations/local-time';
-import { fromISO } from '@/lib/calendar';
-import { formatTime } from '@/components/ui/time-field';
 import {
   countTasks,
-  isDueToday,
-  isOverdue,
   loadTasksFor,
   sortTasks,
 } from '@/lib/tasks/queries';
@@ -34,6 +26,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { StatePanel } from '@/components/ui/state-panel';
 import { TaskDialog, type TaskDialogTarget } from './task-dialog';
+import { TaskRow } from './task-row';
 
 /**
  * As tarefas de um contato ou de uma oportunidade.
@@ -173,9 +166,7 @@ export function TaskList({
               todayIso={todayIso}
               locale={locale}
               assignee={
-                task.assigned_to
-                  ? (members.get(task.assigned_to)?.full_name ?? null)
-                  : null
+                task.assigned_to ? (members.get(task.assigned_to) ?? null) : null
               }
               busy={busy === task.id}
               canWrite={canSendMessages}
@@ -202,7 +193,7 @@ export function TaskList({
                     locale={locale}
                     assignee={
                       task.assigned_to
-                        ? (members.get(task.assigned_to)?.full_name ?? null)
+                        ? (members.get(task.assigned_to) ?? null)
                         : null
                     }
                     busy={busy === task.id}
@@ -230,146 +221,4 @@ export function TaskList({
       />
     </div>
   );
-}
-
-type Translator = ReturnType<typeof useTranslations<'Tasks'>>;
-
-/**
- * O nome do tipo, ou o próprio tipo.
- *
- * `tasks.kind` é TEXT e a 068 aceita o que a conta escrever — é a mesma
- * doutrina da 042 para tipos de ocorrência. Então traduzir só o que está em
- * `TASK_KINDS` não é cautela: `t()` LANÇA numa chave que não existe, e uma
- * conta que criasse o tipo "Cobrança" derrubaria a lista inteira.
- */
-function kindLabel(kind: string, t: Translator): string {
-  return (TASK_KINDS as readonly string[]).includes(kind)
-    ? t(`kind.${kind}` as 'kind.call')
-    : kind;
-}
-
-/**
- * Uma linha.
- *
- * O prazo é o que dá a cor: vermelho é atraso, âmbar é hoje, cinza é
- * depois. Nenhuma delas é o tipo da tarefa — uma ligação e uma visita
- * atrasadas são igualmente atrasadas, e colorir por tipo gastaria a única
- * dimensão visual que a lista tem numa informação que o texto já dá.
- */
-function TaskRow({
-  task,
-  todayIso,
-  locale,
-  assignee,
-  busy,
-  canWrite,
-  onToggle,
-  onEdit,
-  t,
-}: {
-  task: Task;
-  todayIso: string;
-  locale: string;
-  assignee: string | null;
-  busy: boolean;
-  canWrite: boolean;
-  onToggle: () => void;
-  onEdit: () => void;
-  t: Translator;
-}) {
-  const done = task.status !== 'open';
-  const overdue = isOverdue(task, todayIso);
-  const today = isDueToday(task, todayIso);
-
-  return (
-    <div className="hover:bg-muted/50 group flex items-start gap-2 rounded-lg px-1.5 py-1.5 transition-colors">
-      <button
-        type="button"
-        disabled={!canWrite || busy}
-        onClick={onToggle}
-        aria-label={done ? t('reopen') : t('complete')}
-        className={cn(
-          'mt-0.5 grid size-4 shrink-0 place-items-center rounded border transition-colors',
-          done
-            ? 'border-primary bg-primary text-primary-foreground'
-            : 'border-input hover:border-primary',
-          !canWrite && 'cursor-not-allowed opacity-50'
-        )}
-      >
-        {busy ? (
-          <Loader2 className="size-2.5 animate-spin" />
-        ) : done ? (
-          task.status === 'done' ? (
-            <Check className="size-3" />
-          ) : (
-            <RotateCcw className="size-2.5" />
-          )
-        ) : null}
-      </button>
-
-      <button
-        type="button"
-        onClick={onEdit}
-        className="min-w-0 flex-1 text-left"
-      >
-        <p
-          className={cn(
-            'truncate text-sm',
-            done ? 'text-muted-foreground line-through' : 'text-foreground'
-          )}
-        >
-          {task.title}
-        </p>
-
-        <div className="text-muted-foreground mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
-          <span>{kindLabel(task.kind, t)}</span>
-
-          {task.due_on && (
-            <span
-              className={cn(
-                'inline-flex items-center gap-1',
-                !done && overdue && 'text-danger font-medium',
-                !done && today && 'text-human-ink font-medium'
-              )}
-            >
-              <Clock className="size-3" />
-              {formatDue(task, todayIso, locale, t)}
-            </span>
-          )}
-
-          {assignee && <span className="truncate">{assignee}</span>}
-        </div>
-      </button>
-    </div>
-  );
-}
-
-/** "Hoje 14:00", "Atrasada · 8 set", "12 set" — o mínimo que responde. */
-function formatDue(
-  task: Task,
-  todayIso: string,
-  locale: string,
-  t: Translator
-): string {
-  if (!task.due_on) return '';
-  const time = task.due_time
-    ? formatTime(task.due_time.slice(0, 5), locale)
-    : '';
-
-  if (task.due_on === todayIso) {
-    return time ? t('dueTodayAt', { time }) : t('dueToday');
-  }
-
-  const date = fromISO(task.due_on);
-  const day = date
-    ? new Intl.DateTimeFormat(locale, {
-        day: 'numeric',
-        month: 'short',
-      }).format(date)
-    : task.due_on;
-
-  const label = time ? `${day} ${time}` : day;
-  return task.status === 'open' && task.due_on < todayIso
-    ? t('dueOverdue', { day: label })
-    : label;
 }

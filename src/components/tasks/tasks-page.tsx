@@ -2,23 +2,13 @@
 
 import * as React from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import Link from 'next/link';
-import { useFormatter, useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { toast } from 'sonner';
-import {
-  Check,
-  ChevronDown,
-  ListChecks,
-  Plus,
-  RotateCcw,
-  Search,
-  User as UserIcon,
-} from 'lucide-react';
+import { ChevronDown, ListChecks, Plus, Search } from 'lucide-react';
 
 import { useAuth } from '@/hooks/use-auth';
 import { useMemberDirectory } from '@/hooks/use-member-directory';
 import { createClient } from '@/lib/supabase/client';
-import { fromISO } from '@/lib/calendar';
 import { localParts } from '@/lib/automations/local-time';
 import { useBusinessHours } from '@/hooks/use-business-hours';
 import {
@@ -26,7 +16,6 @@ import {
   filterTasks,
   groupTasks,
   summarize,
-  type TaskBucket,
 } from '@/lib/tasks/board';
 import { loadAllTasks } from '@/lib/tasks/queries';
 import { cancelTask, completeTask, reopenTask } from '@/lib/tasks/mutations';
@@ -48,6 +37,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { TaskDialog } from '@/components/tasks/task-dialog';
+import { TaskRow } from '@/components/tasks/task-row';
 import { Skeleton } from '@/components/dashboard/skeleton';
 import { TasksBoard } from '@/components/tasks/tasks-board';
 import { TasksCalendar } from '@/components/tasks/tasks-calendar';
@@ -84,10 +74,10 @@ import { TasksCalendar } from '@/components/tasks/tasks-calendar';
 export function TasksPage() {
   const t = useTranslations('TasksPage');
   const tk = useTranslations('Tasks');
-  const format = useFormatter();
+  const locale = useLocale();
   const router = useRouter();
   const params = useSearchParams();
-  const { user } = useAuth();
+  const { user, canSendMessages } = useAuth();
   const { hours } = useBusinessHours();
   const members = useMemberDirectory();
 
@@ -406,26 +396,35 @@ export function TasksPage() {
                   {group.tasks.length}
                 </span>
               </h2>
-              <ul className="divide-y rounded-lg border">
+              <div className="bg-card space-y-0.5 rounded-lg border p-1">
                 {group.tasks.map((task) => (
-                  <Row
+                  <TaskRow
                     key={task.id}
                     task={task}
-                    bucket={group.bucket}
-                    busy={busy === task.id}
-                    onToggle={() => toggle(task)}
-                    onOpen={() => setEditing(task)}
-                    memberName={
+                    todayIso={todayIso}
+                    locale={locale}
+                    assignee={
                       task.assigned_to
-                        ? (members.get(task.assigned_to)?.full_name ?? null)
+                        ? (members.get(task.assigned_to) ?? null)
                         : null
                     }
-                    dueLabel={dueLabel(task, format)}
-                    kindLabel={tk(`kind.${task.kind}`)}
-                    contactLabel={t('contactLink')}
+                    busy={busy === task.id}
+                    canWrite={canSendMessages}
+                    density="comfortable"
+                    contact={
+                      task.contact_id
+                        ? {
+                            href: `/contacts?id=${task.contact_id}`,
+                            label: t('contactLink'),
+                          }
+                        : null
+                    }
+                    onToggle={() => toggle(task)}
+                    onEdit={() => setEditing(task)}
+                    t={tk}
                   />
                 ))}
-              </ul>
+              </div>
             </section>
           ))}
 
@@ -443,26 +442,35 @@ export function TasksPage() {
                 <span className="font-normal opacity-70">{closed.length}</span>
               </button>
               {showClosed ? (
-                <ul className="divide-y rounded-lg border">
+                <div className="bg-card space-y-0.5 rounded-lg border p-1">
                   {closed.map((task) => (
-                    <Row
+                    <TaskRow
                       key={task.id}
                       task={task}
-                      bucket="someday"
-                      busy={busy === task.id}
-                      onToggle={() => toggle(task)}
-                      onOpen={() => setEditing(task)}
-                      memberName={
+                      todayIso={todayIso}
+                      locale={locale}
+                      assignee={
                         task.assigned_to
-                          ? (members.get(task.assigned_to)?.full_name ?? null)
+                          ? (members.get(task.assigned_to) ?? null)
                           : null
                       }
-                      dueLabel={dueLabel(task, format)}
-                      kindLabel={tk(`kind.${task.kind}`)}
-                      contactLabel={t('contactLink')}
+                      busy={busy === task.id}
+                      canWrite={canSendMessages}
+                      density="comfortable"
+                      contact={
+                        task.contact_id
+                          ? {
+                              href: `/contacts?id=${task.contact_id}`,
+                              label: t('contactLink'),
+                            }
+                          : null
+                      }
+                      onToggle={() => toggle(task)}
+                      onEdit={() => setEditing(task)}
+                      t={tk}
                     />
                   ))}
-                </ul>
+                </div>
               ) : null}
             </section>
           ) : null}
@@ -521,113 +529,4 @@ function BoardSkeleton({ mode }: { mode: 'list' | 'board' | 'calendar' }) {
       ))}
     </div>
   );
-}
-
-function Row({
-  task,
-  bucket,
-  busy,
-  onToggle,
-  onOpen,
-  memberName,
-  dueLabel: due,
-  kindLabel,
-  contactLabel,
-}: {
-  task: Task;
-  bucket: TaskBucket;
-  busy: boolean;
-  onToggle: () => void;
-  onOpen: () => void;
-  memberName: string | null;
-  dueLabel: string | null;
-  kindLabel: string;
-  /* O rótulo vem por prop e não de um `useTranslations` local: o arquivo já
-     liga `t` ao namespace da página lá em cima, e um segundo `t` aqui faria
-     o teste de chaves conferir contra o namespace errado — ele monta o mapa
-     de tradutores por ARQUIVO. */
-  contactLabel: string;
-}) {
-  const done = task.status !== 'open';
-
-  return (
-    <li className="hover:bg-muted/40 flex items-center gap-3 px-3 py-2">
-      {/*
-        A caixa de concluir é um botão de verdade e fica FORA do alvo que
-        abre a gaveta. Aninhar os dois faria cada tentativa de marcar como
-        feita abrir o diálogo por engano — o erro mais irritante que uma
-        lista de tarefas pode ter, porque acontece na ação mais frequente.
-      */}
-      <button
-        type="button"
-        onClick={onToggle}
-        disabled={busy}
-        aria-label={done ? 'reopen' : 'complete'}
-        className={cn(
-          'flex size-5 shrink-0 items-center justify-center rounded-full border transition',
-          done
-            ? 'bg-human-strong border-transparent text-white'
-            : 'hover:border-human border-muted-foreground/40'
-        )}
-      >
-        {done ? <Check className="size-3" /> : null}
-        {busy ? <RotateCcw className="size-3 animate-spin" /> : null}
-      </button>
-
-      <button
-        type="button"
-        onClick={onOpen}
-        className="min-w-0 flex-1 text-left"
-      >
-        <span
-          className={cn(
-            'block truncate text-sm',
-            done && 'text-muted-foreground line-through'
-          )}
-        >
-          {task.title}
-        </span>
-        <span className="text-muted-foreground text-2xs flex flex-wrap items-center gap-x-2">
-          <span>{kindLabel}</span>
-          {due ? (
-            <span
-              className={cn(
-                bucket === 'overdue' && !done && 'text-danger-ink font-medium'
-              )}
-            >
-              {due}
-            </span>
-          ) : null}
-          {memberName ? (
-            <span className="inline-flex items-center gap-1">
-              <UserIcon className="size-3" />
-              {memberName}
-            </span>
-          ) : null}
-        </span>
-      </button>
-
-      {task.contact_id ? (
-        <Link
-          href={`/contacts?id=${task.contact_id}`}
-          className="text-muted-foreground hover:text-foreground text-2xs shrink-0 underline-offset-2 hover:underline"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {contactLabel}
-        </Link>
-      ) : null}
-    </li>
-  );
-}
-
-/** `10 de set` ou `10 de set, 14:30`. Sem prazo devolve null. */
-function dueLabel(
-  task: Task,
-  format: ReturnType<typeof useFormatter>
-): string | null {
-  if (!task.due_on) return null;
-  const date = fromISO(task.due_on);
-  if (!date) return null;
-  const day = format.dateTime(date, { day: 'numeric', month: 'short' });
-  return task.due_time ? `${day}, ${task.due_time.slice(0, 5)}` : day;
 }

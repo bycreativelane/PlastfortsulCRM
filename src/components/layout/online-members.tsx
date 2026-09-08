@@ -121,6 +121,10 @@ export function OnlineMembers({ className }: { className?: string }) {
             className="ring-card rounded-full ring-2"
           />
         ))}
+        {/* O "+N" e um DISCO do tamanho de um rosto, e nao um contador:
+            ele fecha a pilha, entao veste a mesma medida (28px) e o mesmo
+            anel dos avatares ao lado. O `CountBadge` e outra peca — uma
+            pilula de 18px que pousa ao lado de um rotulo. */}
         {overflow > 0 && (
           <span
             title={present

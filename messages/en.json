@@ -1218,7 +1218,8 @@
       "toastReopened": "Deal reopened",
       "toastFailedStatus": "Couldn't update the status",
       "toastDeleted": "Deal deleted",
-      "toastFailedDelete": "Couldn't delete the deal"
+      "toastFailedDelete": "Couldn't delete the deal",
+      "actions": "Actions"
     },
     "playbook": {
       "title": "Stage steps",
@@ -3925,6 +3926,7 @@
     },
     "dragHandle": "Drag to another column",
     "columnEmpty": "Nothing here.",
-    "contactLink": "contact"
+    "contactLink": "contact",
+    "dragHint": "drag a card to change status"
   }
 }

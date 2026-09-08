@@ -137,6 +137,75 @@ function ContextMenuTrigger({
   );
 }
 
+/**
+ * A VISIBLE way into the same menu.
+ *
+ * ------------------------------------------------------------------
+ * WHY A RIGHT-CLICK MENU NEEDS A BUTTON
+ * ------------------------------------------------------------------
+ *
+ * The deal card's menu carries edit, move-to-stage, mark won, mark lost,
+ * duplicate, copy the phone number and delete — seven things the board
+ * otherwise reaches only by opening the edit sheet. All of them are one
+ * gesture away, and the gesture is invisible: nothing on a web page
+ * advertises that right-click does something, and a person who never tries
+ * it never learns that any of it exists.
+ *
+ * This is the reveal the reference boards use: the card at rest shows the
+ * minimum, and the ACTIVE card shows what you can do to it. Here it is not a
+ * second set of actions — it is the same menu, opened from a button that
+ * appears under the pointer and on keyboard focus.
+ *
+ * The menu becomes CONTROLLED when this is used, because the button is not a
+ * `Menu.Trigger`: it sets the anchor point and asks the caller to open. Long
+ * press keeps working on touch, which is why the call sites hide the button
+ * on a coarse pointer — there the card's own drag handle already occupies
+ * that corner.
+ *
+ * The point is taken from the button's own box rather than from the click,
+ * so the popup hangs off the button instead of landing wherever the cursor
+ * happened to be inside it. Divided by the zoom for the same reason the
+ * cursor is — see the note in `ContextMenu`.
+ */
+function ContextMenuActionsTrigger({
+  onOpen,
+  onClick,
+  onPointerDown,
+  ...props
+}: React.ComponentProps<'button'> & { onOpen: () => void }) {
+  const cursor = React.useContext(CursorPointContext);
+
+  return (
+    <button
+      type="button"
+      data-slot="context-menu-actions-trigger"
+      // The board's cards are draggable and the dnd listeners sit on the
+      // wrapper this button lives in. Without this, pressing the button is
+      // the start of a drag.
+      onPointerDown={(event) => {
+        event.stopPropagation();
+        onPointerDown?.(event);
+      }}
+      onClick={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (cursor) {
+          const rect = event.currentTarget.getBoundingClientRect();
+          const zoom = effectiveZoom(event.currentTarget);
+          cursor.setPoint({
+            x: (rect.left + rect.width / 2) / zoom,
+            y: rect.bottom / zoom,
+            touch: false,
+          });
+        }
+        onOpen();
+        onClick?.(event);
+      }}
+      {...props}
+    />
+  );
+}
+
 /** Shared popup surface — the root menu and every submenu are the same panel. */
 const popupClass =
   'glass text-popover-foreground z-50 max-h-(--available-height) origin-(--transform-origin) overflow-x-hidden overflow-y-auto rounded-xl p-1 duration-100 outline-none data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95';
@@ -327,4 +396,5 @@ export {
   ContextMenuSubContent,
   ContextMenuSubTrigger,
   ContextMenuTrigger,
+  ContextMenuActionsTrigger,
 };

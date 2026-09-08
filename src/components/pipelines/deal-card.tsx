@@ -67,6 +67,11 @@ export function DealCard({
         // sensacao de que o cartao e pegavel. O cartao do quadro de tarefas
         // ja tinha sido corrigido; este era o original que ele copiou.
         'border-border bg-card w-full cursor-grab rounded-lg border px-2.5 py-2.5 text-left',
+        // O `KeyboardSensor` esta ligado nos dois quadros: da para pegar um
+        // cartao e move-lo pelo teclado. Sem anel de foco nao dava para ver
+        // QUAL cartao estava pego — o quadro de tarefas ja tinha o anel, este
+        // nao, e sao a mesma peca.
+        'focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none',
         isOverlay ? 'cursor-grabbing shadow-lg' : 'surface-interactive',
         className
       )}

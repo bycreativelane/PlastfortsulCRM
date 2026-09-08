@@ -1218,7 +1218,8 @@
       "toastReopened": "딜을 다시 열었습니다",
       "toastFailedStatus": "상태를 업데이트하지 못했습니다",
       "toastDeleted": "딜이 삭제되었습니다",
-      "toastFailedDelete": "딜을 삭제하지 못했습니다"
+      "toastFailedDelete": "딜을 삭제하지 못했습니다",
+      "actions": "작업"
     },
     "playbook": {
       "title": "단계 체크리스트",
@@ -3925,6 +3926,7 @@
     },
     "dragHandle": "다른 열로 끌기",
     "columnEmpty": "없음.",
-    "contactLink": "연락처"
+    "contactLink": "연락처",
+    "dragHint": "카드를 끌어 상태 변경"
   }
 }

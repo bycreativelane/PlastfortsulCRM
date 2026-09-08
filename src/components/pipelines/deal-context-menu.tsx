@@ -9,6 +9,7 @@ import {
   Check,
   Copy,
   MessageSquare,
+  MoreHorizontal,
   Pencil,
   RotateCcw,
   Trash2,
@@ -29,6 +30,7 @@ import {
   ContextMenuSubContent,
   ContextMenuSubTrigger,
   ContextMenuTrigger,
+  ContextMenuActionsTrigger,
 } from '@/components/ui/context-menu';
 
 interface DealContextMenuProps {
@@ -86,6 +88,7 @@ export function DealContextMenu({
 
   // Two-step delete. Reset whenever the menu closes so the armed state can
   // never survive into the next right-click on another card.
+  const [open, setOpen] = useState(false);
   const [armedDelete, setArmedDelete] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -169,11 +172,35 @@ export function DealContextMenu({
 
   return (
     <ContextMenu
-      onOpenChange={(open) => {
-        if (!open) setArmedDelete(false);
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (!next) setArmedDelete(false);
       }}
     >
       <ContextMenuTrigger className="block">{children}</ContextMenuTrigger>
+
+      {/* AS ACOES DO CARTAO ATIVO.
+          Sete coisas vivem neste menu e todas custavam um clique-direito, que
+          e um gesto que nada na tela anuncia. O botao aparece sob o ponteiro
+          e no foco de teclado — em repouso o cartao continua so o cartao,
+          que e o que mantem a coluna legivel.
+
+          So em ponteiro fino: no toque o pressionar-longo ja abre o mesmo
+          menu, e a borda direita do cartao pertence a alca de arrasto. */}
+      <ContextMenuActionsTrigger
+        onOpen={() => setOpen(true)}
+        // O menu e portalado para fora do cartao, entao mover o ponteiro ate
+        // ele tira o hover do cartao e o botao sumiria com o proprio menu
+        // aberto. Este atributo e o que o resto do app usa para o mesmo caso;
+        // aqui ele vem a mao porque este botao nao e um gatilho do base-ui.
+        data-popup-open={open ? '' : undefined}
+        aria-label={t('actions')}
+        title={t('actions')}
+        className="text-muted-foreground hover:text-foreground focus-visible:ring-ring bg-card/80 absolute top-1 right-1 z-10 hidden size-6 place-items-center rounded-md opacity-0 backdrop-blur-[2px] transition-opacity duration-(--dur-1) group-hover/deal:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:outline-none data-popup-open:opacity-100 pointer-fine:grid"
+      >
+        <MoreHorizontal className="size-3.5" />
+      </ContextMenuActionsTrigger>
 
       <ContextMenuContent>
         {/* The title, because the menu covers the card that carried it.

@@ -84,40 +84,26 @@ function AvatarBadge({ className, ...props }: React.ComponentProps<"span">) {
   )
 }
 
-function AvatarGroup({ className, ...props }: React.ComponentProps<"div">) {
-  return (
-    <div
-      data-slot="avatar-group"
-      className={cn(
-        "group/avatar-group flex -space-x-2 *:data-[slot=avatar]:ring-2 *:data-[slot=avatar]:ring-background",
-        className
-      )}
-      {...props}
-    />
-  )
-}
+/*
+ * `AvatarGroup` e `AvatarGroupCount` VIVIAM AQUI, e sairam.
+ *
+ * Eram andaime do shadcn com zero chamadas, e zero chamadas aqui nao queria
+ * dizer "ainda nao adotado" — queria dizer que nao servem a este app.
+ *
+ * A pilha existe em UM lugar so, a barra de presenca, e ela e feita de
+ * `MemberAvatar`, que embrulha o `Avatar` num `<span>` para pendurar o ponto
+ * de presenca. O servico principal do grupo era o anel — `*:data-[slot=avatar]`,
+ * um seletor de FILHO — e ele nao atravessa esse `<span>`. Restava o
+ * `-space-x-2`, que e uma classe.
+ *
+ * O `AvatarGroupCount` estava ainda mais longe: 32px com `text-sm` e
+ * `ring-background`, contra os 28px, `text-3xs` e `ring-card` que a pilha
+ * real usa — e a escada dele responde a um `data-size` que o `MemberAvatar`
+ * nao escreve. Adotar os dois seria sobrescrever quase tudo o que eles
+ * trazem, que e o oposto de usar um componente.
+ *
+ * Se um dia aparecer uma segunda pilha, o lugar dela e a familia do
+ * `MemberAvatar`, com a escada e o `ringClass` que ela ja tem.
+ */
 
-function AvatarGroupCount({
-  className,
-  ...props
-}: React.ComponentProps<"div">) {
-  return (
-    <div
-      data-slot="avatar-group-count"
-      className={cn(
-        "relative flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-sm text-muted-foreground ring-2 ring-background group-has-data-[size=lg]/avatar-group:size-10 group-has-data-[size=sm]/avatar-group:size-6 [&>svg]:size-4 group-has-data-[size=lg]/avatar-group:[&>svg]:size-5 group-has-data-[size=sm]/avatar-group:[&>svg]:size-3",
-        className
-      )}
-      {...props}
-    />
-  )
-}
-
-export {
-  Avatar,
-  AvatarImage,
-  AvatarFallback,
-  AvatarGroup,
-  AvatarGroupCount,
-  AvatarBadge,
-}
+export { Avatar, AvatarImage, AvatarFallback, AvatarBadge }

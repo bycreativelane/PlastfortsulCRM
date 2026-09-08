@@ -232,6 +232,18 @@ export function TasksPage() {
                   today: counts.today,
                 })
               : t('summary', { open: counts.open, today: counts.today })}
+            {/* A LEGENDA ENSINA A INTERACAO, e so a que existe agora.
+                E o que o Bond CRM faz — "drag a card to change stage" fica na
+                linha de resumo, e nao num tour nem num tooltip que ninguem
+                abre. So no modo Quadro, porque na lista e no calendario a
+                frase seria falsa; e so em ponteiro fino, porque no toque a
+                alca de arrasto ja esta desenhada no cartao. */}
+            {mode === 'board' ? (
+              <span className="hidden pointer-fine:inline">
+                {' · '}
+                {t('dragHint')}
+              </span>
+            ) : null}
           </p>
         </div>
 

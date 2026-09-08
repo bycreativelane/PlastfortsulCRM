@@ -345,7 +345,10 @@ function DraggableDealCard({
       // meant a finger landing anywhere on a column could scroll neither the
       // column nor the board — the phone got the first stage and the first
       // three cards and no way to reach the rest.
-      className="relative touch-manipulation"
+      // `group/deal` nomeado: o botao de acoes aparece no hover DESTE
+      // cartao, e um grupo anonimo casaria com qualquer ancestral com
+      // `group` que aparecesse depois.
+      className="group/deal relative touch-manipulation"
       style={{ opacity: isDragging ? 0.3 : 1 }}
     >
       <DealContextMenu

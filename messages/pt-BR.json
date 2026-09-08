@@ -1218,7 +1218,8 @@
       "toastReopened": "Oportunidade reaberta",
       "toastFailedStatus": "Não foi possível atualizar a situação",
       "toastDeleted": "Oportunidade excluída",
-      "toastFailedDelete": "Não foi possível excluir a oportunidade"
+      "toastFailedDelete": "Não foi possível excluir a oportunidade",
+      "actions": "Ações"
     },
     "playbook": {
       "title": "Passos da etapa",
@@ -3925,6 +3926,7 @@
     },
     "dragHandle": "Arrastar para outra coluna",
     "columnEmpty": "Nada por aqui.",
-    "contactLink": "contato"
+    "contactLink": "contato",
+    "dragHint": "arraste um cartão para mudar de estado"
   }
 }

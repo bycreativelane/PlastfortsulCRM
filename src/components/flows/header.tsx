@@ -40,6 +40,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { StatusBadge, StatusDot } from '@/components/ui/status-badge';
 import { useFlowEditor, type BuilderState } from './flow-editor-state';
+import { IconTile } from '@/components/ui/icon-tile';
 
 export function EditorHeader() {
   const router = useRouter();
@@ -75,9 +76,9 @@ export function EditorHeader() {
         >
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <span className="bg-primary-soft text-primary flex h-8 w-8 shrink-0 items-center justify-center rounded-lg">
-          <Workflow className="size-4.5" />
-        </span>
+        <IconTile size="md" tone="primary">
+          <Workflow />
+        </IconTile>
         {/* Name over description, as one block.
         
             The description used to be a full-width row of its own under

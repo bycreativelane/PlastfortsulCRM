@@ -77,9 +77,21 @@ const TILE_TONE =
  * busca casar a marca de 48px das telas de autenticação com o `size-6` do
  * ÍCONE dentro dela, na linha seguinte — duas medidas de dois objetos
  * diferentes lidas como uma.
+ *
+ * São dois testes na MESMA linha, e não um regex encadeado: a ordem entre
+ * medida e centragem varia com o que o Prettier decide, e exigir uma ordem
+ * deixava metade das escritas de fora.
+ *
+ * DUAS ESCRITAS DA MEDIDA, e a segunda entrou depois de um erro: o ladrilho
+ * da página de notificações era `h-10 w-10` e escapou de uma busca que só
+ * conhecia `size-N`. `size-10` também entrou pelo mesmo motivo — 40px não
+ * está na escada (24, 28, 32, 36) e é justamente por isso que precisa ser
+ * acusado, mas a faixa `[6789]` parava um degrau antes.
  */
-const TILE_SHAPE =
-  /\bsize-[6789]\b[^\n]*(place-items-center|items-center justify-center)|(place-items-center|items-center justify-center)[^\n]*\bsize-[6789]\b/;
+const TILE_SHAPE = [
+  /\bsize-(?:6|7|8|9|10)\b|\bh-(6|7|8|9|10)\b[^\n]*\bw-\1\b/,
+  /place-items-center|items-center justify-center/,
+];
 
 /**
  * Um preenchimento que MUDA no hover é um botão.
@@ -206,7 +218,7 @@ function tileOffenders(): string[] {
   for (const file of sourceFiles(SRC)) {
     const lines = stripComments(readFileSync(file, 'utf8')).split('\n');
     for (let i = 0; i < lines.length; i++) {
-      if (!TILE_SHAPE.test(lines[i])) continue;
+      if (!TILE_SHAPE.every((part) => part.test(lines[i]))) continue;
       if (IS_BUTTON.test(lines[i])) continue;
 
       // O tom pode estar na linha da forma ou logo abaixo, e o disco é

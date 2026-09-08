@@ -40,6 +40,7 @@ import {
 } from 'lucide-react';
 import { Tag as TagChip } from '@/components/ui/tag';
 import { useTranslations } from 'next-intl';
+import { IconTile } from '@/components/ui/icon-tile';
 
 const DEFAULT_TAG_COLOR = '#3b82f6';
 const PREVIEW_LIMIT = 5;
@@ -445,9 +446,9 @@ export function ImportModal({
           >
             {file ? (
               <>
-                <div className="bg-primary/15 ring-primary/25 flex size-10 items-center justify-center rounded-lg ring-1">
-                  <FileText className="text-primary size-5" />
-                </div>
+                <IconTile size="lg" tone="primary" className="ring-primary/25 ring-1">
+                  <FileText />
+                </IconTile>
                 <p
                   className="text-popover-foreground max-w-full truncate px-2 text-sm font-medium"
                   title={file.name}

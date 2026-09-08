@@ -43,6 +43,8 @@ import { TasksBoard } from '@/components/tasks/tasks-board';
 import { TaskRow } from '@/components/tasks/task-row';
 import { TasksCalendar } from '@/components/tasks/tasks-calendar';
 import { FilterChip } from '@/components/ui/filter-chip';
+import { PeriodPicker } from '@/components/dashboard/period-picker';
+import { periodFromPreset } from '@/lib/dashboard/period';
 import { PhoneInput } from '@/components/ui/phone-input';
 import { SegBar } from '@/components/ui/seg-bar';
 import { useTranslations } from 'next-intl';
@@ -717,6 +719,15 @@ export default function ChartLabPage() {
         <SectionTitle>Contato — campos</SectionTitle>
         <FieldsBench />
 
+        {/* O SELETOR DE PERÍODO dos relatórios.
+            Ele vive em /reports, autenticado, e os dois campos de data dele
+            são `<input type="date">` nativos — o controle que o `date-field`
+            documenta como proibido. Trocar pelo `DateField` põe um Popover
+            dentro de outro, coisa que este repo não faz em lugar nenhum: é
+            aqui que dá para ver se o de fora sobrevive ao de dentro. */}
+        <SectionTitle>Relatórios — período</SectionTitle>
+        <PeriodPickerBench />
+
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <ResponseTimeChart data={RESPONSE} loading={false} />
           {/* The dashboard's density, at the dashboard's width. */}
@@ -791,6 +802,15 @@ function FieldsBench() {
           />
         </div>
       </div>
+    </Panel>
+  );
+}
+
+function PeriodPickerBench() {
+  const [period, setPeriod] = useState(() => periodFromPreset(30));
+  return (
+    <Panel className="p-4">
+      <PeriodPicker value={period} onChange={setPeriod} />
     </Panel>
   );
 }

@@ -6,7 +6,6 @@ import { CalendarRange, Check } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 import { APP_LOCALE } from '@/lib/i18n/locale';
-import { localDayKey } from '@/lib/dashboard/date-utils';
 import {
   MAX_PERIOD_DAYS,
   PRESETS,
@@ -21,6 +20,8 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
+import { DateField } from '@/components/ui/date-field';
+import { FieldLabel } from '@/components/ui/field';
 
 /**
  * The period the page is about — three presets and any window at all.
@@ -131,37 +132,48 @@ export function PeriodPicker({
         </PopoverTrigger>
 
         <PopoverContent align="end" className="w-72 p-3">
+          {/* O `DateField` da casa, e não `<input type="date">`.
+
+              O nativo entrega o painel ao navegador, que pinta o dele
+              seguindo o tema do SISTEMA e não o do app — o `date-field`
+              abre com dois parágrafos sobre isso e termina em "the only fix
+              is to stop asking for it". Estes dois eram os últimos do
+              produto, e ficavam na tela de relatórios: quem roda o app claro
+              num Windows escuro abria um calendário preto de dentro de um
+              popover branco.
+
+              De quebra eles eram 36px num app de 32, e a 12px — abaixo dos
+              16 que impedem o Safari do iPhone de dar zoom ao focar.
+
+              O `max` de "hoje" se perde na troca, e isso é aceitável aqui:
+              o painel JÁ diz `errorFuture` com todas as letras e desabilita
+              o Aplicar. Passa de "não dá para escolher" para "escolheu, e o
+              painel explica" — que é o mesmo tratamento dos outros dois
+              erros deste formulário. */}
           <div className="grid grid-cols-2 gap-2">
-            <label className="flex flex-col gap-1">
-              <span className="text-muted-foreground text-2xs font-semibold">
+            <div className="flex flex-col gap-1">
+              <FieldLabel htmlFor="period-from" className="text-2xs mb-0">
                 {tp('from')}
-              </span>
-              <input
-                type="date"
+              </FieldLabel>
+              <DateField
+                id="period-from"
                 value={from}
-                max={localDayKey(new Date())}
-                onChange={(e) => setFrom(e.target.value)}
-                className="border-border bg-card text-foreground h-9 rounded-lg border px-2 text-xs"
+                onValueChange={setFrom}
               />
-            </label>
-            <label className="flex flex-col gap-1">
-              <span className="text-muted-foreground text-2xs font-semibold">
+            </div>
+            <div className="flex flex-col gap-1">
+              <FieldLabel htmlFor="period-to" className="text-2xs mb-0">
                 {tp('to')}
-              </span>
-              <input
-                type="date"
-                value={to}
-                onChange={(e) => setTo(e.target.value)}
-                className="border-border bg-card text-foreground h-9 rounded-lg border px-2 text-xs"
-              />
-            </label>
+              </FieldLabel>
+              <DateField id="period-to" value={to} onValueChange={setTo} />
+            </div>
           </div>
 
           {/* One sentence per reason. "Período inválido" three times for
               three different mistakes is how somebody keeps retrying the
               one thing that will never work. */}
           {!parsed.ok && (
-            <p className="text-destructive mt-2 text-2xs">
+            <p className="text-destructive text-2xs mt-2">
               {parsed.reason === 'reversed'
                 ? tp('errorReversed')
                 : parsed.reason === 'future'
@@ -173,17 +185,13 @@ export function PeriodPicker({
           )}
 
           {parsed.ok && (
-            <p className="text-muted-foreground mt-2 text-2xs">
+            <p className="text-muted-foreground text-2xs mt-2">
               {tp('willCover', { days: parsed.period.days })}
             </p>
           )}
 
           <div className="mt-3 flex justify-end gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setOpen(false)}
-            >
+            <Button variant="ghost" size="sm" onClick={() => setOpen(false)}>
               {tp('cancel')}
             </Button>
             <Button size="sm" disabled={!parsed.ok} onClick={apply}>

@@ -306,7 +306,7 @@
       "presetTomorrow": "Amanhã",
       "presetWeek": "Em 7 dias",
       "clearDate": "Sem data",
-      "rescheduled": "Data atualizada",
+      "rescheduled": "Movido para {date}",
       "rescheduleCleared": "Data removida",
       "rescheduleFailed": "Não foi possível mudar a data"
     }
@@ -3769,7 +3769,10 @@
     "materialPlaceholder": "PEBD, PEAD, kraft",
     "color": "Cor",
     "colorPlaceholder": "preto, natural, branco",
-    "adminOnly": "Só um admin cria ou aposenta um produto. Corrigir um é seu."
+    "adminOnly": "Só um admin cria ou aposenta um produto. Corrigir um é seu.",
+    "genericError": "Não foi possível salvar. Tente de novo.",
+    "retired": "{name} saiu do catálogo",
+    "restored": "{name} voltou ao catálogo"
   },
   "Playbook": {
     "title": "Playbook",

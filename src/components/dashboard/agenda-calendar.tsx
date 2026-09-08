@@ -220,7 +220,24 @@ export function AgendaCalendar() {
       toast.error(t('rescheduleFailed'));
       return;
     }
-    toast.success(iso ? t('rescheduled') : t('rescheduleCleared'));
+    /*
+     * O DESTINO, e não só "Data atualizada".
+     *
+     * Remarcar pelo popover pode mandar o item para um mês adiante, e o
+     * item some da janela de seis semanas que a agenda desenha. "Data
+     * atualizada" confirma que algo mudou e deixa a pessoa procurando
+     * onde — a única informação que ela não tem.
+     */
+    toast.success(
+      iso
+        ? t('rescheduled', {
+            date: new Intl.DateTimeFormat(locale, {
+              day: 'numeric',
+              month: 'long',
+            }).format(fromISO(iso) ?? new Date()),
+          })
+        : t('rescheduleCleared')
+    );
     setReloads((n) => n + 1);
   }
 

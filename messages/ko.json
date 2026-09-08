@@ -306,7 +306,7 @@
       "presetTomorrow": "내일",
       "presetWeek": "7일 후",
       "clearDate": "날짜 없음",
-      "rescheduled": "날짜가 변경되었습니다",
+      "rescheduled": "{date}(으)로 이동",
       "rescheduleCleared": "날짜가 삭제되었습니다",
       "rescheduleFailed": "날짜를 변경하지 못했습니다"
     }
@@ -3769,7 +3769,10 @@
     "materialPlaceholder": "LDPE, HDPE, 크라프트",
     "color": "색상",
     "colorPlaceholder": "검정, 무색, 흰색",
-    "adminOnly": "제품 생성과 판매 중지는 관리자만 가능합니다. 수정은 가능합니다."
+    "adminOnly": "제품 생성과 판매 중지는 관리자만 가능합니다. 수정은 가능합니다.",
+    "genericError": "저장하지 못했습니다. 다시 시도하세요.",
+    "retired": "{name} 카탈로그에서 제외됨",
+    "restored": "{name} 카탈로그로 복귀"
   },
   "Playbook": {
     "title": "플레이북",

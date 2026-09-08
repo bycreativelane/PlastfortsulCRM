@@ -306,7 +306,7 @@
       "presetTomorrow": "Tomorrow",
       "presetWeek": "In 7 days",
       "clearDate": "No date",
-      "rescheduled": "Date updated",
+      "rescheduled": "Moved to {date}",
       "rescheduleCleared": "Date removed",
       "rescheduleFailed": "Could not change the date"
     }
@@ -3769,7 +3769,10 @@
     "materialPlaceholder": "PEBD, PEAD, kraft",
     "color": "Colour",
     "colorPlaceholder": "black, natural, white",
-    "adminOnly": "Only an admin can create or retire a product. Correcting one is yours."
+    "adminOnly": "Only an admin can create or retire a product. Correcting one is yours.",
+    "genericError": "Could not save. Try again.",
+    "retired": "{name} left the catalogue",
+    "restored": "{name} is back in the catalogue"
   },
   "Playbook": {
     "title": "Playbook",

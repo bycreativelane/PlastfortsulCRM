@@ -214,6 +214,21 @@ export function ProductCatalog() {
         toast.error(describe(error, t));
         return;
       }
+      /*
+       * O RECIBO, com o nome do produto.
+       *
+       * Aposentar era um ícone fantasma sem rótulo, colado num lápis
+       * idêntico, e a linha SUMIA da lista na hora — porque `visible`
+       * filtra os inativos. Nenhuma confirmação, nenhum aviso: só um
+       * produto a menos, e a dúvida de ter clicado no botão errado.
+       *
+       * Toast e não `useConfirm`: o ato é reversível pelo mesmo botão,
+       * e o arquivo já escreve `RETIRE, NEVER DELETE`. Confirmar algo
+       * que se desfaz num clique é atrito sem seguro.
+       */
+      toast.success(
+        t(product.active ? 'retired' : 'restored', { name: product.name })
+      );
       void reload();
     },
     [reload, t]
@@ -613,7 +628,22 @@ function describe(error: string, t: ReturnType<typeof useTranslations>): string 
   if (error === 'missing-table') return t('pendingTitle');
   if (error === 'admin-only') return t('adminOnly');
   if (error === 'empty') return t('nameRequired');
-  return error;
+
+  /*
+   * O RESTO NÃO VAI PARA A TELA.
+   *
+   * O que sobra aqui é `error.message` do Postgres — inglês cru, escrito
+   * para quem lê log, num app em português. `catalog.ts:297` devolve
+   * exatamente isso quando o código não é um dos casos nomeados.
+   *
+   * A decisão já estava escrita no `contact-form.tsx:418-422`, com estas
+   * palavras: *"`err.message` here is a Supabase/storage string in
+   * English, and it always won over the key written for this case. The
+   * detail goes to the console; the person gets the sentence."* Este
+   * arquivo não tinha recebido o recado.
+   */
+  console.error('Catálogo de produtos:', error);
+  return t('genericError');
 }
 
 function empty(currency: string): ProductDraft {

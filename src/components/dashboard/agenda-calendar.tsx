@@ -53,6 +53,7 @@ import {
 } from '@/components/ui/panel';
 import { Skeleton } from '@/components/dashboard/skeleton';
 import { StatePanel } from '@/components/ui/state-panel';
+import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { IconTile } from '@/components/ui/icon-tile';
 import {
@@ -161,6 +162,21 @@ export function AgendaCalendar() {
 
   const selectedKey = toISO(selected);
   const dayItems = byDay.get(selectedKey) ?? [];
+
+  /*
+   * Itens DESTE dia que os chips estão escondendo.
+   *
+   * Sem esta conta o vazio mandava "escolher outro dia" quando o que
+   * precisava mudar era o filtro — e o dia seguinte responderia a mesma
+   * coisa, porque o filtro viaja junto.
+   *
+   * A contagem dos chips não serve de prova: ela mede a janela de seis
+   * semanas inteira, então marcar 3 é compatível com este dia vazio.
+   */
+  const hiddenHere = React.useMemo(() => {
+    const all = groupByDay(items ?? []).get(selectedKey) ?? [];
+    return all.length - dayItems.length;
+  }, [items, selectedKey, dayItems.length]);
 
   const longDate = React.useMemo(
     () =>
@@ -364,8 +380,23 @@ export function AgendaCalendar() {
             <StatePanel
               className="flex-1"
               icon={CalendarDays}
-              title={t('dayEmpty')}
-              description={t('dayEmptyHint')}
+              title={
+                hiddenHere > 0
+                  ? t('dayFiltered', { count: hiddenHere })
+                  : t('dayEmpty')
+              }
+              description={hiddenHere > 0 ? undefined : t('dayEmptyHint')}
+              actions={
+                hiddenHere > 0 ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setHidden(new Set())}
+                  >
+                    {t('dayFilteredAction')}
+                  </Button>
+                ) : undefined
+              }
             />
           ) : (
             <ul>

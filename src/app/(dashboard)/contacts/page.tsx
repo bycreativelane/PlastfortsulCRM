@@ -125,6 +125,15 @@ function ContactsPageInner() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
+  /*
+   * O total da CONTA, que é outro número.
+   *
+   * `totalCount` guarda o resultado FILTRADO — é ele que pagina e que a
+   * barra de segmentação imprime, corretamente, como "no filtro". O
+   * subtítulo imprimia essa mesma variável dizendo "no total", então
+   * buscar por "silva" reescrevia o tamanho da base para 4.
+   */
+  const [accountTotal, setAccountTotal] = useState(0);
   // Tag filter — contacts shown must have ANY of these tags (OR).
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [segmentation, setSegmentation] =
@@ -357,6 +366,29 @@ function ContactsPageInner() {
     fetchContacts();
   }, [fetchContacts]);
 
+  /*
+   * O tamanho da base, uma vez por conta e não a cada tecla.
+   *
+   * `head: true` traz só o cabeçalho de contagem, sem linha nenhuma. E o
+   * `.eq('account_id')` FICA: `is_account_member()` é SECURITY DEFINER e o
+   * planner não a inlina, então sem ele o count vira varredura da tabela
+   * inteira avaliando a função por linha — o oposto do que economizaria.
+   */
+  useEffect(() => {
+    if (!accountId) return;
+    let cancelled = false;
+    createClient()
+      .from('contacts')
+      .select('id', { count: 'exact', head: true })
+      .eq('account_id', accountId)
+      .then(({ count }) => {
+        if (!cancelled) setAccountTotal(count ?? 0);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [accountId]);
+
   /**
    * A lista não é só desta aba. Uma automação que pendura etiqueta,
    * escreve um campo ou cria oportunidade mexe nas mesmas linhas que
@@ -469,8 +501,20 @@ function ContactsPageInner() {
   const allTags = Object.values(tagsMap).sort((a, b) =>
     a.name.localeCompare(b.name)
   );
+  /*
+   * A SEGMENTAÇÃO conta como filtro.
+   *
+   * Ela não contava, e o efeito era o pior tipo de vazio: segmentar por
+   * "sem compra nos últimos 90 dias" numa base de 4.000 contatos
+   * respondia "Nenhum contato ainda" e oferecia cadastrar o primeiro.
+   *
+   * Só duas leituras dependem disto — a escolha entre os dois textos de
+   * vazio e o botão que os acompanha — então não vaza para lugar nenhum.
+   */
   const hasActiveFilters =
-    search.trim().length > 0 || selectedTagIds.length > 0;
+    search.trim().length > 0 ||
+    selectedTagIds.length > 0 ||
+    isSegmentationActive(segmentation);
 
   function toggleTagFilter(tagId: string) {
     setSelectedTagIds((prev) =>
@@ -528,8 +572,8 @@ function ContactsPageInner() {
       <PageHeader
         title={t('title')}
         description={
-          totalCount > 0
-            ? t('subtitle', { count: totalCount })
+          accountTotal > 0
+            ? t('subtitle', { count: accountTotal })
             : t('subtitleZero')
         }
       />

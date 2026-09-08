@@ -311,7 +311,9 @@
       "rescheduleFailed": "Não foi possível mudar a data",
       "overdue": "Em atraso",
       "broadcastFailed": "Falhou",
-      "fullAgenda": "Agenda completa"
+      "fullAgenda": "Agenda completa",
+      "dayFiltered": "{count, plural, =1 {1 item escondido pelos filtros} other {# itens escondidos pelos filtros}}",
+      "dayFilteredAction": "Mostrar tudo"
     }
   },
   "Reports": {
@@ -794,7 +796,7 @@
   "Contacts": {
     "page": {
       "title": "Contatos",
-      "subtitle": "Gerencie sua base. {count} contatos no total.",
+      "subtitle": "Gerencie sua base. {count} {count, plural, =1 {contato} other {contatos}} no total.",
       "subtitleZero": "Gerencie sua base.",
       "customFieldsBtn": "Campos personalizados",
       "importBtn": "Importar",
@@ -3780,7 +3782,8 @@
     "adminOnly": "Só um admin cria ou aposenta um produto. Corrigir um é seu.",
     "genericError": "Não foi possível salvar. Tente de novo.",
     "retired": "{name} saiu do catálogo",
-    "restored": "{name} voltou ao catálogo"
+    "restored": "{name} voltou ao catálogo",
+    "showRetiredCount": "{count, plural, =1 {Mostrar 1 aposentado} other {Mostrar # aposentados}}"
   },
   "Playbook": {
     "title": "Playbook",

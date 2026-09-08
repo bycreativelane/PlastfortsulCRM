@@ -281,7 +281,13 @@ export function buildFilterOptions(
       id: 'closed',
       group: labels.groupState,
       label: labels.closed,
-      match: (c) => c.status === 'closed',
+      // `isVisible` aqui porque o CLIQUE já o aplica: a lista devolve
+      // `searched.filter((c) => isVisible(c) && c.status === 'closed')`.
+      // Sem ele, toda conversa encerrada E oculta era contada e não
+      // aparecia — e o docstring de `withCounts` promete o contrário com
+      // todas as letras. Ocultas continua sem o guard: ela É a rota de
+      // volta, e filtrar ali zeraria o único caminho.
+      match: (c) => c.status === 'closed' && isVisible(c),
       replacesScope: true,
     },
     {

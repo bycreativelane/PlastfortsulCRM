@@ -311,7 +311,9 @@
       "rescheduleFailed": "Could not change the date",
       "overdue": "Overdue",
       "broadcastFailed": "Failed",
-      "fullAgenda": "Full agenda"
+      "fullAgenda": "Full agenda",
+      "dayFiltered": "{count, plural, =1 {1 item hidden by the filters} other {# items hidden by the filters}}",
+      "dayFilteredAction": "Show everything"
     }
   },
   "Reports": {
@@ -794,7 +796,7 @@
   "Contacts": {
     "page": {
       "title": "Contacts",
-      "subtitle": "Manage your contact list. {count} total contacts.",
+      "subtitle": "Manage your contact list. {count} {count, plural, =1 {contact} other {contacts}} in total.",
       "subtitleZero": "Manage your contact list.",
       "customFieldsBtn": "Custom fields",
       "importBtn": "Import",
@@ -3780,7 +3782,8 @@
     "adminOnly": "Only an admin can create or retire a product. Correcting one is yours.",
     "genericError": "Could not save. Try again.",
     "retired": "{name} left the catalogue",
-    "restored": "{name} is back in the catalogue"
+    "restored": "{name} is back in the catalogue",
+    "showRetiredCount": "{count, plural, =1 {Show 1 retired product} other {Show # retired products}}"
   },
   "Playbook": {
     "title": "Playbook",

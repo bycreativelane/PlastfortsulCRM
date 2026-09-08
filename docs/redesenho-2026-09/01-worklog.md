@@ -308,3 +308,64 @@ o `date-only.test.ts` guarda.
 gravam. Isso não muda nada na tela hoje; muda o que dá para mostrar daqui a
 um mês, e é a metade invisível que dá sentido à visível.
 
+
+---
+
+## Fase 5 — vazios e contagens que mentem
+
+Sete achados, e o padrão é um número ou uma frase que **afirma algo falso
+sobre o próprio produto**. Nenhum quebra; todos desinformam.
+
+### O vazio que culpa o usuário (C2, F4, A1, R11)
+
+Três telas respondiam a um filtro com a frase reservada para uma base vazia.
+Segmentar 4.000 contatos por "sem compra nos últimos 90 dias" e receber
+**"Nenhum contato ainda"** — com o botão "Cadastrar o primeiro contato" —
+é o produto negando a existência do que ele mesmo acabou de esconder.
+
+No catálogo o caso é mais fino: o corte por ESTADO vem antes do corte por
+TERMO, então buscar um produto aposentado responde "Nada corresponde" com o
+interruptor que o traria de volta fora do painel e abaixo da resposta. O
+conserto foi separar os dois testes (`matchesTerm` virou função de módulo) —
+só assim dá para perguntar *quantos o termo acharia se o aposentado
+estivesse ligado* — e pôr a resposta como ação dentro do próprio vazio.
+
+Na agenda da visão geral o vazio mandava "escolher outro dia" quando o que
+precisava mudar era o filtro. O dia seguinte responderia a mesma coisa: o
+filtro viaja junto. E a contagem dos chips não serve de prova, porque ela
+mede a janela de seis semanas inteira — marcar 3 é compatível com o dia
+selecionado vazio. A prova é contar o que ESTE dia tem escondido.
+
+O histórico de ocorrências vazio era um parágrafo solto onde o diálogo irmão
+da mesma pasta usa `StatePanel`.
+
+### As contagens (C4, M5, M12)
+
+O subtítulo de contatos imprimia `totalCount` dizendo "no total" — a mesma
+variável que a barra de segmentação, dez linhas abaixo, imprime corretamente
+como "no filtro". Buscar "silva" reescrevia o tamanho da base para 4. Agora
+são dois números, e o da conta é uma consulta `head: true` por conta, não por
+tecla. Ela **mantém** o `.eq('account_id')`: `is_account_member()` é SECURITY
+DEFINER e o planner não a inlina, então tirá-lo transformaria o count numa
+varredura da tabela inteira avaliando a função por linha. De quebra o
+subtítulo deixou de dizer "1 contatos".
+
+Na caixa de entrada, duas contagens quebravam a mesma promessa — escrita em
+dois comentários do próprio código, o que torna o caso indiscutível:
+
+> `seg-bar.tsx`: *a number you can't act on by clicking is worse than no
+> number*
+
+**Encerradas** era medida fora do escopo e o clique aplicava `isVisible`:
+toda conversa encerrada E oculta era contada e não aparecia. **Entrada e
+Esperando** contavam antes do filtro ativo, então com "Sem resposta há 24h"
+ligado, Entrada podia dizer 12 e produzir 3.
+
+Nos dois casos a escolha foi **estreitar**, não alargar — com uma exceção
+nomeada: o filtro que substitui o escopo. Encerradas e Ocultas tiram a barra
+de jogo inteira, e ali os segmentos contam o escopo a que você volta.
+
+O caso de Encerradas virou teste, e o teste acusa a versão anterior: uma
+conversa `closed` + `hidden_at` dá `count: 0` em Encerradas e `count: 1` em
+Ocultas. Contra o código de ontem, `expected 1 to be +0`.
+

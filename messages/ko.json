@@ -311,7 +311,9 @@
       "rescheduleFailed": "날짜를 변경하지 못했습니다",
       "overdue": "지연",
       "broadcastFailed": "실패",
-      "fullAgenda": "전체 일정"
+      "fullAgenda": "전체 일정",
+      "dayFiltered": "필터로 숨겨진 항목 {count}개",
+      "dayFilteredAction": "모두 표시"
     }
   },
   "Reports": {
@@ -3780,7 +3782,8 @@
     "adminOnly": "제품 생성과 판매 중지는 관리자만 가능합니다. 수정은 가능합니다.",
     "genericError": "저장하지 못했습니다. 다시 시도하세요.",
     "retired": "{name} 카탈로그에서 제외됨",
-    "restored": "{name} 카탈로그로 복귀"
+    "restored": "{name} 카탈로그로 복귀",
+    "showRetiredCount": "보관된 제품 {count}개 표시"
   },
   "Playbook": {
     "title": "플레이북",

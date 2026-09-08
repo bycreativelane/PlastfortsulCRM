@@ -79,6 +79,25 @@ import { IconTile } from '@/components/ui/icon-tile';
  * RETIRE, NEVER DELETE. A product that stops being sold still appears in
  * every deal that ever contained it.
  */
+/**
+ * O teste do TERMO, isolado do teste de ESTADO.
+ *
+ * Os dois cortes eram um filtro só, e por isso não havia como perguntar
+ * "quantos o termo acharia se o aposentado estivesse ligado?" — que é
+ * exatamente a pergunta que o vazio precisa responder.
+ */
+function matchesTerm(p: Product, term: string): boolean {
+  return (
+    !term ||
+    p.name.toLowerCase().includes(term) ||
+    (p.sku ?? '').toLowerCase().includes(term) ||
+    (p.category ?? '').toLowerCase().includes(term) ||
+    // "40x60" is how the product is asked for on the phone, and
+    // `size_label` is generated precisely so this match works.
+    (p.size_label ?? '').toLowerCase().includes(term.replace(/\s/g, ''))
+  );
+}
+
 export function ProductCatalog() {
   const t = useTranslations('Products');
   const { accountId, user, defaultCurrency } = useAuth();
@@ -105,7 +124,9 @@ export function ProductCatalog() {
 
   /** `'new'` while creating, a product id while editing, null when closed. */
   const [editing, setEditing] = useState<'new' | string | null>(null);
-  const [draft, setDraft] = useState<ProductDraft>(() => empty(defaultCurrency));
+  const [draft, setDraft] = useState<ProductDraft>(() =>
+    empty(defaultCurrency)
+  );
 
   const fetchProducts = useCallback(async () => {
     if (!accountId) return null;
@@ -145,16 +166,22 @@ export function ProductCatalog() {
     const term = query.trim().toLowerCase();
     return (products ?? [])
       .filter((p) => showInactive || p.active)
-      .filter(
-        (p) =>
-          !term ||
-          p.name.toLowerCase().includes(term) ||
-          (p.sku ?? '').toLowerCase().includes(term) ||
-          (p.category ?? '').toLowerCase().includes(term) ||
-          // "40x60" is how the product is asked for on the phone, and
-          // `size_label` is generated precisely so this match works.
-          (p.size_label ?? '').toLowerCase().includes(term.replace(/\s/g, ''))
-      );
+      .filter((p) => matchesTerm(p, term));
+  }, [products, query, showInactive]);
+
+  /*
+   * Quantos o TERMO acha e só o interruptor está segurando.
+   *
+   * O corte por estado vem antes do corte por termo, então buscar um
+   * produto aposentado respondia "Nada corresponde" — uma afirmação falsa
+   * sobre um produto que está a um clique de distância, com o clique fora
+   * do painel e abaixo da resposta.
+   */
+  const retiredMatches = useMemo(() => {
+    if (showInactive) return 0;
+    const term = query.trim().toLowerCase();
+    return (products ?? []).filter((p) => !p.active && matchesTerm(p, term))
+      .length;
   }, [products, query, showInactive]);
 
   const startNew = useCallback(() => {
@@ -323,7 +350,10 @@ export function ProductCatalog() {
                     step="0.5"
                     value={draft.widthCm ?? ''}
                     onChange={(e) =>
-                      setDraft({ ...draft, widthCm: numberOrNull(e.target.value) })
+                      setDraft({
+                        ...draft,
+                        widthCm: numberOrNull(e.target.value),
+                      })
                     }
                   />
                 </Field>
@@ -378,7 +408,9 @@ export function ProductCatalog() {
                     value={draft.color}
                     maxLength={40}
                     placeholder={t('colorPlaceholder')}
-                    onChange={(e) => setDraft({ ...draft, color: e.target.value })}
+                    onChange={(e) =>
+                      setDraft({ ...draft, color: e.target.value })
+                    }
                   />
                 </Field>
               </div>
@@ -487,6 +519,17 @@ export function ProductCatalog() {
               icon={Package}
               title={query ? t('noMatchTitle') : t('emptyTitle')}
               description={query ? t('noMatchBody') : t('emptyBody')}
+              actions={
+                retiredMatches > 0 ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowInactive(true)}
+                  >
+                    {t('showRetiredCount', { count: retiredMatches })}
+                  </Button>
+                ) : undefined
+              }
             />
           ) : (
             <ul className="divide-border divide-y">
@@ -505,7 +548,7 @@ export function ProductCatalog() {
                     <p className="text-foreground truncate text-sm font-medium">
                       {product.name}
                     </p>
-                    <p className="text-muted-foreground truncate text-2xs">
+                    <p className="text-muted-foreground text-2xs truncate">
                       {[
                         product.sku,
                         // The size goes on the identity line, not in the
@@ -623,7 +666,10 @@ function numberOrNull(raw: string): number | null {
   return Number.isFinite(value) && value > 0 ? value : null;
 }
 
-function describe(error: string, t: ReturnType<typeof useTranslations>): string {
+function describe(
+  error: string,
+  t: ReturnType<typeof useTranslations>
+): string {
   if (error === 'duplicate-sku') return t('duplicateSku');
   if (error === 'missing-table') return t('pendingTitle');
   if (error === 'admin-only') return t('adminOnly');

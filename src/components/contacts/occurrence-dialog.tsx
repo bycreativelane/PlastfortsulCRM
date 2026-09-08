@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { AlertTriangle, Check, Loader2, Plus } from 'lucide-react';
+import { AlertTriangle, Check, Inbox, Loader2, Plus } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 
@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/dialog';
 import { DateField } from '@/components/ui/date-field';
 import { FieldLabel } from '@/components/ui/field';
+import { StatePanel } from '@/components/ui/state-panel';
 import { OptionSelect } from '@/components/ui/option-select';
 import { Textarea } from '@/components/ui/textarea';
 import { StatusBadge } from '@/components/ui/status-badge';
@@ -205,7 +206,11 @@ export function OccurrenceDialog({
         ) : (
           <div className="max-h-64 space-y-2 overflow-y-auto">
             {(rows ?? []).length === 0 ? (
-              <p className="text-muted-foreground py-2 text-xs">{t('empty')}</p>
+              // O mesmo vazio do irmão desta pasta
+              // (`custom-fields-manager.tsx`): sem descrição, sem moldura.
+              // Um parágrafo solto e alinhado à esquerda não parecia um
+              // estado, parecia um texto que ficou faltando.
+              <StatePanel icon={Inbox} title={t('empty')} />
             ) : (
               (rows ?? []).map((row) => (
                 <div

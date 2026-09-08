@@ -347,10 +347,16 @@ export function ConversationList({
   //   search  →  scope  →  filter
   //
   // Search first, because it is a global find and should not be trapped by a
-  // tab you forgot you were on. Then scope, which is what the segments count.
-  // Then the chosen filter, which is what the menu counts. Each stage is the
-  // input to the next stage's counts, which is what makes every number on
-  // screen equal to the number of rows clicking it produces.
+  // tab you forgot you were on. Then scope. Then the chosen filter, which is
+  // what the menu counts.
+  //
+  // The segments count LAST, not at the scope stage: with a filter on,
+  // clicking Entrada returns scope AND filter, so a number measured before
+  // the filter is a number you cannot land on. The one exception is a filter
+  // that replaces the scope — see `segmentBase`.
+  //
+  // Each stage is the input to the next stage's counts, which is what makes
+  // every number on screen equal to the number of rows clicking it produces.
   const searched = useMemo(
     () => conversations.filter((c) => matchesSearch(c, search)),
     [conversations, search]
@@ -361,26 +367,6 @@ export function ConversationList({
   // and missing from another. The Ocultas filter is the single way back and
   // it reads `conversations` directly, below.
   const visible = useMemo(() => searched.filter(isVisible), [searched]);
-
-  const segments = useMemo(
-    () => [
-      {
-        value: 'entrada' as const,
-        label: t('scopeInbox'),
-        count: visible.filter(SCOPES.entrada).length,
-      },
-      {
-        value: 'esperando' as const,
-        label: t('scopeWaiting'),
-        count: visible.filter(SCOPES.esperando).length,
-        // Amber: a parked thread is the one state where time passing is
-        // itself the problem, and the only thing in this system allowed to
-        // ask for attention.
-        tone: 'human' as const,
-      },
-    ],
-    [visible, t]
-  );
 
   const inScope = useMemo(() => {
     // The two filters that reach outside the current tab. Asking for hidden
@@ -447,6 +433,42 @@ export function ConversationList({
   const filtered = useMemo(
     () => (activeOption ? inScope.filter(activeOption.match) : inScope),
     [inScope, activeOption]
+  );
+
+  // Counted WITHIN the active filter, which is the rule `seg-bar.tsx`
+  // states in its own header: "a number you can't act on by clicking is
+  // worse than no number". They used to count the scope stage, so with
+  // "Sem resposta há 24h" on, Entrada could read 12 and produce 3.
+  //
+  // The exception is the filter that REPLACES the scope: Encerradas and
+  // Ocultas take the bar out of play entirely, and there the segments
+  // count the scope you return to.
+  const segmentBase = useMemo(
+    () =>
+      activeOption && !activeOption.replacesScope
+        ? visible.filter(activeOption.match)
+        : visible,
+    [visible, activeOption]
+  );
+
+  const segments = useMemo(
+    () => [
+      {
+        value: 'entrada' as const,
+        label: t('scopeInbox'),
+        count: segmentBase.filter(SCOPES.entrada).length,
+      },
+      {
+        value: 'esperando' as const,
+        label: t('scopeWaiting'),
+        count: segmentBase.filter(SCOPES.esperando).length,
+        // Amber: a parked thread is the one state where time passing is
+        // itself the problem, and the only thing in this system allowed to
+        // ask for attention.
+        tone: 'human' as const,
+      },
+    ],
+    [segmentBase, t]
   );
 
   // A stage chip's ink is computed against the surface it lands on, so the
@@ -581,7 +603,9 @@ export function ConversationList({
                         <span className="min-w-0 flex-1 truncate">
                           {option.label}
                         </span>
-                        <CountBadge className="ml-auto">{option.count}</CountBadge>
+                        <CountBadge className="ml-auto">
+                          {option.count}
+                        </CountBadge>
                       </DropdownMenuItem>
                     ))}
                   </div>

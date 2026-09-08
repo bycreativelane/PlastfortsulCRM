@@ -314,6 +314,33 @@ describe('withCounts', () => {
     // Still present — the UI disables these, it does not hide them.
     expect(counted.length).toBeGreaterThan(0);
   });
+
+  it('does not count a finished conversation that is also hidden', () => {
+    // Encerradas is measured outside the current scope, so it used to see
+    // a hidden row that the click then filtered away: the option said 1 and
+    // produced an empty list. Ocultas is the one place that row belongs,
+    // because it is the only route back.
+    const rows = [
+      conv({ id: 'a', status: 'closed', hidden_at: '2026-09-01T00:00:00Z' }),
+    ];
+    const counted = withCounts(
+      buildFilterOptions(rows, PIPELINES, null, LABELS),
+      rows
+    );
+
+    expect(counted.find((o) => o.id === 'closed')!.count).toBe(0);
+    expect(counted.find((o) => o.id === 'hidden')!.count).toBe(1);
+  });
+
+  it('still counts a finished conversation that is not hidden', () => {
+    const rows = [conv({ id: 'a', status: 'closed' })];
+    const counted = withCounts(
+      buildFilterOptions(rows, PIPELINES, null, LABELS),
+      rows
+    );
+
+    expect(counted.find((o) => o.id === 'closed')!.count).toBe(1);
+  });
 });
 
 describe('groupOptions', () => {

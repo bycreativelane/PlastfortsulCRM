@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import { buildQuote } from '@/lib/quotes/quote';
 import { brandFromAccount } from '@/lib/quotes/brand';
+import { quoteFingerprint } from '@/lib/quotes/fingerprint';
 import {
   NoBrowserError,
   quotePage,
@@ -107,31 +108,97 @@ export async function POST(request: Request) {
       notes: body.notes,
     });
 
+    /*
+     * O MESMO DOCUMENTO NÃO VIRA DUAS LINHAS.
+     *
+     * Apertar "Gerar PDF" oito vezes produzia oito linhas idênticas no
+     * arquivo — mesmo cliente, mesmo total, mesmo segundo. A 071 guarda
+     * por GERAÇÃO porque o que o cliente recebeu foi a versão daquele
+     * dia, e isso continua certo; o que faltava era notar que oito
+     * documentos iguais não são oito versões.
+     *
+     * Se já existe um com esta impressão digital E com arquivo, a
+     * resposta é ele. Sem Chromium, sem upload, sem linha nova.
+     *
+     * Se existe SEM arquivo, é uma tentativa anterior que morreu no meio
+     * — provavelmente sem navegador. Essa é reaproveitada e preenchida,
+     * em vez de deixar um registro manco para sempre.
+     */
+    const fingerprint = quoteFingerprint(quote, body.dealId ?? null);
+
+    const { data: existente } = await supabase
+      .from('deal_quotes')
+      .select('id, pdf_url, image_url')
+      .eq('account_id', accountId)
+      .eq('fingerprint', fingerprint)
+      .maybeSingle();
+
+    if (existente?.pdf_url) {
+      return NextResponse.json({
+        id: existente.id,
+        pdfUrl: existente.pdf_url,
+        imageUrl: existente.image_url,
+        reused: true,
+      });
+    }
+
     // ARQUIVA PRIMEIRO. O registro é o que faz o orçamento existir; o
     // arquivo é a cópia entregável. Sem navegador, o primeiro sobrevive.
-    const { data: linha, error: erroLinha } = await supabase
-      .from('deal_quotes')
-      .insert({
-        account_id: accountId,
-        deal_id: body.dealId ?? null,
-        user_id: userId,
-        order_number: quote.orderNumber,
-        issued_on: quote.issuedOn,
-        company: quote.company,
-        customer_name: quote.customer.name,
-        customer_company: quote.customer.company,
-        customer_phone: quote.customer.phone,
-        lines: quote.lines,
-        currency: quote.currency,
-        products: quote.products,
-        shipping: quote.shipping,
-        total: quote.total,
-        carrier: quote.carrier,
-        owner: quote.owner,
-        notes: quote.notes,
-      })
-      .select('id')
-      .single();
+    const { data: linha, error: erroLinha } = existente
+      ? { data: { id: existente.id }, error: null }
+      : await supabase
+          .from('deal_quotes')
+          .insert({
+            fingerprint,
+            account_id: accountId,
+            deal_id: body.dealId ?? null,
+            user_id: userId,
+            order_number: quote.orderNumber,
+            issued_on: quote.issuedOn,
+            company: quote.company,
+            customer_name: quote.customer.name,
+            customer_company: quote.customer.company,
+            customer_phone: quote.customer.phone,
+            lines: quote.lines,
+            currency: quote.currency,
+            products: quote.products,
+            shipping: quote.shipping,
+            total: quote.total,
+            carrier: quote.carrier,
+            owner: quote.owner,
+            notes: quote.notes,
+          })
+          .select('id')
+          .single();
+
+    /*
+     * A CORRIDA QUE O ÍNDICE PEGA.
+     *
+     * Procurar-e-inserir não é atômico: dois cliques rápidos passam os
+     * dois pela consulta acima antes de qualquer um gravar. O índice
+     * único da 074 transforma o segundo insert num `23505` em vez de
+     * numa duplicata — e a resposta certa não é um erro na tela, é
+     * reler a linha que ganhou e devolver ela.
+     *
+     * Sem isto, o segundo clique diria "não foi possível gerar" sobre um
+     * documento que existe e está pronto.
+     */
+    if (erroLinha?.code === '23505') {
+      const { data: vencedora } = await supabase
+        .from('deal_quotes')
+        .select('id, pdf_url, image_url')
+        .eq('account_id', accountId)
+        .eq('fingerprint', fingerprint)
+        .maybeSingle();
+      if (vencedora) {
+        return NextResponse.json({
+          id: vencedora.id,
+          pdfUrl: vencedora.pdf_url,
+          imageUrl: vencedora.image_url,
+          reused: true,
+        });
+      }
+    }
 
     if (erroLinha || !linha) {
       return NextResponse.json(

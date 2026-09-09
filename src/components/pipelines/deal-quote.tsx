@@ -158,9 +158,26 @@ export function DealQuote({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
+      {/*
+        O DIÁLOGO É UM VISUALIZADOR, e o documento é a folha dentro dele.
+
+        Antes a folha branca ocupava a área inteira e encostava nas bordas.
+        No tema claro isso não se via — o cartão do diálogo também é branco
+        —, mas no escuro quebrava: o X de fechar herda a cor do tema, então
+        virava um glifo CLARO em cima de papel BRANCO. Invisível.
+
+        A correção não é pintar o X: é a folha parar de ir até a borda. Com
+        respiro em volta, o botão cai sobre a superfície do diálogo, que é
+        escura no escuro e clara no claro, e volta a ser legível nos dois —
+        sem o documento precisar saber que existe um botão ali.
+
+        E ganha o que todo leitor de PDF faz: fundo em volta, página com
+        contorno e sombra. A borda é o que separa papel de cartão no tema
+        claro, onde os dois são brancos.
+      */}
       <DialogContent
         data-print-root
-        className="bg-card border-border text-foreground max-h-[90vh] overflow-y-auto sm:max-w-md"
+        className="bg-muted/60 border-border text-foreground max-h-[90vh] overflow-y-auto p-3 sm:max-w-md"
       >
         {/* O cabeçalho do DIÁLOGO, que não é o cabeçalho do documento: ele
             existe para a pessoa saber o que abriu e para o leitor de tela
@@ -183,23 +200,21 @@ export function DealQuote({
           folha, e não duas coisas que se parecem.
         */}
         {/*
-          O RECUO DO X MORA AQUI, e não no documento.
+          Sem recuo para o X, e isso é o conserto de verdade.
 
-          O botão de fechar do diálogo é absoluto no canto e passava por
-          cima da palavra ORÇAMENTO. Eu já tinha corrigido isso com um
-          `pr-7` — e PERDI a correção ao extrair o documento para um
-          arquivo com CSS próprio, que é o preço de mover uma peça: o
-          conserto ficou na moldura antiga.
+          A versão anterior empurrava o cabeçalho do documento 28px para
+          dentro, para o botão de fechar não passar por cima da palavra
+          ORÇAMENTO. Funcionava e estava errado: fazia o DOCUMENTO pagar
+          por um botão que é da moldura, e no PDF — onde botão nenhum
+          existe — o cabeçalho saía com um recuo sem motivo.
 
-          Desta vez ele fica onde pertence. O documento não deve saber que
-          existe um X: quem tem o botão é a moldura, então é a moldura que
-          abre espaço para ele. No PDF e na imagem, gerados longe daqui,
-          esta regra não existe e o cabeçalho usa a largura inteira.
+          Agora a folha tem respiro em volta e o X cai fora dela.
         */}
-        <style>{`${QUOTE_CSS}
-          [data-quote-frame] .q-head { padding-right: 28px; }
-        `}</style>
-        <div data-quote-frame>
+        <style>{QUOTE_CSS}</style>
+        <div
+          data-quote-frame
+          className="border-border/60 rounded-lg border bg-white p-5 shadow-sm"
+        >
           <QuoteDocument quote={quote} labels={labels} brand={brand} />
         </div>
 

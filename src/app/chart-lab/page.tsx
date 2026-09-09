@@ -945,8 +945,43 @@ function QuoteBench() {
 
 function MoneyBench() {
   const [value, setValue] = useState<number | null>(18400);
+  const [frete, setFrete] = useState<number | null>(679);
   return (
-    <Panel className="p-4">
+    <Panel className="space-y-4 p-4">
+      {/*
+        O CASO QUE QUEBROU, ao lado do que sempre funcionou.
+
+        Duas colunas de um grid, e a da esquerda com um parágrafo a mais
+        embaixo. O grid estica as duas à mesma altura, e antes do `h-fit`
+        no invólucro o `R$` da direita descia para baixo do número — que
+        foi exatamente como o campo de Frete da oportunidade saiu.
+      */}
+      <div className="grid max-w-md gap-4 sm:grid-cols-2">
+        <div className="grid gap-2">
+          <FieldLabel htmlFor="lab-money-a">Valor</FieldLabel>
+          <CurrencyInput
+            id="lab-money-a"
+            value={value}
+            onValueChange={setValue}
+            currency="BRL"
+            className="bg-muted border-border text-foreground"
+          />
+          <p className="text-muted-foreground text-2xs">
+            Somado a partir das linhas abaixo.
+          </p>
+        </div>
+        <div className="grid gap-2">
+          <FieldLabel htmlFor="lab-money-b">Frete</FieldLabel>
+          <CurrencyInput
+            id="lab-money-b"
+            value={frete}
+            onValueChange={setFrete}
+            currency="BRL"
+            className="bg-muted border-border text-foreground"
+          />
+        </div>
+      </div>
+
       <div className="max-w-56 space-y-1.5">
         <FieldLabel htmlFor="lab-money">Valor</FieldLabel>
         <CurrencyInput

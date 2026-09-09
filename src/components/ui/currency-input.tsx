@@ -147,7 +147,29 @@ export function CurrencyInput({
   }
 
   return (
-    <div className="relative">
+    /*
+     * `h-fit` E NÃO SÓ `relative`.
+     *
+     * O símbolo é posicionado no MEIO deste invólucro. Enquanto ele tem a
+     * altura do campo, "meio do invólucro" e "meio do campo" são a mesma
+     * linha — e é por isso que o defeito não aparece na maioria das telas.
+     *
+     * Ele apareceria se este `div` fosse item de um grid cuja outra coluna
+     * é mais alta: o padrão do grid é esticar, o invólucro cresceria, o
+     * `input` ficaria com seus 32px no topo e o `R$` desceria para o meio
+     * do espaço vazio — abaixo do número.
+     *
+     * HONESTIDADE SOBRE O QUE ISTO CONSERTA. O Gabriel reportou o `R$` do
+     * campo de Frete desalinhado, e esta foi a hipótese: ele fica ao lado
+     * de um Valor que carrega um parágrafo de ajuda embaixo. Montei o caso
+     * no `/chart-lab` e ele NÃO reproduziu — com ou sem `h-fit`, os dois
+     * invólucros medem 32px e o símbolo fica centrado.
+     *
+     * Então `h-fit` fica porque fecha uma classe real de defeito e não
+     * custa nada, e não porque esteja provado que era ele. A causa do que
+     * ele viu continua em aberto.
+     */
+    <div className="relative h-fit">
       <span
         aria-hidden
         className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-xs font-medium tabular-nums"

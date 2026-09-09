@@ -5,6 +5,7 @@ import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import { buildQuote } from '@/lib/quotes/quote';
 import { brandFromAccount } from '@/lib/quotes/brand';
 import { quoteFingerprint } from '@/lib/quotes/fingerprint';
+import { isUnknownColumn } from '@/lib/supabase/pg-errors';
 import {
   NoBrowserError,
   quotePage,
@@ -12,6 +13,7 @@ import {
 } from '@/lib/quotes/render';
 import type { QuoteLabels } from '@/components/quotes/quote-document';
 import type { DealItemDraft } from '@/lib/products/catalog';
+import type { InstallmentDraft } from '@/lib/deals/installments';
 
 /**
  * Gera o orçamento: arquiva a linha, produz o PDF e a imagem, devolve os
@@ -65,7 +67,12 @@ interface Corpo {
   value?: number | null;
   currency?: string;
   shipping?: number | null;
+  paymentTerms?: string | null;
+  installments?: InstallmentDraft[];
   carrier?: string | null;
+  freightMode?: string | null;
+  freightVolumes?: number | null;
+  grossWeight?: number | null;
   owner?: string | null;
   notes?: string | null;
   labels?: QuoteLabels;
@@ -103,7 +110,12 @@ export async function POST(request: Request) {
       value: body.value ?? null,
       currency: body.currency || 'BRL',
       shipping: body.shipping ?? null,
+      paymentTerms: body.paymentTerms,
+      installments: body.installments ?? [],
       carrier: body.carrier,
+      freightMode: body.freightMode,
+      freightVolumes: body.freightVolumes ?? null,
+      grossWeight: body.grossWeight ?? null,
       owner: body.owner,
       notes: body.notes,
     });
@@ -142,34 +154,55 @@ export async function POST(request: Request) {
       });
     }
 
+    /*
+     * A LINHA, e a metade dela que depende da 076.
+     *
+     * As migrações deste projeto são aplicadas à mão, e entre escrever a
+     * 076 e rodá-la existe uma janela em que estas cinco colunas não
+     * estão lá. Um insert que as cite volta `42703` e a geração inteira
+     * falha — o orçamento não sai por causa de um campo de peso bruto.
+     * Então tenta-se com elas e cai-se para o conjunto da 071.
+     */
+    const base = {
+      fingerprint,
+      account_id: accountId,
+      deal_id: body.dealId ?? null,
+      user_id: userId,
+      order_number: quote.orderNumber,
+      issued_on: quote.issuedOn,
+      company: quote.company,
+      customer_name: quote.customer.name,
+      customer_company: quote.customer.company,
+      customer_phone: quote.customer.phone,
+      lines: quote.lines,
+      currency: quote.currency,
+      products: quote.products,
+      shipping: quote.shipping,
+      total: quote.total,
+      carrier: quote.carrier,
+      owner: quote.owner,
+      notes: quote.notes,
+    };
+
+    const arquivar = (linhaNova: Record<string, unknown>) =>
+      supabase.from('deal_quotes').insert(linhaNova).select('id').single();
+
     // ARQUIVA PRIMEIRO. O registro é o que faz o orçamento existir; o
     // arquivo é a cópia entregável. Sem navegador, o primeiro sobrevive.
-    const { data: linha, error: erroLinha } = existente
+    let { data: linha, error: erroLinha } = existente
       ? { data: { id: existente.id }, error: null }
-      : await supabase
-          .from('deal_quotes')
-          .insert({
-            fingerprint,
-            account_id: accountId,
-            deal_id: body.dealId ?? null,
-            user_id: userId,
-            order_number: quote.orderNumber,
-            issued_on: quote.issuedOn,
-            company: quote.company,
-            customer_name: quote.customer.name,
-            customer_company: quote.customer.company,
-            customer_phone: quote.customer.phone,
-            lines: quote.lines,
-            currency: quote.currency,
-            products: quote.products,
-            shipping: quote.shipping,
-            total: quote.total,
-            carrier: quote.carrier,
-            owner: quote.owner,
-            notes: quote.notes,
-          })
-          .select('id')
-          .single();
+      : await arquivar({
+          ...base,
+          payment_terms: quote.paymentTerms,
+          installments: quote.installments,
+          freight_mode: quote.freightMode,
+          freight_volumes: quote.freightVolumes,
+          gross_weight: quote.grossWeight,
+        });
+
+    if (erroLinha && isUnknownColumn(erroLinha)) {
+      ({ data: linha, error: erroLinha } = await arquivar(base));
+    }
 
     /*
      * A CORRIDA QUE O ÍNDICE PEGA.
@@ -239,9 +272,9 @@ export async function POST(request: Request) {
      * cliente — e é a mesma troca que `chat-media` já faz para toda foto
      * que este CRM manda ou recebe.
      */
-    const base = `account-${accountId}/${linha.id}`;
+    const pasta = `account-${accountId}/${linha.id}`;
     const enviar = async (nome: string, corpo: Buffer, tipo: string) => {
-      const caminho = `${base}/${nome}`;
+      const caminho = `${pasta}/${nome}`;
       const { error } = await supabase.storage
         .from('quotes')
         .upload(caminho, corpo, { contentType: tipo, upsert: true });

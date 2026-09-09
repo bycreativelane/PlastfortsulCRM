@@ -82,12 +82,29 @@ export function quoteFingerprint(quote: Quote, dealId: string | null): string {
     quote.shipping === null ? '' : quote.shipping.toFixed(2),
     quote.total.toFixed(2),
     quote.carrier ?? '',
+    // O bloco de transporte e o de pagamento IMPRIMEM, então entram — pela
+    // regra do topo, "tudo que o documento imprime, e nada além". Sem
+    // eles, trocar a condição de 30/60/90 para à vista devolveria o PDF
+    // antigo: mesmo total, mesma impressão digital, documento errado.
+    quote.freightMode ?? '',
+    quote.freightVolumes === null ? '' : String(quote.freightVolumes),
+    quote.grossWeight === null ? '' : String(quote.grossWeight),
+    quote.paymentTerms ?? '',
     quote.owner ?? '',
     quote.notes ?? '',
+    ...quote.installments.flatMap((p) => [
+      String(p.days),
+      p.dueOn ?? '',
+      p.amount.toFixed(2),
+      p.method ?? '',
+      p.note ?? '',
+    ]),
     // As linhas na ORDEM em que saem no papel: trocar duas de lugar muda
     // o documento, então muda a impressão digital.
     ...quote.lines.flatMap((l) => [
       l.name,
+      l.sku ?? '',
+      l.unit ?? '',
       String(l.quantity),
       l.unitPrice.toFixed(2),
       String(l.discountPercent),

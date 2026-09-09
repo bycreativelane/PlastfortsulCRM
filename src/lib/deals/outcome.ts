@@ -41,6 +41,38 @@ export function isLostStage(stageName: string): boolean {
 }
 
 /**
+ * Onde uma oportunidade NASCE — `Em Aberto`, do fluxo oficial.
+ *
+ * Pedido do Gabriel em 8 de setembro de 2026, com o pedido de venda do
+ * Bling ao lado: "se estamos criando oportunidade já vai automático para
+ * em aberto, não precisa escolher". No Bling é a situação padrão de todo
+ * pedido novo, e ninguém a escolhe — ela é o começo.
+ *
+ * ISTO CONTRADIZ O ITEM 42 DO PACOTE, que pedia `Novo lead` como padrão,
+ * e a contradição é deliberada: o item 42 falava do formulário antes de
+ * ele virar um pedido de venda. `Novo Lead` é onde a AUTOMAÇÃO põe quem
+ * mandou o primeiro "oi" (§1 do fluxo oficial); quem um vendedor abre à
+ * mão já falou com alguém e já está negociando.
+ *
+ * Por nome, como `isWonStage` e pela mesma razão: as etapas são dados da
+ * conta. Quando o funil não tem nenhuma com este nome — um quadro montado
+ * à mão — devolve `null`, e quem chamou cai para a primeira etapa. Nunca
+ * inventa um destino.
+ */
+const OPEN_STAGE_NAMES = ['em aberto', 'aberto', 'open'];
+
+export function isOpenStage(stageName: string): boolean {
+  return OPEN_STAGE_NAMES.includes(norm(stageName));
+}
+
+/** A etapa de entrada do funil, ou a primeira que houver. */
+export function entryStage<T extends { id: string; name: string }>(
+  stages: T[]
+): T | null {
+  return stages.find((s) => isOpenStage(s.name)) ?? stages[0] ?? null;
+}
+
+/**
  * The eight reasons of the official flow (§14), in its order.
  *
  * A fixed list and not free text, because the point of asking is the report:

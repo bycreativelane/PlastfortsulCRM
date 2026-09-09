@@ -8,6 +8,28 @@ import type { Quote } from '@/lib/quotes/quote';
  * O orçamento, como documento — e um só, para a tela e para o arquivo.
  *
  * ------------------------------------------------------------------
+ * A ORDEM É A DO PEDIDO DE VENDA DO BLING
+ * ------------------------------------------------------------------
+ *
+ * Pedido do Gabriel em 8 de setembro de 2026, com prints do Bling ao
+ * lado, e ele terminou a lista com "nesta ordem":
+ *
+ *     pedido de venda → cliente e, do lado, o responsável → produto com
+ *     descrição, quantidade, preço e preço total → condição de pagamento
+ *     → transportadora, quantidade, peso bruto e valor do frete
+ *
+ * A ordem não é estética: é a sequência em que a operação já preenche o
+ * pedido do outro lado, e é a sequência em que ela vai conferir este
+ * papel contra aquela tela. Um documento que diz as mesmas coisas em
+ * outra ordem obriga a procurar cada uma.
+ *
+ * O RESPONSÁVEL SUBIU por causa disso — ele estava no rodapé, numa tira
+ * junto com o transportador ("Atendimento: Fulano"), e no Bling é o
+ * VENDEDOR do pedido, ao lado do cliente. É a mesma informação lida como
+ * outra coisa: no rodapé ela é uma assinatura, ao lado do cliente ela é
+ * uma das duas partes do negócio.
+ *
+ * ------------------------------------------------------------------
  * POR QUE ELE NÃO USA TAILWIND
  * ------------------------------------------------------------------
  *
@@ -46,13 +68,30 @@ export interface QuoteLabels {
   title: string;
   orderNumber: string;
   customer: string;
+  /** A sobrancelha ao lado do cliente. No Bling, "Vendedor". */
+  owner: string;
   products: string;
+  /** Os cabeçalhos da tabela de produtos, na ordem em que ela sai. */
+  colDescription: string;
+  colUnit: string;
+  colQuantity: string;
+  colUnitPrice: string;
+  colTotal: string;
   lineDiscount: string;
   subtotal: string;
   shipping: string;
   total: string;
-  delivery: string;
-  owner: string;
+  payment: string;
+  installment: string;
+  dueDate: string;
+  method: string;
+  /** "Valor" — o da parcela, que não é o preço total de uma linha. */
+  amount: string;
+  transport: string;
+  carrier: string;
+  freightMode: string;
+  volumes: string;
+  grossWeight: string;
   notes: string;
   footer: string;
 }
@@ -67,6 +106,32 @@ export interface QuoteBrand {
   site?: string | null;
   address?: string | null;
   logoUrl?: string | null;
+}
+
+/** Data curta, para caber numa célula: `08/10/2026`. */
+function dataCurta(iso: string | null): string {
+  if (!iso) return '—';
+  const dia = fromISO(iso);
+  return dia
+    ? dia.toLocaleDateString(APP_LOCALE, {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+      })
+    : iso;
+}
+
+/**
+ * Quantidade sem casas inventadas.
+ *
+ * `100` sai `100`, e `12,5` sai `12,5`. O banco guarda `NUMERIC(12,3)`,
+ * então uma quantidade inteira chega como `100.000` — imprimir três zeros
+ * em toda linha de todo orçamento é ruído que ninguém pediu.
+ */
+function quantidade(v: number): string {
+  return new Intl.NumberFormat(APP_LOCALE, {
+    maximumFractionDigits: 3,
+  }).format(v);
 }
 
 export function QuoteDocument({
@@ -94,6 +159,28 @@ export function QuoteDocument({
   const contato = [brand.phone, brand.email, brand.site, brand.address]
     .map((v) => (v ?? '').trim())
     .filter(Boolean);
+
+  /* Alguma linha tem unidade? Se nenhuma tem, a coluna inteira sai — uma
+     coluna de travessões em todas as linhas é pior do que não tê-la. */
+  const temUnidade = quote.lines.some((l) => l.unit);
+  const temDesconto = quote.lines.some((l) => l.discountPercent > 0);
+
+  const transporte: [string, string][] = [];
+  if (quote.carrier) transporte.push([labels.carrier, quote.carrier]);
+  if (quote.freightMode)
+    transporte.push([labels.freightMode, quote.freightMode]);
+  if (quote.freightVolumes !== null)
+    transporte.push([labels.volumes, quantidade(quote.freightVolumes)]);
+  if (quote.grossWeight !== null)
+    transporte.push([labels.grossWeight, `${quantidade(quote.grossWeight)} kg`]);
+  /* O FRETE APARECE DUAS VEZES, e é de propósito: uma no total, porque ele
+     faz parte do que se vai pagar, e outra aqui, porque quem lê o bloco de
+     transporte está conferindo o combinado com a transportadora. É o mesmo
+     `quote.shipping` nas duas — não há segundo cálculo, que é o que o item
+     55 do pacote proíbe. O Gabriel pediu o valor neste grupo, com estas
+     palavras: "transportadora, quantidade e peso bruto e o valor do frete". */
+  if (quote.shipping !== null)
+    transporte.push([labels.shipping, dinheiro(quote.shipping)]);
 
   return (
     <article className="q">
@@ -124,43 +211,89 @@ export function QuoteDocument({
         </div>
       </header>
 
-      <section className="q-block">
-        <p className="q-eyebrow">{labels.customer}</p>
-        <p className="q-customer">{quote.customer.name}</p>
-        {(quote.customer.company || quote.customer.phone) && (
-          <p className="q-sub">
-            {[
-              quote.customer.company,
-              quote.customer.phone ? formatPhone(quote.customer.phone) : null,
-            ]
-              .filter(Boolean)
-              .join(' · ')}
-          </p>
-        )}
+      {/* CLIENTE E, DO LADO, O RESPONSÁVEL — a segunda linha do pedido de
+          venda. Duas colunas de largura fixa e não uma grade que se
+          reparte: sem o responsável, o cliente ocupa a folha inteira em
+          vez de deixar metade em branco. */}
+      <section className="q-parties">
+        <div className="q-party">
+          <p className="q-eyebrow">{labels.customer}</p>
+          <p className="q-customer">{quote.customer.name}</p>
+          {(quote.customer.company || quote.customer.phone) && (
+            <p className="q-sub">
+              {[
+                quote.customer.company,
+                quote.customer.phone ? formatPhone(quote.customer.phone) : null,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+            </p>
+          )}
+        </div>
+        {quote.owner ? (
+          <div className="q-party q-party-right">
+            <p className="q-eyebrow">{labels.owner}</p>
+            <p className="q-customer">{quote.owner}</p>
+          </div>
+        ) : null}
       </section>
 
       {quote.lines.length > 0 && (
         <section className="q-block">
           <p className="q-eyebrow">{labels.products}</p>
-          <ul className="q-lines">
-            {quote.lines.map((linha, i) => (
-              <li className="q-line" key={`${linha.name}-${i}`}>
-                <div className="q-line-main">
-                  <p className="q-line-name">{linha.name}</p>
-                  <p className="q-line-math">
-                    {linha.quantity} × {dinheiro(linha.unitPrice)}
-                    {linha.discountPercent > 0
-                      ? ` · ${labels.lineDiscount.replace(
-                          '{percent}',
-                          String(linha.discountPercent)
-                        )}`
-                      : ''}
-                  </p>
-                </div>
-                <p className="q-line-total">{dinheiro(linha.total)}</p>
-              </li>
-            ))}
-          </ul>
+          {/* UMA TABELA, e não uma lista com o total à direita.
+              O Gabriel pediu "descrição, quantidade preço, preço total" —
+              quatro grandezas por linha, que é o que uma tabela é. E numa
+              tabela as colunas de número alinham entre si, que é o que
+              torna conferível uma coluna de preços. */}
+          <table className="q-table">
+            <thead>
+              <tr>
+                <th className="q-th">{labels.colDescription}</th>
+                {temUnidade && <th className="q-th q-c">{labels.colUnit}</th>}
+                <th className="q-th q-r">{labels.colQuantity}</th>
+                <th className="q-th q-r">{labels.colUnitPrice}</th>
+                <th className="q-th q-r">{labels.colTotal}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {quote.lines.map((linha, i) => (
+                <tr key={`${linha.name}-${i}`}>
+                  <td className="q-td">
+                    <span className="q-line-name">{linha.name}</span>
+                    {(linha.sku ||
+                      (temDesconto && linha.discountPercent > 0)) && (
+                      <span className="q-line-sub">
+                        {[
+                          linha.sku,
+                          linha.discountPercent > 0
+                            ? labels.lineDiscount.replace(
+                                '{percent}',
+                                String(linha.discountPercent)
+                              )
+                            : null,
+                        ]
+                          .filter(Boolean)
+                          .join(' · ')}
+                      </span>
+                    )}
+                  </td>
+                  {temUnidade && (
+                    <td className="q-td q-c q-dim">{linha.unit ?? '—'}</td>
+                  )}
+                  <td className="q-td q-r q-num">
+                    {quantidade(linha.quantity)}
+                  </td>
+                  <td className="q-td q-r q-num">
+                    {dinheiro(linha.unitPrice)}
+                  </td>
+                  <td className="q-td q-r q-num q-strong">
+                    {dinheiro(linha.total)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </section>
       )}
 
@@ -184,19 +317,50 @@ export function QuoteDocument({
         </div>
       </section>
 
-      {(quote.carrier || quote.owner) && (
-        <section className="q-strip">
-          {quote.carrier ? (
-            <p>
-              <span className="q-dim">{labels.delivery} </span>
-              {quote.carrier}
-            </p>
+      {(quote.paymentTerms || quote.installments.length > 0) && (
+        <section className="q-block">
+          <p className="q-eyebrow">{labels.payment}</p>
+          {quote.paymentTerms ? (
+            <p className="q-terms">{quote.paymentTerms}</p>
           ) : null}
-          {quote.owner ? (
-            <p className="q-dim">
-              {labels.owner.replace('{name}', quote.owner)}
-            </p>
-          ) : null}
+          {quote.installments.length > 0 && (
+            <table className="q-table q-table-tight">
+              <thead>
+                <tr>
+                  <th className="q-th q-c">{labels.installment}</th>
+                  <th className="q-th">{labels.dueDate}</th>
+                  <th className="q-th">{labels.method}</th>
+                  <th className="q-th q-r">{labels.amount}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {quote.installments.map((p, i) => (
+                  <tr key={i}>
+                    <td className="q-td q-c q-dim">{i + 1}</td>
+                    <td className="q-td q-num">{dataCurta(p.dueOn)}</td>
+                    <td className="q-td">{p.method ?? '—'}</td>
+                    <td className="q-td q-r q-num q-strong">
+                      {dinheiro(p.amount)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </section>
+      )}
+
+      {transporte.length > 0 && (
+        <section className="q-block">
+          <p className="q-eyebrow">{labels.transport}</p>
+          <dl className="q-facts">
+            {transporte.map(([rotulo, valor]) => (
+              <div className="q-fact" key={rotulo}>
+                <dt className="q-dim">{rotulo}</dt>
+                <dd className="q-num">{valor}</dd>
+              </div>
+            ))}
+          </dl>
         </section>
       )}
 
@@ -287,20 +451,49 @@ export const QUOTE_CSS = `
 .q-customer { font-size: 14px; font-weight: 500; }
 .q-sub { font-size: 11px; color: var(--dim); }
 
-.q-lines { list-style: none; }
-.q-line {
+/* Cliente à esquerda, responsável à direita. \`gap\` grande o bastante
+   para os dois blocos não lerem como uma frase só. */
+.q-parties {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
+  gap: 24px;
+  margin-top: 18px;
+}
+.q-party { min-width: 0; }
+.q-party-right { text-align: right; flex-shrink: 0; }
+
+.q-table { width: 100%; border-collapse: collapse; }
+.q-th {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--dim);
+  text-align: left;
+  padding: 0 0 4px;
+  border-bottom: 1px solid var(--rule);
+  white-space: nowrap;
+}
+.q-td {
+  font-size: 12px;
   padding: 7px 0;
   border-bottom: 1px solid var(--rule);
+  vertical-align: top;
 }
-.q-line:last-child { border-bottom: 0; }
-.q-line-main { min-width: 0; }
-.q-line-name { font-size: 12px; }
-.q-line-math { font-size: 11px; color: var(--dim); font-variant-numeric: tabular-nums; }
-.q-line-total { font-size: 12px; font-weight: 500; white-space: nowrap; font-variant-numeric: tabular-nums; }
+/* A última linha não precisa de régua: a soma logo abaixo já tem a dela,
+   e duas linhas cinzas a 12px de distância leem como um erro. */
+.q-table tbody tr:last-child .q-td { border-bottom: 0; }
+.q-table-tight .q-td { padding: 5px 0; }
+/* As colunas de número recebem o respiro à ESQUERDA — encostar no texto
+   da descrição é o que faz uma tabela estreita parecer apertada. */
+.q-td + .q-td, .q-th + .q-th { padding-left: 10px; }
+.q-r { text-align: right; }
+.q-c { text-align: center; }
+.q-num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.q-strong { font-weight: 600; }
+.q-line-name { display: block; }
+.q-line-sub { display: block; font-size: 10px; color: var(--dim); }
 
 .q-sum {
   margin-top: 16px;
@@ -324,16 +517,15 @@ export const QUOTE_CSS = `
 }
 .q-total strong { font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; }
 
-.q-strip {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 4px 24px;
-  margin-top: 16px;
-  padding-top: 12px;
-  border-top: 1px solid var(--rule);
-  font-size: 11px;
-}
+.q-terms { font-size: 12px; margin-bottom: 6px; }
+
+/* Rótulo em cima, valor embaixo, em colunas que se acomodam. Uma lista de
+   definição e não uma tabela: são cinco fatos independentes, não cinco
+   linhas comparáveis entre si. */
+.q-facts { display: flex; flex-wrap: wrap; gap: 10px 28px; }
+.q-fact dt { font-size: 9px; letter-spacing: 0.06em; text-transform: uppercase; }
+.q-fact dd { font-size: 12px; }
+
 .q-dim { color: var(--dim); }
 .q-notes { font-size: 11px; color: #3f3f46; white-space: pre-wrap; }
 

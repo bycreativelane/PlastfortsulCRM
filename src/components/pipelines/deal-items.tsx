@@ -5,7 +5,7 @@ import { useTranslations } from 'next-intl';
 import { Package, Plus, Trash2 } from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/client';
-import { formatCurrency } from '@/lib/currency';
+import { formatCurrencyExact } from '@/lib/currency';
 import {
   lineTotal,
   loadDealItems,
@@ -101,6 +101,8 @@ export function DealItemsEditor({
         result.map((row) => ({
           productId: row.product_id,
           name: row.name,
+          sku: row.sku ?? null,
+          unit: row.unit ?? null,
           quantity: Number(row.quantity),
           unitPrice: Number(row.unit_price),
           discountPercent: Number(row.discount_percent),
@@ -137,6 +139,8 @@ export function DealItemsEditor({
       {
         productId: null,
         name: '',
+        sku: null,
+        unit: null,
         quantity: 1,
         unitPrice: 0,
         discountPercent: 0,
@@ -194,9 +198,15 @@ export function DealItemsEditor({
                       // clearing it back to free text keeps whatever was
                       // typed, because the line is usually being renamed
                       // rather than emptied.
+                      // O código e a unidade vêm junto e ficam CONGELADOS
+                      // na linha (075), como o nome desde a 054: o
+                      // documento imprime as três colunas, e um orçamento
+                      // de junho tem de mostrar o SKU de junho.
                       patch(index, {
                         productId: product?.id ?? null,
                         name: product?.name ?? item.name,
+                        sku: product?.sku ?? (product ? null : item.sku),
+                        unit: product?.unit ?? (product ? null : item.unit),
                         unitPrice: product?.price ?? item.unitPrice,
                       });
                     }}
@@ -218,6 +228,27 @@ export function DealItemsEditor({
                     aria-label={t('lineName')}
                     onChange={(e) => patch(index, { name: e.target.value })}
                   />
+
+                  {/* CÓDIGO E UNIDADE, os dois campos que o pedido de
+                      venda do Bling mostra ao lado da descrição. Vêm
+                      preenchidos ao escolher um produto e continuam
+                      editáveis, porque uma linha de texto livre —
+                      "montagem", "frete" — também pode ter unidade e não
+                      tem produto de onde herdar. */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <TextField
+                      label={t('sku')}
+                      value={item.sku ?? ''}
+                      disabled={disabled}
+                      onChange={(v) => patch(index, { sku: v || null })}
+                    />
+                    <TextField
+                      label={t('unit')}
+                      value={item.unit ?? ''}
+                      disabled={disabled}
+                      onChange={(v) => patch(index, { unit: v || null })}
+                    />
+                  </div>
 
                   {/* Three across from 320px of CONTAINER, one column
                       below it. A quote line's three numbers at ~95px each
@@ -268,8 +299,18 @@ export function DealItemsEditor({
                 )}
               </div>
 
-              <p className="text-muted-foreground text-right text-xs tabular-nums">
-                {formatCurrency(lineTotal(item), currency)}
+              {/* PREÇO TOTAL com o rótulo junto. Era um número solto à
+                  direita, e um número solto num bloco com outros três não
+                  diz qual dos quatro ele é. Em centavos, como o documento
+                  imprime: `formatCurrency` arredonda para o real e faria a
+                  linha discordar do papel em R$ 0,50. */}
+              <p className="text-secondary-foreground flex items-center justify-end gap-2 text-right text-xs">
+                <span className="text-muted-foreground text-3xs">
+                  {t('lineTotal')}
+                </span>
+                <span className="font-semibold tabular-nums">
+                  {formatCurrencyExact(lineTotal(item), currency)}
+                </span>
               </p>
             </li>
           ))}
@@ -283,11 +324,36 @@ export function DealItemsEditor({
         <p className="text-foreground flex items-center justify-between gap-2 text-sm font-semibold">
           <span>{t('total')}</span>
           <span className="tabular-nums">
-            {formatCurrency(total, currency)}
+            {formatCurrencyExact(total, currency)}
           </span>
         </p>
       )}
     </div>
+  );
+}
+
+/** Um campo de texto pequeno com rótulo — o irmão do `NumberField`. */
+function TextField({
+  label,
+  value,
+  disabled,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  disabled?: boolean;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="block space-y-1">
+      <span className="text-muted-foreground text-3xs block">{label}</span>
+      <Input
+        value={value}
+        disabled={disabled}
+        aria-label={label}
+        onChange={(e) => onChange(e.target.value)}
+      />
+    </label>
   );
 }
 

@@ -57,6 +57,19 @@ export interface DealItem {
   product_id: string | null;
   /** Frozen at the moment the line was added — see 054. */
   name: string;
+  /**
+   * Codigo e unidade, congelados junto com o nome — migracao 075.
+   *
+   * O documento do Bling imprime as duas colunas ao lado da descricao, e
+   * congelar e a mesma decisao que a 054 tomou para o `name`: um orcamento
+   * de junho tem de mostrar o SKU de junho, e nao o que o produto tem hoje.
+   *
+   * Opcionais, e nao so porque a linha pode ser texto livre: numa base
+   * anterior a 075 as colunas nao existem, e a leitura cai para o conjunto
+   * antigo em vez de falhar.
+   */
+  sku?: string | null;
+  unit?: string | null;
   quantity: number;
   unit_price: number;
   discount_percent: number;
@@ -79,6 +92,18 @@ const PRODUCT_COLUMNS_BASE =
 const PRODUCT_SELECT = `${PRODUCT_COLUMNS_BASE}, width_cm, height_cm, thickness_micron, material, color, size_label`;
 
 const ITEM_SELECT =
+  'id, account_id, deal_id, product_id, name, sku, unit, quantity, unit_price, discount_percent, total, position';
+
+/**
+ * O mesmo conjunto sem o que a 075 acrescentou.
+ *
+ * As migracoes deste projeto sao aplicadas a mao, de proposito, e isso
+ * abre uma janela em que o codigo pede uma coluna que o banco ainda nao
+ * tem. Pedir `sku` a um banco pre-075 nao devolve a linha sem o campo:
+ * devolve ERRO, e a oportunidade abriria sem nenhum produto. Entao a
+ * leitura tenta o conjunto novo e cai para este.
+ */
+const ITEM_SELECT_PRE_075 =
   'id, account_id, deal_id, product_id, name, quantity, unit_price, discount_percent, total, position';
 
 /**
@@ -305,23 +330,35 @@ export async function loadDealItems(
   db: SupabaseClient,
   dealId: string
 ): Promise<DealItem[] | 'missing-table'> {
-  const { data, error } = await db
-    .from('deal_items')
-    .select(ITEM_SELECT)
-    .eq('deal_id', dealId)
-    .order('position', { ascending: true });
+  const ler = (colunas: string) =>
+    db
+      .from('deal_items')
+      .select(colunas)
+      .eq('deal_id', dealId)
+      .order('position', { ascending: true });
+
+  let { data, error } = await ler(ITEM_SELECT);
+
+  // A janela entre escrever a 075 e aplica-la. Sem esta segunda tentativa
+  // a gaveta abriria com "nenhum produto" numa oportunidade que tem tres.
+  if (error && isUnknownColumn(error)) {
+    ({ data, error } = await ler(ITEM_SELECT_PRE_075));
+  }
 
   if (error) {
     if (isMissingCatalog(error)) return 'missing-table';
     console.error('Failed to load deal items:', error.message);
     return [];
   }
-  return (data ?? []) as DealItem[];
+  return (data ?? []) as unknown as DealItem[];
 }
 
 export interface DealItemDraft {
   productId: string | null;
   name: string;
+  /** Codigo e unidade, congelados na linha — ver `DealItem`. */
+  sku?: string | null;
+  unit?: string | null;
   quantity: number;
   unitPrice: number;
   discountPercent: number;
@@ -353,6 +390,8 @@ export async function replaceDealItems(
       deal_id: args.dealId,
       product_id: item.productId,
       name: item.name.trim().slice(0, 160),
+      sku: (item.sku ?? '').trim().slice(0, 60) || null,
+      unit: (item.unit ?? '').trim().slice(0, 16) || null,
       quantity: item.quantity,
       unit_price: item.unitPrice,
       discount_percent: item.discountPercent,
@@ -367,7 +406,21 @@ export async function replaceDealItems(
 
   if (rows.length === 0) return { error: null };
 
-  const { error } = await db.from('deal_items').insert(rows);
+  let { error } = await db.from('deal_items').insert(rows);
+
+  /*
+   * Sem `sku`/`unit` num banco anterior a 075.
+   *
+   * A alternativa seria recusar a gravacao inteira, e ela custa mais do
+   * que as duas colunas valem: quem salvasse uma oportunidade nessa
+   * janela perderia as LINHAS — o delete acima ja passou. O codigo do
+   * produto reaparece assim que a migracao rodar e alguem reeditar.
+   */
+  if (error && isUnknownColumn(error)) {
+    const antigas = rows.map(({ sku: _sku, unit: _unit, ...resto }) => resto);
+    ({ error } = await db.from('deal_items').insert(antigas));
+  }
+
   return { error: error ? describeWriteError(error) : null };
 }
 

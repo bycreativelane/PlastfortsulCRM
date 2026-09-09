@@ -595,6 +595,21 @@ export interface Deal {
   shipping_cost?: number | null;
   /** Transportadora, "Cliente retira" ou "A definir" (item 48). 070. */
   carrier?: string | null;
+  /**
+   * O que o Pedido de Venda do Bling pede além do que já havia (075).
+   *
+   * `payment_terms` é o ATALHO da condição de pagamento ("30/60/90"),
+   * e não as parcelas — elas são linhas de `deal_installments`, porque
+   * a operação edita cada uma depois de gerá-las.
+   *
+   * `freight_mode` é o "frete por conta": código de domínio do Bling
+   * (0 CIF, 1 FOB, …) guardado como texto, porque somar ou ordenar
+   * códigos de outro sistema não significa nada.
+   */
+  payment_terms?: string | null;
+  freight_mode?: string | null;
+  gross_weight?: number | null;
+  freight_volumes?: number | null;
   created_at: string;
   updated_at?: string;
   contact?: Contact;

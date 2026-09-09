@@ -1,4 +1,5 @@
 import { lineTotal, type DealItemDraft } from '@/lib/products/catalog';
+import type { InstallmentDraft } from '@/lib/deals/installments';
 
 /**
  * O orçamento, como dado.
@@ -39,11 +40,30 @@ import { lineTotal, type DealItemDraft } from '@/lib/products/catalog';
 
 export interface QuoteLine {
   name: string;
+  /** Código e unidade, como o Bling imprime ao lado da descrição. */
+  sku: string | null;
+  unit: string | null;
   quantity: number;
   unitPrice: number;
   discountPercent: number;
   /** Já calculado. Quem desenha não multiplica. */
   total: number;
+}
+
+/**
+ * Uma parcela, como o documento a imprime.
+ *
+ * Espelha `InstallmentDraft` de propósito, em vez de reusá-la: o que chega
+ * aqui já passou por `buildQuote`, e o documento não sabe o que é rascunho
+ * de formulário. É a mesma fronteira que `QuoteLine` guarda em relação a
+ * `DealItemDraft`.
+ */
+export interface QuoteInstallment {
+  days: number;
+  dueOn: string | null;
+  amount: number;
+  method: string | null;
+  note: string | null;
 }
 
 export interface Quote {
@@ -65,7 +85,22 @@ export interface Quote {
   shipping: number | null;
   /** `products + (shipping ?? 0)`. A única soma do documento. */
   total: number;
+  /**
+   * CONDIÇÃO DE PAGAMENTO — o atalho e as parcelas que ele descreve.
+   *
+   * As duas coisas viajam juntas porque o documento imprime as duas: a
+   * condição em uma linha ("30/60/90") e as parcelas embaixo, com data e
+   * valor. Ver o cabeçalho de `lib/deals/installments.ts` para por que
+   * elas são linhas guardadas e não um cálculo refeito na hora.
+   */
+  paymentTerms: string | null;
+  installments: QuoteInstallment[];
   carrier: string | null;
+  /** O "frete por conta" do Bling, já como texto legível. */
+  freightMode: string | null;
+  /** Volumes e peso bruto — o que a transportadora pergunta. */
+  freightVolumes: number | null;
+  grossWeight: number | null;
   owner: string | null;
   notes: string | null;
 }
@@ -82,7 +117,12 @@ export interface QuoteInput {
   value?: number | null;
   currency: string;
   shipping?: number | null;
+  paymentTerms?: string | null;
+  installments?: InstallmentDraft[];
   carrier?: string | null;
+  freightMode?: string | null;
+  freightVolumes?: number | null;
+  grossWeight?: number | null;
   owner?: string | null;
   notes?: string | null;
 }
@@ -91,6 +131,20 @@ export interface QuoteInput {
 function limpo(valor: string | null | undefined): string | null {
   const t = (valor ?? '').trim();
   return t === '' ? null : t;
+}
+
+/**
+ * Número que não é número vira ausência — e ZERO não é ausência.
+ *
+ * Peso bruto e volumes começam vazios e assim ficam num orçamento que sai
+ * antes de alguém pesar nada; o documento omite o que não sabe. Mas
+ * `0` digitado é uma resposta, e imprimir "0 kg" é diferente de não
+ * imprimir linha nenhuma — por isso o teste é contra `null`/`NaN`, e não
+ * contra falsidade.
+ */
+function numero(valor: number | null | undefined): number | null {
+  if (valor === null || valor === undefined) return null;
+  return Number.isFinite(valor) ? valor : null;
 }
 
 /**
@@ -104,6 +158,8 @@ function limpo(valor: string | null | undefined): string | null {
 export function buildQuote(input: QuoteInput): Quote {
   const lines: QuoteLine[] = input.items.map((item) => ({
     name: item.name.trim(),
+    sku: limpo(item.sku),
+    unit: limpo(item.unit),
     quantity: item.quantity,
     unitPrice: item.unitPrice,
     discountPercent: item.discountPercent,
@@ -133,7 +189,22 @@ export function buildQuote(input: QuoteInput): Quote {
     products,
     shipping,
     total: Math.round((products + (shipping ?? 0)) * 100) / 100,
+    paymentTerms: limpo(input.paymentTerms),
+    // As parcelas VAZIAS não entram: uma linha sem valor e sem data é o
+    // formulário no meio de uma edição, não uma condição de pagamento.
+    installments: (input.installments ?? [])
+      .filter((p) => p.amount > 0 || p.dueOn)
+      .map((p) => ({
+        days: p.days,
+        dueOn: p.dueOn,
+        amount: p.amount,
+        method: limpo(p.method),
+        note: limpo(p.note),
+      })),
     carrier: limpo(input.carrier),
+    freightMode: limpo(input.freightMode),
+    freightVolumes: numero(input.freightVolumes),
+    grossWeight: numero(input.grossWeight),
     owner: limpo(input.owner),
     notes: limpo(input.notes),
   };

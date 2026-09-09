@@ -20,13 +20,27 @@ const LABELS = {
   title: 'Orçamento',
   orderNumber: 'Pedido {number}',
   customer: 'Cliente',
+  owner: 'Responsável',
   products: 'Produtos',
+  colDescription: 'Descrição',
+  colUnit: 'Un',
+  colQuantity: 'Qtd',
+  colUnitPrice: 'Preço un.',
+  colTotal: 'Preço total',
   lineDiscount: '{percent}% de desconto',
   subtotal: 'Produtos',
   shipping: 'Frete',
   total: 'Total',
-  delivery: 'Entrega:',
-  owner: 'Atendimento: {name}',
+  payment: 'Condição de pagamento',
+  installment: 'Parcela',
+  dueDate: 'Vencimento',
+  method: 'Forma de pagamento',
+  amount: 'Valor',
+  transport: 'Transporte',
+  carrier: 'Transportadora',
+  freightMode: 'Frete por conta',
+  volumes: 'Volumes',
+  grossWeight: 'Peso bruto',
   notes: 'Observações',
   footer: 'Sujeito a confirmação.',
 };
@@ -59,6 +73,16 @@ const QUOTE = buildQuote({
   currency: 'BRL',
   shipping: 120,
   owner: 'Juliana Prestes',
+  paymentTerms: '30/60/90',
+  installments: [
+    { days: 30, dueOn: '2026-10-08', amount: 181.67, method: 'AGRO sicredi', note: null },
+    { days: 60, dueOn: '2026-11-07', amount: 181.67, method: 'AGRO sicredi', note: null },
+    { days: 90, dueOn: '2026-12-07', amount: 181.66, method: 'AGRO sicredi', note: null },
+  ],
+  carrier: 'Rodoexpress',
+  freightMode: 'CIF — remetente',
+  freightVolumes: 4,
+  grossWeight: 128.5,
 });
 
 /** `Intl` separa símbolo e número com espaço NÃO-QUEBRÁVEL. */
@@ -90,9 +114,42 @@ describe('quotePage', async () => {
 
   it('resolve os moldes com variável', () => {
     expect(html).toContain('Pedido 14349');
-    expect(html).toContain('Atendimento: Juliana Prestes');
+    // `owner` DEIXOU DE SER UM MOLDE: era "Atendimento: {name}" numa tira
+    // de rodapé e virou uma sobrancelha ao lado do cliente, no lugar em
+    // que o pedido de venda do Bling põe o vendedor.
+    expect(html).toContain('Juliana Prestes');
     expect(html).not.toContain('{number}');
-    expect(html).not.toContain('{name}');
+    expect(html).not.toContain('{percent}');
+  });
+
+  it('leva o pedido de venda inteiro, na ordem que o Gabriel pediu', () => {
+    const t = legivel(html);
+    // A ORDEM, medida na própria página: cliente e responsável, produto,
+    // condição de pagamento, transporte. É o que ele fechou com "nesta
+    // ordem", e é a sequência em que a operação confere isto contra o
+    // Bling.
+    const posicoes = [
+      t.indexOf('Euclides Fernando Goncalves'),
+      t.indexOf('Sacos para silagem'),
+      t.indexOf('30/60/90'),
+      t.indexOf('Rodoexpress'),
+    ];
+    expect(posicoes.every((i) => i > 0)).toBe(true);
+    expect(posicoes).toEqual([...posicoes].sort((a, b) => a - b));
+  });
+
+  it('imprime as parcelas com data, forma e valor', () => {
+    const t = legivel(html);
+    expect(t).toContain('08/10/2026');
+    expect(t).toContain('AGRO sicredi');
+    expect(t).toContain('R$ 181,66');
+  });
+
+  it('imprime o transporte com volumes e peso', () => {
+    const t = legivel(html);
+    expect(t).toContain('Rodoexpress');
+    expect(t).toContain('CIF — remetente');
+    expect(t).toContain('128,5 kg');
   });
 
   it('omite o que a empresa ainda não disse de si', async () => {

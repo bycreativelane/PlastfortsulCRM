@@ -55,6 +55,20 @@ describe('quoteFingerprint', () => {
     ['o preço unitário', { items: [{ ...LINHA, unitPrice: 4.26 }] }],
     ['o desconto', { items: [{ ...LINHA, discountPercent: 5 }] }],
     ['o nome do produto', { items: [{ ...LINHA, name: 'Outro saco' }] }],
+    ['o código do produto', { items: [{ ...LINHA, sku: 'SIL-51110' }] }],
+    ['a unidade', { items: [{ ...LINHA, unit: 'KG' }] }],
+    ['a condição de pagamento', { paymentTerms: '30/60/90' }],
+    ['o frete por conta', { freightMode: 'FOB' }],
+    ['os volumes', { freightVolumes: 4 }],
+    ['o peso bruto', { grossWeight: 128.5 }],
+    [
+      'uma parcela',
+      {
+        installments: [
+          { days: 30, dueOn: '2026-10-08', amount: 425, method: null, note: null },
+        ],
+      },
+    ],
   ])('muda quando muda %s', (_nome, extra) => {
     expect(digital(extra)).not.toBe(digital());
   });
@@ -85,6 +99,32 @@ describe('quoteFingerprint', () => {
     });
     const b = digital({ items: [{ ...LINHA, name: 'a' }] });
     expect(a).not.toBe(b);
+  });
+
+  it('a data de uma parcela conta — remarcar é outro documento', () => {
+    const parcela = {
+      days: 30,
+      dueOn: '2026-10-08',
+      amount: 425,
+      method: 'AGRO sicredi',
+      note: null,
+    };
+    expect(digital({ installments: [parcela] })).not.toBe(
+      digital({ installments: [{ ...parcela, dueOn: '2026-10-15' }] })
+    );
+  });
+
+  it('parcela vazia não é parcela — buildQuote a descarta antes', () => {
+    // O formulário cria a linha antes de a pessoa digitar o valor. Ela não
+    // pode virar uma impressão digital diferente, ou o botão geraria um PDF
+    // novo por causa de uma linha em branco.
+    expect(
+      digital({
+        installments: [
+          { days: 0, dueOn: null, amount: 0, method: null, note: null },
+        ],
+      })
+    ).toBe(digital());
   });
 
   it('é um sha256 em hexadecimal', () => {

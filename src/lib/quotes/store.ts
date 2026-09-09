@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import type { Quote, QuoteLine } from './quote';
+import type { Quote, QuoteInstallment, QuoteLine } from './quote';
 
 /**
  * Onde um orçamento gerado fica guardado.
@@ -48,7 +48,12 @@ interface Linha {
   products: number | string;
   shipping: number | string | null;
   total: number | string;
+  payment_terms?: string | null;
+  installments?: QuoteInstallment[] | null;
   carrier: string | null;
+  freight_mode?: string | null;
+  freight_volumes?: number | string | null;
+  gross_weight?: number | string | null;
   owner: string | null;
   notes: string | null;
   created_at: string;
@@ -70,6 +75,10 @@ interface Linha {
  */
 const numero = (v: number | string | null | undefined): number =>
   v === null || v === undefined ? 0 : typeof v === 'number' ? v : Number(v);
+
+/** O mesmo, para colunas em que ausência não é zero. */
+const opcional = (v: number | string | null | undefined): number | null =>
+  v === null || v === undefined ? null : numero(v);
 
 function daLinha(row: Linha): StoredQuote {
   return {
@@ -94,50 +103,35 @@ function daLinha(row: Linha): StoredQuote {
         ? null
         : numero(row.shipping),
     total: numero(row.total),
+    // Os campos da 076. `?? null` e não `numero()` nos dois medidos:
+    // ausente e zero são coisas diferentes aqui — um orçamento sem peso
+    // não pesa zero, ele não foi pesado, e o documento omite um e imprime
+    // o outro. Num banco anterior à 076 a coluna nem vem, e o bloco de
+    // transporte daquele orçamento fica como sempre esteve.
+    paymentTerms: row.payment_terms ?? null,
+    installments: Array.isArray(row.installments) ? row.installments : [],
+    freightMode: row.freight_mode ?? null,
+    freightVolumes: opcional(row.freight_volumes),
+    grossWeight: opcional(row.gross_weight),
     carrier: row.carrier,
     owner: row.owner,
     notes: row.notes,
   };
 }
 
-/**
- * Guarda o orçamento que acabou de ser gerado.
+/*
+ * `saveQuote` SAIU DAQUI, e a ausência é o registro.
  *
- * Não devolve erro para a tela por decisão: quem apertou o botão queria
- * IMPRIMIR, e a impressão já aconteceu. Falhar em arquivar não pode virar
- * um alarme vermelho em cima de uma ação que deu certo — vai para o
- * console, que é onde se procura quando a lista aparecer curta.
+ * Ela gravava a linha do lado do cliente, sem impressão digital — que é
+ * exatamente o caminho pelo qual oito cliques viraram oito orçamentos
+ * idênticos no print do Gabriel. Quem arquiva agora é `POST /api/quotes`,
+ * que refaz os totais, procura pela impressão digital da 074 e só então
+ * insere.
+ *
+ * Ninguém a chamava mais. Uma segunda porta para gravar a mesma linha,
+ * sem a guarda que a primeira tem, é a duplicata esperando ser
+ * reintroduzida por quem a encontrasse exportada e pronta.
  */
-export async function saveQuote(
-  db: SupabaseClient,
-  args: { accountId: string; dealId: string | null; userId: string | null },
-  quote: Quote
-): Promise<{ error: string | null }> {
-  const { error } = await db.from('deal_quotes').insert({
-    account_id: args.accountId,
-    deal_id: args.dealId,
-    user_id: args.userId,
-    order_number: quote.orderNumber,
-    issued_on: quote.issuedOn,
-    company: quote.company,
-    customer_name: quote.customer.name,
-    customer_company: quote.customer.company,
-    customer_phone: quote.customer.phone,
-    lines: quote.lines,
-    currency: quote.currency,
-    products: quote.products,
-    shipping: quote.shipping,
-    total: quote.total,
-    carrier: quote.carrier,
-    owner: quote.owner,
-    notes: quote.notes,
-  });
-  if (error) {
-    console.error('[orçamentos] não arquivou:', error.message);
-    return { error: error.message };
-  }
-  return { error: null };
-}
 
 /** Os orçamentos da conta, do mais novo para o mais velho. */
 export async function loadQuotes(

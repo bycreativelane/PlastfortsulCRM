@@ -12,6 +12,13 @@ import {
   type DealItemDraft,
 } from '@/lib/products/catalog';
 import { DealItemsEditor } from './deal-items';
+import { DealInstallments } from './deal-installments';
+import {
+  loadInstallments,
+  replaceInstallments,
+  type InstallmentDraft,
+} from '@/lib/deals/installments';
+import { loadLastOrderNumber, nextOrderNumber } from '@/lib/deals/order-number';
 import type {
   Contact,
   Conversation,
@@ -36,6 +43,7 @@ import {
 } from '@/components/pipelines/deal-outcome';
 import {
   LOSS_REASONS,
+  entryStage,
   isLostStage,
   isWonStage,
   type LossReason,
@@ -81,6 +89,26 @@ const KNOWN_LOSS_REASONS = new Set<string>([...LOSS_REASONS, 'noReply']);
  * coluna é o texto que a pessoa vê — e o orçamento imprime esse texto.
  */
 const CARRIER_STATES = ['carrierPickup', 'carrierTbd'] as const;
+
+/**
+ * "Frete por conta", com as opções do Bling.
+ *
+ * São seis códigos de domínio de lá — 0 CIF, 1 FOB, 2 terceiros, 3 e 4
+ * próprio, 9 sem frete. O que vai para a coluna é o TEXTO, e não o
+ * número, pela mesma razão escrita na 075: um código sozinho não se lê,
+ * e o documento imprime o que está guardado.
+ *
+ * A lista é fechada porque esta, ao contrário do transportador e da forma
+ * de pagamento, é um padrão fiscal e não um cadastro da conta.
+ */
+const FREIGHT_MODES = [
+  'freightCif',
+  'freightFob',
+  'freightThird',
+  'freightOwnSender',
+  'freightOwnReceiver',
+  'freightNone',
+] as const;
 
 /**
  * A opção que segura o valor enquanto a lista dele não chegou.
@@ -228,6 +256,21 @@ export function DealForm({
    */
   const [items, setItems] = useState<DealItemDraft[]>([]);
   const [itemsPending, setItemsPending] = useState(false);
+  /**
+   * CONDIÇÃO DE PAGAMENTO e as parcelas que ela descreve (075).
+   *
+   * As duas coisas, e não uma: o atalho é o que a pessoa digita e o que o
+   * Bling vai querer de volta; as parcelas são linhas editáveis. O
+   * argumento inteiro está no topo de `lib/deals/installments.ts`.
+   */
+  const [paymentTerms, setPaymentTerms] = useState('');
+  const [installments, setInstallments] = useState<InstallmentDraft[]>([]);
+  /** A 075 ainda não rodou — o bloco inteiro não é desenhado. */
+  const [installmentsPending, setInstallmentsPending] = useState(false);
+  /** Transporte, o resto do que a transportadora pergunta (075). */
+  const [freightMode, setFreightMode] = useState('');
+  const [freightVolumes, setFreightVolumes] = useState<number | null>(null);
+  const [grossWeight, setGrossWeight] = useState<number | null>(null);
   const handleItems = useCallback(
     (state: { items: DealItemDraft[]; pending: boolean }) => {
       setItems(state.items);
@@ -273,6 +316,10 @@ export function DealForm({
       setValue(deal.value ?? null);
       setShipping(deal.shipping_cost ?? null);
       setCarrier(deal.carrier ?? '');
+      setPaymentTerms(deal.payment_terms ?? '');
+      setFreightMode(deal.freight_mode ?? '');
+      setFreightVolumes(deal.freight_volumes ?? null);
+      setGrossWeight(deal.gross_weight ?? null);
       setCurrency(deal.currency || defaultCurrency);
       // contact_id is nullable when the contact has been deleted
       // (migration 004: ON DELETE SET NULL). "" means "no selection".
@@ -286,15 +333,89 @@ export function DealForm({
       setValue(null);
       setShipping(null);
       setCarrier('');
+      setPaymentTerms('');
+      setInstallments([]);
+      setFreightMode('');
+      setFreightVolumes(null);
+      setGrossWeight(null);
       setCurrency(defaultCurrency);
       setContactId(defaultContactId ?? '');
-      setStageId(defaultStageId || stages[0]?.id || '');
+      /*
+       * EM ABERTO, SEM PERGUNTAR — pedido do Gabriel de 8 de setembro:
+       * "se estamos criando oportunidade já vai automático para em
+       * aberto, não precisa escolher". No Bling é a situação padrão de
+       * todo pedido novo, e ninguém a escolhe.
+       *
+       * `defaultStageId` ainda ganha, e tem de ganhar: ele vem do "+" de
+       * uma COLUNA do quadro, quer dizer, de alguém que já apontou para
+       * onde quer. `entryStage` só decide quando ninguém apontou.
+       */
+      setStageId(defaultStageId || entryStage(stages)?.id || '');
       setAssignedTo('');
       setExpectedCloseDate('');
       setNotes('');
     }
   }, [open, deal, defaultStageId, defaultContactId, stages, defaultCurrency]);
   /* eslint-enable react-hooks/set-state-in-effect */
+
+  /**
+   * As parcelas desta oportunidade.
+   *
+   * Separado do efeito de reidratação acima porque elas moram em OUTRA
+   * tabela — `deals` não as traz junto, e uma consulta a mais só quando a
+   * gaveta abre é o mesmo custo que o editor de produtos já paga.
+   */
+  useEffect(() => {
+    if (!open || !deal?.id) return;
+    let cancelled = false;
+    void loadInstallments(supabase, deal.id).then((r) => {
+      if (cancelled) return;
+      if (r === 'missing-table') {
+        setInstallmentsPending(true);
+        return;
+      }
+      setInstallmentsPending(false);
+      setInstallments(
+        r.map((linha) => ({
+          days: Number(linha.days),
+          dueOn: linha.due_on,
+          amount: Number(linha.amount),
+          method: linha.method,
+          note: linha.note,
+        }))
+      );
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, deal?.id, supabase]);
+
+  /**
+   * O PRÓXIMO NÚMERO DE PEDIDO, num negócio novo.
+   *
+   * "pedido de venda puxando do último que foi criado" — e é uma
+   * SUGESTÃO: quem numera de verdade é o Bling, do outro lado, e este CRM
+   * não controla aquela sequência. Por isso ela é digitável por cima e
+   * some em silêncio quando não dá para adivinhar.
+   *
+   * Só ao criar. Numa oportunidade que já existe, o número dela é o
+   * número dela.
+   */
+  useEffect(() => {
+    if (!open || deal || !accountId) return;
+    let cancelled = false;
+    void loadLastOrderNumber(supabase, accountId).then((ultimo) => {
+      const sugestao = nextOrderNumber(ultimo);
+      if (cancelled || !sugestao) return;
+      // Não escreve por cima de quem já começou a digitar: a consulta
+      // volta depois do primeiro quadro, e apagar o que a pessoa digitou
+      // enquanto ela esperava seria pior do que não sugerir nada.
+      setSalesOrder((atual) => (atual === '' ? sugestao : atual));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, deal, accountId, supabase]);
 
   // Load supporting data once the sheet is open
   useEffect(() => {
@@ -434,7 +555,12 @@ export function DealForm({
     value,
     currency,
     shipping,
+    paymentTerms,
+    installments,
     carrier,
+    freightMode: freightMode ? t(freightMode) : null,
+    freightVolumes,
+    grossWeight,
     owner: profiles.find((pf) => pf.id === assignedTo)?.full_name,
     notes,
   });
@@ -467,6 +593,14 @@ export function DealForm({
       value: hasLines ? lineTotalSum : (value ?? 0),
       shipping_cost: shipping,
       carrier: carrier.trim() || null,
+      // A CHAVE, e não o rótulo traduzido: `freight_mode` é código de
+      // domínio de outro sistema, e guardar "Frete por conta do
+      // remetente" faria a coluna mudar de conteúdo com o idioma da
+      // interface. O documento traduz na hora de imprimir.
+      freight_mode: freightMode || null,
+      freight_volumes: freightVolumes,
+      gross_weight: grossWeight,
+      payment_terms: paymentTerms.trim() || null,
       currency,
       contact_id: contactId,
       pipeline_id: pipelineId,
@@ -496,6 +630,14 @@ export function DealForm({
         // better than a rollback the user did not ask for — the value is
         // already correct on the row above.
         if (itemsError) toast.error(t('toastItemsFailed'));
+      }
+      if (!installmentsPending && accountId) {
+        const { error: erroParcelas } = await replaceInstallments(supabase, {
+          accountId,
+          dealId: deal.id,
+          items: installments,
+        });
+        if (erroParcelas) toast.error(t('toastInstallmentsFailed'));
       }
     } else {
       const {
@@ -529,13 +671,22 @@ export function DealForm({
         setSaving(false);
         return false;
       }
+      const novoId = (created as { id: string }).id;
       if (!itemsPending && items.length > 0) {
         const { error: itemsError } = await replaceDealItems(supabase, {
           accountId,
-          dealId: (created as { id: string }).id,
+          dealId: novoId,
           items,
         });
         if (itemsError) toast.error(t('toastItemsFailed'));
+      }
+      if (!installmentsPending && installments.length > 0) {
+        const { error: erroParcelas } = await replaceInstallments(supabase, {
+          accountId,
+          dealId: novoId,
+          items: installments,
+        });
+        if (erroParcelas) toast.error(t('toastInstallmentsFailed'));
       }
     }
 
@@ -700,6 +851,32 @@ export function DealForm({
               single-column form should ever scroll sideways. */}
           <div className="@container flex-1 space-y-4 overflow-x-hidden overflow-y-auto p-4">
             {/*
+              A ORDEM DESTA GAVETA É A DO PEDIDO DE VENDA DO BLING.
+
+              Pedido do Gabriel em 8 de setembro de 2026, com quatro prints
+              do Bling ao lado da gaveta antiga, e ele terminou a lista com
+              "nesta ordem":
+
+                  pedido de venda → cliente e, do lado, o responsável →
+                  produto com descrição, quantidade, preço e preço total →
+                  condição de pagamento → transportadora, quantidade, peso
+                  bruto e valor do frete
+
+              A ordem não é gosto: é a sequência em que a operação já
+              preenche o pedido do outro lado. Enquanto a integração não
+              existe (item 59 do pacote a proíbe agora), alguém vai
+              transcrever esta tela naquela — e transcrever fora de ordem é
+              onde se troca um campo por outro.
+
+              O QUE MUDOU DE LUGAR em relação à versão do item 44:
+              o Responsável subiu para o lado do Cliente (no Bling ele é o
+              VENDEDOR do pedido, e é a segunda parte do negócio, não uma
+              assinatura de rodapé); o Frete desceu para o bloco de
+              transporte, junto do que ele paga; e a Etapa saiu da criação
+              — ver o bloco dela lá embaixo.
+            */}
+
+            {/*
               PEDIDO DE VENDA, e não "Título" — item 39.
 
               É o número que a operação já controla no Bling (14349), e nesta
@@ -714,7 +891,11 @@ export function DealForm({
 
               Opcional de propósito: a oportunidade existe antes do pedido.
               Ela nasce no primeiro "oi" e só ganha número quando alguém
-              monta o orçamento.
+              monta o orçamento. Num negócio NOVO ele já vem com o próximo
+              número da sequência — "puxando do último que foi criado" —, e
+              isso é uma sugestão digitável por cima: quem numera de verdade
+              é o Bling, e o comentário de `lib/deals/order-number.ts` diz
+              por que este CRM não pode fingir que numera.
             */}
             <div className="grid gap-2">
               <FieldLabel htmlFor="deal-order">{t('salesOrder')}</FieldLabel>
@@ -729,235 +910,65 @@ export function DealForm({
               />
             </div>
 
-            <div className="grid gap-2">
-              <FieldLabel htmlFor="deal-contact">{t('contact')}</FieldLabel>
-              <OptionSelect
-                id="deal-contact"
-                value={contactId}
-                onValueChange={setContactId}
-                disabled={!canWrite}
-                className="border-border bg-muted text-foreground"
-              >
-                <option value="">{t('selectContact')}</option>
-                {espera(contactId, contacts, t('loadingLists'))}
-                {contacts.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name || c.phone}
-                  </option>
-                ))}
-              </OptionSelect>
-
-              {linkedConversation && (
-                /*
-                 * O LINK LEVA À CONVERSA, e não à caixa de entrada.
-                 *
-                 * Era `href="/inbox"` seco: um link que diz "abrir a conversa
-                 * deste negócio" e larga a pessoa na lista, para procurar à
-                 * mão a conversa que o próprio link acabou de identificar.
-                 *
-                 * O resto do app já faz certo em cinco lugares, incluindo o
-                 * menu de contexto DESTE MESMO cartão — clicar com o botão
-                 * direito chegava na conversa e clicar no link dentro da
-                 * ficha não. A linha inteira já está carregada aqui.
-                 */
-                <Link
-                  href={`/inbox?c=${linkedConversation.id}`}
-                  // `w-fit`, e não `self-start`. O pai é uma GRADE: ali
-                  // `self-start` alinha no eixo do bloco e não encolhe a
-                  // largura, então o link esticava de ponta a ponta e virava
-                  // uma faixa azul de largura cheia — lia como aviso, não
-                  // como link. `justify-self-start` também serviria; `w-fit`
-                  // vale em grade e em flex, que é o que sobrevive a mexer
-                  // no pai.
-                  className="bg-primary/10 text-primary hover:bg-primary/20 mt-1 inline-flex w-fit items-center gap-1.5 rounded-md px-2 py-1 text-xs"
-                >
-                  <MessageSquare className="h-3 w-3" />
-                  {t('linkToConversation')}
-                </Link>
-              )}
-            </div>
-
-            {/* Paired once the PANEL is wide enough — a container query,
-                not `sm:`, because what decides is the sheet's own width.
-                Paired by MEANING rather than by what happened to fit:
-                money with the date it is expected, stage with the person
-                who owns it. This was seven stacked rows in a sheet that
-                rendered at 24rem, which is what put a scrollbar under a
-                form of eight fields. */}
             {/*
-              PRODUTO — itens 43, 44, 45 e 46, e eles se resolvem juntos.
+              CLIENTE E, DO LADO, O RESPONSÁVEL.
 
-              O item 43 manda remover "O que tem nesta oportunidade" e
-              "Adicionar linha"; o 45 manda criar um campo Produto que
-              reutilize os produtos cadastrados e guarde produto, SKU,
-              quantidade, valor unitário e subtotal; o 46 manda o Valor sair
-              dos itens. Lidos juntos, o 45 pede coluna por coluna o que o 43
-              manda apagar — e o próprio 43 nomeia o risco disso: "não deixar
-              dois sistemas diferentes de itens dentro da mesma oportunidade".
-
-              `deal_items` (migração 054) já é o que o 45 descreve:
-              `product_id` apontando para `products`, o nome congelado no
-              momento da linha, quantidade, preço unitário, desconto e um
-              `total` GENERATED. Então o que muda é a APRESENTAÇÃO — que é
-              de onde a queixa do 43 vem: a seção era pesada e o vazio dela
-              dizia "Sem linhas. O valor acima é o que alguém digitou.", uma
-              frase de diagnóstico interno numa tela de vendedor.
-
-              PRIMEIRO NA ORDEM COMERCIAL do item 44: o produto é o que se
-              decide antes do preço, e o preço passa a sair dele.
-            */}
-            <DealItemsEditor
-              accountId={accountId}
-              dealId={deal?.id ?? null}
-              currency={currency}
-              disabled={!canWrite}
-              onChange={handleItems}
-            />
-
-            {/*
-              VALOR E FRETE, lado a lado — itens 46 e 47.
-
-              Saíram desta linha a MOEDA e a PREVISÃO DE FECHAMENTO, que o
-              item 41 manda tirar da interface. As duas colunas continuam no
-              banco e continuam sendo gravadas: o item 59 proíbe apagar campo
-              histórico só porque ele saiu da tela, e uma oportunidade que já
-              tinha data de fechamento a mantém intacta ao ser editada aqui.
-
-              A moeda é BRL e não precisava de um seletor de 110px ao lado do
-              valor em toda oportunidade de uma empresa que vende em real. A
-              070 corrige o padrão da coluna e das contas, e o
-              `DEFAULT_CURRENCY` do app; o que sai é só o controle.
-
-              O FRETE FICA FORA DO VALOR de propósito (item 47): o orçamento
-              precisa mostrar produtos, frete e total como três linhas, e um
-              valor que embutisse o frete não sabe mais dizer quanto era
-              cada parte.
+              As duas partes do negócio na mesma linha, como no pedido de
+              venda. `@lg`, o mesmo ponto de virada das outras duplas desta
+              gaveta: abaixo dele a sheet tem 24rem e dois selects lado a
+              lado viram dois campos de 11rem com nomes cortados.
             */}
             <div className="grid gap-4 @lg:grid-cols-2">
               <div className="grid gap-2">
-                <FieldLabel htmlFor="deal-value">{t('value')}</FieldLabel>
-                {/* Read-only once there are lines. The number is what
-                    they add up to, and a field somebody can type over
-                    an arithmetic result is a field that makes the
-                    total a lie again — which is the whole thing line
-                    items were added to stop. */}
-                <CurrencyInput
-                  id="deal-value"
-                  value={hasLines ? lineTotalSum : value}
-                  onValueChange={setValue}
-                  currency={currency}
-                  placeholder="0"
-                  disabled={!canWrite || hasLines}
-                  className="border-border bg-muted text-foreground"
-                />
-                {hasLines ? (
-                  <p className="text-muted-foreground text-2xs">
-                    {t('valueFromItems')}
-                  </p>
-                ) : null}
-              </div>
-
-              <div className="grid gap-2">
-                <FieldLabel htmlFor="deal-shipping">{t('shipping')}</FieldLabel>
-                <CurrencyInput
-                  id="deal-shipping"
-                  value={shipping}
-                  onValueChange={setShipping}
-                  currency={currency}
-                  placeholder="0"
+                <FieldLabel htmlFor="deal-contact">{t('contact')}</FieldLabel>
+                <OptionSelect
+                  id="deal-contact"
+                  value={contactId}
+                  onValueChange={setContactId}
                   disabled={!canWrite}
                   className="border-border bg-muted text-foreground"
-                />
+                >
+                  <option value="">{t('selectContact')}</option>
+                  {espera(contactId, contacts, t('loadingLists'))}
+                  {contacts.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name || c.phone}
+                    </option>
+                  ))}
+                </OptionSelect>
+
+                {linkedConversation && (
+                  /*
+                   * O LINK LEVA À CONVERSA, e não à caixa de entrada.
+                   *
+                   * Era `href="/inbox"` seco: um link que diz "abrir a
+                   * conversa deste negócio" e larga a pessoa na lista, para
+                   * procurar à mão a conversa que o próprio link acabou de
+                   * identificar.
+                   *
+                   * O resto do app já faz certo em cinco lugares, incluindo
+                   * o menu de contexto DESTE MESMO cartão — clicar com o
+                   * botão direito chegava na conversa e clicar no link
+                   * dentro da ficha não. A linha inteira já está carregada
+                   * aqui.
+                   */
+                  <Link
+                    href={`/inbox?c=${linkedConversation.id}`}
+                    // `w-fit`, e não `self-start`. O pai é uma GRADE: ali
+                    // `self-start` alinha no eixo do bloco e não encolhe a
+                    // largura, então o link esticava de ponta a ponta e
+                    // virava uma faixa azul de largura cheia — lia como
+                    // aviso, não como link. `justify-self-start` também
+                    // serviria; `w-fit` vale em grade e em flex, que é o
+                    // que sobrevive a mexer no pai.
+                    className="bg-primary/10 text-primary hover:bg-primary/20 mt-1 inline-flex w-fit items-center gap-1.5 rounded-md px-2 py-1 text-xs"
+                  >
+                    <MessageSquare className="h-3 w-3" />
+                    {t('linkToConversation')}
+                  </Link>
+                )}
               </div>
-            </div>
 
-            {/*
-              PRODUTOS · FRETE · TOTAL, a conta que o orçamento vai imprimir.
-
-              Só aparece quando há frete: sem ele o total É o valor, e uma
-              linha repetindo o número que está dois campos acima seria ruído.
-              É a mesma soma que o orçamento faz — feita aqui uma vez, para
-              não existirem dois cálculos que podem discordar, que é o que o
-              item 55 proíbe em outras palavras.
-            */}
-            {shipping !== null && shipping > 0 && (
-              <p className="text-secondary-foreground border-border bg-muted/50 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-lg border px-3 py-2 text-xs">
-                <span className="text-muted-foreground">
-                  {t('breakdown', {
-                    products: formatCurrencyExact(produtos, currency),
-                    shipping: formatCurrencyExact(shipping, currency),
-                  })}
-                </span>
-                <span className="text-foreground font-semibold">
-                  {t('total', {
-                    total: formatCurrencyExact(totalGeral, currency),
-                  })}
-                </span>
-              </p>
-            )}
-
-            {/*
-              TRANSPORTADOR — item 48, e a decisão de não criar uma tabela.
-
-              O item manda reutilizar "contatos/cadastros classificados como
-              Transportadora, CASO essa estrutura já exista". Não existe:
-              não há tipo, etiqueta de sistema nem tabela de transportadoras
-              neste banco. Então o mínimo honesto é guardar o nome — um
-              campo de texto do tamanho da decisão que ele representa.
-
-              Os dois atalhos são os estados que o próprio item pede. Como
-              `ChoiceChip`, e não como opções de um select: eles não são uma
-              lista fechada de onde se escolhe, são dois valores frequentes
-              ao lado de um campo que aceita qualquer nome.
-            */}
-            <div className="grid gap-2">
-              <FieldLabel htmlFor="deal-carrier">{t('carrier')}</FieldLabel>
-              <Input
-                id="deal-carrier"
-                value={carrier}
-                onChange={(e) => setCarrier(e.target.value)}
-                placeholder={t('carrierPlaceholder')}
-                disabled={!canWrite}
-                className="border-border bg-muted text-foreground"
-              />
-              <div className="flex flex-wrap gap-1.5">
-                {CARRIER_STATES.map((chave) => {
-                  const rotulo = t(chave);
-                  return (
-                    <ChoiceChip
-                      key={chave}
-                      active={carrier === rotulo}
-                      disabled={!canWrite}
-                      onClick={() =>
-                        setCarrier(carrier === rotulo ? '' : rotulo)
-                      }
-                    >
-                      {rotulo}
-                    </ChoiceChip>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/*
-              RESPONSÁVEL PRIMEIRO, ETAPA DEPOIS — e a ordem é o item 44.
-
-              A sequência comercial que ele fixa é Produto → Valor → Frete →
-              Transportador → Responsável → Observações, e a Etapa não está
-              nela. O item 42 explica por quê e o que fazer: ela continua
-              necessária no modelo, "mas não precisa poluir o novo formulário
-              simplificado" — e, se a arquitetura exigir o campo, "mantê-lo de
-              forma discreta, sem quebrar a ordem comercial".
-
-              Exige: mover de etapa é o trabalho central do funil e o quadro
-              não é a única porta para isso. Então ela fica, no fim da linha
-              em que o Responsável começa — a leitura vai Responsável, Etapa,
-              e a sequência do item 44 sai intacta.
-
-              `@lg`, o MESMO da linha acima: entre 24rem e 32rem de gaveta
-              esta linha já estava lado a lado enquanto a de cima ainda
-              estava empilhada, e as colunas deixavam de se alinhar. */}
-            <div className="grid gap-4 @lg:grid-cols-2">
               <div className="grid gap-2">
                 <FieldLabel htmlFor="deal-assignee">
                   {t('assignedTo')}
@@ -978,22 +989,252 @@ export function DealForm({
                   ))}
                 </OptionSelect>
               </div>
+            </div>
+
+            {/*
+              PRODUTO — itens 43, 44, 45 e 46, e eles se resolvem juntos.
+
+              O item 43 manda remover "O que tem nesta oportunidade" e
+              "Adicionar linha"; o 45 manda criar um campo Produto que
+              reutilize os produtos cadastrados e guarde produto, SKU,
+              quantidade, valor unitário e subtotal; o 46 manda o Valor sair
+              dos itens. Lidos juntos, o 45 pede coluna por coluna o que o 43
+              manda apagar — e o próprio 43 nomeia o risco disso: "não deixar
+              dois sistemas diferentes de itens dentro da mesma oportunidade".
+
+              `deal_items` (migração 054) já é o que o 45 descreve:
+              `product_id` apontando para `products`, o nome congelado no
+              momento da linha, quantidade, preço unitário, desconto e um
+              `total` GENERATED. A 075 acrescentou o CÓDIGO e a UNIDADE, que
+              são as duas colunas que faltavam para a linha caber no pedido
+              de venda — congeladas pelo mesmo motivo que o nome.
+            */}
+            <DealItemsEditor
+              accountId={accountId}
+              dealId={deal?.id ?? null}
+              currency={currency}
+              disabled={!canWrite}
+              onChange={handleItems}
+            />
+
+            {/*
+              VALOR — item 46.
+
+              Sozinho na linha agora: o Frete desceu para o bloco de
+              transporte, que é onde ele é combinado e onde o Gabriel pediu
+              que ele aparecesse. Continuam fora daqui a MOEDA e a PREVISÃO
+              DE FECHAMENTO, que o item 41 manda tirar da interface e que o
+              item 59 proíbe apagar do banco — as duas seguem sendo
+              gravadas.
+            */}
+            <div className="grid gap-2">
+              <FieldLabel htmlFor="deal-value">{t('value')}</FieldLabel>
+              {/* Read-only once there are lines. The number is what
+                  they add up to, and a field somebody can type over
+                  an arithmetic result is a field that makes the
+                  total a lie again — which is the whole thing line
+                  items were added to stop. */}
+              <CurrencyInput
+                id="deal-value"
+                value={hasLines ? lineTotalSum : value}
+                onValueChange={setValue}
+                currency={currency}
+                placeholder="0"
+                disabled={!canWrite || hasLines}
+                className="border-border bg-muted text-foreground"
+              />
+              {hasLines ? (
+                <p className="text-muted-foreground text-2xs">
+                  {t('valueFromItems')}
+                </p>
+              ) : null}
+            </div>
+
+            {/*
+              PRODUTOS · FRETE · TOTAL, a conta que o orçamento vai imprimir.
+
+              Só aparece quando há frete: sem ele o total É o valor, e uma
+              linha repetindo o número que está dois campos acima seria ruído.
+              É a mesma soma que o orçamento faz — feita aqui uma vez, para
+              não existirem dois cálculos que podem discordar, que é o que o
+              item 55 proíbe em outras palavras.
+
+              Fica ANTES da condição de pagamento de propósito: é este total
+              que as parcelas dividem, e vê-lo na linha de cima é o que faz
+              "gerar parcelas" ser conferível.
+            */}
+            {shipping !== null && shipping > 0 && (
+              <p className="text-secondary-foreground border-border bg-muted/50 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-lg border px-3 py-2 text-xs">
+                <span className="text-muted-foreground">
+                  {t('breakdown', {
+                    products: formatCurrencyExact(produtos, currency),
+                    shipping: formatCurrencyExact(shipping, currency),
+                  })}
+                </span>
+                <span className="text-foreground font-semibold">
+                  {t('total', {
+                    total: formatCurrencyExact(totalGeral, currency),
+                  })}
+                </span>
+              </p>
+            )}
+
+            {/*
+              CONDIÇÃO DE PAGAMENTO — o bloco novo (migração 075).
+
+              Some inteiro num banco anterior a ela, como o editor de
+              produtos some num anterior à 054: uma seção que não tem onde
+              gravar é pior do que uma seção ausente.
+            */}
+            {!installmentsPending && (
+              <DealInstallments
+                terms={paymentTerms}
+                onTermsChange={setPaymentTerms}
+                value={installments}
+                onChange={setInstallments}
+                total={totalGeral}
+                currency={currency}
+                issuedOn={hojeIso}
+                disabled={!canWrite}
+              />
+            )}
+
+            {/*
+              TRANSPORTE — item 48 e o que a 075 acrescentou.
+
+              O TRANSPORTADOR é texto porque não há tabela de
+              transportadoras neste banco: o item 48 manda reutilizar
+              "contatos/cadastros classificados como Transportadora, CASO
+              essa estrutura já exista", e ela não existe. Então o mínimo
+              honesto é guardar o nome. Os dois atalhos são os estados que o
+              próprio item pede, como `ChoiceChip` e não como opções de um
+              select: eles não são uma lista fechada de onde se escolhe, são
+              dois valores frequentes ao lado de um campo que aceita
+              qualquer nome.
+
+              O FRETE POR CONTA é o oposto e por isso é um select: seis
+              códigos de um padrão fiscal, iguais em toda empresa do país.
+
+              O VALOR DO FRETE terminou aqui, e não junto do Valor, porque
+              foi assim que o Gabriel agrupou: "transportadora, quantidade e
+              peso bruto e o valor do frete". É o mesmo campo de antes —
+              `shipping_cost`, fora do valor dos produtos desde o item 47,
+              justamente para o orçamento poder imprimir as três linhas.
+            */}
+            <div className="space-y-4">
+              <p className="text-muted-foreground eyebrow">{t('transport')}</p>
 
               <div className="grid gap-2">
-                <FieldLabel htmlFor="deal-stage">{t('stage')}</FieldLabel>
-                <OptionSelect
-                  id="deal-stage"
-                  value={stageId}
-                  onValueChange={setStageId}
+                <FieldLabel htmlFor="deal-carrier">{t('carrier')}</FieldLabel>
+                <Input
+                  id="deal-carrier"
+                  value={carrier}
+                  onChange={(e) => setCarrier(e.target.value)}
+                  placeholder={t('carrierPlaceholder')}
                   disabled={!canWrite}
                   className="border-border bg-muted text-foreground"
-                >
-                  {stages.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                    </option>
-                  ))}
-                </OptionSelect>
+                />
+                <div className="flex flex-wrap gap-1.5">
+                  {CARRIER_STATES.map((chave) => {
+                    const rotulo = t(chave);
+                    return (
+                      <ChoiceChip
+                        key={chave}
+                        active={carrier === rotulo}
+                        disabled={!canWrite}
+                        onClick={() =>
+                          setCarrier(carrier === rotulo ? '' : rotulo)
+                        }
+                      >
+                        {rotulo}
+                      </ChoiceChip>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="grid gap-4 @lg:grid-cols-2">
+                <div className="grid gap-2">
+                  <FieldLabel htmlFor="deal-freight-mode">
+                    {t('freightMode')}
+                  </FieldLabel>
+                  <OptionSelect
+                    id="deal-freight-mode"
+                    value={freightMode}
+                    onValueChange={setFreightMode}
+                    disabled={!canWrite}
+                    className="border-border bg-muted text-foreground"
+                  >
+                    <option value="">{t('freightModeNone')}</option>
+                    {FREIGHT_MODES.map((chave) => (
+                      <option key={chave} value={chave}>
+                        {t(chave)}
+                      </option>
+                    ))}
+                  </OptionSelect>
+                </div>
+
+                <div className="grid gap-2">
+                  <FieldLabel htmlFor="deal-shipping">
+                    {t('shipping')}
+                  </FieldLabel>
+                  <CurrencyInput
+                    id="deal-shipping"
+                    value={shipping}
+                    onValueChange={setShipping}
+                    currency={currency}
+                    placeholder="0"
+                    disabled={!canWrite}
+                    className="border-border bg-muted text-foreground"
+                  />
+                </div>
+              </div>
+
+              {/* Volumes e peso bruto: o que a transportadora pergunta ao
+                  cotar. Vazios num orçamento que sai antes de alguém pesar
+                  nada, e o documento omite o que está vazio. */}
+              <div className="grid gap-4 @lg:grid-cols-2">
+                <div className="grid gap-2">
+                  <FieldLabel htmlFor="deal-volumes">
+                    {t('freightVolumes')}
+                  </FieldLabel>
+                  <Input
+                    id="deal-volumes"
+                    type="number"
+                    inputMode="decimal"
+                    min={0}
+                    step="1"
+                    value={freightVolumes ?? ''}
+                    onChange={(e) =>
+                      setFreightVolumes(
+                        e.target.value === '' ? null : Number(e.target.value)
+                      )
+                    }
+                    disabled={!canWrite}
+                    className="border-border bg-muted text-foreground tabular-nums"
+                  />
+                </div>
+
+                <div className="grid gap-2">
+                  <FieldLabel htmlFor="deal-weight">
+                    {t('grossWeight')}
+                  </FieldLabel>
+                  <Input
+                    id="deal-weight"
+                    type="number"
+                    inputMode="decimal"
+                    min={0}
+                    step="0.001"
+                    value={grossWeight ?? ''}
+                    onChange={(e) =>
+                      setGrossWeight(
+                        e.target.value === '' ? null : Number(e.target.value)
+                      )
+                    }
+                    disabled={!canWrite}
+                    className="border-border bg-muted text-foreground tabular-nums"
+                  />
+                </div>
               </div>
             </div>
 
@@ -1010,12 +1251,64 @@ export function DealForm({
             </div>
 
             {/*
+              A ETAPA, e por que ela não aparece ao CRIAR.
+
+              "se estamos criando oportunidade já vai automático para em
+              aberto, não precisa escolher" — e no Bling é assim: todo
+              pedido novo nasce Em aberto, e ninguém escolhe a situação de
+              um pedido que ainda não existe.
+
+              ISTO CONTRADIZ O ITEM 42 DO PACOTE, que pedia `Novo lead` como
+              padrão, e a contradição é deliberada: `Novo Lead` é onde a
+              AUTOMAÇÃO põe quem mandou o primeiro "oi" (§1 do fluxo
+              oficial); quem um vendedor abre à mão já falou com alguém.
+              `entryStage` acha a etapa pelo nome e cai para a primeira do
+              funil quando o quadro foi montado à mão.
+
+              EDITANDO ela fica, e o item 42 já dizia por quê — "se a
+              arquitetura exigir o campo, mantê-lo de forma discreta". Mover
+              de etapa é o trabalho central do funil e o quadro não é a
+              única porta para isso.
+            */}
+            {deal ? (
+              <div className="grid gap-2">
+                <FieldLabel htmlFor="deal-stage">{t('stage')}</FieldLabel>
+                <OptionSelect
+                  id="deal-stage"
+                  value={stageId}
+                  onValueChange={setStageId}
+                  disabled={!canWrite}
+                  className="border-border bg-muted text-foreground"
+                >
+                  {stages.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </OptionSelect>
+              </div>
+            ) : (
+              // Uma frase e não um campo. Onde a oportunidade vai cair não é
+              // uma escolha aqui, mas continua sendo uma informação — e um
+              // negócio que aparece numa coluna que ninguém nomeou é o tipo
+              // de surpresa que faz procurar no quadro inteiro.
+              stages.find((st) => st.id === stageId) && (
+                <p className="text-muted-foreground text-2xs">
+                  {t('stageOnCreate', {
+                    stage:
+                      stages.find((st) => st.id === stageId)?.name ?? '',
+                  })}
+                </p>
+              )
+            )}
+
+            {/*
               GERAR ORÇAMENTO — item 51.
 
-              Depois das Observações porque é aqui que tudo que o documento
-              imprime já foi preenchido: produto, valor, frete,
-              transportador, responsável e a própria observação. Antes disto
-              o botão abriria um documento pela metade.
+              Depois de tudo porque é aqui que tudo que o documento imprime
+              já foi preenchido: produto, valor, condição de pagamento,
+              transporte, responsável e a observação. Antes disto o botão
+              abriria um documento pela metade.
 
               `outline` e não sólido: o azul cheio desta gaveta é do Salvar,
               e ver o orçamento não grava nada. É uma prévia — o item 51 diz
@@ -1309,7 +1602,15 @@ export function DealForm({
               value,
               currency,
               shipping,
+              paymentTerms,
+              installments,
               carrier,
+              // Traduzido AQUI, onde existe o provider de i18n: a rota
+              // desenha o documento longe dele e recebe o rótulo pronto,
+              // como já recebe todos os outros.
+              freightMode: freightMode ? t(freightMode) : null,
+              freightVolumes,
+              grossWeight,
               owner: profiles.find((pf) => pf.id === assignedTo)?.full_name,
               notes,
               labels,

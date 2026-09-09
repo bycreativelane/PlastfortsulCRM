@@ -127,15 +127,33 @@ export function DealQuote({
     // documento saiu com "Juliana Prestes" solto sob "Entrega:", e com
     // "10%" no lugar de "10% de desconto". Duas frases perdidas por
     // duplicar o que o catálogo já dizia.
+    //
+    // Sobrou UM molde: `lineDiscount`. `owner` deixou de ser
+    // "Atendimento: {name}" no rodapé e virou uma sobrancelha ao lado do
+    // cliente, no lugar em que o Bling põe o vendedor.
     orderNumber: t.raw('orderNumber'),
     customer: t('customer'),
+    owner: t('owner'),
     products: t('products'),
+    colDescription: t('colDescription'),
+    colUnit: t('colUnit'),
+    colQuantity: t('colQuantity'),
+    colUnitPrice: t('colUnitPrice'),
+    colTotal: t('colTotal'),
     lineDiscount: t.raw('lineDiscount'),
     subtotal: t('subtotal'),
     shipping: t('shipping'),
     total: t('total'),
-    delivery: t('delivery'),
-    owner: t.raw('owner'),
+    payment: t('payment'),
+    installment: t('installment'),
+    dueDate: t('dueDate'),
+    method: t('method'),
+    amount: t('amount'),
+    transport: t('transport'),
+    carrier: t('carrier'),
+    freightMode: t('freightMode'),
+    volumes: t('volumes'),
+    grossWeight: t('grossWeight'),
     notes: t('notes'),
     footer: t('footer'),
   };

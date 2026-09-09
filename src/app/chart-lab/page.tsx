@@ -860,6 +860,11 @@ function TaskDialogBench() {
  * frete não definido, observação vazia, transportador e responsável — e
  * um orçamento só de valor, sem produto nenhum, é o caminho mais comum
  * hoje, antes de o catálogo estar preenchido.
+ *
+ * O completo passou a carregar o que a 075 acrescentou — condição de
+ * pagamento com parcelas, código e unidade nas linhas, frete por conta,
+ * volumes e peso bruto. O enxuto continua sem NADA disso, e é ele que
+ * prova que os blocos novos somem em vez de saírem vazios.
  */
 /** A identidade que a 072 passou a guardar, para o documento ter o que
  *  imprimir no cabeçalho e no rodapé. */
@@ -891,6 +896,8 @@ function QuoteBench() {
       {
         productId: 'p-1',
         name: 'Sacos para silagem 51x110 branco',
+        sku: 'SIL-51110-BR',
+        unit: 'UN',
         quantity: 100,
         unitPrice: 4.25,
         discountPercent: 0,
@@ -898,6 +905,8 @@ function QuoteBench() {
       {
         productId: 'p-2',
         name: 'Abraçadeira plástica com UV preta',
+        sku: 'ABR-UV-PT',
+        unit: 'CX',
         quantity: 200,
         unitPrice: 1,
         discountPercent: 10,
@@ -905,7 +914,37 @@ function QuoteBench() {
     ],
     currency: 'BRL',
     shipping: 120,
+    // A CONDIÇÃO DE PAGAMENTO e o TRANSPORTE, que a 075 acrescentou. Com
+    // três parcelas porque é onde o centavo sobra: 725 em três não divide,
+    // e o bench é onde se vê se a última fecha a conta no papel.
+    paymentTerms: '30/60/90',
+    installments: [
+      {
+        days: 30,
+        dueOn: '2026-10-08',
+        amount: 241.67,
+        method: 'AGRO sicredi',
+        note: null,
+      },
+      {
+        days: 60,
+        dueOn: '2026-11-07',
+        amount: 241.67,
+        method: 'AGRO sicredi',
+        note: null,
+      },
+      {
+        days: 90,
+        dueOn: '2026-12-07',
+        amount: 241.66,
+        method: 'Boleto',
+        note: null,
+      },
+    ],
     carrier: 'Transportadora Rodoexpress',
+    freightMode: 'CIF — remetente',
+    freightVolumes: 4,
+    grossWeight: 128.5,
     owner: 'Juliana Prestes',
     notes: 'Prazo de produção: 10 dias úteis após a confirmação.',
   });

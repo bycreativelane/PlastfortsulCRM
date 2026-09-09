@@ -164,6 +164,7 @@ A do próprio pacote (item 34), com o 37 recolocado.
 | **P1** | experiência de atendimento            | 6 de 6 — fechado em 8 de setembro                                          |
 | **P2** | produtividade                         | 3 de 4 — falta a revisão visual em tela autenticada                        |
 | —      | itens 38–59: oportunidade e orçamento | feito e aplicado em 8 de setembro                                          |
+| —      | a oportunidade no modelo do Bling     | escrito em 8 de setembro; **falta aplicar as migrações 074, 075 e 076**     |
 
 ---
 
@@ -823,3 +824,70 @@ E o item 59, para o bloco do orçamento:
 - **não apagar campos históricos do banco só porque saíram da interface** —
   o que vale para `currency` e `expected_close_date` (item 41) e é o motivo
   de R5 não virar um `DROP TABLE`.
+
+## A oportunidade no modelo do Bling — 8 de setembro de 2026
+
+Pedido do Gabriel com quatro prints do Bling ao lado da gaveta, e ele fechou
+a lista com **"nesta ordem"**:
+
+> a oportunidade deve ficar no modelo do bling / pedido de venda puxando do
+> ultimo que foi criado / abaixo cliente e do lado responsavel(que esta como
+> vendedor) / botar o produto e ficar aparecendo a descrição, quantidade
+> preço, preço total / condição de pagamento, com as opçoes do bling /
+> transportadora, quantidade e peso bruto e o valor do frete / para ir tudo
+> para o bling / isto estruturado para caber na aba de oportunidade / se
+> estamos criando oportunidade ja vai automatico para em aberto, nao precisa
+> escolher oportunidade / ao gerar orçamento aparece esta coisas principais
+> que mandei / nesta ordem
+
+**A integração continua fora** (item 59). Isto é a ESTRUTURA: o que a
+operação preenche hoje no Bling passa a caber aqui, na mesma ordem, para um
+dia ir para lá sem ninguém redigitar.
+
+### O que mudou
+
+| Onde | O quê |
+| --- | --- |
+| `deals` | `payment_terms`, `freight_mode`, `gross_weight`, `freight_volumes` (075) |
+| `deal_items` | `sku` e `unit`, congelados como o `name` desde a 054 (075) |
+| `deal_installments` | tabela nova: parcela, dias, data, valor, forma, observação (075) |
+| `deal_quotes` | os mesmos campos, congelados no documento (076) — e `fingerprint` (074) |
+| Gaveta | reordenada; a Etapa saiu da criação; o pedido vem sugerido |
+| Documento | cliente e responsável lado a lado; produtos viraram tabela; dois blocos novos |
+
+### Três decisões que valem estar escritas
+
+**A forma de pagamento é texto livre**, como `carrier`. No print do Gabriel
+ela é "AGRO sicredi" — um cadastro da conta dele no Bling, não um código de
+um padrão. Não existe lista universal para copiar, e inventar uma aqui seria
+criar um cadastro que diverge do de lá no primeiro uso. O **frete por conta**
+é o oposto e por isso é um select fechado: seis códigos de um padrão fiscal,
+iguais em toda empresa do país.
+
+**As parcelas são linhas, e não um cálculo.** O Bling tem duas coisas com o
+mesmo nome — a condição ("30/60/90", um atalho) e as parcelas que ela gera,
+cada uma com dias, data, valor, forma e observação, e cada uma editável
+depois. Guardar só o atalho e recalcular perderia as edições: a operação move
+uma data para não cair no domingo e arredonda um valor para fechar o pedido.
+Guardam-se os dois.
+
+**Isto contradiz o item 42 do pacote, de propósito.** Ele pedia `Novo lead`
+como padrão da criação; o Gabriel agora pede `Em Aberto` e que não se
+escolha. Os dois estão certos sobre coisas diferentes: `Novo Lead` é onde a
+AUTOMAÇÃO põe quem mandou o primeiro "oi" (§1 do fluxo oficial), e quem um
+vendedor abre à mão já falou com alguém. `entryStage` acha a etapa pelo nome
+e cai para a primeira do funil quando o quadro foi montado à mão; o `+` de
+uma coluna do quadro continua ganhando de tudo, porque ali alguém já apontou.
+
+### O que ficou de fora, e por quê
+
+**O número do pedido é uma sugestão, não uma sequência.** Quem numera de
+verdade é o Bling, e dois pedidos podem sair de lá enquanto ninguém abriu
+esta gaveta. Uma coluna `SERIAL` daria um número autoritativo e ERRADO, e a
+operação descobriria na hora de lançar. Por isso `nextOrderNumber` só
+incrementa o último e falha em silêncio — campo vazio, nunca um palpite que
+pareça confirmado.
+
+**O envio pelo WhatsApp ainda não está ligado.** O PNG já é gerado e já
+sobe para o bucket junto com o PDF; falta o botão que o manda para a conversa
+pela cadeia de `sendMediaMessage` que já existe.

@@ -41,6 +41,13 @@ import { BoardLane } from '@/components/pipelines/board-lane';
 import { DealCard } from '@/components/pipelines/deal-card';
 import { TasksBoard } from '@/components/tasks/tasks-board';
 import { DealQuote } from '@/components/pipelines/deal-quote';
+import { PreviewCard } from '@base-ui/react/preview-card';
+import {
+  TeamRoomPreviewList,
+  TeamRoomPreviewPopup,
+} from '@/components/layout/team-room-preview';
+import type { TeamMessage } from '@/lib/team/messages';
+import type { TeamRoom } from '@/lib/team/rooms';
 import { buildQuote } from '@/lib/quotes/quote';
 import { TaskDialog } from '@/components/tasks/task-dialog';
 import { TaskRow } from '@/components/tasks/task-row';
@@ -751,6 +758,9 @@ export default function ChartLabPage() {
         <SectionTitle>Orçamento — o documento</SectionTitle>
         <QuoteBench />
 
+        <SectionTitle>Minha equipe — a prévia do card</SectionTitle>
+        <TeamPreviewBench />
+
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <ResponseTimeChart data={RESPONSE} loading={false} />
           {/* The dashboard's density, at the dashboard's width. */}
@@ -1025,6 +1035,161 @@ function QuoteBench() {
           onSend: async () => false,
         }}
       />
+    </Panel>
+  );
+}
+
+/**
+ * A PRÉVIA DO CARD "MINHA EQUIPE", com fixture.
+ *
+ * O card de verdade vive atrás do login e busca as mensagens quando a
+ * prévia abre; aqui a lista recebe as linhas prontas. O gatilho imita o
+ * card só o bastante para o popup ter de onde abrir — a posição (à direita,
+ * alinhada pelo fim) e a moldura são as MESMAS peças do card.
+ *
+ * As linhas cobrem o que muda o desenho: o próprio usuário ("Você"), um
+ * áudio sem legenda, um documento, uma mensagem longa que tem de parar em
+ * duas linhas, e uma de outra sala, que é a única que leva o nome dela.
+ */
+const EQUIPE_EU = 'u-gabriel';
+const EQUIPE_NOMES = new Map([
+  ['u-juliana', 'Juliana Prestes'],
+  ['u-vitor', 'Vitor Hugo Almeida'],
+  [EQUIPE_EU, 'Gabriel Spencer'],
+]);
+const EQUIPE_SALAS: TeamRoom[] = [
+  {
+    id: 'r-default',
+    account_id: 'a',
+    name: null,
+    description: null,
+    position: 0,
+    is_default: true,
+    created_at: '2026-09-01T12:00:00Z',
+    archived_at: null,
+  },
+  {
+    id: 'r-operacao',
+    account_id: 'a',
+    name: 'Operação',
+    description: null,
+    position: 1,
+    is_default: false,
+    created_at: '2026-09-02T12:00:00Z',
+    archived_at: null,
+  },
+];
+
+function mensagemDeEquipe(
+  id: string,
+  autor: string,
+  minutosAtras: number,
+  extra: Partial<TeamMessage>
+): TeamMessage {
+  return {
+    id,
+    account_id: 'a',
+    author_id: autor,
+    body: '',
+    conversation_id: null,
+    room_id: 'r-default',
+    // Relativo a AGORA, e por isso fixture e não snapshot: `formatListTime`
+    // mostra hora para hoje e data para o resto, e um carimbo fixo viraria
+    // "12 de set." no dia seguinte e deixaria de testar o caso comum.
+    created_at: new Date(Date.now() - minutosAtras * 60_000).toISOString(),
+    edited_at: null,
+    content_type: 'text',
+    ...extra,
+  };
+}
+
+// Em escopo de módulo, como `daysAgo` e `LAB_TODAY` acima: o relógio é
+// lido uma vez, quando a bancada carrega, e não a cada render.
+const EQUIPE_MENSAGENS: TeamMessage[] = [
+  mensagemDeEquipe('m1', 'u-vitor', 48, {
+    body: 'O Cleiton ligou, vai buscar a silagem amanhã cedo.',
+  }),
+  mensagemDeEquipe('m2', 'u-juliana', 41, {
+    body:
+      'Beleza. Deixa separado no galpão 2, e avisa a portaria que ele vem ' +
+      'com a caminhonete da cooperativa, não com a dele — da última vez ' +
+      'barraram na entrada e ele ficou meia hora esperando.',
+  }),
+  mensagemDeEquipe('m3', 'u-vitor', 30, {
+    body: null as unknown as string,
+    content_type: 'audio',
+    media_name: 'gravacao.webm',
+  }),
+  mensagemDeEquipe('m4', EQUIPE_EU, 22, {
+    body: 'Separado. Mandei a nota por e-mail.',
+  }),
+  mensagemDeEquipe('m5', 'u-juliana', 9, {
+    body: null as unknown as string,
+    content_type: 'document',
+    media_name: 'proposta-cotrisel.pdf',
+    room_id: 'r-operacao',
+  }),
+  mensagemDeEquipe('m6', 'u-vitor', 2, {
+    body: 'Alguém viu o pedido 14350?',
+  }),
+];
+
+function TeamPreviewBench() {
+  return (
+    <Panel className="flex flex-wrap items-end gap-6 p-4">
+      <PreviewCard.Root>
+        <PreviewCard.Trigger
+          delay={150}
+          href="#"
+          className="bg-primary-soft text-primary inline-flex w-60 items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-semibold"
+        >
+          Passe o mouse — com mensagens
+        </PreviewCard.Trigger>
+        <TeamRoomPreviewPopup heading="Minha equipe" unreadCount={3}>
+          <TeamRoomPreviewList
+            messages={EQUIPE_MENSAGENS}
+            names={EQUIPE_NOMES}
+            userId={EQUIPE_EU}
+            rooms={EQUIPE_SALAS}
+          />
+        </TeamRoomPreviewPopup>
+      </PreviewCard.Root>
+
+      <PreviewCard.Root>
+        <PreviewCard.Trigger
+          delay={150}
+          href="#"
+          className="hover:bg-muted text-foreground inline-flex w-60 items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-semibold"
+        >
+          Passe o mouse — carregando
+        </PreviewCard.Trigger>
+        <TeamRoomPreviewPopup heading="Minha equipe" unreadCount={0}>
+          <TeamRoomPreviewList
+            messages={null}
+            names={EQUIPE_NOMES}
+            userId={EQUIPE_EU}
+            rooms={EQUIPE_SALAS}
+          />
+        </TeamRoomPreviewPopup>
+      </PreviewCard.Root>
+
+      <PreviewCard.Root>
+        <PreviewCard.Trigger
+          delay={150}
+          href="#"
+          className="hover:bg-muted text-foreground inline-flex w-60 items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-semibold"
+        >
+          Passe o mouse — sala vazia
+        </PreviewCard.Trigger>
+        <TeamRoomPreviewPopup heading="Minha equipe" unreadCount={0}>
+          <TeamRoomPreviewList
+            messages={[]}
+            names={EQUIPE_NOMES}
+            userId={EQUIPE_EU}
+            rooms={EQUIPE_SALAS}
+          />
+        </TeamRoomPreviewPopup>
+      </PreviewCard.Root>
     </Panel>
   );
 }

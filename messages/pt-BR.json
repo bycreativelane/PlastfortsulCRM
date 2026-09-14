@@ -764,7 +764,8 @@
       "recordStop": "Enviar gravação",
       "recordCancel": "Descartar",
       "recording": "Gravando {time}",
-      "recordingUnsupported": "Este navegador não grava áudio."
+      "recordingUnsupported": "Este navegador não grava áudio.",
+      "cardAria": "{name}, {count, plural, one {# mensagem nova} other {# mensagens novas}}"
     },
     "assist": {
       "suggest": "Sugerir resposta",

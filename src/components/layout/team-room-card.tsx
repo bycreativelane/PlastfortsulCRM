@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { Users } from 'lucide-react';
+import { PreviewCard } from '@base-ui/react/preview-card';
 
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
@@ -16,6 +17,7 @@ import {
 import { loadTeamRooms, roomName, type TeamRoom } from '@/lib/team/rooms';
 import { cn } from '@/lib/utils';
 import { CountBadge } from '@/components/ui/count-badge';
+import { TeamRoomPreview, TeamRoomPreviewPopup } from './team-room-preview';
 
 /**
  * The team room, from wherever you happen to be.
@@ -74,6 +76,16 @@ export function TeamRoomCard() {
   const [rooms, setRooms] = useState<TeamRoom[]>([]);
   /** True once we know the table exists — see the fetch below. */
   const [available, setAvailable] = useState(false);
+  /**
+   * A prévia ao passar o mouse, e o contador que a faz se refazer.
+   *
+   * `previewVersion` sobe a cada mensagem que chega pelo realtime. Com a
+   * prévia fechada isso não custa nada — o conteúdo nem está montado —, e
+   * com ela aberta a lista se refaz para mostrar a resposta que acabou de
+   * chegar, em vez de congelar no instante em que abriu.
+   */
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewVersion, setPreviewVersion] = useState(0);
 
   const refreshUnread = useCallback(
     async (db = createClient()) => {
@@ -132,6 +144,7 @@ export function TeamRoomCard() {
         (payload) => {
           if (cancelled) return;
           const row = payload.new as TeamMessage;
+          setPreviewVersion((v) => v + 1);
           // Counted rather than recounted: the round trip would be one
           // query per message received, on every route, for a number this
           // browser can derive exactly.
@@ -187,43 +200,63 @@ export function TeamRoomCard() {
   );
 
   return (
-    <Link
-      href="/inbox?team=1"
-      // `data-nav-row` and NOT `data-nav-label`: the label attribute takes
-      // the whole element away when the rail collapses, and this card is not
-      // prose the way the roadmap card is — it is an icon with a dot on it,
-      // which is exactly the thing a 62px rail is FOR. Hiding it meant the
-      // one always-visible announcement that a colleague had written
-      // disappeared for anyone who works with the rail collapsed. The text
-      // column below carries `data-nav-label` and leaves on its own;
-      // `data-nav-row` centres the disc in what is left.
-      data-nav-row
-      title={heading}
-      className={cn(
-        // `items-center` e não `items-start`: com duas linhas de altura fixa
-        // não há mais o que alinhar pelo topo, e o disco centrado é o que a
-        // linha da caixa de entrada faz.
-        'group/team mb-3 flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left transition-colors',
-        // NO FILL AT REST, which is the other half of the duplicate.
-        //
-        // It was `bg-muted`: the same fill, at nearly the same radius, as
-        // the account tile a few pixels below. Two filled boxes of one
-        // colour, each holding a disc over two lines of text — even with
-        // different faces in them they read as one control drawn twice.
-        //
-        // What it takes instead is the grammar the nine navigation rows
-        // above it already use, verbatim: transparent with a
-        // `hover:bg-muted`, and `bg-primary-soft` for the state that wants
-        // attention. This card IS a navigation row — it goes to
-        // /inbox?team=1 — so looking like one is the consistent answer
-        // rather than the quiet one, and the fill finally MEANS something:
-        // it appears when there is unread, instead of being the card's
-        // permanent costume.
-        unread ? 'bg-primary-soft hover:bg-primary-soft/70' : 'hover:bg-muted'
-      )}
-    >
-      <span className="relative shrink-0">
-        {/*
+    /*
+     * PRÉ-VISUALIZAÇÃO AO PASSAR O MOUSE — pedido do Gabriel em 8 de
+     * setembro: "já que não tem mais o mini chat de visualização, faz uma
+     * pré-visualização passando o mouse em cima pra ler rápido".
+     *
+     * O `PreviewCard` do Base UI é exatamente essa peça: um popup que abre
+     * no hover (e no foco) de um LINK, e só para quem enxerga o ponteiro.
+     * O card continua sendo o link — clicar ainda leva à sala —, e a prévia
+     * é a leitura de quem só quer saber se vale ir.
+     *
+     * `delay` de 350ms e não o padrão de 600: o card fica no trilho, por
+     * onde o ponteiro passa a caminho de outra coisa, e 350ms é o bastante
+     * para não abrir de passagem sem obrigar ninguém a esperar para ler.
+     */
+    <PreviewCard.Root open={previewOpen} onOpenChange={setPreviewOpen}>
+      <PreviewCard.Trigger
+        delay={350}
+        closeDelay={150}
+        render={<Link href="/inbox?team=1" />}
+        // `data-nav-row` and NOT `data-nav-label`: the label attribute takes
+        // the whole element away when the rail collapses, and this card is not
+        // prose the way the roadmap card is — it is an icon with a dot on it,
+        // which is exactly the thing a 62px rail is FOR. Hiding it meant the
+        // one always-visible announcement that a colleague had written
+        // disappeared for anyone who works with the rail collapsed. The text
+        // column below carries `data-nav-label` and leaves on its own;
+        // `data-nav-row` centres the disc in what is left.
+        data-nav-row
+        // SEM `title`. Ele desenhava a dica nativa do navegador por cima da
+        // prévia, um segundo depois de ela abrir. O nome para leitor de tela
+        // mora no `sr-only` lá dentro, que continua na árvore com o trilho
+        // recolhido — que era o único motivo de o `title` existir.
+        className={cn(
+          // `items-center` e não `items-start`: com duas linhas de altura fixa
+          // não há mais o que alinhar pelo topo, e o disco centrado é o que a
+          // linha da caixa de entrada faz.
+          'group/team mb-3 flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left transition-colors',
+          // NO FILL AT REST, which is the other half of the duplicate.
+          //
+          // It was `bg-muted`: the same fill, at nearly the same radius, as
+          // the account tile a few pixels below. Two filled boxes of one
+          // colour, each holding a disc over two lines of text — even with
+          // different faces in them they read as one control drawn twice.
+          //
+          // What it takes instead is the grammar the nine navigation rows
+          // above it already use, verbatim: transparent with a
+          // `hover:bg-muted`, and `bg-primary-soft` for the state that wants
+          // attention. This card IS a navigation row — it goes to
+          // /inbox?team=1 — so looking like one is the consistent answer
+          // rather than the quiet one, and the fill finally MEANS something:
+          // it appears when there is unread, instead of being the card's
+          // permanent costume.
+          unread ? 'bg-primary-soft hover:bg-primary-soft/70' : 'hover:bg-muted'
+        )}
+      >
+        <span className="relative shrink-0">
+          {/*
           SEMPRE O GLIFO DA SALA, e nunca mais o rosto de quem escreveu por
           último. O item 37 tira o avatar da última pessoa da lista do que o
           card mostra, e ele era a diferença mais visível entre este card e
@@ -234,59 +267,71 @@ export function TeamRoomCard() {
           terminava na mesma foto duas vezes — esta e a do bloco da conta,
           poucos pixels abaixo — e isso lia como falha de renderização.
         */}
-        <span
-          className={cn(
-            'grid size-7 place-items-center rounded-full',
-            unread ? 'bg-primary text-white' : 'bg-muted text-primary'
-          )}
-        >
-          <Users className="size-3.5" />
-        </span>
-        {/* The collapsed rail's copy of the count. The badge beside the
+          <span
+            className={cn(
+              'grid size-7 place-items-center rounded-full',
+              unread ? 'bg-primary text-white' : 'bg-muted text-primary'
+            )}
+          >
+            <Users className="size-3.5" />
+          </span>
+          {/* The collapsed rail's copy of the count. The badge beside the
             heading goes with the text; this one rides the disc, so "there
             is something new" survives at 62px — the width where the card
             has no other way to say it. A dot rather than the number: at
             62px there is no room for two digits, and the number is one
             click away. */}
-        {unread && (
-          <span
-            data-nav-dot
-            className="bg-primary ring-primary-soft absolute -top-0.5 -right-0.5 hidden size-2 rounded-full ring-2"
-          />
-        )}
-      </span>
+          {unread && (
+            <span
+              data-nav-dot
+              className="bg-primary ring-primary-soft absolute -top-0.5 -right-0.5 hidden size-2 rounded-full ring-2"
+            />
+          )}
+        </span>
 
-      <span data-nav-label className="min-w-0 flex-1">
-        <span className="flex items-center gap-1.5">
-          <span
-            className={cn(
-              'min-w-0 flex-1 truncate text-sm font-semibold',
-              unread ? 'text-primary' : 'text-foreground'
-            )}
-          >
-            {heading}
-          </span>
-          {/* A COUNT, not a dot. Um recado e onze recados são situações
+        <span className="sr-only">
+          {unread
+            ? t('cardAria', { name: heading, count: unreadCount })
+            : heading}
+        </span>
+        <span data-nav-label aria-hidden className="min-w-0 flex-1">
+          <span className="flex items-center gap-1.5">
+            <span
+              className={cn(
+                'min-w-0 flex-1 truncate text-sm font-semibold',
+                unread ? 'text-primary' : 'text-foreground'
+              )}
+            >
+              {heading}
+            </span>
+            {/* A COUNT, not a dot. Um recado e onze recados são situações
               diferentes: o primeiro se lê depois, o segundo é uma conversa
               que já passou sem você.
 
               Capped at 99+ because three digits change the card's width
               and nothing above 99 is a different decision. */}
-          {unread && (
-            <CountBadge size="dot" tone="primary">
-              {unreadCount > 99 ? '99+' : unreadCount}
-            </CountBadge>
-          )}
-        </span>
+            {unread && (
+              <CountBadge size="dot" tone="primary">
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </CountBadge>
+            )}
+          </span>
 
-        {/* A MESMA FRASE DA CAIXA DE ENTRADA, e é a chave que ela já usa.
+          {/* A MESMA FRASE DA CAIXA DE ENTRADA, e é a chave que ela já usa.
             Escrever outra aqui seriam duas traduções para a mesma ideia,
             divergindo com o tempo — o mesmo argumento que a faixa de
             descadastro da ficha do contato já segue. */}
-        <span className="text-muted-foreground text-2xs block truncate leading-snug">
-          {t('rowHint')}
+          <span className="text-muted-foreground text-2xs block truncate leading-snug">
+            {t('rowHint')}
+          </span>
         </span>
-      </span>
-    </Link>
+      </PreviewCard.Trigger>
+
+      <TeamRoomPreviewPopup heading={heading} unreadCount={unreadCount}>
+        {previewOpen && (
+          <TeamRoomPreview rooms={rooms} version={previewVersion} />
+        )}
+      </TeamRoomPreviewPopup>
+    </PreviewCard.Root>
   );
 }

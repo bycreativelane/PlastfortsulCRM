@@ -764,7 +764,8 @@
       "recordStop": "Send recording",
       "recordCancel": "Discard",
       "recording": "Recording {time}",
-      "recordingUnsupported": "This browser cannot record audio."
+      "recordingUnsupported": "This browser cannot record audio.",
+      "cardAria": "{name}, {count, plural, one {# new message} other {# new messages}}"
     },
     "assist": {
       "suggest": "Suggest a reply",

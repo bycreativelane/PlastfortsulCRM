@@ -764,7 +764,8 @@
       "recordStop": "녹음 보내기",
       "recordCancel": "취소",
       "recording": "녹음 중 {time}",
-      "recordingUnsupported": "이 브라우저는 오디오를 녹음할 수 없습니다."
+      "recordingUnsupported": "이 브라우저는 오디오를 녹음할 수 없습니다.",
+      "cardAria": "{name}, 새 메시지 {count}개"
     },
     "assist": {
       "suggest": "답변 제안",

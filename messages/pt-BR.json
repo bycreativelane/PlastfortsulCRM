@@ -3497,7 +3497,9 @@
     "taskDueFallbackTitle": "Tarefa",
     "taskDueBody": "Uma tarefa sua está chegando na hora.",
     "mentionTitle": "{actor} mencionou você",
-    "mentionNoText": "Mencionou você na sala da equipe"
+    "mentionNoText": "Mencionou você na sala da equipe",
+    "soundOn": "Som de aviso ligado — clique para silenciar",
+    "soundOff": "Som de aviso desligado — clique para ligar"
   },
   "Routes": {
     "loading": "Carregando…",

@@ -3497,7 +3497,9 @@
     "taskDueFallbackTitle": "작업",
     "taskDueBody": "담당 작업의 기한이 다가옵니다.",
     "mentionTitle": "{actor}님이 회원님을 멘션했습니다",
-    "mentionNoText": "팀 방에서 회원님을 멘션했습니다"
+    "mentionNoText": "팀 방에서 회원님을 멘션했습니다",
+    "soundOn": "알림 소리 켜짐 — 클릭하면 음소거",
+    "soundOff": "알림 소리 꺼짐 — 클릭하면 켜기"
   },
   "Routes": {
     "loading": "불러오는 중…",

@@ -1007,3 +1007,30 @@ digitado à mão que não avisou ninguém), e o painel. O contraste do âmbar e 
 azul sobre as bolhas ficou entre 5,2:1 e 8,3:1. **O fluxo com o banco — o
 gatilho, o sino, a leitura em dois aparelhos — só pode ser exercitado depois
 da 077 e com sessão autenticada.**
+
+## Som de notificação — 14 de setembro
+
+> precisa implementar notificação em som na plataforma
+
+**Toca quando uma notificação chega ao sino** desta pessoa — mensagem de
+cliente, conversa atribuída, lembrete de tarefa e, com a 077, menção na sala
+da equipe. O som herda os filtros que cada tipo já tem (a mensagem de cliente
+avisa no máximo uma vez a cada cinco minutos por conversa), então uma conversa
+ao vivo não vira uma sequência de toques. Mensagem comum da sala da equipe
+**não** toca: é conversa entre colegas, e tocar a cada frase ensinaria a
+equipe a tirar o som. A menção toca, e com uma nota a mais — dá para
+distinguir de ouvido.
+
+- **Ligado por padrão**, com um botão de alto-falante no próprio painel do
+  sino. É preferência do aparelho (`localStorage`): o computador do escritório
+  toca, o notebook da reunião não. Ligar toca uma vez, como confirmação.
+- **Uma aba só**: três abas abertas recebem o mesmo evento, e a Web Locks API
+  garante um toque. Verificado com duas abas: enquanto uma toca, a outra
+  encontra a trava ocupada; depois de 1,5 s ela libera.
+- **Sintetizado** pela Web Audio API, sem arquivo. Verificado no navegador: o
+  contexto de áudio roda e os osciladores saem nas frequências certas.
+
+**Uma limitação do navegador, não daqui**: nenhum site pode tocar som antes de
+a pessoa interagir com a página. Um aviso que chegue antes do primeiro clique
+fica em silêncio; a partir dele, toca. Os dois toques podem ser ouvidos na
+bancada (`/chart-lab`, "Aviso sonoro").

@@ -3497,7 +3497,9 @@
     "taskDueFallbackTitle": "Task",
     "taskDueBody": "One of your tasks is coming due.",
     "mentionTitle": "{actor} mentioned you",
-    "mentionNoText": "Mentioned you in the team room"
+    "mentionNoText": "Mentioned you in the team room",
+    "soundOn": "Notification sound on — click to mute",
+    "soundOff": "Notification sound off — click to turn on"
   },
   "Routes": {
     "loading": "Loading…",

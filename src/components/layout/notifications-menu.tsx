@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
@@ -10,6 +10,8 @@ import {
   Bell,
   CheckCheck,
   Loader2,
+  Volume2,
+  VolumeX,
   WifiOff,
 } from 'lucide-react';
 
@@ -34,6 +36,12 @@ import {
 import { IconTile } from '@/components/ui/icon-tile';
 import { sectionHref } from '@/components/settings/settings-sections';
 import { CountBadge } from '@/components/ui/count-badge';
+import {
+  isNotificationSoundOn,
+  playNotificationSound,
+  setNotificationSoundOn,
+  subscribeNotificationSound,
+} from '@/lib/notifications/sound';
 
 /** One icon per type. New ones are a line each. */
 /** Enough to answer "anything new?" without becoming a page. */
@@ -94,6 +102,15 @@ export function NotificationsMenu({ className }: { className?: string }) {
   const [rows, setRows] = useState<NotificationRecord[] | null>(null);
   const memberNames = useMemberNames();
   const [marking, setMarking] = useState(false);
+  /**
+   * O som, ligado ou desligado, lido como estado externo: a preferência
+   * mora no `localStorage` e pode mudar em outra aba.
+   */
+  const somLigado = useSyncExternalStore(
+    subscribeNotificationSound,
+    isNotificationSoundOn,
+    () => false
+  );
 
   const load = useCallback(async () => {
     if (!accountId) return;
@@ -230,6 +247,35 @@ export function NotificationsMenu({ className }: { className?: string }) {
           <span className="text-foreground flex-1 text-sm font-semibold">
             {t('title')}
           </span>
+          {/*
+            O SOM, NO PRÓPRIO SINO — e não em Configurações.
+
+            É onde a pergunta nasce: quem se incomodou com o toque está
+            olhando para o sino que tocou. Mandar a pessoa procurar a opção
+            numa tela de preferências seria cobrar três cliques de quem só
+            queria silêncio agora. O estado aparece no ÍCONE (alto-falante
+            cortado quando desligado), e ligar de novo tem o mesmo custo.
+          */}
+          <button
+            type="button"
+            onClick={() => {
+              const ligar = !somLigado;
+              setNotificationSoundOn(ligar);
+              // Ligar toca uma vez: é a confirmação de que o som funciona
+              // NESTE aparelho, e o clique já é o gesto que o navegador exige.
+              if (ligar) playNotificationSound('preview');
+            }}
+            aria-pressed={somLigado}
+            aria-label={somLigado ? t('soundOn') : t('soundOff')}
+            title={somLigado ? t('soundOn') : t('soundOff')}
+            className="text-muted-foreground hover:bg-muted hover:text-foreground grid size-7 place-items-center rounded-md transition-colors"
+          >
+            {somLigado ? (
+              <Volume2 className="size-3.5" />
+            ) : (
+              <VolumeX className="size-3.5" />
+            )}
+          </button>
           {unread > 0 && (
             <button
               type="button"

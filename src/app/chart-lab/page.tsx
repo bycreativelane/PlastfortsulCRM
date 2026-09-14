@@ -49,6 +49,7 @@ import {
 import type { TeamMessage } from '@/lib/team/messages';
 import { MentionPanel, MentionText } from '@/components/inbox/team-mentions';
 import { cn } from '@/lib/utils';
+import { playNotificationSound } from '@/lib/notifications/sound';
 import type { TeamRoom } from '@/lib/team/rooms';
 import { buildQuote } from '@/lib/quotes/quote';
 import { TaskDialog } from '@/components/tasks/task-dialog';
@@ -765,6 +766,26 @@ export default function ChartLabPage() {
 
         <SectionTitle>Minha equipe — @menções</SectionTitle>
         <MentionBench />
+
+        <SectionTitle>Aviso sonoro</SectionTitle>
+        {/* Os dois toques, para OUVIR. Sem fixture nenhuma: o som não lê
+            dado, e o que se confere aqui é se ele é um "plim" e não um apito,
+            e se a menção se distingue de ouvido. Respeita o botão do sino —
+            desligado lá, estes botões ficam mudos também. */}
+        <Panel className="flex flex-wrap gap-2 p-4">
+          <Button
+            variant="outline"
+            onClick={() => playNotificationSound('new_message')}
+          >
+            Tocar — mensagem de cliente
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => playNotificationSound('team_mention')}
+          >
+            Tocar — menção na equipe
+          </Button>
+        </Panel>
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <ResponseTimeChart data={RESPONSE} loading={false} />

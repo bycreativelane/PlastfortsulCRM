@@ -4,6 +4,10 @@ import { useSyncExternalStore } from 'react';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/client';
 import type { Notification } from '@/types';
+import {
+  playNotificationSound,
+  unlockNotificationSound,
+} from '@/lib/notifications/sound';
 
 /**
  * Count of unread notifications for the current user.
@@ -54,6 +58,10 @@ function setCount(next: number): void {
 function start(): void {
   const supabase = createClient();
   const mine = ++generation;
+  // O navegador só deixa tocar som depois de um gesto. Preparar aqui, que
+  // monta junto com o sino em toda tela, é o que faz o primeiro aviso da
+  // manhã soar — desde que alguém tenha clicado em alguma coisa antes.
+  unlockNotificationSound();
 
   (async () => {
     // `head: true` skips the rows — only the count comes back. RLS on
@@ -75,7 +83,14 @@ function start(): void {
       (payload) => {
         if (payload.eventType === 'INSERT') {
           const row = payload.new as Notification;
-          if (!row.read_at) setCount(count + 1);
+          if (!row.read_at) {
+            setCount(count + 1);
+            // O SOM mora aqui porque é aqui que a notificação CHEGA: um só
+            // lugar, uma assinatura só, qualquer que seja a tela aberta.
+            // Ver `lib/notifications/sound.ts` para quando toca e por que
+            // três abas abertas tocam uma vez.
+            playNotificationSound(row.type);
+          }
         } else if (payload.eventType === 'UPDATE') {
           // Updates here only ever set `read_at`. Derived purely from the
           // new row so this does not depend on `payload.old`, which needs

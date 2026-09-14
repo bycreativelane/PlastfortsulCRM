@@ -90,11 +90,43 @@ function SettingsPageInner() {
    * invite). It is simply not for restating the page it links to.
    */
 
+  /*
+   * UM SHELL CONTIDO — a rota está em `APP_SHAPED`.
+   *
+   * O <main> não rola mais nesta tela; quem rola é a COLUNA DO PAINEL, e
+   * só ela. O cabeçalho e a trilha ficam parados onde estão, que é o que
+   * faltava: a trilha era `sticky` e subia uns 86px antes de grudar.
+   *
+   * O preço de ser contida é que a página passa a ser dona das próprias
+   * margens — o `PageTransition` só dá medida e goteiras para as telas de
+   * leitura. Daí `max-w-page` e as goteiras repetidas aqui, iguais às de
+   * `dashboard-shell.tsx`, para esta tela continuar alinhada com todas as
+   * outras.
+   *
+   * ------------------------------------------------------------------
+   * E CONTIDA SÓ A PARTIR DE `lg`
+   * ------------------------------------------------------------------
+   *
+   * Num telefone prender cabeçalho e tira de chips custa caro: medido a
+   * 375×812, sobravam 498px para o painel e 255px iam para moldura
+   * parada. Numa tela dessas o cabeçalho tem MESMO que sair de cena
+   * quando você rola — é assim que era antes, e estava certo.
+   *
+   * Então o contêiner rola no telefone e prende no desktop. É a mesma
+   * regra do `lg:` que a trilha já usava para virar coluna: abaixo dele
+   * não existe "coluna ao lado" nenhuma para manter parada.
+   */
   return (
-    <div>
-      <PageHeader title={t('pageTitle')} description={t('pageDesc')} />
+    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto lg:overflow-hidden">
+      <div className="max-w-page mx-auto w-full shrink-0 px-4 pt-5 sm:px-6 sm:pt-6 lg:px-8">
+        <PageHeader title={t('pageTitle')} description={t('pageDesc')} />
+      </div>
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-[236px_minmax(0,1fr)] lg:items-start">
+      {/* `lg:min-h-0 lg:flex-1` é o que entrega a linha inteira às duas
+          colunas quando a tela é contida. Abaixo de `lg` a grade tem a
+          altura do conteúdo e quem rola é o contêiner de fora, como em
+          qualquer página de leitura. */}
+      <div className="max-w-page mx-auto grid w-full gap-4 px-4 pt-6 pb-4 sm:px-6 sm:pb-6 lg:min-h-0 lg:flex-1 lg:grid-cols-[236px_minmax(0,1fr)] lg:gap-6 lg:px-8">
         {/* ONE INDEX AT A TIME ON A PHONE.
 
             Both of these are complete navigations over the same eighteen
@@ -130,7 +162,15 @@ function SettingsPageInner() {
             against THIS box, not the viewport: at 1024px the rail claims
             236px of the row, so the panel gets narrower at exactly the
             breakpoint a viewport query would read as "more room". */}
-        <SectionTransition token={section} className="@container min-w-0">
+        {/* A COLUNA QUE ROLA — e, no desktop, a única da tela.
+            `lg:min-h-0` porque um item de grade também tem o conteúdo como
+            piso: sem ele a coluna cresce até caber o painel inteiro e nada
+            rola, e o clipe do pai come o que passou. `lg:pb-2` para a
+            última linha não terminar rente à calha. */}
+        <SectionTransition
+          token={section}
+          className="@container min-w-0 lg:min-h-0 lg:overflow-y-auto lg:pb-2"
+        >
           {panelFor(section, go)}
         </SectionTransition>
       </div>

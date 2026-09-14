@@ -51,6 +51,12 @@ const APP_SHAPED = [
   // visões da tela ganham junto o que elas também querem: cabeçalho e
   // filtros parados enquanto só a lista rola.
   /^\/tasks(\/|$)/,
+  // Configurações: a trilha de dezoito seções é uma COLUNA, e uma coluna
+  // que sobe junto com a página não é um índice, é um pedaço do texto. Ela
+  // era `sticky` e andava uns 86px antes de grudar — "o menu arrasta
+  // junto". Contida, a trilha e o cabeçalho ficam parados e só o painel
+  // rola, que é o formato de toda tela de configurações séria.
+  /^\/settings(\/|$)/,
   // The two builders — but NOT their siblings: `/automations/[id]/logs`
   // and `/flows/[id]/runs` are ordinary tables.
   /^\/automations\/new$/,

@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, type ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 
 import { cn } from '@/lib/utils';
 import { useReplayAnimation } from '@/hooks/use-replay-animation';
@@ -31,6 +31,23 @@ export function SectionTransition({
   const ref = useRef<HTMLDivElement>(null);
 
   useReplayAnimation(ref, token, 'section-enter');
+
+  /*
+   * A ROLAGEM PERTENCE AO CONTEÚDO QUE SAIU.
+   *
+   * Quando esta região é ela mesma quem rola — em Configurações a coluna
+   * do painel é o único contêiner que rola na tela —, trocar de seção
+   * mantinha a posição da seção anterior. Sair do fim de "Novidades" e
+   * abrir "Seu perfil" entregava o perfil começando no meio, com o título
+   * dele acima da dobra. `scroll: false` no `router.push` é sobre a
+   * PÁGINA, e não sabe deste contêiner.
+   *
+   * Sem efeito nenhum quando a região não rola, que é o caso comum.
+   */
+  useEffect(() => {
+    const el = ref.current;
+    if (el && el.scrollTop !== 0) el.scrollTop = 0;
+  }, [token]);
 
   return (
     <div ref={ref} className={cn('section-enter', className)}>

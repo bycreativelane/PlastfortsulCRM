@@ -102,70 +102,54 @@ export function SettingsRail({
         '[scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
         'max-lg:[mask-image:linear-gradient(to_right,transparent,black_12px,black_calc(100%-12px),transparent)]',
         'border-border border-b',
-        // `top-0` parked the rail flush against the bottom edge of the
-        // app bar the moment you scrolled — two stacked navigations
-        // touching, with no seam between them. The offset matches the
-        // page's own top gutter, so the rail comes to rest exactly where
-        // it started rather than sliding under the bar.
-        //
-        // AND IT HAS TO BE ABLE TO SCROLL ON ITS OWN.
-        //
-        // Merging the two settings destinations back into one rail took
-        // it from twelve rows to eighteen in four groups. Measured: 796px
-        // at 36px a row plus three group headings — on an 800px viewport
-        // that is four pixels of slack before the 24px top gutter, so on
-        // any laptop it does not fit. A `sticky` element taller than the
-        // viewport silently stops being sticky (it just scrolls with the
-        // page), which means the rail's top disappears while you are deep
-        // in a panel and there is no way back to it without scrolling the
-        // whole page up.
-        //
-        // Capped and scrollable, it stays put. `overflow-x-hidden`
-        // alongside is deliberate:
-        // `visible` on one axis with a non-visible other computes to
-        // `auto`, which would put a phantom horizontal scrollbar on a
-        // column that has nothing to scroll sideways.
-        //
-        // THE CAP IS MEASURED AGAINST THE SCROLLPORT, NOT THE VIEWPORT,
-        // AND THAT IS THE WHOLE FIX.
-        //
-        // It was `calc(100vh - 4rem)`, and the sticky above it stopped
-        // working the moment a panel grew tall enough to scroll — which
-        // on Novidades is one click of "ver todos". The rail scrolled
-        // away with the page, exactly the failure the note above warns
-        // about, and the reason is arithmetic:
-        //
-        //   the sticky ancestor is <main>, not the document, and <main>
-        //   is `100dvh` minus the app header — the header is `min-h-14`,
-        //   so 3.5rem.
-        //
-        //   sticky holds only while  rail height + top offset ≤ scrollport
-        //     old:  (100vh − 4rem) + 1.5rem  =  100vh − 2.5rem
-        //     have:  100dvh − 3.5rem
-        //
-        //   That is 1rem too tall, on every viewport. It never worked; it
-        //   only became visible when a panel finally overflowed.
-        //
-        //   new:  (100dvh − 5rem) + 1.5rem  =  100dvh − 3.5rem  ✓ exactly
-        //
-        // `dvh` and not `vh` for the reason spelled out on `h-vh-*` in
-        // globals.css: nothing in this app scrolls the document, so the
-        // URL bar never hides and the value never moves mid-gesture.
-        //
-        // E SEM BARRA, mesmo aqui. A nota de cima dizia que a coluna do
-        // desktop "quer uma barra de verdade", e em tela ela custa mais
-        // do que entrega: quem é DONO vê dezoito seções, o conteúdo passa
-        // do teto por uns trinta pixels num notebook, e o resultado é uma
-        // barra inteira para trinta pixels — ao lado da barra do <main>,
-        // que é a que realmente rola a página. O Gabriel resumiu em 14 de
-        // setembro: "ta estranho com 2 barras de rolagem".
-        //
-        // A barra não era o que ensinava que há mais: a última linha
-        // aparece CORTADA ao meio, que é o mesmo recado e não gasta uma
-        // calha. A roda do mouse sobre a trilha continua rolando; só o
-        // trilho sumiu. `pb-2` para o corte cair no meio de uma linha em
-        // vez de rente à borda, que leria como fim da lista.
-        'lg:sticky lg:top-6 lg:max-h-[calc(100dvh-5rem)] lg:flex-col lg:overflow-x-hidden lg:overflow-y-auto lg:border-b-0 lg:pb-2',
+        /*
+         * UMA COLUNA, E NÃO UM ELEMENTO GRUDENTO.
+         *
+         * ------------------------------------------------------------
+         * O QUE ESTAVA AQUI, E POR QUE SAIU
+         * ------------------------------------------------------------
+         *
+         * Isto era `sticky top-6` com um teto de `calc(100dvh-5rem)`, e
+         * o comentário que morava aqui era uma página inteira de
+         * aritmética para fazer a conta fechar EXATAMENTE:
+         *
+         *     (100dvh − 5rem) + 1.5rem  =  100dvh − 3.5rem  ✓ exato
+         *
+         * Uma conta que fecha exato não tem folga nenhuma. Qualquer
+         * coisa que mude a altura útil do <main> — um alerta de conta no
+         * topo, um cabeçalho que cresce duas linhas — derruba o sticky
+         * em silêncio, e um sticky que para de grudar não avisa: ele
+         * simplesmente rola junto com a página.
+         *
+         * E mesmo com a conta fechando, o grudento ANDA antes de grudar.
+         * A trilha começa abaixo do cabeçalho da página, então ela sobe
+         * uns 86px até encostar no ponto fixo — medido — e é isso que o
+         * Gabriel viu em 14 de setembro: *"quando eu rolo a pagina no
+         * perfil ou etc o menu arrasta junto"*. Não estava quebrado; era
+         * o trajeto de todo `sticky`, e numa tela de configurações o
+         * menu não deveria ter trajeto nenhum.
+         *
+         * A rota entrou em `APP_SHAPED` (ver `dashboard-shell.tsx`): o
+         * <main> parou de rolar e quem rola é a COLUNA DO PAINEL. Aqui a
+         * trilha vira o que sempre quis ser — uma coluna de altura cheia
+         * ao lado dela. Sem sticky, sem teto, sem aritmética: `h-full`
+         * resolve contra a linha da grade, que já é a altura disponível.
+         * Nada para dar errado quando o layout ao redor mudar.
+         *
+         * `overflow-x-hidden` fica: `visible` num eixo com o outro
+         * não-`visible` computa para `auto`, e isso poria uma barra
+         * horizontal fantasma numa coluna que não rola de lado.
+         *
+         * E sem trilho, mesmo aqui. Quem é DONO vê dezoito seções e o
+         * conteúdo passa da altura da tela num notebook; uma calha para
+         * isso fica ao lado da calha do painel — *"ta estranho com 2
+         * barras de rolagem"*. A última linha aparece CORTADA ao meio,
+         * que é o mesmo recado e não gasta uma calha, e a roda do mouse
+         * sobre a trilha continua rolando. `pb-2` para o corte cair no
+         * meio de uma linha em vez de rente à borda, que leria como fim
+         * da lista.
+         */
+        'lg:h-full lg:min-h-0 lg:flex-col lg:overflow-x-hidden lg:overflow-y-auto lg:border-b-0 lg:pb-2',
         className
       )}
     >

@@ -117,6 +117,14 @@ interface TeamChannelProps {
   focusMessageId?: string | null;
 }
 
+/** Um arquivo já no balde, esperando virar mensagem. */
+interface Anexo {
+  path: string;
+  mime: string;
+  name: string;
+  size: number;
+}
+
 /** Ceiling for a textarea's own growth, in pixels. */
 const COMPOSER_MAX_HEIGHT = 140;
 
@@ -207,12 +215,7 @@ export function TeamChannel({ onBack, focusMessageId }: TeamChannelProps) {
    * balde. É o mesmo trade que o compositor do atendimento faz, e a
    * faxina é trabalho de rotina.
    */
-  const [draft, setDraft] = useState<{
-    path: string;
-    mime: string;
-    name: string;
-    size: number;
-  } | null>(null);
+  const [draft, setDraft] = useState<Anexo | null>(null);
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -559,29 +562,34 @@ export function TeamChannel({ onBack, focusMessageId }: TeamChannelProps) {
    * recusa do outro lado da rede, depois de o usuário ter esperado o
    * upload inteiro de um vídeo de 40 MB para receber um erro.
    */
-  const stageFile = useCallback(
-    async (file: File | undefined) => {
-      if (!file || uploading) return;
+  /**
+   * Sobe o arquivo e devolve o anexo — sem decidir o que fazer com ele.
+   *
+   * Duas coisas querem subir arquivo e fazem coisas DIFERENTES depois: o
+   * clipe (e o colar, e o arrastar) deixa como rascunho para a pessoa
+   * escrever uma legenda; a gravação de voz manda na hora. Antes as duas
+   * passavam por `stageFile`, e por isso a segunda também parava num
+   * rascunho — que é o relato do Gabriel: "quando grava áudio ele anexa e
+   * não envia".
+   */
+  const uploadMedia = useCallback(
+    async (file: File): Promise<Anexo | null> => {
       if (file.size > MEDIA_MAX_BYTES) {
         toast.error(
           t('tooLarge', { mb: Math.floor(MEDIA_MAX_BYTES / 1024 / 1024) })
         );
-        return;
+        return null;
       }
       setUploading(true);
       try {
         const { path } = await uploadAccountMedia(TEAM_MEDIA_BUCKET, file);
-        setDraft({
-          path,
-          mime: file.type,
-          name: file.name,
-          size: file.size,
-        });
+        return { path, mime: file.type, name: file.name, size: file.size };
       } catch (err) {
         // `uploadAccountMedia` lança prosa em inglês — console, não toast,
         // numa instalação pt-BR. Mesma regra do compositor do atendimento.
         console.error('Team upload failed:', err);
         toast.error(t('uploadFailed'));
+        return null;
       } finally {
         setUploading(false);
         // Zerado sempre: sem isso, escolher o MESMO arquivo de novo não
@@ -589,7 +597,71 @@ export function TeamChannel({ onBack, focusMessageId }: TeamChannelProps) {
         if (fileRef.current) fileRef.current.value = '';
       }
     },
-    [uploading, t]
+    [t]
+  );
+
+  /**
+   * MANDA — corpo, anexo, ou os dois. O caminho único de envio da sala.
+   *
+   * Era o corpo do `send`, que lia `text` e `draft` do estado. A gravação
+   * de voz não pode passar por ali: ela tem o anexo NA MÃO e precisa
+   * mandá-lo no mesmo gesto, sem esperar um `setDraft` virar estado.
+   */
+  const enviarMensagem = useCallback(
+    async (corpo: string, anexo: Anexo | null) => {
+      const body = corpo.trim();
+      if ((!body && !anexo) || !accountId || !authorId || pending) return;
+
+      setSending(true);
+      // Limpo antes da ida à rede: o campo é de quem digitou, e segurar a
+      // frase dele esperando o servidor é o que faz um chat parecer lento.
+      setText('');
+      const el = textareaRef.current;
+      if (el) el.style.height = 'auto';
+      setDraft(null);
+
+      // Quem a mensagem chama DE FATO: os escolhidos cujo nome ainda está
+      // no texto. Apagar a menção antes de mandar desfaz o aviso.
+      const mentions = resolveMentions(body, pickedRef.current, directory);
+      pickedRef.current = new Set();
+
+      const { error, mentionsDropped } = await sendTeamMessage(createClient(), {
+        accountId,
+        authorId,
+        body,
+        roomId,
+        mentions,
+        media: anexo ? { ...anexo, kind: teamMediaKind(anexo.mime) } : null,
+      });
+      setSending(false);
+
+      if (error) {
+        // Devolve em vez de perder. `team_messages` chega com a 046; até
+        // ela ser aplicada todo envio falha aqui, e a única coisa que não
+        // pode acontecer é a mensagem sumir.
+        setText(body);
+        setDraft(anexo);
+        pickedRef.current = new Set(mentions);
+        // O único erro que merece frase própria: as colunas da 063 não
+        // existem. "Falhou" mandaria a pessoa tentar de novo para sempre.
+        if (error === 'TEAM_MEDIA_UNAVAILABLE')
+          toast.error(t('mediaUnsupported'));
+        return;
+      }
+      // A mensagem foi, o aviso não. Dizer isso a quem chamou é o que evita
+      // "eu te marquei!" / "não chegou nada".
+      if (mentionsDropped) toast.error(t('mentionsUnsupported'));
+    },
+    [accountId, authorId, pending, roomId, directory, t]
+  );
+
+  const stageFile = useCallback(
+    async (file: File | undefined) => {
+      if (!file || uploading) return;
+      const anexo = await uploadMedia(file);
+      if (anexo) setDraft(anexo);
+    },
+    [uploading, uploadMedia]
   );
 
   /**
@@ -702,9 +774,22 @@ export function TeamChannel({ onBack, focusMessageId }: TeamChannelProps) {
         );
         return;
       }
-      await stageFile(file);
+      /*
+       * SOBE E MANDA, no mesmo gesto.
+       *
+       * "quando grava áudio ele anexa e não envia" — e estava mesmo: a
+       * gravação virava rascunho com campo de legenda, então o botão
+       * verde de "enviar gravação" na verdade só anexava, e faltava um
+       * segundo clique que ninguém procura. Um gravador de voz manda
+       * quando para: é a única leitura possível do botão.
+       *
+       * O que estiver escrito no campo vai junto como legenda — que é o
+       * que o comentário da barra de gravação já prometia.
+       */
+      const anexo = await uploadMedia(file);
+      if (anexo) await enviarMensagem(text, anexo);
     },
-    [stageFile, t]
+    [uploadMedia, enviarMensagem, text, t]
   );
 
   const stopTimer = useCallback(() => {
@@ -793,70 +878,10 @@ export function TeamChannel({ onBack, focusMessageId }: TeamChannelProps) {
     []
   );
 
-  const send = useCallback(async () => {
-    const body = text.trim();
-    if ((!body && !draft) || sending || !accountId || !authorId || pending) {
-      return;
-    }
-
-    setSending(true);
-    // Cleared before the round trip: the field belongs to the typist, and
-    // holding their sentence hostage to the network is what makes a chat
-    // feel slow.
-    setText('');
-    const el = textareaRef.current;
-    if (el) el.style.height = 'auto';
-
-    const attachment = draft;
-    setDraft(null);
-
-    // Quem a mensagem chama DE FATO: os escolhidos cujo nome ainda está no
-    // texto. Apagar a menção antes de mandar desfaz o aviso.
-    const mentions = resolveMentions(body, pickedRef.current, directory);
-    pickedRef.current = new Set();
-
-    const { error, mentionsDropped } = await sendTeamMessage(createClient(), {
-      accountId,
-      authorId,
-      body,
-      roomId,
-      mentions,
-      media: attachment
-        ? {
-            ...attachment,
-            kind: teamMediaKind(attachment.mime),
-          }
-        : null,
-    });
-    setSending(false);
-
-    if (error) {
-      // Give it back rather than losing it. `team_messages` arrives with
-      // migration 046; until it is applied every send fails here, and the
-      // one thing that must not happen is the message disappearing.
-      setText(body);
-      setDraft(attachment);
-      pickedRef.current = new Set(mentions);
-      // O único erro que merece frase própria: as colunas da 063 não
-      // existem. "Falhou" mandaria a pessoa tentar de novo para sempre.
-      if (error === 'TEAM_MEDIA_UNAVAILABLE')
-        toast.error(t('mediaUnsupported'));
-      return;
-    }
-    // A mensagem foi, o aviso não. Dizer isso a quem chamou é o que evita
-    // "eu te marquei!" / "não chegou nada".
-    if (mentionsDropped) toast.error(t('mentionsUnsupported'));
-  }, [
-    text,
-    draft,
-    sending,
-    accountId,
-    authorId,
-    pending,
-    roomId,
-    directory,
-    t,
-  ]);
+  const send = useCallback(() => {
+    if (sending) return;
+    void enviarMensagem(text, draft);
+  }, [enviarMensagem, text, draft, sending]);
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     // O painel de `@` come as teclas de navegação ENQUANTO está aberto e

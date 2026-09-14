@@ -439,13 +439,41 @@ export function MessageComposer({
 
   const slash = slashQuery(text);
   const slashOpen = slash !== null && !readOnly;
+
+  /*
+   * O `/` DA LEGENDA DO ANEXO.
+   *
+   * "não dá pra usar comando com / quando tem um anexo na mensagem" — a
+   * legenda é um campo próprio dentro da prévia, e o painel só existia
+   * para o campo de texto.
+   *
+   * SÓ ATALHOS DE TEXTO aqui, e isso é a única diferença entre os dois
+   * painéis: escolher um atalho de MÍDIA com um anexo já escolhido teria
+   * de decidir qual dos dois arquivos vai — e nenhuma resposta a essa
+   * pergunta é óbvia para quem clicou. Um atalho interativo (botões) não
+   * convive com anexo no mesmo envio pela API da Meta.
+   */
+  const captionSlash = draft ? slashQuery(draft.caption) : null;
+  const captionSlashOpen = captionSlash !== null && !readOnly;
+  const captionMatches = useMemo(
+    () =>
+      captionSlashOpen
+        ? filterQuickReplies(
+            quickReplies.filter(
+              (qr) => qr.kind !== 'media' && qr.kind !== 'interactive'
+            ),
+            captionSlash ?? ''
+          )
+        : [],
+    [captionSlashOpen, quickReplies, captionSlash]
+  );
   const slashMatches = useMemo(
     () => (slashOpen ? filterQuickReplies(quickReplies, slash ?? '') : []),
     [slashOpen, quickReplies, slash]
   );
 
   useEffect(() => {
-    if (slash === null || quickRepliesLoaded) return;
+    if ((slash === null && captionSlash === null) || quickRepliesLoaded) return;
     let cancelled = false;
     void (async () => {
       try {
@@ -460,7 +488,7 @@ export function MessageComposer({
     return () => {
       cancelled = true;
     };
-  }, [slash, quickRepliesLoaded]);
+  }, [slash, captionSlash, quickRepliesLoaded]);
 
   const applyAssign = useCallback(
     (candidate: AssignCandidate) => {
@@ -1100,6 +1128,21 @@ export function MessageComposer({
     setDraft((d) => (d ? { ...d, caption } : d));
   }, []);
 
+  /**
+   * Escolher um atalho DENTRO da legenda: o texto dele vira a legenda.
+   *
+   * Não manda nada — diferente do `/` do campo de texto, onde escolher um
+   * atalho de mídia dispara o envio. Aqui já existe um anexo escolhido, e
+   * quem está na prévia ainda vai olhar antes de apertar enviar.
+   */
+  const applyCaptionQuickReply = useCallback(
+    (qr: QuickReply) => {
+      setCaption(qr.content_text ?? '');
+      setSlashCursor(0);
+    },
+    [setCaption]
+  );
+
   // ---- Render --------------------------------------------------------
 
   return (
@@ -1238,6 +1281,14 @@ export function MessageComposer({
           onDiscard={discardDraft}
           onSend={sendDraft}
           t={t}
+          slash={{
+            open: captionSlashOpen,
+            matches: captionMatches,
+            cursor: slashCursor,
+            loaded: quickRepliesLoaded,
+            onHover: setSlashCursor,
+            onPick: applyCaptionQuickReply,
+          }}
         />
       ) : recording ? (
         // Recording bar — replaces the composer while the mic is live.
@@ -1326,91 +1377,18 @@ export function MessageComposer({
             </div>
           )}
           {slashOpen && (
-            // The `/` panel, and deliberately the assign panel's twin:
-            // same position, same geometry, same keys. Two shortcuts that
-            // look and behave alike is one thing to learn.
-            <div
-              role="listbox"
-              aria-label={t('quickReplies')}
-              className="max-h-vh-46 border-border bg-popover absolute right-0 bottom-[calc(100%+8px)] left-0 z-30 overflow-y-auto rounded-lg border p-1 shadow-lg"
-            >
-              {slashMatches.length === 0 ? (
-                <p className="text-muted-foreground px-3 py-3 text-center text-xs">
-                  {quickRepliesLoaded
-                    ? t('quickReplyNoMatch')
-                    : t('quickReplyLoading')}
-                </p>
-              ) : (
-                slashMatches.map((qr, i) => (
-                  <button
-                    key={qr.id}
-                    type="button"
-                    role="option"
-                    aria-selected={i === slashCursor}
-                    onMouseEnter={() => setSlashCursor(i)}
-                    onMouseDown={(e) => {
-                      // mousedown, not click: click fires after blur, and
-                      // the textarea losing focus closes the panel first.
-                      e.preventDefault();
-                      applyQuickReplyRef.current(qr);
-                    }}
-                    className={cn(
-                      'flex w-full flex-col items-start gap-0.5 rounded-md px-2.5 py-1.5 text-left',
-                      i === slashCursor && 'bg-muted'
-                    )}
-                  >
-                    {/* The SHORTCUT leads when there is one — it is what was just
-                        typed, and reading back the thing you typed is how you
-                        know the panel understood you. The title follows it,
-                        quieter, because by then it is a reminder and not a
-                        label. Snippets without a shortcut keep the title as
-                        the headline; nothing else changes for them. */}
-                    <span className="flex w-full min-w-0 items-baseline gap-1.5">
-                      {qr.shortcut && (
-                        <span className="text-primary shrink-0 font-mono text-sm font-medium">
-                          /{qr.shortcut}
-                        </span>
-                      )}
-                      <span
-                        className={cn(
-                          'min-w-0 truncate',
-                          qr.shortcut
-                            ? 'text-muted-foreground text-2xs'
-                            : 'text-popover-foreground text-sm font-medium'
-                        )}
-                      >
-                        {qr.title}
-                      </span>
-                    </span>
-                    {qr.kind === 'interactive' ? (
-                      <span className="text-muted-foreground text-2xs">
-                        {t('quickReplyInteractive')}
-                      </span>
-                    ) : qr.kind === 'media' ? (
-                      // The attachment is the point of this one, so it is
-                      // named before the caption — a row that showed only
-                      // "Segue o catálogo" reads like a text snippet, and
-                      // choosing it would surprise somebody with a file.
-                      <span className="text-muted-foreground text-2xs flex w-full min-w-0 items-center gap-1">
-                        <Paperclip className="size-3 shrink-0" />
-                        <span className="truncate">
-                          {qr.content_text || t('quickReplyMedia')}
-                        </span>
-                      </span>
-                    ) : (
-                      qr.content_text && (
-                        <span className="text-muted-foreground text-2xs w-full truncate">
-                          {qr.content_text}
-                        </span>
-                      )
-                    )}
-                  </button>
-                ))
-              )}
-              <p className="border-border text-muted-foreground text-3xs border-t px-2.5 pt-2 pb-1">
-                {t('quickReplyHint')}
-              </p>
-            </div>
+            // O `/` do campo de texto. O painel em si mora em
+            // `QuickReplyPanel` porque a LEGENDA de um anexo usa o mesmo
+            // — ver o comentário lá.
+            <QuickReplyPanel
+              matches={slashMatches}
+              cursor={slashCursor}
+              loaded={quickRepliesLoaded}
+              onHover={setSlashCursor}
+              onPick={(qr) => applyQuickReplyRef.current(qr)}
+              t={t}
+              className="absolute right-0 bottom-[calc(100%+8px)] left-0"
+            />
           )}
 
           {/* Everything accessory lives behind the plus.
@@ -1618,6 +1596,119 @@ export function MessageComposer({
  * across the parent's re-renders — a nested component would remount the
  * caption input on every keystroke and drop focus.
  */
+/**
+ * O PAINEL DE `/`, e agora ele tem dois donos.
+ *
+ * Relato do Gabriel em 14 de setembro, com print: *"não dá pra usar
+ * comando com / quando tem um anexo na mensagem"*. E não dava mesmo — a
+ * legenda do anexo é um `<input>` próprio, dentro da prévia, e o painel
+ * vivia grudado no campo de texto do compositor. Digitar `/` ali escrevia
+ * uma barra e mais nada.
+ *
+ * Mandar uma foto com o texto padrão de sempre é exatamente o caso de um
+ * atalho, então o painel virou peça e a legenda passou a usá-la. Uma
+ * marcação, dois lugares — como o `/` e o `@` já fazem entre si.
+ */
+function QuickReplyPanel({
+  matches,
+  cursor,
+  loaded,
+  onHover,
+  onPick,
+  t,
+  className,
+}: {
+  matches: QuickReply[];
+  cursor: number;
+  loaded: boolean;
+  onHover: (index: number) => void;
+  onPick: (qr: QuickReply) => void;
+  t: ReturnType<typeof useTranslations<'Inbox.messageComposer'>>;
+  className?: string;
+}) {
+  return (
+    <div
+      role="listbox"
+      aria-label={t('quickReplies')}
+      className={cn(
+        'max-h-vh-46 border-border bg-popover z-30 overflow-y-auto rounded-lg border p-1 shadow-lg',
+        className
+      )}
+    >
+      {matches.length === 0 ? (
+        <p className="text-muted-foreground px-3 py-3 text-center text-xs">
+          {loaded ? t('quickReplyNoMatch') : t('quickReplyLoading')}
+        </p>
+      ) : (
+        matches.map((qr, i) => (
+          <button
+            key={qr.id}
+            type="button"
+            role="option"
+            aria-selected={i === cursor}
+            onMouseEnter={() => onHover(i)}
+            onMouseDown={(e) => {
+              // mousedown, not click: click fires after blur, and the field
+              // losing focus closes the panel first.
+              e.preventDefault();
+              onPick(qr);
+            }}
+            className={cn(
+              'flex w-full flex-col items-start gap-0.5 rounded-md px-2.5 py-1.5 text-left',
+              i === cursor && 'bg-muted'
+            )}
+          >
+            {/* The SHORTCUT leads when there is one — it is what was just
+                typed, and reading back the thing you typed is how you know
+                the panel understood you. */}
+            <span className="flex w-full min-w-0 items-baseline gap-1.5">
+              {qr.shortcut && (
+                <span className="text-primary shrink-0 font-mono text-sm font-medium">
+                  /{qr.shortcut}
+                </span>
+              )}
+              <span
+                className={cn(
+                  'min-w-0 truncate',
+                  qr.shortcut
+                    ? 'text-muted-foreground text-2xs'
+                    : 'text-popover-foreground text-sm font-medium'
+                )}
+              >
+                {qr.title}
+              </span>
+            </span>
+            {qr.kind === 'interactive' ? (
+              <span className="text-muted-foreground text-2xs">
+                {t('quickReplyInteractive')}
+              </span>
+            ) : qr.kind === 'media' ? (
+              // O anexo é o ponto deste, então ele é nomeado antes da
+              // legenda — uma linha que mostrasse só "Segue o catálogo"
+              // leria como atalho de texto.
+              <span className="text-muted-foreground text-2xs flex w-full min-w-0 items-center gap-1">
+                <Paperclip className="size-3 shrink-0" />
+                <span className="truncate">
+                  {qr.content_text || t('quickReplyMedia')}
+                </span>
+              </span>
+            ) : (
+              qr.content_text && (
+                <span className="text-muted-foreground text-2xs w-full truncate">
+                  {qr.content_text}
+                </span>
+              )
+            )}
+          </button>
+        ))
+      )}
+      <p className="border-border text-muted-foreground text-3xs border-t px-2.5 pt-2 pb-1">
+        {t('quickReplyHint')}
+      </p>
+    </div>
+  );
+}
+
 function MediaDraftPreview({
   draft,
   busy,
@@ -1626,7 +1717,17 @@ function MediaDraftPreview({
   onDiscard,
   onSend,
   t,
+  slash,
 }: {
+  /** O `/` da legenda — mesmo painel do campo de texto. */
+  slash: {
+    open: boolean;
+    matches: QuickReply[];
+    cursor: number;
+    loaded: boolean;
+    onHover: (index: number) => void;
+    onPick: (qr: QuickReply) => void;
+  };
   draft: MediaDraft;
   busy: boolean;
   readOnly: boolean;
@@ -1674,13 +1775,58 @@ function MediaDraftPreview({
         </button>
       </div>
 
-      <div className="mt-2 flex items-end gap-2">
+      <div className="relative mt-2 flex items-end gap-2">
+        {/* O painel sobe a partir da legenda, na mesma geometria do campo
+            de texto. `relative` no pai é o que o ancora. */}
+        {slash.open && draft.kind !== 'audio' && (
+          <QuickReplyPanel
+            matches={slash.matches}
+            cursor={slash.cursor}
+            loaded={slash.loaded}
+            onHover={slash.onHover}
+            onPick={slash.onPick}
+            t={t}
+            className="absolute right-0 bottom-[calc(100%+8px)] left-0"
+          />
+        )}
         {draft.kind !== 'audio' && (
           <input
             value={draft.caption}
             maxLength={MEDIA_CAPTION_MAX}
             onChange={(e) => onCaptionChange(e.target.value)}
             onKeyDown={(e) => {
+              // As MESMAS teclas do painel do campo de texto — seta para
+              // andar, Enter para escolher, Esc para desistir. Enter só
+              // manda a mensagem quando não há painel aberto.
+              if (slash.open && slash.matches.length > 0) {
+                if (e.key === 'ArrowDown') {
+                  e.preventDefault();
+                  slash.onHover((slash.cursor + 1) % slash.matches.length);
+                  return;
+                }
+                if (e.key === 'ArrowUp') {
+                  e.preventDefault();
+                  slash.onHover(
+                    (slash.cursor - 1 + slash.matches.length) %
+                      slash.matches.length
+                  );
+                  return;
+                }
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  slash.onPick(
+                    slash.matches[
+                      Math.min(slash.cursor, slash.matches.length - 1)
+                    ]
+                  );
+                  return;
+                }
+              }
+              if (slash.open && e.key === 'Escape') {
+                e.preventDefault();
+                onCaptionChange('');
+                return;
+              }
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
                 onSend();

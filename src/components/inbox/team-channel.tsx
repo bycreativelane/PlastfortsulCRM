@@ -513,7 +513,17 @@ export function TeamChannel({ onBack, focusMessageId }: TeamChannelProps) {
    * máximo — e filtrar isso a cada tecla custa menos do que o compilador
    * do React discutir as dependências.
    */
-  const mentionAt = canWrite && !pending ? mentionQueryAt(text, caret) : null;
+  /**
+   * NUMA EQUIPE DE UMA PESSOA, O PAINEL NÃO EXISTE.
+   *
+   * Ele não se lista a si mesmo — chamar a si mesmo não é notícia —, então
+   * numa conta com um membro só ele abriria VAZIO a cada `@` digitado, e
+   * `@` aparece em "chegou @ 14:30" e em todo e-mail que alguém cola. Uma
+   * lista que nunca tem nada é pior do que nenhuma lista.
+   */
+  const temEquipe = [...directory.values()].some((m) => m.user_id !== authorId);
+  const mentionAt =
+    canWrite && !pending && temEquipe ? mentionQueryAt(text, caret) : null;
   const mentionOpen =
     mentionAt !== null && mentionAt.start !== mentionDismissed;
   const mentionMatches = mentionOpen

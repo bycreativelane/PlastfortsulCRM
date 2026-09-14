@@ -164,8 +164,8 @@ A do próprio pacote (item 34), com o 37 recolocado.
 | **P1** | experiência de atendimento            | 6 de 6 — fechado em 8 de setembro                                          |
 | **P2** | produtividade                         | 3 de 4 — falta a revisão visual em tela autenticada                        |
 | —      | itens 38–59: oportunidade e orçamento | feito e aplicado em 8 de setembro                                          |
-| —      | a oportunidade no modelo do Bling     | escrito em 8 de setembro; **falta aplicar as migrações 074, 075 e 076**     |
-| —      | Minha equipe: prévia, @menção, número | escrito em 14 de setembro; **menção e número dependem da 077**              |
+| —      | a oportunidade no modelo do Bling     | 074, 075 e 076 **aplicadas** em 14 de setembro                              |
+| —      | Minha equipe: prévia, @menção, número | 077 **aplicada** em 14 de setembro; falta exercitar com sessão              |
 
 ---
 
@@ -1034,3 +1034,35 @@ distinguir de ouvido.
 a pessoa interagir com a página. Um aviso que chegue antes do primeiro clique
 fica em silêncio; a partir dele, toca. Os dois toques podem ser ouvidos na
 bancada (`/chart-lab`, "Aviso sonoro").
+
+## As migrações 074–077 entraram — 14 de setembro
+
+Conferido contra o banco, coluna por coluna: as cinco colunas da 074/076 em
+`deal_quotes`, as quatro da 075 em `deals`, `sku`/`unit` em `deal_items`,
+`deal_installments`, `team_messages.mentions`,
+`notifications.team_message_id`, `team_room_reads` e as duas funções da 077.
+
+Duas coisas que uma sonda de coluna não vê, conferidas à parte:
+
+- **A publicação do realtime** tem `team_room_reads` — a assinatura entra com
+  o mesmo status de `team_messages`, que já estava lá. É o que faz ler no
+  celular apagar o número do computador.
+- **A virada da 077 rodou**: 1 pessoa × 2 salas ativas = as 2 linhas de
+  leitura semeadas, e as 37 mensagens que já existiam contam como lidas.
+
+**A conta tem um membro só hoje**, e isso mudou uma decisão: o painel de `@`
+não se lista a si mesmo, então numa equipe de uma pessoa ele abriria vazio a
+cada `@` digitado — e `@` aparece em "chegou @ 14:30" e em qualquer e-mail
+colado. Ele passa a só existir quando há alguém para chamar.
+
+### O que ainda só a operação pode exercitar
+
+Estas quatro dependem de sessão autenticada e de gente usando; nenhuma delas
+dá para verificar daqui:
+
+1. Salvar uma oportunidade com condição de pagamento, parcelas e transporte.
+2. Gerar o mesmo orçamento duas vezes — a segunda tem de devolver o mesmo
+   arquivo, sem linha nova (índice único da 074).
+3. Mencionar alguém e ver o aviso chegar no sino, com som — **precisa de um
+   segundo membro na conta**.
+4. Enviar o orçamento pelo WhatsApp, dentro da janela de 24h.

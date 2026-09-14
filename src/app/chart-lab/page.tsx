@@ -1132,7 +1132,8 @@ function mensagemDeEquipe(
 // Em escopo de módulo, como `daysAgo` e `LAB_TODAY` acima: o relógio é
 // lido uma vez, quando a bancada carrega, e não a cada render.
 const EQUIPE_MENSAGENS: TeamMessage[] = [
-  mensagemDeEquipe('m1', 'u-vitor', 48, {
+  // ONTEM, para a prévia ter dois dias e mostrar o separador.
+  mensagemDeEquipe('m1', 'u-vitor', 26 * 60, {
     body: 'O Cleiton ligou, vai buscar a silagem amanhã cedo.',
   }),
   mensagemDeEquipe('m2', 'u-juliana', 41, {
@@ -1160,6 +1161,16 @@ const EQUIPE_MENSAGENS: TeamMessage[] = [
   }),
 ];
 
+/** O print: uma pessoa só, várias mensagens curtas, mesmo dia. */
+const EQUIPE_SEGUIDAS: TeamMessage[] = [
+  mensagemDeEquipe('s1', EQUIPE_EU, 40, { body: 'J' }),
+  mensagemDeEquipe('s2', EQUIPE_EU, 38, { body: 'JLÇ' }),
+  mensagemDeEquipe('s3', EQUIPE_EU, 37, { body: 'JLÇ' }),
+  mensagemDeEquipe('s4', EQUIPE_EU, 30, { body: 'JLL', room_id: 'r-operacao' }),
+  mensagemDeEquipe('s5', EQUIPE_EU, 12, { body: 'teste' }),
+  mensagemDeEquipe('s6', EQUIPE_EU, 3, { body: 'khfkfh' }),
+];
+
 function TeamPreviewBench() {
   return (
     <Panel className="flex flex-wrap items-end gap-6 p-4">
@@ -1174,6 +1185,27 @@ function TeamPreviewBench() {
         <TeamRoomPreviewPopup heading="Minha equipe" unreadCount={3}>
           <TeamRoomPreviewList
             messages={EQUIPE_MENSAGENS}
+            names={EQUIPE_NOMES}
+            userId={EQUIPE_EU}
+            rooms={EQUIPE_SALAS}
+          />
+        </TeamRoomPreviewPopup>
+      </PreviewCard.Root>
+
+      {/* O CASO DO PRINT do Gabriel: várias mensagens seguidas da mesma
+          pessoa, no mesmo dia. Era isto que virava seis "Você — 8 de set."
+          empilhados. */}
+      <PreviewCard.Root>
+        <PreviewCard.Trigger
+          delay={150}
+          href="#"
+          className="hover:bg-muted text-foreground inline-flex w-60 items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-semibold"
+        >
+          Passe o mouse — só minhas, seguidas
+        </PreviewCard.Trigger>
+        <TeamRoomPreviewPopup heading="Minha equipe" unreadCount={0}>
+          <TeamRoomPreviewList
+            messages={EQUIPE_SEGUIDAS}
             names={EQUIPE_NOMES}
             userId={EQUIPE_EU}
             rooms={EQUIPE_SALAS}

@@ -105,3 +105,63 @@ export function previewText(
   }
   return { media: tipo, text: labels[tipo] };
 }
+
+export interface PreviewRun {
+  /** Estável para `key` do React: autor + sala + dia + id da primeira. */
+  key: string;
+  authorId: string;
+  roomId: string | null;
+  /** O dia, como `Date#toDateString()` — só para comparar e rotular. */
+  day: string;
+  messages: TeamMessage[];
+}
+
+/**
+ * AS MENSAGENS EM TURNOS, como uma conversa — não como uma lista.
+ *
+ * ------------------------------------------------------------------
+ * O DEFEITO, COM PRINT
+ * ------------------------------------------------------------------
+ *
+ * A primeira prévia desenhava uma linha por mensagem, cada uma repetindo
+ * o nome de quem falou e a data. Seis mensagens seguidas da mesma pessoa
+ * no mesmo dia viravam seis "Você — 8 de set.", e o Gabriel disse o que
+ * se via: "não tá parecendo chat".
+ *
+ * Uma conversa se lê por TURNOS. Quem fala duas vezes seguidas fala uma
+ * vez, e o dia é dito uma vez, no lugar onde ele muda.
+ *
+ * O turno quebra quando muda o autor, a sala ou o dia — as três coisas
+ * que a legenda de um turno afirma. É a mesma regra do `firstOfRun` da
+ * sala (que já não desenha o nome duas vezes seguidas) e do `groupByDay`
+ * dela, juntas.
+ */
+export function groupPreview(messages: TeamMessage[]): PreviewRun[] {
+  const runs: PreviewRun[] = [];
+
+  for (const message of messages) {
+    const day = new Date(message.created_at).toDateString();
+    const roomId = message.room_id ?? null;
+    const atual = runs[runs.length - 1];
+
+    if (
+      atual &&
+      atual.authorId === message.author_id &&
+      atual.roomId === roomId &&
+      atual.day === day
+    ) {
+      atual.messages.push(message);
+      continue;
+    }
+
+    runs.push({
+      key: `${message.author_id}-${roomId ?? 'padrao'}-${day}-${message.id}`,
+      authorId: message.author_id,
+      roomId,
+      day,
+      messages: [message],
+    });
+  }
+
+  return runs;
+}

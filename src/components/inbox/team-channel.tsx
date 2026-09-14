@@ -26,6 +26,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
 import { useCan, useCapability } from '@/hooks/use-can';
 import { useCoarsePointer } from '@/hooks/use-coarse-pointer';
+import { usePinToBottom } from '@/hooks/use-pin-to-bottom';
 import {
   useMemberDirectory,
   type DirectoryMember,
@@ -477,11 +478,10 @@ export function TeamChannel({ onBack, focusMessageId }: TeamChannelProps) {
     };
   }, [focusMessageId, accountId, rooms]);
 
-  // Pin to the bottom, same as the customer thread.
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [messages]);
+  // Pin to the bottom, same as the customer thread — e continua preso
+  // enquanto a foto, o PDF e o áudio do fim da sala terminam de carregar.
+  // Ver `use-pin-to-bottom.ts`: era aqui que a sala abria no meio.
+  usePinToBottom(scrollRef, messages);
 
   // DEPOIS do "prender no fim", e por isso declarado depois: os dois rodam
   // na mesma chegada da lista, e o último a rolar é o que fica.

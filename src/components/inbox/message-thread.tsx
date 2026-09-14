@@ -7,6 +7,7 @@ import { ConversationMenu } from './conversation-menu';
 import { PlaybookSheet } from '@/components/playbook/playbook-sheet';
 import { useAuth } from '@/hooks/use-auth';
 import { usePresence } from '@/hooks/use-presence';
+import { usePinToBottom } from '@/hooks/use-pin-to-bottom';
 import { PresenceDot } from '@/components/presence/presence-dot';
 import { presenceLabel } from '@/lib/presence';
 import { cn } from '@/lib/utils';
@@ -537,13 +538,11 @@ export function MessageThread({
       });
   }, [conversationId, hasUnread]);
 
-  // Auto-scroll to bottom on new messages
-  useEffect(() => {
-    if (scrollRef.current) {
-      const el = scrollRef.current;
-      el.scrollTop = el.scrollHeight;
-    }
-  }, [messages]);
+  // Auto-scroll to bottom on new messages — e continua no fim enquanto a
+  // imagem, o áudio e o documento da última mensagem carregam. Reclamado
+  // na sala da equipe, mas o defeito era o mesmo aqui: ver
+  // `use-pin-to-bottom.ts`.
+  usePinToBottom(scrollRef, messages);
 
   const handleSend = useCallback(
     async (text: string, replyToId?: string, quickReplyId?: string | null) => {

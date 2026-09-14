@@ -1056,9 +1056,96 @@ export function DealForm({
       >
         <div className="flex h-full flex-col">
           <SheetHeader className="border-border/50 border-b p-4">
-            <SheetTitle className="text-popover-foreground">
-              {deal ? t('editDeal') : t('newDeal')}
-            </SheetTitle>
+            {/*
+              O DESFECHO SUBIU PARA A BARRA DE CIMA.
+
+              Pedido do Gabriel em 14 de setembro, com print: "não faz
+              sentido ficar lá embaixo sozinha, tem que subir a opção para a
+              barra superior que tem espaço sobrando". Ele está certo nos
+              dois pontos. Marcar ganho ou perdido é uma decisão sobre a
+              oportunidade INTEIRA — não sobre o último campo dela —, e um
+              bloco solto depois das tarefas obrigava a rolar até o fim para
+              tomá-la. A barra tinha um título de 140px numa gaveta de
+              672px.
+
+              `pr-8` abre espaço para o X da sheet, que é absoluto no canto.
+              `flex-wrap` porque numa tela estreita o par desce para a linha
+              de baixo em vez de espremer o título.
+            */}
+            <div className="flex flex-wrap items-center gap-2 pr-8">
+              <SheetTitle className="text-popover-foreground min-w-0 flex-1 truncate">
+                {deal ? t('editDeal') : t('newDeal')}
+              </SheetTitle>
+
+              {deal && (
+                <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+                  {/* O SELO primeiro, e só quando há desfecho: ele diz o
+                      estado, os botões mudam o estado. O estado normal —
+                      em aberto — não é notícia e não desenha nada. */}
+                  {deal.status && deal.status !== 'open' && (
+                    <StatusBadge
+                      variant={deal.status === 'won' ? 'ok' : 'danger'}
+                      size="sm"
+                    >
+                      {tCard(deal.status === 'won' ? 'won' : 'lost')}
+                    </StatusBadge>
+                  )}
+
+                  {/* FECHADO, SÓ REABRIR. Antes os três conviviam: um
+                      negócio ganho mostrava "Ganho" apagado, "Perdido"
+                      aceso e "Reabrir" — três controles para um estado que
+                      só tem uma saída. */}
+                  {deal.status && deal.status !== 'open' ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleStatusChange('open')}
+                      disabled={!canWrite || !!statusAction}
+                      className="text-muted-foreground hover:text-foreground"
+                    >
+                      {t('reopenDeal')}
+                    </Button>
+                  ) : (
+                    <>
+                      <Button
+                        type="button"
+                        size="sm"
+                        // Verde tingido, e não azul cheio. Ganho e perdido
+                        // são duas saídas simétricas; com um azul sólido ao
+                        // lado de um vermelho tingido, o par leria como ação
+                        // principal e secundária — e o azul cheio disputaria
+                        // com o Salvar, que é o único "aperte aqui" daqui.
+                        variant="ok"
+                        onClick={() => handleStatusChange('won')}
+                        disabled={!canWrite || !!statusAction}
+                      >
+                        {statusAction === 'won' ? (
+                          <Loader2 className="animate-spin" />
+                        ) : (
+                          <Check />
+                        )}
+                        {tCard('won')}
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => handleStatusChange('lost')}
+                        disabled={!canWrite || !!statusAction}
+                      >
+                        {statusAction === 'lost' ? (
+                          <Loader2 className="animate-spin" />
+                        ) : (
+                          <X />
+                        )}
+                        {tCard('lost')}
+                      </Button>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
           </SheetHeader>
 
           {/*
@@ -1592,132 +1679,43 @@ export function DealForm({
               />
             )}
 
-            {deal && (
-              <div className="border-border bg-muted/50 space-y-2 rounded-lg border p-3">
-                {/* O DESFECHO EM PALAVRA.
+            {/*
+              O QUE SOBROU AQUI EMBAIXO: o MOTIVO da perda, que é
+              informação, não ação.
 
-                    A ficha dizia "ganho" e "perdido" só desabilitando
-                    botões — que é o mesmo desenho de "você não pode
-                    editar". Nada quando aberto: o estado normal não é
-                    notícia. Mesmo par que o cartão do quadro desenha. */}
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-muted-foreground eyebrow">{t('status')}</p>
-                  {deal.status && deal.status !== 'open' && (
-                    <StatusBadge
-                      variant={deal.status === 'won' ? 'ok' : 'danger'}
-                      size="sm"
-                    >
-                      {tCard(deal.status === 'won' ? 'won' : 'lost')}
-                    </StatusBadge>
-                  )}
-                </div>
+              Os botões subiram para a barra (ver o cabeçalho). O motivo
+              fica, e fica aqui, porque ele se lê junto com o resto da
+              ficha — e porque marcar como perdido EXIGE um motivo que
+              antes não aparecia em superfície nenhuma depois de gravado.
 
-                {/* O MOTIVO DA PERDA.
-
-                    Marcar como perdido EXIGE um motivo, e ele não
-                    aparecia depois em superfície nenhuma do produto — nem
-                    aqui, nem no cartão, nem em relatório. Um campo
-                    obrigatório que ninguém relê é um formulário cobrando
-                    trabalho que não usa.
-
-                    O guard existe porque `noReply` saiu de `LOSS_REASONS`
-                    com o fluxo oficial e segue no catálogo, justamente
-                    para as perdas antigas: sem ele uma linha com chave
-                    desconhecida faz `t()` estourar. O ícone dessa mesma
-                    chave não existe mais, e por isso é opcional. */}
-                {deal.status === 'lost' &&
-                  (deal.lost_reason || deal.lost_note) && (
-                    <div className="text-secondary-foreground space-y-1 text-xs">
-                      {deal.lost_reason &&
-                        KNOWN_LOSS_REASONS.has(deal.lost_reason) && (
-                          <span className="flex items-center gap-1.5">
-                            <LossReasonIcon reason={deal.lost_reason} />
-                            {tOutcome(`reasons.${deal.lost_reason}`)}
-                          </span>
-                        )}
-                      {deal.lost_note && (
-                        <p className="text-muted-foreground whitespace-pre-wrap">
-                          {deal.lost_note}
-                        </p>
+              O guard existe porque `noReply` saiu de `LOSS_REASONS` com o
+              fluxo oficial e segue no catálogo, justamente para as perdas
+              antigas: sem ele uma linha com chave desconhecida faz `t()`
+              estourar. O ícone dessa mesma chave não existe mais, e por
+              isso é opcional.
+            */}
+            {deal?.status === 'lost' &&
+              (deal.lost_reason || deal.lost_note) && (
+                <div className="border-border bg-muted/50 space-y-1.5 rounded-lg border p-3">
+                  <p className="text-muted-foreground eyebrow">
+                    {tOutcome('reasonLabel')}
+                  </p>
+                  <div className="text-secondary-foreground space-y-1 text-xs">
+                    {deal.lost_reason &&
+                      KNOWN_LOSS_REASONS.has(deal.lost_reason) && (
+                        <span className="flex items-center gap-1.5">
+                          <LossReasonIcon reason={deal.lost_reason} />
+                          {tOutcome(`reasons.${deal.lost_reason}`)}
+                        </span>
                       )}
-                    </div>
-                  )}
-                {/*
-                  UMA LINHA, e não três barras de largura cheia.
-
-                  Eram três botões esticados e empilhados — verde, vermelho e
-                  o de reabrir — num bloco que a pessoa abre para ver o
-                  negócio, não para encerrá-lo. Dois retângulos tingidos de
-                  ponta a ponta são a coisa mais pesada da gaveta, para uma
-                  decisão que se toma uma vez na vida do negócio.
-
-                  A NOTA ANTIGA ESTAVA CERTA E RESOLVIA O SINTOMA ERRADO. Ela
-                  dizia que "Marcar como perdido" não cabe em meia coluna,
-                  porque o `Button` é `whitespace-nowrap`, e concluía que a
-                  saída era empilhar em largura cheia. A saída era o RÓTULO:
-                  sob uma sobrancelha que já diz SITUAÇÃO, e com o ✓ e o ✕ ao
-                  lado, "Ganho" e "Perdido" dizem a mesma coisa em um quarto
-                  do espaço. São as chaves que o cartão do quadro já usa —
-                  nenhuma nova, e o mesmo vocabulário nas duas superfícies.
-
-                  `flex-wrap` responde ao medo original sem largura cheia: se
-                  a gaveta apertar, eles quebram para a linha de baixo em vez
-                  de vazar. `size="sm"` os põe na altura de ação secundária,
-                  que é o que eles são ao lado do Salvar.
-                */}
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    type="button"
-                    size="sm"
-                    // Verde tingido, e não azul cheio. Ganho e perdido são
-                    // duas saídas simétricas; com um azul sólido ao lado de
-                    // um vermelho tingido, o par lia como ação principal e
-                    // secundária — e o azul cheio disputava com o Salvar,
-                    // que é o único "aperte aqui" desta sheet.
-                    variant="ok"
-                    onClick={() => handleStatusChange('won')}
-                    disabled={
-                      !canWrite || !!statusAction || deal.status === 'won'
-                    }
-                  >
-                    {statusAction === 'won' ? (
-                      <Loader2 className="animate-spin" />
-                    ) : (
-                      <Check />
+                    {deal.lost_note && (
+                      <p className="text-muted-foreground whitespace-pre-wrap">
+                        {deal.lost_note}
+                      </p>
                     )}
-                    {tCard('won')}
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="destructive"
-                    onClick={() => handleStatusChange('lost')}
-                    disabled={
-                      !canWrite || !!statusAction || deal.status === 'lost'
-                    }
-                  >
-                    {statusAction === 'lost' ? (
-                      <Loader2 className="animate-spin" />
-                    ) : (
-                      <X />
-                    )}
-                    {tCard('lost')}
-                  </Button>
-                  {deal.status && deal.status !== 'open' && (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => handleStatusChange('open')}
-                      disabled={!canWrite || !!statusAction}
-                      className="text-muted-foreground hover:text-foreground"
-                    >
-                      {t('reopenDeal')}
-                    </Button>
-                  )}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
           </div>
 
           <div className="border-border/50 bg-popover/80 border-t p-4">

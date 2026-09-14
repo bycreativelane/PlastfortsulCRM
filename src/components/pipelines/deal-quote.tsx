@@ -12,6 +12,7 @@ import {
   Loader2,
   MessageSquare,
   Send,
+  X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -34,6 +35,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
   DialogHeader,
@@ -263,10 +265,58 @@ export function DealQuote({
         contorno e sombra. A borda é o que separa papel de cartão no tema
         claro, onde os dois são brancos.
       */}
+      {/*
+        UMA BARRA DE TÍTULO, E O X DENTRO DELA.
+
+        Relato do Gabriel em 14 de setembro, com dois recortes ampliados:
+        "quando gerar o pdf lá ou abrir algum q já foi gerado o botão de
+        fechar tá muito mal distribuído". Duas coisas explicam o que ele
+        viu, e as duas são do X padrão do `DialogContent`:
+
+        1. ele é `absolute top-2 right-2` DENTRO do elemento que rola, então
+           no segundo em que alguém desce para ler o total, o X sobe e sai
+           de cena — num documento de uma página inteira ele passa a maior
+           parte do tempo fora da tela;
+        2. sem nada em volta, ele cai colado no canto do papel e fica no
+           meio do caminho entre a moldura e o documento, sem pertencer a
+           nenhum dos dois.
+
+        A resposta é a de qualquer visualizador: uma barra fina no topo, com
+        o nome do que se está vendo à esquerda e o fechar à direita. Ela é
+        `sticky`, então o X está sempre no mesmo lugar, e o papel volta a
+        ter só o papel em cima dele.
+
+        `p-0` porque o respiro agora é de cada faixa — a barra, o papel, o
+        rodapé —, e `gap-0` porque o `grid` do diálogo separava as três com
+        16px que viravam faixas cinzas entre elas.
+      */}
       <DialogContent
         data-print-root
-        className="bg-muted/60 border-border text-foreground max-h-[90vh] overflow-y-auto p-3 sm:max-w-md"
+        showCloseButton={false}
+        className="bg-muted/60 border-border text-foreground max-h-[90vh] gap-0 overflow-y-auto p-0 sm:max-w-md"
       >
+        <div
+          data-print-hide
+          className="border-border/60 bg-muted/80 sticky top-0 z-10 flex items-center gap-2 border-b px-3 py-2 backdrop-blur"
+        >
+          <FileText className="text-muted-foreground size-4 shrink-0" />
+          <p className="text-secondary-foreground min-w-0 flex-1 truncate text-xs font-semibold">
+            {/* O número do pedido junto do nome: é assim que a operação
+                chama o documento — "manda o 14349" —, e é o que diz QUAL
+                orçamento está aberto quando há vários no arquivo. */}
+            {quote.orderNumber
+              ? `${t('title')} · ${quote.orderNumber}`
+              : t('title')}
+          </p>
+          <DialogClose
+            render={<Button variant="ghost" size="icon-sm" />}
+            aria-label={t('close')}
+            title={t('close')}
+            className="text-muted-foreground hover:text-foreground shrink-0"
+          >
+            <X className="size-4" />
+          </DialogClose>
+        </div>
         {/* O cabeçalho do DIÁLOGO, que não é o cabeçalho do documento: ele
             existe para a pessoa saber o que abriu e para o leitor de tela
             ter um nome. No papel, some. */}
@@ -299,17 +349,21 @@ export function DealQuote({
           Agora a folha tem respiro em volta e o X cai fora dela.
         */}
         <style>{QUOTE_CSS}</style>
-        <div
-          data-quote-frame
-          className="border-border/60 rounded-lg border bg-white p-5 shadow-sm"
-        >
-          <QuoteDocument quote={quote} labels={labels} brand={brand} />
+        <div className="p-3">
+          <div
+            data-quote-frame
+            className="border-border/60 rounded-lg border bg-white p-5 shadow-sm"
+          >
+            <QuoteDocument quote={quote} labels={labels} brand={brand} />
+          </div>
         </div>
 
-        {/* Fora do documento, e fora do papel. */}
+        {/* Fora do documento, e fora do papel — e GRUDADO no pé, pelo mesmo
+            motivo da barra de cima: num documento de uma página, "Gerar
+            PDF" e "Enviar" ficavam abaixo da dobra o tempo todo. */}
         <div
           data-print-hide
-          className="flex flex-wrap items-center justify-end gap-2 pt-2"
+          className="border-border/60 bg-muted/80 sticky bottom-0 flex flex-wrap items-center justify-end gap-2 border-t px-3 py-2 backdrop-blur"
         >
           {/* A PORTA DO ARQUIVO, e ela fica aqui porque é aqui que a
               pergunta nasce: quem acabou de gerar um orçamento é quem se

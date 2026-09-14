@@ -17,6 +17,7 @@ import { CalendarsPanel } from '@/components/settings/calendars-panel';
 import { HoursPanel } from '@/components/settings/hours-panel';
 import { MembersTab } from '@/components/settings/members-tab';
 import { ProfileForm } from '@/components/settings/profile-form';
+import { NotificationsPanel } from '@/components/settings/notifications-panel';
 import { QuickRepliesManager } from '@/components/settings/quick-replies-manager';
 import { RoomsPanel } from '@/components/settings/rooms-panel';
 import { SecurityPanel } from '@/components/settings/security-panel';
@@ -44,7 +45,25 @@ export function panelFor(
     case 'whats-new':
       return <WhatsNewPanel />;
     case 'profile':
-      return <ProfileForm />;
+      // As notificações moram AQUI, e não numa seção própria: elas são uma
+      // preferência da pessoa, como o nome e a foto, e uma seção inteira
+      // para quatro interruptores seria mais um item de menu para procurar.
+      //
+      // `max-w-2xl` é o mesmo teto que o formulário já se dava por dentro,
+      // e por isso ele PRECISA estar aqui fora. Sem ele os dois cartões
+      // saíam com larguras diferentes — um de 672px e outro esparramado
+      // pela coluna inteira, com o botão "Salvar" sobrando no meio da
+      // diferença. O Gabriel viu e disse "perfil ficou zoado".
+      //
+      // De quebra, o teto é o que mantém cada interruptor perto do rótulo
+      // que ele liga: numa linha de 1100px o nome fica numa ponta e a
+      // chave na outra, e ninguém lê uma linha dessas sem correr o dedo.
+      return (
+        <div className="max-w-2xl space-y-6">
+          <ProfileForm />
+          <NotificationsPanel />
+        </div>
+      );
     case 'security':
       return <SecurityPanel />;
     case 'appearance':

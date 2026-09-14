@@ -3478,6 +3478,23 @@
       "save": "저장",
       "saved": "회사 정보를 저장했습니다",
       "saveFailed": "저장하지 못했습니다"
+    },
+    "notifications": {
+      "soundTitle": "알림 소리",
+      "soundHint": "알림이 도착하면 재생됩니다. 종은 소리와 무관하게 모두 표시합니다.",
+      "deviceNote": "이 기기와 브라우저에만 적용됩니다. 종에도 전체 스위치가 있습니다.",
+      "types": {
+        "new_message": "고객 메시지",
+        "conversation_assigned": "나에게 배정된 대화",
+        "task_due": "할 일 알림",
+        "team_mention": "팀 멘션"
+      },
+      "hints": {
+        "new_message": "대화당 5분에 최대 한 번 알립니다.",
+        "conversation_assigned": "동료가 대화를 넘길 때.",
+        "task_due": "내 할 일의 기한이 다가올 때.",
+        "team_mention": "팀 방에서 누군가 @나를 언급할 때."
+      }
     }
   },
   "Notifications": {

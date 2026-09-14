@@ -49,6 +49,7 @@ import type { NotificationType } from '@/types';
  */
 
 const SOUND_KEY = 'wacrm.notificationSound';
+const TYPES_KEY = 'wacrm.notificationSound.types';
 const LOCK_NAME = 'wacrm:notification-sound';
 /** Quanto tempo a aba que tocou segura a trava — e o intervalo mínimo. */
 const QUIET_MS = 1500;
@@ -73,6 +74,61 @@ export function isNotificationSoundOn(): boolean {
   }
 }
 
+/**
+ * POR TIPO, e não só ligado/desligado.
+ *
+ * Pedido do Gabriel em 14 de setembro: "ta faltando a opção de
+ * configuração das notificações no perfil da pessoa e também para mensagem
+ * recebida, tarefa, e etc". Faz sentido: quem atende o dia inteiro quer
+ * ouvir o cliente escrevendo e não quer ouvir um lembrete de tarefa; quem
+ * está fora da caixa de entrada quer o contrário.
+ *
+ * O que se escolhe aqui é o SOM, e não a existência do aviso. O sino
+ * continua listando tudo — esconder uma notificação que existe no banco
+ * seria mostrar "nenhuma" para quem tem três, e o número deixaria de
+ * bater com a lista. O que a pessoa escolhe é o que a INTERROMPE.
+ *
+ * Tudo ligado por padrão, e por aparelho, como o interruptor geral.
+ */
+export type SoundType =
+  'new_message' | 'conversation_assigned' | 'task_due' | 'team_mention';
+
+export const SOUND_TYPES: SoundType[] = [
+  'new_message',
+  'conversation_assigned',
+  'task_due',
+  'team_mention',
+];
+
+function lerTipos(): Partial<Record<SoundType, boolean>> {
+  if (typeof window === 'undefined') return {};
+  try {
+    const cru = window.localStorage.getItem(TYPES_KEY);
+    return cru ? (JSON.parse(cru) as Partial<Record<SoundType, boolean>>) : {};
+  } catch {
+    // Chave corrompida ou armazenamento bloqueado: tudo ligado, que é o
+    // padrão — uma preferência ilegível não pode calar o produto.
+    return {};
+  }
+}
+
+export function isTypeSoundOn(type: string): boolean {
+  return lerTipos()[type as SoundType] !== false;
+}
+
+export function setTypeSoundOn(type: SoundType, on: boolean): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(
+      TYPES_KEY,
+      JSON.stringify({ ...lerTipos(), [type]: on })
+    );
+  } catch {
+    /* Uma preferência que não se guarda não vale um erro na tela. */
+  }
+  window.dispatchEvent(new CustomEvent(SOUND_PREF_EVENT));
+}
+
 export function setNotificationSoundOn(on: boolean): void {
   if (typeof window === 'undefined') return;
   try {
@@ -86,7 +142,7 @@ export function setNotificationSoundOn(on: boolean): void {
 export function subscribeNotificationSound(listener: () => void): () => void {
   if (typeof window === 'undefined') return () => {};
   const onStorage = (e: StorageEvent) => {
-    if (e.key === SOUND_KEY) listener();
+    if (e.key === SOUND_KEY || e.key === TYPES_KEY) listener();
   };
   window.addEventListener(SOUND_PREF_EVENT, listener);
   // As OUTRAS abas: `storage` só dispara nelas, nunca na que escreveu.
@@ -174,7 +230,11 @@ let ultimoToque = 0;
  * Toca o aviso, se estiver ligado, numa aba só.
  */
 export function playNotificationSound(type: NotificationType | string): void {
+  // O interruptor geral e o do tipo. A prévia do próprio botão ('preview')
+  // não é um tipo e passa pelo geral só — quem acabou de ligar o som quer
+  // ouvir que ligou.
   if (!isNotificationSoundOn()) return;
+  if (type !== 'preview' && !isTypeSoundOn(type)) return;
 
   const locks = (
     navigator as Navigator & {

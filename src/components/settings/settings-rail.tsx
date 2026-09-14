@@ -96,11 +96,10 @@ export function SettingsRail({
         // Chips sized to their content, no scrollbar in either engine:
         // the last visible one could end flush with the edge and read as
         // the end of the list. The edge fade says "there is more this
-        // way" without spending a row on arrows. Both the hidden
-        // scrollbar and the fade are scoped BELOW `lg` now — see the
-        // height note under it, where the desktop column wants a real
-        // scrollbar rather than a hidden one.
-        'max-lg:[scrollbar-width:none] max-lg:[&::-webkit-scrollbar]:hidden',
+        // way" without spending a row on arrows. The fade is scoped BELOW
+        // `lg`; the hidden scrollbar is not, and the reason is two
+        // paragraphs down.
+        '[scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
         'max-lg:[mask-image:linear-gradient(to_right,transparent,black_12px,black_calc(100%-12px),transparent)]',
         'border-border border-b',
         // `top-0` parked the rail flush against the bottom edge of the
@@ -121,8 +120,8 @@ export function SettingsRail({
         // in a panel and there is no way back to it without scrolling the
         // whole page up.
         //
-        // Capped and scrollable, it stays put and the scrollbar says
-        // there is more. `overflow-x-hidden` alongside is deliberate:
+        // Capped and scrollable, it stays put. `overflow-x-hidden`
+        // alongside is deliberate:
         // `visible` on one axis with a non-visible other computes to
         // `auto`, which would put a phantom horizontal scrollbar on a
         // column that has nothing to scroll sideways.
@@ -152,7 +151,21 @@ export function SettingsRail({
         // `dvh` and not `vh` for the reason spelled out on `h-vh-*` in
         // globals.css: nothing in this app scrolls the document, so the
         // URL bar never hides and the value never moves mid-gesture.
-        'lg:sticky lg:top-6 lg:max-h-[calc(100dvh-5rem)] lg:flex-col lg:overflow-x-hidden lg:overflow-y-auto lg:border-b-0 lg:pb-0',
+        //
+        // E SEM BARRA, mesmo aqui. A nota de cima dizia que a coluna do
+        // desktop "quer uma barra de verdade", e em tela ela custa mais
+        // do que entrega: quem é DONO vê dezoito seções, o conteúdo passa
+        // do teto por uns trinta pixels num notebook, e o resultado é uma
+        // barra inteira para trinta pixels — ao lado da barra do <main>,
+        // que é a que realmente rola a página. O Gabriel resumiu em 14 de
+        // setembro: "ta estranho com 2 barras de rolagem".
+        //
+        // A barra não era o que ensinava que há mais: a última linha
+        // aparece CORTADA ao meio, que é o mesmo recado e não gasta uma
+        // calha. A roda do mouse sobre a trilha continua rolando; só o
+        // trilho sumiu. `pb-2` para o corte cair no meio de uma linha em
+        // vez de rente à borda, que leria como fim da lista.
+        'lg:sticky lg:top-6 lg:max-h-[calc(100dvh-5rem)] lg:flex-col lg:overflow-x-hidden lg:overflow-y-auto lg:border-b-0 lg:pb-2',
         className
       )}
     >

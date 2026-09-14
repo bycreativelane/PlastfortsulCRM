@@ -3478,6 +3478,23 @@
       "save": "Save",
       "saved": "Company details saved",
       "saveFailed": "Could not save"
+    },
+    "notifications": {
+      "soundTitle": "Notification sound",
+      "soundHint": "Plays when a notification arrives. The bell lists everything either way.",
+      "deviceNote": "Applies to this device and browser. The bell has the master switch too.",
+      "types": {
+        "new_message": "Customer message",
+        "conversation_assigned": "Conversation assigned to you",
+        "task_due": "Task reminder",
+        "team_mention": "Team mention"
+      },
+      "hints": {
+        "new_message": "At most one alert every five minutes per conversation.",
+        "conversation_assigned": "When a teammate hands you a conversation.",
+        "task_due": "When one of your tasks is coming due.",
+        "team_mention": "When somebody writes @you in the team room."
+      }
     }
   },
   "Notifications": {

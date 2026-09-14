@@ -50,6 +50,7 @@ import type { TeamMessage } from '@/lib/team/messages';
 import { MentionPanel, MentionText } from '@/components/inbox/team-mentions';
 import { cn } from '@/lib/utils';
 import { playNotificationSound } from '@/lib/notifications/sound';
+import { NotificationsPanel } from '@/components/settings/notifications-panel';
 import type { TeamRoom } from '@/lib/team/rooms';
 import { buildQuote } from '@/lib/quotes/quote';
 import { TaskDialog } from '@/components/tasks/task-dialog';
@@ -766,6 +767,14 @@ export default function ChartLabPage() {
 
         <SectionTitle>Minha equipe — @menções</SectionTitle>
         <MentionBench />
+
+        <SectionTitle>Notificações — as preferências do perfil</SectionTitle>
+        {/* O painel de verdade, que vive em Configurações › Seu perfil. Ele
+            só lê o navegador, então cabe aqui inteiro — inclusive os
+            interruptores, que valem para esta máquina. */}
+        <div className="max-w-xl">
+          <NotificationsPanel />
+        </div>
 
         <SectionTitle>Aviso sonoro</SectionTitle>
         {/* Os dois toques, para OUVIR. Sem fixture nenhuma: o som não lê

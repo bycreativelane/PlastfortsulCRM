@@ -3478,6 +3478,23 @@
       "save": "Salvar",
       "saved": "Dados da empresa salvos",
       "saveFailed": "Não foi possível salvar"
+    },
+    "notifications": {
+      "soundTitle": "Som de aviso",
+      "soundHint": "Toca quando chega uma notificação. O sino continua listando tudo, com ou sem som.",
+      "deviceNote": "Vale neste aparelho e neste navegador. O sino também tem o interruptor geral.",
+      "types": {
+        "new_message": "Mensagem de cliente",
+        "conversation_assigned": "Conversa atribuída a você",
+        "task_due": "Lembrete de tarefa",
+        "team_mention": "Menção na equipe"
+      },
+      "hints": {
+        "new_message": "No máximo um aviso a cada cinco minutos por conversa.",
+        "conversation_assigned": "Quando alguém passa uma conversa para você.",
+        "task_due": "Quando uma tarefa sua está chegando na hora.",
+        "team_mention": "Quando alguém escreve @você na sala da equipe."
+      }
     }
   },
   "Notifications": {

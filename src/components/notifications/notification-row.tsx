@@ -1,7 +1,13 @@
 'use client';
 
 import { formatDistanceToNow } from 'date-fns';
-import { Bell, ListChecks, MessageSquare, UserPlus } from 'lucide-react';
+import {
+  AtSign,
+  Bell,
+  ListChecks,
+  MessageSquare,
+  UserPlus,
+} from 'lucide-react';
 
 import { destinationFor } from '@/lib/notifications/destination';
 import { notificationText } from '@/lib/notifications/text';
@@ -67,6 +73,7 @@ const TYPE_ICON: Record<Notification['type'], typeof Bell> = {
   conversation_assigned: UserPlus,
   new_message: MessageSquare,
   task_due: ListChecks,
+  team_mention: AtSign,
 };
 
 type Translator = (key: string, values?: Record<string, string>) => string;

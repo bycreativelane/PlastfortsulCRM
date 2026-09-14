@@ -765,7 +765,12 @@
       "recordCancel": "취소",
       "recording": "녹음 중 {time}",
       "recordingUnsupported": "이 브라우저는 오디오를 녹음할 수 없습니다.",
-      "cardAria": "{name}, 새 메시지 {count}개"
+      "cardAria": "{name}, 새 메시지 {count}개",
+      "mentionPanel": "팀원 멘션하기",
+      "mentionNoMatch": "그 이름의 팀원이 없습니다",
+      "mentionHint": "Enter 또는 Tab으로 선택 · Esc로 닫기",
+      "mentionsUnsupported": "메시지는 보냈지만 멘션 알림은 가지 않았습니다 — 마이그레이션 077을 적용해야 합니다.",
+      "otherRoomsUnread": "다른 방에 새 메시지가 있습니다"
     },
     "assist": {
       "suggest": "답변 제안",
@@ -3490,7 +3495,9 @@
     "assignedContactUnknown": "연락처",
     "newMessageNoText": "첨부 파일을 보냈습니다",
     "taskDueFallbackTitle": "작업",
-    "taskDueBody": "담당 작업의 기한이 다가옵니다."
+    "taskDueBody": "담당 작업의 기한이 다가옵니다.",
+    "mentionTitle": "{actor}님이 회원님을 멘션했습니다",
+    "mentionNoText": "팀 방에서 회원님을 멘션했습니다"
   },
   "Routes": {
     "loading": "불러오는 중…",

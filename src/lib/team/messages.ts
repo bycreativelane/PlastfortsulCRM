@@ -47,6 +47,12 @@ export interface TeamMessage {
   media_mime?: string | null;
   media_name?: string | null;
   media_size?: number | null;
+  /**
+   * Quem a mensagem chama com `@` (migração 077). O corpo guarda o nome como
+   * texto; este array diz QUEM é — ver `lib/team/mentions.ts`. Ausente num
+   * banco anterior à 077.
+   */
+  mentions?: string[];
 }
 
 /** Os cinco tipos que o CHECK da 063 aceita. */
@@ -150,6 +156,8 @@ export async function sendTeamMessage(
     conversationId?: string | null;
     /** Omit (or null) on a pre-052 database — see the retry below. */
     roomId?: string | null;
+    /** Quem a mensagem chama (077). Já resolvido por `resolveMentions`. */
+    mentions?: string[];
     /** Anexo já subido no balde. Migração 063. */
     media?: {
       path: string;
@@ -159,9 +167,10 @@ export async function sendTeamMessage(
       kind: Exclude<TeamContentType, 'text'>;
     } | null;
   }
-): Promise<{ error: string | null }> {
+): Promise<{ error: string | null; mentionsDropped?: boolean }> {
   const body = args.body.trim();
   const media = args.media ?? null;
+  const mentions = [...new Set(args.mentions ?? [])].slice(0, 20);
 
   // Sem texto E sem anexo não é mensagem. Com anexo, o corpo é legenda e
   // pode ser vazio — é exatamente o que o CHECK `team_messages_has_content`
@@ -178,6 +187,7 @@ export async function sendTeamMessage(
     conversation_id: args.conversationId ?? null,
   };
   if (args.roomId) row.room_id = args.roomId;
+  if (mentions.length > 0) row.mentions = mentions;
   if (media) {
     row.content_type = media.kind;
     row.media_path = media.path;
@@ -186,7 +196,23 @@ export async function sendTeamMessage(
     row.media_size = media.size;
   }
 
-  const { error } = await db.from('team_messages').insert(row);
+  let { error } = await db.from('team_messages').insert(row);
+
+  /*
+   * A 077 NÃO RODOU e a mensagem chama alguém.
+   *
+   * Aqui o recuo é o contrário do anexo logo abaixo, e pelo motivo oposto:
+   * sem a coluna, a MENSAGEM continua inteira — o "@Juliana" está no texto
+   * — e só o aviso deixa de sair. Perder a frase por causa do aviso seria
+   * trocar o conteúdo pela notificação dele. Então grava sem o array e diz
+   * a quem chamou que ninguém foi avisado.
+   */
+  let mentionsDropped = false;
+  if (error && mentions.length > 0 && isUnknownColumn(error)) {
+    delete row.mentions;
+    mentionsDropped = true;
+    ({ error } = await db.from('team_messages').insert(row));
+  }
 
   // A 063 não foi aplicada e alguém tentou anexar. Isto não pode virar
   // um retry silencioso: sem as colunas o arquivo não tem onde ser
@@ -207,10 +233,13 @@ export async function sendTeamMessage(
       body: body || null,
       conversation_id: args.conversationId ?? null,
     });
-    return { error: retryError?.message ?? null };
+    return {
+      error: retryError?.message ?? null,
+      mentionsDropped: mentionsDropped || mentions.length > 0,
+    };
   }
 
-  return { error: error?.message ?? null };
+  return { error: error?.message ?? null, mentionsDropped };
 }
 
 /**
@@ -229,7 +258,12 @@ export async function countUnreadTeamMessages(
   db: SupabaseClient,
   accountId: string,
   since: string | null,
-  room?: { id: string | null; isDefault: boolean }
+  room?: { id: string | null; isDefault: boolean },
+  /**
+   * Quem está contando. As próprias mensagens não são "não lidas" para
+   * quem as escreveu — e contavam, sempre que chegavam por outro aparelho.
+   */
+  excludeAuthorId?: string | null
 ): Promise<number> {
   if (!since) return 0;
   let query = db
@@ -238,6 +272,7 @@ export async function countUnreadTeamMessages(
     .eq('account_id', accountId)
     .gt('created_at', since);
   if (room) query = query.or(roomFilter(room.id, room.isDefault));
+  if (excludeAuthorId) query = query.neq('author_id', excludeAuthorId);
 
   const { count, error } = await query;
   if (error) return 0;
@@ -265,15 +300,39 @@ export async function countUnreadTeamMessages(
  */
 export async function editTeamMessage(
   db: SupabaseClient,
-  args: { id: string; body: string }
+  args: {
+    id: string;
+    body: string;
+    /**
+     * Quem a mensagem chama DEPOIS da edição (077). O gatilho só avisa quem
+     * ENTROU — corrigir um erro de digitação não chama ninguém de novo.
+     * Ausente: a edição não mexe no array.
+     */
+    mentions?: string[];
+  }
 ): Promise<{ error: string | null }> {
   const body = args.body.trim();
   if (!body) return { error: 'empty' };
 
-  const { error } = await db
+  const patch: Record<string, unknown> = {
+    body,
+    edited_at: new Date().toISOString(),
+  };
+  if (args.mentions) patch.mentions = [...new Set(args.mentions)].slice(0, 20);
+
+  let { error } = await db
     .from('team_messages')
-    .update({ body, edited_at: new Date().toISOString() })
+    .update(patch)
     .eq('id', args.id);
+
+  // Antes da 077 a edição do TEXTO ainda vale; só a lista de chamados cai.
+  if (error && args.mentions && isUnknownColumn(error)) {
+    delete patch.mentions;
+    ({ error } = await db
+      .from('team_messages')
+      .update(patch)
+      .eq('id', args.id));
+  }
 
   return { error: error?.message ?? null };
 }

@@ -47,6 +47,8 @@ import {
   TeamRoomPreviewPopup,
 } from '@/components/layout/team-room-preview';
 import type { TeamMessage } from '@/lib/team/messages';
+import { MentionPanel, MentionText } from '@/components/inbox/team-mentions';
+import { cn } from '@/lib/utils';
 import type { TeamRoom } from '@/lib/team/rooms';
 import { buildQuote } from '@/lib/quotes/quote';
 import { TaskDialog } from '@/components/tasks/task-dialog';
@@ -761,6 +763,9 @@ export default function ChartLabPage() {
         <SectionTitle>Minha equipe — a prévia do card</SectionTitle>
         <TeamPreviewBench />
 
+        <SectionTitle>Minha equipe — @menções</SectionTitle>
+        <MentionBench />
+
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <ResponseTimeChart data={RESPONSE} loading={false} />
           {/* The dashboard's density, at the dashboard's width. */}
@@ -1190,6 +1195,108 @@ function TeamPreviewBench() {
           />
         </TeamRoomPreviewPopup>
       </PreviewCard.Root>
+    </Panel>
+  );
+}
+
+/**
+ * AS MENÇÕES, com fixture.
+ *
+ * Três bolhas cobrem as três respostas de `mentionSegments`: uma que chama
+ * QUEM ESTÁ LENDO (âmbar, o único "venha cá" da casa), uma que chama um
+ * colega (azul) e uma com "@Vitor Hugo Almeida" digitado à mão, sem o
+ * painel — que não avisou ninguém e por isso fica como texto comum.
+ *
+ * As bolhas usam as mesmas classes da sala (`bg-wa-in`, `bg-wa-out`),
+ * porque o âmbar precisa ser conferido CONTRA o fundo em que ele vai
+ * aparecer, nos dois temas.
+ */
+const MENCAO_DIRETORIO = new Map([
+  [
+    'u-juliana',
+    { user_id: 'u-juliana', full_name: 'Juliana Prestes', avatar_url: null },
+  ],
+  [
+    'u-vitor',
+    { user_id: 'u-vitor', full_name: 'Vitor Hugo Almeida', avatar_url: null },
+  ],
+  [
+    'u-gabriel',
+    { user_id: 'u-gabriel', full_name: 'Gabriel Spencer', avatar_url: null },
+  ],
+  [
+    'u-ana',
+    { user_id: 'u-ana', full_name: 'Ana Paula Rocha', avatar_url: null },
+  ],
+]);
+
+function MentionBench() {
+  const [cursor, setCursor] = useState(1);
+  const candidatos = [...MENCAO_DIRETORIO.values()].filter(
+    (m) => m.user_id !== 'u-gabriel'
+  );
+  const bolhas = [
+    {
+      id: 'b1',
+      mine: false,
+      body: '@Gabriel Spencer consegue ver o pedido 14350 hoje ainda?',
+      mentions: ['u-gabriel'],
+    },
+    {
+      id: 'b2',
+      mine: true,
+      body: 'Vejo sim. @Juliana Prestes separa a nota pra mim?',
+      mentions: ['u-juliana'],
+    },
+    {
+      id: 'b3',
+      mine: false,
+      body: 'Falei com o @Vitor Hugo Almeida por telefone, ele confirma amanhã.',
+      mentions: [],
+    },
+  ];
+
+  return (
+    <Panel className="grid gap-6 p-4 md:grid-cols-2">
+      <div className="bg-wa-bg space-y-2 rounded-lg p-3">
+        {bolhas.map((b) => (
+          <div
+            key={b.id}
+            className={cn('flex', b.mine ? 'justify-end' : 'justify-start')}
+          >
+            <p
+              className={cn(
+                'text-foreground max-w-[85%] rounded-lg px-2.5 py-1.5 text-sm shadow-[var(--wa-shadow)]',
+                b.mine ? 'bg-wa-out' : 'bg-wa-in'
+              )}
+            >
+              <MentionText
+                body={b.body}
+                mentions={b.mentions}
+                members={MENCAO_DIRETORIO}
+                selfId="u-gabriel"
+              />
+            </p>
+          </div>
+        ))}
+      </div>
+
+      <div className="space-y-3">
+        <MentionPanel
+          matches={candidatos}
+          cursor={cursor}
+          onHover={setCursor}
+          onPick={() => {}}
+          presenceOf={(id) => (id === 'u-juliana' ? 'online' : 'offline')}
+        />
+        <MentionPanel
+          matches={[]}
+          cursor={0}
+          onHover={() => {}}
+          onPick={() => {}}
+          presenceOf={() => 'offline'}
+        />
+      </div>
     </Panel>
   );
 }

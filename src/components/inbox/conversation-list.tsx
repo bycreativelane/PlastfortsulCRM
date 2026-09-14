@@ -78,11 +78,7 @@ import {
   conversationPreview,
   type MediaPlaceholderKind,
 } from '@/lib/inbox/message-preview';
-import {
-  hasUnreadTeamMessages,
-  lastSeenTeamMessage,
-  TEAM_SEEN_EVENT,
-} from '@/lib/team/messages';
+import { useTeamUnread } from '@/hooks/use-team-unread';
 import { ConversationMenu } from './conversation-menu';
 import { SwipeRow } from './swipe-row';
 
@@ -122,12 +118,16 @@ interface ConversationListProps {
 function TeamRoomRow({
   active,
   unread,
+  mentioned,
   onOpen,
   label,
   hint,
 }: {
   active: boolean;
-  unread: boolean;
+  /** Quantas mensagens de outras pessoas ainda não foram lidas. */
+  unread: number;
+  /** Alguma delas chama quem está lendo (077). */
+  mentioned: boolean;
   onOpen: () => void;
   label: string;
   hint: string;
@@ -158,11 +158,22 @@ function TeamRoomRow({
           {hint}
         </span>
       </span>
-      {/* A dot, not a count. The room is one conversation and the number of
-          unread lines in it is not a number anybody acts on differently —
-          "there is something new" is the whole message. */}
-      {unread && !active && (
-        <span className="bg-primary size-1.5 shrink-0 rounded-full" />
+      {/*
+        UM NÚMERO, E O MESMO DO TRILHO.
+
+        Isto era um ponto, com uma nota defendendo que o número de linhas não
+        lidas "não é um número sobre o qual alguém age diferente". O card do
+        trilho já tinha revertido essa decisão com o uso — um recado e onze
+        recados são situações diferentes — e as duas superfícies ficaram
+        discordando: 11 no trilho, um ponto aqui.
+
+        Agora os dois leem `useTeamUnread`, e a menção a quem está lendo
+        pinta de âmbar nos dois (077).
+      */}
+      {unread > 0 && !active && (
+        <CountBadge size="dot" tone={mentioned ? 'human' : 'primary'}>
+          {unread > 99 ? '99+' : unread}
+        </CountBadge>
       )}
     </button>
   );
@@ -212,75 +223,15 @@ export function ConversationList({
   const [agentNames, setAgentNames] = useState<Map<string, string>>(
     () => new Map()
   );
-  const [teamUnread, setTeamUnread] = useState(false);
-  /**
-   * The newest team message this list knows about.
+  /*
+   * O número da sala da equipe — do store, e não de uma conta desta lista.
    *
-   * A ref and not state: it is only ever read to answer "is that newer than
-   * the marker" when something else fires, and holding it in state would
-   * re-run the subscription effect on every message that arrives.
+   * Esta lista buscava a mensagem mais nova e comparava com o marcador do
+   * navegador, com a sua própria assinatura de realtime. Discordava do card
+   * do trilho sempre que um dos dois ouvia um evento que o outro não ouviu.
+   * `useTeamUnread` é a conta única (ver o topo do hook).
    */
-  const newestRef = useRef<string | null>(null);
-
-  // Is there anything new in the team room?
-  //
-  // One row, newest first, plus a live subscription. The fetch alone was not
-  // enough and the way it failed was invisible: it re-ran on resync and on
-  // opening the room, so a colleague writing while you were reading a
-  // customer thread lit no dot until something else happened to refresh.
-  // A team room whose only announcement is one you have to go looking for
-  // is a team room nobody uses.
-  useEffect(() => {
-    const supabase = createClient();
-    let cancelled = false;
-
-    const refresh = (newest: string | null) => {
-      if (cancelled) return;
-      setTeamUnread(hasUnreadTeamMessages(newest, lastSeenTeamMessage()));
-    };
-
-    (async () => {
-      const { data, error } = await supabase
-        .from('team_messages')
-        .select('created_at')
-        .order('created_at', { ascending: false })
-        .limit(1);
-      // Pre-046 the table does not exist, which reads as "nothing new" —
-      // the correct answer, and not an error worth logging on every load.
-      if (error) return;
-      newestRef.current = data?.[0]?.created_at ?? null;
-      refresh(newestRef.current);
-    })();
-
-    const channel = supabase
-      .channel('team-room-dot')
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'team_messages' },
-        (payload) => {
-          // `markTeamRoomSeen` runs while the room is mounted, so this
-          // compares against a marker that is already current when the
-          // reader is looking at it — and only lights up when they are not.
-          newestRef.current = (
-            payload.new as { created_at: string }
-          ).created_at;
-          refresh(newestRef.current);
-        }
-      )
-      .subscribe();
-
-    // Reading the room moves the marker, and localStorage does not tell
-    // anybody. Without this the dot survives the read that should have
-    // cleared it, until something else remounts this list.
-    const onSeen = () => refresh(newestRef.current);
-    window.addEventListener(TEAM_SEEN_EVENT, onSeen);
-
-    return () => {
-      cancelled = true;
-      window.removeEventListener(TEAM_SEEN_EVENT, onSeen);
-      supabase.removeChannel(channel);
-    };
-  }, [resyncToken, teamOpen]);
+  const equipe = useTeamUnread();
 
   // Keep the latest callback in a ref so the fetch effect below can
   // have a stable, empty-dep identity. Previously the fetch useCallback
@@ -537,7 +488,8 @@ export function ConversationList({
             somebody reaches for when the code stops making sense.) */}
         <TeamRoomRow
           active={teamOpen}
-          unread={teamUnread}
+          unread={equipe.total}
+          mentioned={equipe.mentions > 0}
           onOpen={onOpenTeam}
           label={tTeam('title')}
           hint={tTeam('rowHint')}

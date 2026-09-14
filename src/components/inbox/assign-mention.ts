@@ -9,8 +9,13 @@
  * Two decisions worth stating, because both were the other way round first:
  *
  * `@` ASSIGNS, it does not mention. Two meanings for one key in one field is
- * how somebody eventually sends "@ana" to a customer. There is no mention
- * feature to collide with, and there will not be one on this key.
+ * how somebody eventually sends "@ana" to a customer, and this is the field
+ * that talks to customers.
+ *
+ * A menção existe desde a 077 — no OUTRO campo, o da sala da equipe, onde
+ * nada chega a cliente nenhum (ver `lib/team/mentions.ts`). A regra acima
+ * continua valendo, e é por isso que ela mora lá e não aqui: uma tecla,
+ * um significado, POR CAMPO.
  *
  * It only opens at the START of the field. Mid-sentence, `@` is an email
  * address or a handle the customer wrote, and a panel that springs open over

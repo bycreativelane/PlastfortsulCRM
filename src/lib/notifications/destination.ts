@@ -16,6 +16,10 @@ import type { Notification } from '@/types';
  */
 export function destinationFor(n: Notification): string | null {
   if (n.conversation_id) return `/inbox?c=${n.conversation_id}`;
+  // A menção abre a sala NA mensagem: `tm` é lido pela caixa de entrada e
+  // passado à sala, que escolhe a sala certa e rola até ela. "Fulano te
+  // chamou" que abre no fim da sala errada obriga a procurar.
+  if (n.team_message_id) return `/inbox?team=1&tm=${n.team_message_id}`;
   // Uma tarefa ainda não tem página própria: a Fase 3 do
   // `docs/spec-tarefas-e-agendas.md` cria `/agenda`, e aí este ramo passa a
   // ser `/agenda?task=${n.task_id}`. Até lá, a ficha do contato é onde a

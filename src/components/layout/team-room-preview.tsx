@@ -44,10 +44,13 @@ const MEDIA_ICON = {
 export function TeamRoomPreviewPopup({
   heading,
   unreadCount,
+  mentioned = false,
   children,
 }: {
   heading: string;
   unreadCount: number;
+  /** Alguma não lida chama quem está lendo — o número fica âmbar (077). */
+  mentioned?: boolean;
   children: ReactNode;
 }) {
   return (
@@ -63,7 +66,7 @@ export function TeamRoomPreviewPopup({
             <Users className="text-primary size-3.5" />
             <span className="min-w-0 flex-1 truncate">{heading}</span>
             {unreadCount > 0 && (
-              <CountBadge size="dot" tone="primary">
+              <CountBadge size="dot" tone={mentioned ? 'human' : 'primary'}>
                 {unreadCount > 99 ? '99+' : unreadCount}
               </CountBadge>
             )}

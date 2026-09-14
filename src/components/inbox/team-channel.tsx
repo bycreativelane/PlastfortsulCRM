@@ -26,7 +26,20 @@ import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
 import { useCan, useCapability } from '@/hooks/use-can';
 import { useCoarsePointer } from '@/hooks/use-coarse-pointer';
-import { useMemberDirectory } from '@/hooks/use-member-directory';
+import {
+  useMemberDirectory,
+  type DirectoryMember,
+} from '@/hooks/use-member-directory';
+import { clearTeamRoomUnread, useTeamUnread } from '@/hooks/use-team-unread';
+import {
+  filterMentionCandidates,
+  insertMention,
+  mentionQueryAt,
+  resolveMentions,
+} from '@/lib/team/mentions';
+import { MentionPanel, MentionText } from './team-mentions';
+import { markTeamRoomRead } from '@/lib/team/reads';
+import { CountBadge } from '@/components/ui/count-badge';
 import { usePresence } from '@/hooks/use-presence';
 import { dateLocale } from '@/lib/i18n/dates';
 import { presenceLabel } from '@/lib/presence';
@@ -96,6 +109,12 @@ interface TeamChannelProps {
    * always on screen beside this, so there is nothing to go back TO.
    */
   onBack?: () => void;
+  /**
+   * A mensagem que trouxe a pessoa até aqui — a notificação de menção
+   * (077) aponta para ela. A sala abre NA sala dela e rola até ela, porque
+   * "fulano te chamou" que abre no fim da sala errada obriga a procurar.
+   */
+  focusMessageId?: string | null;
 }
 
 /** Ceiling for a textarea's own growth, in pixels. */
@@ -123,7 +142,7 @@ const OPUS_ENCODER_PATH = '/opus/encoderWorker.min.js';
 /** Teto de uma gravação, em segundos. Para sozinha ao chegar. */
 const MAX_RECORDING_SECONDS = 5 * 60;
 
-export function TeamChannel({ onBack }: TeamChannelProps) {
+export function TeamChannel({ onBack, focusMessageId }: TeamChannelProps) {
   const t = useTranslations('Inbox.team');
   const { confirm } = useConfirm();
   const tThread = useTranslations('Inbox.messageThread');
@@ -152,8 +171,29 @@ export function TeamChannel({ onBack }: TeamChannelProps) {
    */
   const [rooms, setRooms] = useState<TeamRoom[]>([]);
   const [roomId, setRoomId] = useState<string | null>(null);
+  /**
+   * De QUAL sala é a lista que está na tela.
+   *
+   * Existe por uma corrida medida no código: ao trocar de sala, `roomId`
+   * muda um render antes de `messages` ser recarregada. O efeito que marca
+   * a sala como lida via, nesse render, a sala NOVA com a mensagem mais
+   * nova da sala ANTIGA — e marcava como lidas, na sala nova, mensagens
+   * que ninguém tinha visto. Marcar só quando as duas concordam fecha isso.
+   */
+  const [loadedRoomId, setLoadedRoomId] = useState<string | null>(null);
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
+
+  /**
+   * `@fulano` — onde está o cursor, qual linha do painel está acesa, e o
+   * `@` que a pessoa fechou com Esc (que não reabre até ela digitar outro).
+   * Ver `lib/team/mentions.ts`.
+   */
+  const [caret, setCaret] = useState(0);
+  const [mentionCursor, setMentionCursor] = useState(0);
+  const [mentionDismissed, setMentionDismissed] = useState<number | null>(null);
+  /** Quem foi escolhido no painel desde o último envio. */
+  const pickedRef = useRef<Set<string>>(new Set());
 
   /**
    * O anexo já subido e ainda não enviado.
@@ -218,6 +258,13 @@ export function TeamChannel({ onBack }: TeamChannelProps) {
   // colleague something and then decide whether to wait for the answer, and
   // that decision is exactly "are they at their desk".
   const { getPresence, getRow, now } = usePresence();
+  /**
+   * O número por sala, do mesmo store do card do trilho. Aqui ele responde
+   * a pergunta que só existe dentro da sala: "tem coisa nova NAS OUTRAS?"
+   * — com o seletor fechado, uma mensagem em "Operação" era invisível para
+   * quem estava lendo "Comercial".
+   */
+  const naoLidas = useTeamUnread();
 
   // ---- Load + realtime -----------------------------------------------
 
@@ -291,6 +338,7 @@ export function TeamChannel({ onBack }: TeamChannelProps) {
       } else {
         setMessages(rows);
       }
+      setLoadedRoomId(roomId);
     })();
 
     // Its own channel, not the inbox's: this table has nothing to do with
@@ -389,13 +437,65 @@ export function TeamChannel({ onBack }: TeamChannelProps) {
   useEffect(() => {
     if (!newest) return;
     markTeamRoomSeen(newest);
-  }, [newest]);
+    // No banco também (077), para o número apagar no celular e no card na
+    // mesma hora. Só quando a lista é DESTA sala — ver `loadedRoomId`.
+    if (!roomId || loadedRoomId !== roomId) return;
+    clearTeamRoomUnread(roomId);
+    void markTeamRoomRead(createClient(), roomId, newest);
+  }, [newest, roomId, loadedRoomId]);
+
+  /**
+   * CHEGOU PELA NOTIFICAÇÃO: a sala da mensagem, e depois a mensagem.
+   *
+   * Duas etapas porque a sala vem primeiro — a lista só existe depois que
+   * ela é escolhida. `focusDone` guarda qual mensagem já foi atendida, para
+   * a próxima mensagem que chegar não puxar a tela de volta para ela.
+   */
+  const focusDone = useRef<string | null>(null);
+  useEffect(() => {
+    if (!focusMessageId || !accountId || focusDone.current === focusMessageId)
+      return;
+    let cancelled = false;
+    void createClient()
+      .from('team_messages')
+      .select('room_id')
+      .eq('id', focusMessageId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (cancelled || !data) return;
+        const alvo =
+          (data as { room_id: string | null }).room_id ??
+          defaultRoom(rooms)?.id ??
+          null;
+        if (alvo) setRoomId(alvo);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [focusMessageId, accountId, rooms]);
 
   // Pin to the bottom, same as the customer thread.
   useEffect(() => {
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages]);
+
+  // DEPOIS do "prender no fim", e por isso declarado depois: os dois rodam
+  // na mesma chegada da lista, e o último a rolar é o que fica.
+  useEffect(() => {
+    if (!focusMessageId || !messages || focusDone.current === focusMessageId)
+      return;
+    const alvo = scrollRef.current?.querySelector<HTMLElement>(
+      `[data-team-message="${CSS.escape(focusMessageId)}"]`
+    );
+    if (!alvo) return;
+    focusDone.current = focusMessageId;
+    alvo.scrollIntoView({ block: 'center' });
+    // Um anel âmbar por dois segundos: "é esta". Âmbar porque é a cor que
+    // chama alguém, e quem chegou aqui foi chamado.
+    alvo.setAttribute('data-flash', '');
+    window.setTimeout(() => alvo.removeAttribute('data-flash'), 2000);
+  }, [focusMessageId, messages]);
 
   // ---- Send ------------------------------------------------------------
 
@@ -404,6 +504,43 @@ export function TeamChannel({ onBack }: TeamChannelProps) {
   // dependency, and `user?.id` inside an async callback is exactly that
   // shape.
   const authorId = user?.id ?? null;
+
+  /**
+   * O PAINEL DE `@`: aberto quando o cursor está logo depois de um `@` que
+   * abre palavra, e quem pode escrever está escrevendo.
+   *
+   * Sem `useMemo`: a lista é a equipe da conta — dezenas de pessoas no
+   * máximo — e filtrar isso a cada tecla custa menos do que o compilador
+   * do React discutir as dependências.
+   */
+  const mentionAt = canWrite && !pending ? mentionQueryAt(text, caret) : null;
+  const mentionOpen =
+    mentionAt !== null && mentionAt.start !== mentionDismissed;
+  const mentionMatches = mentionOpen
+    ? filterMentionCandidates(
+        [...directory.values()],
+        mentionAt.query,
+        authorId
+      ).slice(0, 8)
+    : [];
+
+  const applyMention = (member: DirectoryMember) => {
+    if (!mentionAt) return;
+    const next = insertMention(text, mentionAt.start, caret, member.full_name);
+    pickedRef.current.add(member.user_id);
+    setText(next.text);
+    setCaret(next.caret);
+    setMentionCursor(0);
+    // O cursor volta para o campo, DEPOIS do nome e do espaço — no próximo
+    // quadro, porque o `value` novo ainda não está no DOM agora.
+    requestAnimationFrame(() => {
+      const el = textareaRef.current;
+      if (!el) return;
+      el.focus();
+      el.setSelectionRange(next.caret, next.caret);
+      autosize(el);
+    });
+  };
 
   /**
    * Sobe o arquivo escolhido e o deixa como rascunho.
@@ -663,11 +800,17 @@ export function TeamChannel({ onBack }: TeamChannelProps) {
     const attachment = draft;
     setDraft(null);
 
-    const { error } = await sendTeamMessage(createClient(), {
+    // Quem a mensagem chama DE FATO: os escolhidos cujo nome ainda está no
+    // texto. Apagar a menção antes de mandar desfaz o aviso.
+    const mentions = resolveMentions(body, pickedRef.current, directory);
+    pickedRef.current = new Set();
+
+    const { error, mentionsDropped } = await sendTeamMessage(createClient(), {
       accountId,
       authorId,
       body,
       roomId,
+      mentions,
       media: attachment
         ? {
             ...attachment,
@@ -683,22 +826,64 @@ export function TeamChannel({ onBack }: TeamChannelProps) {
       // one thing that must not happen is the message disappearing.
       setText(body);
       setDraft(attachment);
+      pickedRef.current = new Set(mentions);
       // O único erro que merece frase própria: as colunas da 063 não
       // existem. "Falhou" mandaria a pessoa tentar de novo para sempre.
       if (error === 'TEAM_MEDIA_UNAVAILABLE')
         toast.error(t('mediaUnsupported'));
+      return;
     }
-  }, [text, draft, sending, accountId, authorId, pending, roomId, t]);
+    // A mensagem foi, o aviso não. Dizer isso a quem chamou é o que evita
+    // "eu te marquei!" / "não chegou nada".
+    if (mentionsDropped) toast.error(t('mentionsUnsupported'));
+  }, [
+    text,
+    draft,
+    sending,
+    accountId,
+    authorId,
+    pending,
+    roomId,
+    directory,
+    t,
+  ]);
 
-  const onKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-      if (e.key === 'Enter' && !e.shiftKey && !touch) {
+  const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // O painel de `@` come as teclas de navegação ENQUANTO está aberto e
+    // tem alguém para escolher — as mesmas do `/` e do `@` do atendimento,
+    // para ser uma coisa só a aprender. Tab também escolhe, como em todo
+    // editor que completa nomes.
+    if (mentionOpen && mentionMatches.length > 0) {
+      if (e.key === 'ArrowDown') {
         e.preventDefault();
-        void send();
+        setMentionCursor((c) => (c + 1) % mentionMatches.length);
+        return;
       }
-    },
-    [send, touch]
-  );
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setMentionCursor(
+          (c) => (c - 1 + mentionMatches.length) % mentionMatches.length
+        );
+        return;
+      }
+      if ((e.key === 'Enter' && !e.shiftKey) || e.key === 'Tab') {
+        e.preventDefault();
+        applyMention(
+          mentionMatches[Math.min(mentionCursor, mentionMatches.length - 1)]
+        );
+        return;
+      }
+    }
+    if (mentionOpen && mentionAt && e.key === 'Escape') {
+      e.preventDefault();
+      setMentionDismissed(mentionAt.start);
+      return;
+    }
+    if (e.key === 'Enter' && !e.shiftKey && !touch) {
+      e.preventDefault();
+      void send();
+    }
+  };
 
   // ---- Edit and delete -------------------------------------------------
 
@@ -752,6 +937,12 @@ export function TeamChannel({ onBack }: TeamChannelProps) {
     const { error } = await editTeamMessage(createClient(), {
       id: editingId,
       body,
+      // Quem continua com o nome no texto continua chamado; apagar o nome
+      // na edição tira a pessoa do array. A caixa de edição não tem o painel
+      // de `@` — acrescentar alguém se faz numa mensagem nova.
+      mentions: original?.mentions
+        ? resolveMentions(body, original.mentions, directory)
+        : undefined,
     });
     // Put the original back if the database refused. Realtime would correct
     // this eventually, but only if somebody else happens to write.
@@ -760,7 +951,7 @@ export function TeamChannel({ onBack }: TeamChannelProps) {
         prev ? prev.map((m) => (m.id === original.id ? original : m)) : prev
       );
     }
-  }, [editingId, editText, messages, cancelEdit]);
+  }, [editingId, editText, messages, cancelEdit, directory]);
 
   const onEditKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -849,6 +1040,11 @@ export function TeamChannel({ onBack }: TeamChannelProps) {
                 <span className="text-foreground flex items-center gap-1 truncate text-sm font-semibold">
                   {roomName(room, t('title'))}
                   <ChevronDown className="text-muted-foreground size-3.5 shrink-0" />
+                  <OutrasSalas
+                    estado={naoLidas}
+                    salaAtual={roomId}
+                    rotulo={t('otherRoomsUnread')}
+                  />
                 </span>
                 <span className="text-muted-foreground block truncate text-xs">
                   {room?.description ||
@@ -865,8 +1061,27 @@ export function TeamChannel({ onBack }: TeamChannelProps) {
                 >
                   <Users className="size-4" />
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate">
-                      {roomName(r, t('title'))}
+                    <span className="flex items-center gap-1.5">
+                      <span className="min-w-0 flex-1 truncate">
+                        {roomName(r, t('title'))}
+                      </span>
+                      {r.id !== roomId &&
+                        (naoLidas.byRoom.get(r.id)?.unread ?? 0) > 0 && (
+                          <CountBadge
+                            size="dot"
+                            // Âmbar quando alguma delas chama você.
+                            tone={
+                              (naoLidas.byRoom.get(r.id)?.mentions ?? 0) > 0
+                                ? 'human'
+                                : 'primary'
+                            }
+                          >
+                            {Math.min(
+                              naoLidas.byRoom.get(r.id)?.unread ?? 0,
+                              99
+                            )}
+                          </CountBadge>
+                        )}
                     </span>
                     {/* The description is the reason the room exists, and
                         the switcher is the one place somebody is choosing
@@ -944,8 +1159,9 @@ export function TeamChannel({ onBack }: TeamChannelProps) {
                   return (
                     <div
                       key={message.id}
+                      data-team-message={message.id}
                       className={cn(
-                        'group/msg flex items-end gap-2',
+                        'group/msg data-flash:ring-human data-flash:bg-human-soft/40 flex items-end gap-2 rounded-lg transition-colors duration-500 data-flash:ring-2',
                         mine ? 'flex-row-reverse' : 'flex-row',
                         firstOfRun ? 'mt-2 first:mt-0' : 'mt-0.5'
                       )}
@@ -1056,7 +1272,13 @@ export function TeamChannel({ onBack }: TeamChannelProps) {
                             )}
                             {message.body && (
                               <p className="text-foreground text-sm break-words whitespace-pre-wrap">
-                                {message.body}
+                                {/* "Uma cor diferente": ver `MentionText`. */}
+                                <MentionText
+                                  body={message.body}
+                                  mentions={message.mentions}
+                                  members={directory}
+                                  selfId={authorId}
+                                />
                               </p>
                             )}
                           </>
@@ -1148,7 +1370,17 @@ export function TeamChannel({ onBack }: TeamChannelProps) {
           rounded box; a highlight on only the inner rectangle read as a
           second, misaligned field sitting inside the first. Same
           `focus-within` recipe the inbox composer uses. */}
-      <div className="pb-safe-3 px-3 pt-3 sm:px-4">
+      <div className="pb-safe-3 relative px-3 pt-3 sm:px-4">
+        {mentionOpen && (
+          <MentionPanel
+            matches={mentionMatches}
+            cursor={mentionCursor}
+            onHover={setMentionCursor}
+            onPick={applyMention}
+            presenceOf={getPresence}
+            className="absolute right-3 bottom-[calc(100%-4px)] left-3 z-30 sm:right-4 sm:left-4"
+          />
+        )}
         {/* O rascunho fica ACIMA da pílula e não dentro dela: dentro, ele
             empurraria o campo de texto para baixo a cada anexo e o botão
             de enviar mudaria de lugar entre uma mensagem e outra. */}
@@ -1255,10 +1487,17 @@ export function TeamChannel({ onBack }: TeamChannelProps) {
               value={text}
               onChange={(e) => {
                 setText(e.target.value);
+                setCaret(e.target.selectionStart ?? e.target.value.length);
+                setMentionCursor(0);
                 autosize(e.currentTarget);
               }}
+              // O cursor anda sem o texto mudar — seta, clique, Home. O
+              // painel de `@` depende de onde ele está, não só do que foi
+              // digitado.
+              onSelect={(e) => setCaret(e.currentTarget.selectionStart ?? 0)}
               onKeyDown={onKeyDown}
               onPaste={onPaste}
+              aria-autocomplete="list"
               disabled={!canWrite || pending}
               rows={1}
               placeholder={
@@ -1301,6 +1540,43 @@ export function TeamChannel({ onBack }: TeamChannelProps) {
         )}
       </div>
     </div>
+  );
+}
+
+/**
+ * Quantas mensagens novas há nas salas em que a pessoa NÃO está.
+ *
+ * Um ponto ao lado do nome da sala atual, e não um número: o número de
+ * cada uma está dentro do seletor, a um clique, e dois contadores no
+ * cabeçalho — o desta sala e o das outras — leriam como a mesma coisa.
+ */
+function OutrasSalas({
+  estado,
+  salaAtual,
+  rotulo,
+}: {
+  estado: { byRoom: Map<string, { unread: number; mentions: number }> };
+  salaAtual: string | null;
+  rotulo: string;
+}) {
+  let novas = 0;
+  let chamadas = 0;
+  for (const [id, sala] of estado.byRoom) {
+    if (id === salaAtual) continue;
+    novas += sala.unread;
+    chamadas += sala.mentions;
+  }
+  if (novas === 0) return null;
+  return (
+    <span
+      role="img"
+      aria-label={rotulo}
+      title={rotulo}
+      className={cn(
+        'size-2 shrink-0 rounded-full',
+        chamadas > 0 ? 'bg-human' : 'bg-primary'
+      )}
+    />
   );
 }
 

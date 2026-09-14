@@ -765,7 +765,12 @@
       "recordCancel": "Discard",
       "recording": "Recording {time}",
       "recordingUnsupported": "This browser cannot record audio.",
-      "cardAria": "{name}, {count, plural, one {# new message} other {# new messages}}"
+      "cardAria": "{name}, {count, plural, one {# new message} other {# new messages}}",
+      "mentionPanel": "Mention a teammate",
+      "mentionNoMatch": "Nobody on the team by that name",
+      "mentionHint": "Enter or Tab to pick · Esc to close",
+      "mentionsUnsupported": "Message sent, but the mention did not notify anyone — migration 077 still needs to be applied.",
+      "otherRoomsUnread": "New messages in another room"
     },
     "assist": {
       "suggest": "Suggest a reply",
@@ -3490,7 +3495,9 @@
     "assignedContactUnknown": "a contact",
     "newMessageNoText": "Sent an attachment",
     "taskDueFallbackTitle": "Task",
-    "taskDueBody": "One of your tasks is coming due."
+    "taskDueBody": "One of your tasks is coming due.",
+    "mentionTitle": "{actor} mentioned you",
+    "mentionNoText": "Mentioned you in the team room"
   },
   "Routes": {
     "loading": "Loading…",

@@ -315,7 +315,9 @@ export type NotificationType =
   | 'conversation_assigned'
   | 'new_message'
   /** Um lembrete de tarefa, escrito pela varredura do cron (068). */
-  | 'task_due';
+  | 'task_due'
+  /** Alguém chamou a pessoa com `@` na sala da equipe (077). */
+  | 'team_mention';
 
 export interface Notification {
   id: string;
@@ -337,6 +339,8 @@ export interface Notification {
   contact_id?: string | null;
   /** The task this reminder is about, for `type = 'task_due'` (068). */
   task_id?: string | null;
+  /** A mensagem da sala que mencionou, para `type = 'team_mention'` (077). */
+  team_message_id?: string | null;
   /** Who triggered it. Null when an automation/system assigned it. */
   actor_user_id?: string | null;
   title: string | null;

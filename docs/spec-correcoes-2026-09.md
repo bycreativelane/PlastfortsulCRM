@@ -165,6 +165,7 @@ A do próprio pacote (item 34), com o 37 recolocado.
 | **P2** | produtividade                         | 3 de 4 — falta a revisão visual em tela autenticada                        |
 | —      | itens 38–59: oportunidade e orçamento | feito e aplicado em 8 de setembro                                          |
 | —      | a oportunidade no modelo do Bling     | escrito em 8 de setembro; **falta aplicar as migrações 074, 075 e 076**     |
+| —      | Minha equipe: prévia, @menção, número | escrito em 14 de setembro; **menção e número dependem da 077**              |
 
 ---
 
@@ -942,3 +943,67 @@ De passagem, um guarda novo: `button-link-native.test.ts`. Três `Button`
 renderizados como link não diziam `nativeButton={false}`, e o Base UI acusava
 no console a cada renderização — o link do arquivo e o "Abrir PDF" do
 orçamento, e o "Abrir conversa" da ficha do contato.
+
+## Minha equipe: prévia, `@menção` e o número real — 14 de setembro
+
+O pedido, de 8 de setembro, com um print do card "Minha equipe":
+
+> Já que não tem mais o mini chat de visualização, faz uma pré-visualização
+> passando o mouse em cima pra ler rápido, e uma cor diferente com uma
+> configuração nova para poder dar um @fulano e mencionar ela no chat interno,
+> além do número de notificação contar real
+
+### A prévia — sem migração, no ar
+
+Passar o mouse no card abre as seis últimas mensagens: primeiro nome, hora, o
+texto em duas linhas, anexo sem legenda pelo nome do tipo. Não busca nada até
+alguém passar o mouse, e **não marca como lido** — quem leu por cima e vai
+responder depois precisa que o número continue lá.
+
+### `@fulano` — depende da 077
+
+Digitar `@` na sala abre a lista da equipe (prefixo de palavra, sem acento);
+Enter ou Tab escolhe. O nome entra no texto como palavra comum e o id vai
+num array (`team_messages.mentions`), e um gatilho transforma cada menção numa
+notificação no sino — que abre a sala **na** mensagem, com um anel âmbar.
+
+**"Uma cor diferente"**: âmbar quando a menção é a quem está lendo — a
+doutrina de cor da casa, âmbar é o único "venha cá" — e azul quando chama um
+colega. O card do trilho e a linha da caixa de entrada também ficam âmbar
+quando alguma não lida chama você.
+
+**Uma interpretação que vale registrar**: "uma configuração nova" foi lida
+como a funcionalidade nova, e não como um interruptor em Configurações. Se a
+ideia era poder desligar as menções (ou o aviso delas), isso é um passo a mais
+e pequeno.
+
+O `@` do compositor do ATENDIMENTO continua atribuindo a conversa. São campos
+diferentes, e o comentário de `assign-mention.ts` foi atualizado para dizer
+isso — "uma tecla, um significado, por campo".
+
+### O número real — depende da 077
+
+O que estava errado, medido no código: o marcador era do navegador (ler no
+celular não apagava no computador), um navegador que nunca abriu a sala
+mostrava zero, as próprias mensagens contavam quando chegavam por outro
+aparelho, e um marcador só para todas as salas marcava como lida uma
+mensagem de "Operação" ao ler "Comercial".
+
+`team_room_reads` guarda até onde cada pessoa leu cada sala, e
+`team_unread_counts()` conta numa consulta. A migração marca tudo o que foi
+escrito antes dela como lido — senão todo mundo veria "99+" no minuto em que
+ela rodasse. O card, a linha da caixa de entrada e o seletor de salas leem o
+mesmo store (`use-team-unread`), com uma assinatura só.
+
+**Antes da 077 nada quebra**: o número volta ao marcador do navegador (já sem
+as próprias mensagens), e mencionar alguém envia a mensagem e avisa que a
+menção não notificou ninguém. Verificado contra o banco de teste: as duas
+funções respondem `PGRST202` e a coluna responde ausente, que é o que o recuo
+reconhece.
+
+Conferido na bancada (`/chart-lab`), com fixture, nos dois temas: a prévia nos
+três estados, as três respostas da menção (a você, a um colega, e um `@Nome`
+digitado à mão que não avisou ninguém), e o painel. O contraste do âmbar e do
+azul sobre as bolhas ficou entre 5,2:1 e 8,3:1. **O fluxo com o banco — o
+gatilho, o sino, a leitura em dois aparelhos — só pode ser exercitado depois
+da 077 e com sessão autenticada.**

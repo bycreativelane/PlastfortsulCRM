@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { Users } from 'lucide-react';
@@ -8,12 +8,7 @@ import { PreviewCard } from '@base-ui/react/preview-card';
 
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
-import {
-  countUnreadTeamMessages,
-  lastSeenTeamMessage,
-  TEAM_SEEN_EVENT,
-  type TeamMessage,
-} from '@/lib/team/messages';
+import { useTeamUnread } from '@/hooks/use-team-unread';
 import { loadTeamRooms, roomName, type TeamRoom } from '@/lib/team/rooms';
 import { cn } from '@/lib/utils';
 import { CountBadge } from '@/components/ui/count-badge';
@@ -72,32 +67,26 @@ import { TeamRoomPreview, TeamRoomPreviewPopup } from './team-room-preview';
 export function TeamRoomCard() {
   const t = useTranslations('Inbox.team');
   const { accountId } = useAuth();
-  const [unreadCount, setUnreadCount] = useState(0);
   const [rooms, setRooms] = useState<TeamRoom[]>([]);
   /** True once we know the table exists — see the fetch below. */
   const [available, setAvailable] = useState(false);
-  /**
-   * A prévia ao passar o mouse, e o contador que a faz se refazer.
-   *
-   * `previewVersion` sobe a cada mensagem que chega pelo realtime. Com a
-   * prévia fechada isso não custa nada — o conteúdo nem está montado —, e
-   * com ela aberta a lista se refaz para mostrar a resposta que acabou de
-   * chegar, em vez de congelar no instante em que abriu.
-   */
   const [previewOpen, setPreviewOpen] = useState(false);
-  const [previewVersion, setPreviewVersion] = useState(0);
 
-  const refreshUnread = useCallback(
-    async (db = createClient()) => {
-      if (!accountId) return;
-      // Across every room, on purpose: "how much have I missed" does not
-      // care which room it was missed in.
-      setUnreadCount(
-        await countUnreadTeamMessages(db, accountId, lastSeenTeamMessage())
-      );
-    },
-    [accountId]
-  );
+  /*
+   * O NÚMERO VEM DO STORE, e não mais de uma conta própria.
+   *
+   * Este card somava 1 a cada mensagem que chegava, contra um marcador do
+   * `localStorage`: contava as próprias mensagens vindas de outro aparelho,
+   * mostrava zero num navegador que nunca tinha aberto a sala, e não
+   * apagava quando a pessoa lia no celular. O Gabriel pediu o número
+   * "contando real", e o que isso quer dizer está no topo da seção 3 da
+   * migração 077. `useTeamUnread` é a conta única — a mesma da linha da
+   * caixa de entrada e do seletor de salas.
+   */
+  const naoLidas = useTeamUnread();
+  const unreadCount = naoLidas.total;
+  /** Alguma das não lidas chama esta pessoa pelo nome (077). */
+  const chamado = naoLidas.mentions > 0;
 
   useEffect(() => {
     if (!accountId) return;
@@ -105,22 +94,15 @@ export function TeamRoomCard() {
     let cancelled = false;
 
     (async () => {
-      // UMA LINHA, e só para saber se a tabela existe. Antes eram vinte,
-      // porque o card desenhava as últimas três mensagens; sem a prévia,
-      // trazer o histórico em toda navegação seria pagar por um dado que
-      // ninguém mais lê.
+      // UMA LINHA, e só para saber se a tabela existe. Pre-046 the error IS
+      // "the table is not there", which is the only reason to stay hidden.
       const { error } = await supabase
         .from('team_messages')
         .select('id')
         .eq('account_id', accountId)
         .limit(1);
-      // Pre-046 the error IS "the table is not there", which is the only
-      // reason to stay hidden — and not worth a console line on every page
-      // load. No error means the room exists, with or without rows: two
-      // different facts, and the card needs the first one.
       if (error || cancelled) return;
       setAvailable(true);
-      void refreshUnread(supabase);
     })();
 
     // Rooms, when the schema has them. `'missing-table'` is a pre-052
@@ -131,51 +113,10 @@ export function TeamRoomCard() {
       setRooms(result);
     });
 
-    const channel = supabase
-      .channel('team-room-card')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'team_messages',
-          filter: `account_id=eq.${accountId}`,
-        },
-        (payload) => {
-          if (cancelled) return;
-          const row = payload.new as TeamMessage;
-          setPreviewVersion((v) => v + 1);
-          // Counted rather than recounted: the round trip would be one
-          // query per message received, on every route, for a number this
-          // browser can derive exactly.
-          const seen = lastSeenTeamMessage();
-          if (!seen || row.created_at > seen) {
-            setUnreadCount((n) => n + 1);
-          }
-        }
-      )
-      .subscribe();
-
     return () => {
       cancelled = true;
-      supabase.removeChannel(channel);
     };
-  }, [accountId, refreshUnread]);
-
-  // Re-derive when the room is read.
-  //
-  // `lastSeenTeamMessage()` is a localStorage read, which is not reactive:
-  // the count above was computed against the marker as it stood when the
-  // newest message arrived, and opening the room moves that marker without
-  // this component hearing about it. So the card kept a lit badge on every
-  // route until a hard navigation remounted it, which is the "o ponto não
-  // apaga" report. `markTeamRoomSeen` now announces itself — see
-  // `TEAM_SEEN_EVENT`.
-  useEffect(() => {
-    const recheck = () => void refreshUnread();
-    window.addEventListener(TEAM_SEEN_EVENT, recheck);
-    return () => window.removeEventListener(TEAM_SEEN_EVENT, recheck);
-  }, [refreshUnread]);
+  }, [accountId]);
 
   const unread = unreadCount > 0;
 
@@ -252,7 +193,14 @@ export function TeamRoomCard() {
           // rather than the quiet one, and the fill finally MEANS something:
           // it appears when there is unread, instead of being the card's
           // permanent costume.
-          unread ? 'bg-primary-soft hover:bg-primary-soft/70' : 'hover:bg-muted'
+          // ÂMBAR QUANDO ALGUÉM CHAMOU ESTA PESSOA (077) — a doutrina de
+          // cor da casa: âmbar é o único "venha cá", e uma menção é
+          // exatamente isso. Mensagem nova sem menção continua azul.
+          !unread
+            ? 'hover:bg-muted'
+            : chamado
+              ? 'bg-human-soft hover:bg-human-soft/70'
+              : 'bg-primary-soft hover:bg-primary-soft/70'
         )}
       >
         <span className="relative shrink-0">
@@ -270,7 +218,11 @@ export function TeamRoomCard() {
           <span
             className={cn(
               'grid size-7 place-items-center rounded-full',
-              unread ? 'bg-primary text-white' : 'bg-muted text-primary'
+              !unread
+                ? 'bg-muted text-primary'
+                : chamado
+                  ? 'bg-human-strong text-white'
+                  : 'bg-primary text-white'
             )}
           >
             <Users className="size-3.5" />
@@ -284,7 +236,12 @@ export function TeamRoomCard() {
           {unread && (
             <span
               data-nav-dot
-              className="bg-primary ring-primary-soft absolute -top-0.5 -right-0.5 hidden size-2 rounded-full ring-2"
+              className={cn(
+                'absolute -top-0.5 -right-0.5 hidden size-2 rounded-full ring-2',
+                chamado
+                  ? 'bg-human ring-human-soft'
+                  : 'bg-primary ring-primary-soft'
+              )}
             />
           )}
         </span>
@@ -299,7 +256,11 @@ export function TeamRoomCard() {
             <span
               className={cn(
                 'min-w-0 flex-1 truncate text-sm font-semibold',
-                unread ? 'text-primary' : 'text-foreground'
+                !unread
+                  ? 'text-foreground'
+                  : chamado
+                    ? 'text-human-ink'
+                    : 'text-primary'
               )}
             >
               {heading}
@@ -311,7 +272,7 @@ export function TeamRoomCard() {
               Capped at 99+ because three digits change the card's width
               and nothing above 99 is a different decision. */}
             {unread && (
-              <CountBadge size="dot" tone="primary">
+              <CountBadge size="dot" tone={chamado ? 'human' : 'primary'}>
                 {unreadCount > 99 ? '99+' : unreadCount}
               </CountBadge>
             )}
@@ -327,10 +288,15 @@ export function TeamRoomCard() {
         </span>
       </PreviewCard.Trigger>
 
-      <TeamRoomPreviewPopup heading={heading} unreadCount={unreadCount}>
-        {previewOpen && (
-          <TeamRoomPreview rooms={rooms} version={previewVersion} />
-        )}
+      <TeamRoomPreviewPopup
+        heading={heading}
+        unreadCount={unreadCount}
+        mentioned={chamado}
+      >
+        {/* `version` é o número: quando chega mensagem de outra pessoa com a
+            prévia aberta, ele muda e a lista se refaz — sem um segundo canal
+            de realtime só para isso. */}
+        {previewOpen && <TeamRoomPreview rooms={rooms} version={unreadCount} />}
       </TeamRoomPreviewPopup>
     </PreviewCard.Root>
   );

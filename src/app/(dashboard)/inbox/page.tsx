@@ -84,6 +84,12 @@ function InboxPageInner() {
    * is exactly the friction the card exists to remove.
    */
   const deepLinkTeam = searchParams.get('team') === '1';
+  /**
+   * `?tm=<id>` — a mensagem da sala que trouxe a pessoa até aqui, pela
+   * notificação de menção (077). A sala escolhe a sala certa e rola até
+   * ela; ver `focusMessageId` no `TeamChannel`.
+   */
+  const deepLinkTeamMessage = searchParams.get('tm');
 
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [teamOpen, setTeamOpen] = useState(false);
@@ -104,6 +110,9 @@ function InboxPageInner() {
     if (!deepLinkTeam) return;
     const next = new URLSearchParams(searchParams.toString());
     next.delete('team');
+    // A mensagem vai junto com a sala: sem isto, reabrir a sala pelo card
+    // rolaria de novo até uma menção que já foi lida.
+    next.delete('tm');
     const query = next.toString();
     router.replace(query ? `/inbox?${query}` : '/inbox', { scroll: false });
   }, [deepLinkTeam, searchParams, router]);
@@ -994,7 +1003,10 @@ function InboxPageInner() {
           )}
         >
           {showTeam ? (
-            <TeamChannel onBack={handleCloseTeam} />
+            <TeamChannel
+              onBack={handleCloseTeam}
+              focusMessageId={deepLinkTeamMessage}
+            />
           ) : (
             <MessageThread
               conversation={activeConversation}

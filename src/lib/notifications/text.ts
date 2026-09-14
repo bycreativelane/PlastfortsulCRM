@@ -88,6 +88,23 @@ export function notificationText(
     };
   }
 
+  if (notification.type === 'team_mention') {
+    return {
+      // QUEM chamou é a manchete, pela mesma razão do `new_message`: numa
+      // lista de dez a pergunta é sempre quem. O nome vem de
+      // `actor_user_id` resolvido agora — o título gravado pelo gatilho é o
+      // nome de quando a mensagem saiu, e é só o fallback.
+      title: t('mentionTitle', {
+        actor:
+          names.actor?.trim() ||
+          notification.title?.trim() ||
+          t('assignedActorSystem'),
+      }),
+      // O trecho é DADO — as palavras do colega —, e por isso lido da linha.
+      body: notification.body?.trim() || t('mentionNoText'),
+    };
+  }
+
   return {
     title: notification.title?.trim() || t('assignedContactUnknown'),
     body: notification.body ?? null,

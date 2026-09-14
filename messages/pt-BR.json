@@ -765,7 +765,12 @@
       "recordCancel": "Descartar",
       "recording": "Gravando {time}",
       "recordingUnsupported": "Este navegador não grava áudio.",
-      "cardAria": "{name}, {count, plural, one {# mensagem nova} other {# mensagens novas}}"
+      "cardAria": "{name}, {count, plural, one {# mensagem nova} other {# mensagens novas}}",
+      "mentionPanel": "Mencionar alguém da equipe",
+      "mentionNoMatch": "Ninguém da equipe com esse nome",
+      "mentionHint": "Enter ou Tab para escolher · Esc para fechar",
+      "mentionsUnsupported": "Mensagem enviada, mas a menção não avisou ninguém — falta aplicar a migração 077.",
+      "otherRoomsUnread": "Mensagens novas em outra sala"
     },
     "assist": {
       "suggest": "Sugerir resposta",
@@ -3490,7 +3495,9 @@
     "assignedContactUnknown": "um contato",
     "newMessageNoText": "Mandou um anexo",
     "taskDueFallbackTitle": "Tarefa",
-    "taskDueBody": "Uma tarefa sua está chegando na hora."
+    "taskDueBody": "Uma tarefa sua está chegando na hora.",
+    "mentionTitle": "{actor} mencionou você",
+    "mentionNoText": "Mencionou você na sala da equipe"
   },
   "Routes": {
     "loading": "Carregando…",

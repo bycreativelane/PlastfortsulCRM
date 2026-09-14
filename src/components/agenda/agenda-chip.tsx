@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { AGENDA_TONE, type AgendaItem } from '@/lib/dashboard/agenda';
 import { cn } from '@/lib/utils';
 
-import { KIND_ICON, TONE_CHIP } from './tokens';
+import { KIND_ICON, TONE_CHIP, TONE_DOT } from './tokens';
 
 /**
  * Um item da agenda, do tamanho que a tela couber.
@@ -43,14 +43,43 @@ export function AgendaChip({
   style?: React.CSSProperties;
 }) {
   const Icon = KIND_ICON[item.kind];
+  const tight = density === 'tight';
+
+  /*
+   * NO MÊS, PONTO; NA GRADE DE HORAS, BLOCO.
+   *
+   * ------------------------------------------------------------------
+   * O QUE ESTAVA ERRADO, COM PRINT
+   * ------------------------------------------------------------------
+   *
+   * O mês desenhava cada item como uma BARRA PREENCHIDA de âmbar. Com
+   * quatro tarefas na semana o resultado é o print que o Gabriel mandou:
+   * no claro, tiras amarelas de ponta a ponta; no escuro, lajes marrons
+   * com o texto por cima. Ele resumiu em "mal dá pra ver as coisas".
+   *
+   * Três coisas somadas: âmbar quer dizer "uma pessoa precisa agir" e
+   * TODA tarefa é isso, então a cor deixa de separar qualquer coisa;
+   * preenchimento é o canal mais forte que existe e estava sendo gasto na
+   * coisa mais repetida da tela; e texto sobre fundo tingido lê pior do
+   * que sobre a própria célula.
+   *
+   * No mês o item não tem duração — ele é um MARCADOR de que há algo
+   * naquele dia. Então vira ponto + hora + título, que é o que todo
+   * calendário faz com um evento com hora, e a cor volta a significar
+   * alguma coisa por aparecer em pouca quantidade.
+   *
+   * Na semana e no dia o bloco PREENCHIDO continua, e ali ele está certo:
+   * lá o retângulo tem altura proporcional à duração — ele não é enfeite,
+   * é a própria informação de quanto tempo aquilo ocupa.
+   */
   // Concluída perde a cor: âmbar quer dizer "uma pessoa precisa agir", e
   // uma tarefa fechada não pede nada. Mesmo idioma da linha da lista
   // (`task-row.tsx`), e obedece à regra do espelho da Google — concluída
   // não some da agenda.
-  const tone = item.done
-    ? TONE_CHIP.neutral
-    : TONE_CHIP[AGENDA_TONE[item.kind]];
-  const tight = density === 'tight';
+  const toneKey = item.done ? 'neutral' : AGENDA_TONE[item.kind];
+  const tone = tight
+    ? 'text-secondary-foreground hover:bg-muted'
+    : TONE_CHIP[toneKey];
 
   /*
    * `interactive` existe por causa da célula do mês, que é um `<button>`.
@@ -65,13 +94,39 @@ export function AgendaChip({
 
   const inner = (
     <>
-      <Icon className={cn('shrink-0', tight ? 'size-3' : 'size-3.5')} />
+      {tight ? (
+        // O PONTO no lugar do ícone: numa tira de 18px, o glifo de tipo e
+        // o ponto de tom seriam dois marcadores disputando o mesmo papel,
+        // e o que a célula precisa responder é "tem coisa aqui, desta
+        // natureza". O tipo continua a um clique, no dia.
+        <span
+          aria-hidden
+          className={cn(
+            'size-1.5 shrink-0 rounded-full',
+            TONE_DOT[toneKey],
+            item.done && 'opacity-60'
+          )}
+        />
+      ) : (
+        <Icon className="size-3.5 shrink-0" />
+      )}
       {item.time ? (
-        <span className="shrink-0 font-medium tabular-nums opacity-80">
+        <span
+          className={cn(
+            'shrink-0 font-medium tabular-nums',
+            tight ? 'text-muted-foreground' : 'opacity-80'
+          )}
+        >
           {item.time}
         </span>
       ) : null}
-      <span className={cn('truncate', item.done && 'line-through')}>
+      <span
+        className={cn(
+          'truncate',
+          item.done && 'line-through',
+          item.done && tight && 'text-muted-foreground'
+        )}
+      >
         {item.title}
       </span>
     </>

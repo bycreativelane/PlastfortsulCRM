@@ -242,13 +242,26 @@ export function TimeGrid({
           É a mesma decisão do cal.com por outro caminho: lá nenhuma
           visão tem coluna elástica — a `column_view` mostra seis colunas
           justamente para que um dia sozinho nunca ocupe a tela toda.
+
+          MAS ELE ESTAVA ENCOSTADO À ESQUERDA, e essa metade da decisão
+          estava errada. Num monitor de 1900px o dia virava uma faixa de
+          704px grudada na margem com mil pixels de nada ao lado — que foi
+          o que o Gabriel viu ("mal dimensionada, distribuída"). Um teto
+          de largura CENTRALIZADO lê como coluna; o mesmo teto encostado
+          lê como página cortada.
+
+          E 56rem em vez de 44: a proporção que o teto protege continua
+          protegida (uma tarefa de 30min fica em 896×40, 22 para 1, contra
+          34 para 1 sem teto nenhum), e a coluna deixa de parecer estreita
+          ao lado do resto da tela.
         */}
         <div
           className="grid"
           style={{
             gridTemplateColumns: `4rem repeat(${days.length}, 1fr)`,
             height: bodyHeight,
-            maxWidth: days.length === 1 ? '44rem' : undefined,
+            maxWidth: days.length === 1 ? '56rem' : undefined,
+            marginInline: days.length === 1 ? 'auto' : undefined,
           }}
         >
           {/*

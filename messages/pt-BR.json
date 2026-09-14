@@ -1342,7 +1342,8 @@
       "freightThird": "Terceiros",
       "freightOwnSender": "Próprio, do remetente",
       "freightOwnReceiver": "Próprio, do destinatário",
-      "freightNone": "Sem frete"
+      "freightNone": "Sem frete",
+      "toastOrderShapeFailed": "A oportunidade foi salva, mas pagamento e transporte não puderam ser gravados."
     },
     "settings": {
       "managePipeline": "Gerenciar pipeline",

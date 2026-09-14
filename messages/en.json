@@ -1342,7 +1342,8 @@
       "freightThird": "Third party",
       "freightOwnSender": "Sender's own transport",
       "freightOwnReceiver": "Receiver's own transport",
-      "freightNone": "No freight"
+      "freightNone": "No freight",
+      "toastOrderShapeFailed": "The opportunity was saved, but payment and shipping details could not be."
     },
     "settings": {
       "managePipeline": "Manage Pipeline",

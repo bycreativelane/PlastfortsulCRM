@@ -5,6 +5,7 @@ import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import { buildQuote } from '@/lib/quotes/quote';
 import { brandFromAccount } from '@/lib/quotes/brand';
 import { quoteFingerprint } from '@/lib/quotes/fingerprint';
+import { archiveLayers } from '@/lib/quotes/archive';
 import { isUnknownColumn } from '@/lib/supabase/pg-errors';
 import {
   NoBrowserError,
@@ -155,34 +156,21 @@ export async function POST(request: Request) {
     }
 
     /*
-     * A LINHA, e a metade dela que depende da 076.
+     * A LINHA, em camadas — uma por migração que pode faltar.
      *
-     * As migrações deste projeto são aplicadas à mão, e entre escrever a
-     * 076 e rodá-la existe uma janela em que estas cinco colunas não
-     * estão lá. Um insert que as cite volta `42703` e a geração inteira
-     * falha — o orçamento não sai por causa de um campo de peso bruto.
-     * Então tenta-se com elas e cai-se para o conjunto da 071.
+     * Um insert que cite UMA coluna inexistente é recusado inteiro, e a
+     * versão anterior deste recuo ainda citava `fingerprint` (074) na
+     * camada de baixo: com as migrações por aplicar, nenhum orçamento
+     * saía. As camadas moram em `lib/quotes/archive.ts`, e um teste lê as
+     * migrações para conferir que cada uma só cita o que a dela criou.
      */
-    const base = {
+    const camadas = archiveLayers({
+      accountId,
+      dealId: body.dealId ?? null,
+      userId,
+      quote,
       fingerprint,
-      account_id: accountId,
-      deal_id: body.dealId ?? null,
-      user_id: userId,
-      order_number: quote.orderNumber,
-      issued_on: quote.issuedOn,
-      company: quote.company,
-      customer_name: quote.customer.name,
-      customer_company: quote.customer.company,
-      customer_phone: quote.customer.phone,
-      lines: quote.lines,
-      currency: quote.currency,
-      products: quote.products,
-      shipping: quote.shipping,
-      total: quote.total,
-      carrier: quote.carrier,
-      owner: quote.owner,
-      notes: quote.notes,
-    };
+    });
 
     const arquivar = (linhaNova: Record<string, unknown>) =>
       supabase.from('deal_quotes').insert(linhaNova).select('id').single();
@@ -191,17 +179,11 @@ export async function POST(request: Request) {
     // arquivo é a cópia entregável. Sem navegador, o primeiro sobrevive.
     let { data: linha, error: erroLinha } = existente
       ? { data: { id: existente.id }, error: null }
-      : await arquivar({
-          ...base,
-          payment_terms: quote.paymentTerms,
-          installments: quote.installments,
-          freight_mode: quote.freightMode,
-          freight_volumes: quote.freightVolumes,
-          gross_weight: quote.grossWeight,
-        });
+      : await arquivar(camadas[0].row);
 
-    if (erroLinha && isUnknownColumn(erroLinha)) {
-      ({ data: linha, error: erroLinha } = await arquivar(base));
+    for (const camada of camadas.slice(1)) {
+      if (!erroLinha || !isUnknownColumn(erroLinha)) break;
+      ({ data: linha, error: erroLinha } = await arquivar(camada.row));
     }
 
     /*

@@ -14,10 +14,13 @@ import {
 import { DealItemsEditor } from './deal-items';
 import { DealInstallments } from './deal-installments';
 import {
+  hasOrderShape,
   loadInstallments,
   replaceInstallments,
   type InstallmentDraft,
 } from '@/lib/deals/installments';
+import { isUnknownColumn } from '@/lib/supabase/pg-errors';
+import { dealRow } from '@/lib/deals/row';
 import { loadLastOrderNumber, nextOrderNumber } from '@/lib/deals/order-number';
 import type {
   Contact,
@@ -265,7 +268,21 @@ export function DealForm({
    */
   const [paymentTerms, setPaymentTerms] = useState('');
   const [installments, setInstallments] = useState<InstallmentDraft[]>([]);
-  /** A 075 ainda não rodou — o bloco inteiro não é desenhado. */
+  /**
+   * A 075 ainda não rodou.
+   *
+   * Três coisas dependem disto, e as três existem para a mesma regra — não
+   * oferecer um campo que não tem onde gravar: o bloco de pagamento some,
+   * os três campos novos de transporte somem, e o `payload` de `persist`
+   * deixa de citar as colunas. A terceira é a que importa: um `update` com
+   * uma coluna inexistente é recusado INTEIRO, e sem ela nenhuma
+   * oportunidade salvava. Ver `hasOrderShape`.
+   *
+   * Começa `false` — quer dizer, "a estrutura está lá" — porque esse é o
+   * estado permanente. O contrário faria os campos surgirem um instante
+   * depois em toda abertura da gaveta, para sempre, por causa de uma
+   * janela que dura até alguém rodar a migração.
+   */
   const [installmentsPending, setInstallmentsPending] = useState(false);
   /** Transporte, o resto do que a transportadora pergunta (075). */
   const [freightMode, setFreightMode] = useState('');
@@ -366,8 +383,19 @@ export function DealForm({
    * gaveta abre é o mesmo custo que o editor de produtos já paga.
    */
   useEffect(() => {
-    if (!open || !deal?.id) return;
+    if (!open) return;
     let cancelled = false;
+    // Num negócio NOVO não há parcela para carregar, mas a pergunta sobre
+    // o esquema continua valendo: é na criação que o `insert` citaria as
+    // colunas da 075 e seria recusado.
+    if (!deal?.id) {
+      void hasOrderShape(supabase).then((existe) => {
+        if (!cancelled) setInstallmentsPending(!existe);
+      });
+      return () => {
+        cancelled = true;
+      };
+    }
     void loadInstallments(supabase, deal.id).then((r) => {
       if (cancelled) return;
       if (r === 'missing-table') {
@@ -587,34 +615,63 @@ export function DealForm({
     }
     setSaving(true);
 
-    const payload = {
+    const { base, orderShape } = dealRow({
       title: tituloDerivado,
-      sales_order_number: salesOrder.trim() || null,
+      salesOrder,
       value: hasLines ? lineTotalSum : (value ?? 0),
-      shipping_cost: shipping,
-      carrier: carrier.trim() || null,
-      // A CHAVE, e não o rótulo traduzido: `freight_mode` é código de
-      // domínio de outro sistema, e guardar "Frete por conta do
-      // remetente" faria a coluna mudar de conteúdo com o idioma da
-      // interface. O documento traduz na hora de imprimir.
-      freight_mode: freightMode || null,
-      freight_volumes: freightVolumes,
-      gross_weight: grossWeight,
-      payment_terms: paymentTerms.trim() || null,
+      shipping,
+      carrier,
       currency,
-      contact_id: contactId,
-      pipeline_id: pipelineId,
-      stage_id: stageId,
-      assigned_to: assignedTo || null,
-      notes: notes.trim() || null,
-      expected_close_date: expectedCloseDate || null,
-    };
+      contactId,
+      pipelineId,
+      stageId,
+      assignedTo,
+      notes,
+      expectedCloseDate,
+      freightMode,
+      freightVolumes,
+      grossWeight,
+      paymentTerms,
+    });
+
+    /*
+     * AS COLUNAS DA 075 SÓ ENTRAM QUANDO EXISTEM.
+     *
+     * Um `update` que cite uma coluna inexistente é recusado INTEIRO pelo
+     * PostgREST (`PGRST204`) — não grava as outras e ignora a que falta.
+     * Com as colunas sempre no corpo, nenhuma oportunidade salvava num
+     * banco anterior à 075, inclusive as que ninguém tinha tocado nos
+     * campos novos. Medido contra o banco de teste em 14 de setembro; o
+     * argumento inteiro está em `lib/deals/row.ts`.
+     */
+    const payload = installmentsPending ? base : { ...base, ...orderShape };
+
+    /*
+     * O CINTO, para quando a sonda acertou e a escrita não.
+     *
+     * Acontece nos segundos logo depois de a migração rodar, antes de o
+     * PostgREST recarregar o esquema — o comentário de `pg-errors.ts` fala
+     * dessa janela. Grava-se o resto e AVISA-SE: calar seria perder em
+     * silêncio o peso bruto que a pessoa acabou de digitar.
+     */
+    const semEstrutura = (erro: { code?: string; message?: string } | null) =>
+      !!erro && payload !== base && isUnknownColumn(erro);
 
     if (deal) {
-      const { error } = await supabase
+      let { error } = await supabase
         .from('deals')
         .update(payload)
         .eq('id', deal.id);
+      if (semEstrutura(error)) {
+        ({ error } = await supabase
+          .from('deals')
+          .update(base)
+          .eq('id', deal.id));
+        if (!error) {
+          setInstallmentsPending(true);
+          toast.error(t('toastOrderShapeFailed'));
+        }
+      }
       if (error) {
         toast.error(t('toastFailedSave'));
         setSaving(false);
@@ -654,18 +711,27 @@ export function DealForm({
         setSaving(false);
         return false;
       }
-      const { data: created, error } = await supabase
-        .from('deals')
-        .insert({
-          ...payload,
-          user_id: user.id,
-          account_id: accountId,
-          status: 'open',
-        })
-        // The id, so the lines have something to attach to. `.select()`
-        // on an insert is one round trip either way.
-        .select('id')
-        .single();
+      const criar = (corpo: typeof base) =>
+        supabase
+          .from('deals')
+          .insert({
+            ...corpo,
+            user_id: user.id,
+            account_id: accountId,
+            status: 'open',
+          })
+          // The id, so the lines have something to attach to. `.select()`
+          // on an insert is one round trip either way.
+          .select('id')
+          .single();
+      let { data: created, error } = await criar(payload);
+      if (semEstrutura(error)) {
+        ({ data: created, error } = await criar(base));
+        if (!error) {
+          setInstallmentsPending(true);
+          toast.error(t('toastOrderShapeFailed'));
+        }
+      }
       if (error || !created) {
         toast.error(t('toastFailedCreate'));
         setSaving(false);
@@ -1153,26 +1219,31 @@ export function DealForm({
                 </div>
               </div>
 
+              {/* Os três campos da 075 somem juntos quando ela não rodou —
+                  frete por conta, volumes e peso bruto. O valor do frete e
+                  a transportadora são da 070 e ficam. */}
               <div className="grid gap-4 @lg:grid-cols-2">
-                <div className="grid gap-2">
-                  <FieldLabel htmlFor="deal-freight-mode">
-                    {t('freightMode')}
-                  </FieldLabel>
-                  <OptionSelect
-                    id="deal-freight-mode"
-                    value={freightMode}
-                    onValueChange={setFreightMode}
-                    disabled={!canWrite}
-                    className="border-border bg-muted text-foreground"
-                  >
-                    <option value="">{t('freightModeNone')}</option>
-                    {FREIGHT_MODES.map((chave) => (
-                      <option key={chave} value={chave}>
-                        {t(chave)}
-                      </option>
-                    ))}
-                  </OptionSelect>
-                </div>
+                {!installmentsPending && (
+                  <div className="grid gap-2">
+                    <FieldLabel htmlFor="deal-freight-mode">
+                      {t('freightMode')}
+                    </FieldLabel>
+                    <OptionSelect
+                      id="deal-freight-mode"
+                      value={freightMode}
+                      onValueChange={setFreightMode}
+                      disabled={!canWrite}
+                      className="border-border bg-muted text-foreground"
+                    >
+                      <option value="">{t('freightModeNone')}</option>
+                      {FREIGHT_MODES.map((chave) => (
+                        <option key={chave} value={chave}>
+                          {t(chave)}
+                        </option>
+                      ))}
+                    </OptionSelect>
+                  </div>
+                )}
 
                 <div className="grid gap-2">
                   <FieldLabel htmlFor="deal-shipping">
@@ -1193,49 +1264,51 @@ export function DealForm({
               {/* Volumes e peso bruto: o que a transportadora pergunta ao
                   cotar. Vazios num orçamento que sai antes de alguém pesar
                   nada, e o documento omite o que está vazio. */}
-              <div className="grid gap-4 @lg:grid-cols-2">
-                <div className="grid gap-2">
-                  <FieldLabel htmlFor="deal-volumes">
-                    {t('freightVolumes')}
-                  </FieldLabel>
-                  <Input
-                    id="deal-volumes"
-                    type="number"
-                    inputMode="decimal"
-                    min={0}
-                    step="1"
-                    value={freightVolumes ?? ''}
-                    onChange={(e) =>
-                      setFreightVolumes(
-                        e.target.value === '' ? null : Number(e.target.value)
-                      )
-                    }
-                    disabled={!canWrite}
-                    className="border-border bg-muted text-foreground tabular-nums"
-                  />
-                </div>
+              {!installmentsPending && (
+                <div className="grid gap-4 @lg:grid-cols-2">
+                  <div className="grid gap-2">
+                    <FieldLabel htmlFor="deal-volumes">
+                      {t('freightVolumes')}
+                    </FieldLabel>
+                    <Input
+                      id="deal-volumes"
+                      type="number"
+                      inputMode="decimal"
+                      min={0}
+                      step="1"
+                      value={freightVolumes ?? ''}
+                      onChange={(e) =>
+                        setFreightVolumes(
+                          e.target.value === '' ? null : Number(e.target.value)
+                        )
+                      }
+                      disabled={!canWrite}
+                      className="border-border bg-muted text-foreground tabular-nums"
+                    />
+                  </div>
 
-                <div className="grid gap-2">
-                  <FieldLabel htmlFor="deal-weight">
-                    {t('grossWeight')}
-                  </FieldLabel>
-                  <Input
-                    id="deal-weight"
-                    type="number"
-                    inputMode="decimal"
-                    min={0}
-                    step="0.001"
-                    value={grossWeight ?? ''}
-                    onChange={(e) =>
-                      setGrossWeight(
-                        e.target.value === '' ? null : Number(e.target.value)
-                      )
-                    }
-                    disabled={!canWrite}
-                    className="border-border bg-muted text-foreground tabular-nums"
-                  />
+                  <div className="grid gap-2">
+                    <FieldLabel htmlFor="deal-weight">
+                      {t('grossWeight')}
+                    </FieldLabel>
+                    <Input
+                      id="deal-weight"
+                      type="number"
+                      inputMode="decimal"
+                      min={0}
+                      step="0.001"
+                      value={grossWeight ?? ''}
+                      onChange={(e) =>
+                        setGrossWeight(
+                          e.target.value === '' ? null : Number(e.target.value)
+                        )
+                      }
+                      disabled={!canWrite}
+                      className="border-border bg-muted text-foreground tabular-nums"
+                    />
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
             <div className="grid gap-2">
@@ -1295,8 +1368,7 @@ export function DealForm({
               stages.find((st) => st.id === stageId) && (
                 <p className="text-muted-foreground text-2xs">
                   {t('stageOnCreate', {
-                    stage:
-                      stages.find((st) => st.id === stageId)?.name ?? '',
+                    stage: stages.find((st) => st.id === stageId)?.name ?? '',
                   })}
                 </p>
               )

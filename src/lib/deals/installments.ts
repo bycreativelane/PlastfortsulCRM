@@ -148,7 +148,40 @@ export function isMissingInstallments(error: {
   );
 }
 
-const SELECT = 'id, account_id, deal_id, position, days, due_on, amount, method, note';
+const SELECT =
+  'id, account_id, deal_id, position, days, due_on, amount, method, note';
+
+/**
+ * A 075 está no banco?
+ *
+ * ------------------------------------------------------------------
+ * POR QUE A GAVETA PRECISA PERGUNTAR ANTES
+ * ------------------------------------------------------------------
+ *
+ * Porque a 075 acrescenta colunas a `deals`, e um `update` que cite UMA
+ * coluna inexistente não grava as outras: o PostgREST recusa o corpo
+ * inteiro com `PGRST204`. Medido em 14 de setembro de 2026 contra o banco
+ * de teste, com as três migrações ainda por aplicar — o payload com os
+ * campos novos voltou 400, o mesmo payload sem eles voltou 204.
+ *
+ * Quer dizer: sem esta pergunta, SALVAR QUALQUER OPORTUNIDADE falhava
+ * enquanto a migração não rodasse, inclusive as que ninguém tinha tocado
+ * nos campos novos. Foi o que o commit `2dd02e3` deixou no main.
+ *
+ * A tabela das parcelas é a sonda porque ela e as colunas nascem no
+ * mesmo arquivo, que roda numa transação só — uma sem a outra não existe.
+ * `limit(0)` porque a pergunta é sobre o esquema, não sobre as linhas: o
+ * PostgREST valida a relação antes de aplicar a RLS, então a resposta vem
+ * certa mesmo sem nenhuma parcela visível.
+ *
+ * Um erro que NÃO seja de tabela ausente conta como "está lá". A dúvida
+ * pende para o esquema novo, que é o estado permanente; o retry de
+ * `persist` segura o caso raro em que a sonda acertou e a escrita não.
+ */
+export async function hasOrderShape(db: SupabaseClient): Promise<boolean> {
+  const { error } = await db.from('deal_installments').select('id').limit(0);
+  return !(error && isMissingInstallments(error));
+}
 
 export async function loadInstallments(
   db: SupabaseClient,

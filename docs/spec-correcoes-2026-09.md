@@ -888,6 +888,28 @@ operação descobriria na hora de lançar. Por isso `nextOrderNumber` só
 incrementa o último e falha em silêncio — campo vazio, nunca um palpite que
 pareça confirmado.
 
+### A regressão de 14 de setembro, e o guarda que ela deixou
+
+Com a 074, a 075 e a 076 ainda por aplicar, **duas coisas centrais estavam
+quebradas no main** — medido contra o banco de teste, com a chave anônima e
+escritas que não tinham como alterar linha nenhuma:
+
+- **nenhuma oportunidade salvava.** A gaveta mandava as quatro colunas da 075
+  em todo `update`, e o PostgREST recusa o corpo inteiro quando uma coluna não
+  existe (`PGRST204`). Com elas: 400. Sem elas: 204. Veio do `2dd02e3`.
+- **nenhum orçamento era gerado.** O recuo da rota descia da camada da 076 para
+  uma que ainda citava `fingerprint`, da 074, e morria igual. Veio do
+  `9a06416`.
+
+A gaveta agora pergunta ao banco se a 075 existe (`hasOrderShape`) e só então
+junta as colunas dela — e esconde os campos que não teriam onde gravar. A rota
+desce por três camadas, uma por migração. As duas linhas saem de funções puras
+(`lib/deals/row.ts`, `lib/quotes/archive.ts`), e
+`src/lib/supabase/unapplied-columns.test.ts` **lê as migrações** para conferir
+que nenhuma coluna nova escorregou para a parte que vai sempre. Provado
+reintroduzindo as duas formas antigas: ele acusa `payment_terms: da 75` e
+`camada 71: fingerprint é da 74`.
+
 **O envio pelo WhatsApp ainda não está ligado.** O PNG já é gerado e já
 sobe para o bucket junto com o PDF; falta o botão que o manda para a conversa
 pela cadeia de `sendMediaMessage` que já existe.

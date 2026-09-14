@@ -1342,7 +1342,8 @@
       "freightThird": "제3자",
       "freightOwnSender": "발송인 자체 운송",
       "freightOwnReceiver": "수취인 자체 운송",
-      "freightNone": "운임 없음"
+      "freightNone": "운임 없음",
+      "toastOrderShapeFailed": "기회는 저장되었지만 결제와 배송 정보는 저장되지 않았습니다."
     },
     "settings": {
       "managePipeline": "파이프라인 관리",

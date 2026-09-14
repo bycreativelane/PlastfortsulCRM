@@ -1180,7 +1180,12 @@
     "menu": {
       "open": "작업 열기",
       "actions": "작업"
-    }
+    },
+    "columnTask": "할 일",
+    "columnKind": "유형",
+    "columnDue": "기한",
+    "columnLink": "연결",
+    "columnOwner": "담당"
   },
   "Pipelines": {
     "page": {

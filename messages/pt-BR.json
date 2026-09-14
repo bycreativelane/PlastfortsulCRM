@@ -1180,7 +1180,12 @@
     "menu": {
       "open": "Abrir tarefa",
       "actions": "Ações"
-    }
+    },
+    "columnTask": "Tarefa",
+    "columnKind": "Tipo",
+    "columnDue": "Prazo",
+    "columnLink": "Vínculo",
+    "columnOwner": "Resp."
   },
   "Pipelines": {
     "page": {

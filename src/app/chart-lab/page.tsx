@@ -53,7 +53,7 @@ import { playNotificationSound } from '@/lib/notifications/sound';
 import type { TeamRoom } from '@/lib/team/rooms';
 import { buildQuote } from '@/lib/quotes/quote';
 import { TaskDialog } from '@/components/tasks/task-dialog';
-import { TaskRow } from '@/components/tasks/task-row';
+import { TaskColumnsHeader, TaskRow } from '@/components/tasks/task-row';
 import { TasksCalendar } from '@/components/tasks/tasks-calendar';
 import { FilterChip } from '@/components/ui/filter-chip';
 import { PeriodPicker } from '@/components/dashboard/period-picker';
@@ -1418,18 +1418,33 @@ function PeriodPickerBench() {
 
 function TaskListBench() {
   const t = useTranslations('Tasks');
+  /* LARGURA CHEIA, e não `max-w-lg`: a queixa é sobre o que acontece num
+     monitor — "sobrando espaço demais" —, e uma bancada estreita esconde
+     exatamente o caso relatado. O responsável e o vínculo entram porque
+     são duas das colunas. */
+  const responsavel = {
+    user_id: 'u-ju',
+    full_name: 'Juliana Prestes',
+    avatar_url: null,
+  };
   return (
-    <Panel className="max-w-lg space-y-0.5 p-1">
-      {LAB_TASKS.filter((task) => task.status === 'open').map((task) => (
+    <Panel className="overflow-hidden p-0 [&>*:last-child]:border-b-0">
+      <TaskColumnsHeader t={t} />
+      {LAB_TASKS.filter((task) => task.status === 'open').map((task, i) => (
         <TaskRow
           key={task.id}
           task={task}
           todayIso={LAB_TODAY}
           locale="pt-BR"
-          assignee={null}
+          assignee={i % 2 === 0 ? responsavel : null}
           busy={false}
           canWrite
           density="comfortable"
+          contact={
+            i % 3 === 0
+              ? { href: '#', label: 'Euclides Fernando Goncalves' }
+              : null
+          }
           onToggle={() => {}}
           onEdit={() => {}}
           t={t}

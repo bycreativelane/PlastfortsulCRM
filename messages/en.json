@@ -1180,7 +1180,12 @@
     "menu": {
       "open": "Open task",
       "actions": "Actions"
-    }
+    },
+    "columnTask": "Task",
+    "columnKind": "Type",
+    "columnDue": "Due",
+    "columnLink": "Linked to",
+    "columnOwner": "Owner"
   },
   "Pipelines": {
     "page": {

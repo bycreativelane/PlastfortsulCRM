@@ -58,6 +58,101 @@ import { cn } from '@/lib/utils';
 
 type Translator = ReturnType<typeof useTranslations<'Tasks'>>;
 
+/**
+ * AS COLUNAS DA LISTA — um gabarito, escrito uma vez.
+ *
+ * ------------------------------------------------------------------
+ * POR QUE A LISTA VIROU TABELA
+ * ------------------------------------------------------------------
+ *
+ * Relato do Gabriel em 14 de setembro, com print de `/tasks` num monitor
+ * largo: *"a lista de tarefas tá sobrando espaço demais, tem que ter mais
+ * distribuição de parâmetros ou conteúdo/informação para preencher de forma
+ * útil, como um excel que tem linhas laterais e linhas horizontais"*.
+ *
+ * Ele está descrevendo o defeito com precisão. Cada linha empilhava título
+ * e metadados numa coluna de 400px e deixava 900px vazios à direita, com a
+ * foto do responsável sozinha no fim — e como cada linha se desenhava por
+ * conta própria, os chips de uma nunca ficavam alinhados com os da outra.
+ * Uma lista em que nada se alinha não se lê por coluna: a única forma de
+ * comparar prazos era ler tarefa por tarefa.
+ *
+ * Então em telas largas isto é uma TABELA: mesmas colunas em toda linha,
+ * réguas entre elas, e as informações que estavam escondidas — a descrição
+ * e o nome do contato — ocupando o espaço que sobrava.
+ *
+ * ------------------------------------------------------------------
+ * E POR QUE NÃO UMA `<table>`
+ * ------------------------------------------------------------------
+ *
+ * Porque abaixo de `md` ela deixa de ser tabela: a mesma tarefa vira o
+ * bloco empilhado de sempre, que é o que cabe num telefone. Uma `<table>`
+ * de verdade não muda de forma sem duas marcações — e duas marcações para
+ * uma linha é exatamente o que este arquivo existe para não ter.
+ *
+ * O truque que evita isso é `md:contents`: no telefone, tipo, prazo e
+ * vínculo moram juntos num bloco embaixo do título; no desktop esse bloco
+ * some da caixa e os três viram células da grade. Um DOM, duas formas.
+ */
+const TASK_GRID =
+  'grid items-center gap-x-2 gap-y-1 grid-cols-[1rem_minmax(0,1fr)_auto] md:gap-x-0 md:grid-cols-[2.25rem_minmax(0,1fr)_7rem_11rem_10rem_3rem]';
+
+/** A régua vertical entre colunas, só onde há colunas. */
+const TASK_CELL = 'md:border-border/60 md:border-l md:px-3 md:py-2';
+
+/**
+ * O cabeçalho da tabela. Só existe de `md` para cima — no telefone não há
+ * colunas para nomear.
+ */
+export function TaskColumnsHeader({ t }: { t: Translator }) {
+  return (
+    <div
+      aria-hidden
+      className={cn(
+        TASK_GRID,
+        'text-muted-foreground border-border/60 hidden border-b md:grid'
+      )}
+    >
+      <span />
+      <span className="text-3xs px-3 py-1.5 font-semibold tracking-wide uppercase">
+        {t('columnTask')}
+      </span>
+      <span
+        className={cn(
+          TASK_CELL,
+          'text-3xs py-1.5! font-semibold tracking-wide uppercase'
+        )}
+      >
+        {t('columnKind')}
+      </span>
+      <span
+        className={cn(
+          TASK_CELL,
+          'text-3xs py-1.5! font-semibold tracking-wide uppercase'
+        )}
+      >
+        {t('columnDue')}
+      </span>
+      <span
+        className={cn(
+          TASK_CELL,
+          'text-3xs py-1.5! font-semibold tracking-wide uppercase'
+        )}
+      >
+        {t('columnLink')}
+      </span>
+      <span
+        className={cn(
+          TASK_CELL,
+          'text-3xs py-1.5! font-semibold tracking-wide uppercase'
+        )}
+      >
+        {t('columnOwner')}
+      </span>
+    </div>
+  );
+}
+
 export interface TaskRowProps {
   task: Task;
   todayIso: string;
@@ -95,11 +190,18 @@ export function TaskRow({
   const today = !done && isDueToday(task, todayIso);
   const due = task.due_on ? formatDue(task, todayIso, locale, t) : null;
 
+  const comfortable = density === 'comfortable';
+
   return (
     <div
       className={cn(
-        'row-interactive group flex items-start gap-2 rounded-lg',
-        density === 'compact' ? 'px-1.5 py-1.5' : 'px-3 py-2'
+        'group',
+        comfortable
+          ? // A linha da tabela: régua embaixo, realce no ponteiro, e nada
+            // de cantos arredondados — um retângulo arredondado dentro de
+            // uma grade de réguas lê como um cartão solto na planilha.
+            cn(TASK_GRID, 'border-border/60 hover:bg-muted/40 border-b')
+          : 'row-interactive flex items-start gap-2 rounded-lg px-1.5 py-1.5'
       )}
     >
       {/*
@@ -108,34 +210,44 @@ export function TaskRow({
         diálogo por engano — o erro mais irritante que uma lista de tarefas
         pode ter, porque acontece na ação mais frequente.
       */}
-      <button
-        type="button"
-        disabled={!canWrite || busy}
-        onClick={onToggle}
-        aria-label={done ? t('reopen') : t('complete')}
+      <span
         className={cn(
-          'border-control mt-0.5 grid size-4 shrink-0 place-items-center rounded-[4px] border transition-colors duration-(--dur-1)',
-          done
-            ? 'border-primary bg-primary text-primary-foreground'
-            : 'bg-card hover:border-primary',
-          !canWrite && 'cursor-not-allowed opacity-50'
+          comfortable && 'flex items-center justify-center md:py-2'
         )}
       >
-        {busy ? (
-          <Loader2 className="size-2.5 animate-spin" />
-        ) : done ? (
-          task.status === 'done' ? (
-            <Check className="size-3" />
-          ) : (
-            <RotateCcw className="size-2.5" />
-          )
-        ) : null}
-      </button>
+        <button
+          type="button"
+          disabled={!canWrite || busy}
+          onClick={onToggle}
+          aria-label={done ? t('reopen') : t('complete')}
+          className={cn(
+            'border-control grid size-4 shrink-0 place-items-center rounded-[4px] border transition-colors duration-(--dur-1)',
+            !comfortable && 'mt-0.5',
+            done
+              ? 'border-primary bg-primary text-primary-foreground'
+              : 'bg-card hover:border-primary',
+            !canWrite && 'cursor-not-allowed opacity-50'
+          )}
+        >
+          {busy ? (
+            <Loader2 className="size-2.5 animate-spin" />
+          ) : done ? (
+            task.status === 'done' ? (
+              <Check className="size-3" />
+            ) : (
+              <RotateCcw className="size-2.5" />
+            )
+          ) : null}
+        </button>
+      </span>
 
       <button
         type="button"
         onClick={onEdit}
-        className="min-w-0 flex-1 text-left"
+        className={cn(
+          'min-w-0 text-left',
+          comfortable ? 'md:px-3 md:py-2' : 'flex-1'
+        )}
       >
         <p
           className={cn(
@@ -145,16 +257,46 @@ export function TaskRow({
         >
           {task.title}
         </p>
+        {/* A DESCRIÇÃO, que existia no banco e não aparecia em lugar
+            nenhum da lista. É ela que preenche a coluna larga com algo
+            útil — "o que é esta tarefa" — em vez de ar. Uma linha só: quem
+            quer o resto abre. */}
+        {comfortable && task.description ? (
+          <p className="text-muted-foreground mt-0.5 hidden truncate text-xs md:block">
+            {task.description}
+          </p>
+        ) : null}
+      </button>
 
-        {/* O TIPO E UM CHIP, aqui como no cartao do quadro.
-            Saia como texto cinza cru, indistinguivel do prazo ao lado dele —
-            duas informacoes de naturezas diferentes com a mesma aparencia. E
-            taxonomia, entao e `Tag`: retangulo arredondado, nao pilula. */}
-        <span className="text-muted-foreground text-2xs mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1">
+      {/*
+        NO TELEFONE um bloco embaixo do título; no desktop, `md:contents`
+        dissolve a caixa e tipo, prazo e vínculo viram três células da
+        grade. Ver a nota em `TASK_GRID`.
+      */}
+      <div
+        className={cn(
+          'col-start-2 flex flex-wrap items-center gap-x-2 gap-y-1',
+          comfortable && 'md:contents'
+        )}
+      >
+        {/* O TIPO É TAXONOMIA, então é `Tag`: retângulo arredondado, não
+            pílula. Saía como texto cinza cru, indistinguível do prazo ao
+            lado — duas informações de naturezas diferentes com a mesma
+            aparência. */}
+        <span className={cn(comfortable && TASK_CELL)}>
           <Tag size="sm">{kindLabel(task.kind, t)}</Tag>
+        </span>
 
+        <span
+          className={cn(
+            'text-muted-foreground text-2xs',
+            comfortable && TASK_CELL
+          )}
+        >
           {due ? (
             overdue ? (
+              // Atrasada é PÍLULA, não tinta: uma cor de texto no meio de
+              // uma corrida de metadados cinza compete com o cinza e perde.
               <StatusBadge variant="danger" size="sm">
                 {due}
               </StatusBadge>
@@ -169,27 +311,56 @@ export function TaskRow({
                 {due}
               </span>
             )
-          ) : null}
+          ) : (
+            // Um travessão, e não uma célula vazia: numa tabela, vazio é
+            // "não carregou" e travessão é "não tem".
+            comfortable && <span className="hidden md:inline">—</span>
+          )}
         </span>
-      </button>
 
-      {contact ? (
-        <Link
-          href={contact.href}
-          className="text-muted-foreground hover:text-foreground text-2xs mt-1 shrink-0 underline-offset-2 hover:underline"
-        >
-          {contact.label}
-        </Link>
-      ) : null}
+        {/* O VÍNCULO — e agora com o NOME de quem, não a palavra
+            "contato". O nome é o que responde "de quem é esta ligação"
+            sem abrir nada. */}
+        <span className={cn('min-w-0', comfortable && TASK_CELL)}>
+          {contact ? (
+            <Link
+              href={contact.href}
+              className="text-muted-foreground hover:text-foreground text-2xs block truncate underline-offset-2 hover:underline"
+            >
+              {contact.label}
+            </Link>
+          ) : (
+            comfortable && (
+              <span className="text-muted-foreground text-2xs hidden md:inline">
+                —
+              </span>
+            )
+          )}
+        </span>
+      </div>
 
-      {assignee ? (
-        <MemberAvatar
-          name={assignee.full_name}
-          avatarUrl={assignee.avatar_url}
-          size="2xs"
-          className="mt-0.5 shrink-0"
-        />
-      ) : null}
+      {/* O RESPONSÁVEL É A FOTO: numa equipe, reconhecer alguém pelo rosto
+          é mais rápido do que ler o nome. Mesma regra do cartão do funil. */}
+      <span
+        className={cn(
+          'flex items-center justify-center',
+          comfortable && TASK_CELL,
+          comfortable && 'md:py-2'
+        )}
+      >
+        {assignee ? (
+          <MemberAvatar
+            name={assignee.full_name}
+            avatarUrl={assignee.avatar_url}
+            size="2xs"
+            className="shrink-0"
+          />
+        ) : comfortable ? (
+          <span className="text-muted-foreground text-2xs hidden md:inline">
+            —
+          </span>
+        ) : null}
+      </span>
     </div>
   );
 }

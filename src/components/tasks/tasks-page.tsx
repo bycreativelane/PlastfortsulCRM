@@ -33,7 +33,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { TaskDialog } from '@/components/tasks/task-dialog';
-import { TaskRow } from '@/components/tasks/task-row';
+import { TaskColumnsHeader, TaskRow } from '@/components/tasks/task-row';
 import { Skeleton } from '@/components/dashboard/skeleton';
 import { TasksBoard } from '@/components/tasks/tasks-board';
 import { TasksCalendar } from '@/components/tasks/tasks-calendar';
@@ -105,6 +105,48 @@ export function TasksPage() {
   const load = React.useCallback(async () => {
     setTasks(await loadAllTasks(createClient()));
   }, []);
+
+  /**
+   * O NOME de quem a tarefa aponta — não a palavra "contato".
+   *
+   * A coluna Vínculo dizia "contato" em toda linha, que é a mesma
+   * informação que o link já carrega no destino. O nome responde "de quem
+   * é esta ligação" sem abrir nada, e é ele que preenche a largura que
+   * sobrava.
+   *
+   * Uma consulta só, pelos ids que estão na tela. `tasks` não tem junção
+   * com `contacts` (a coluna é um id solto), então a alternativa seria
+   * embutir o nome em cada tarefa — e aí uma renomeação deixaria a lista
+   * mentindo até o próximo carregamento.
+   */
+  const [contactNames, setContactNames] = React.useState<Map<string, string>>(
+    () => new Map()
+  );
+
+  React.useEffect(() => {
+    const ids = [
+      ...new Set((tasks ?? []).map((t) => t.contact_id).filter(Boolean)),
+    ] as string[];
+    if (ids.length === 0) return;
+    let cancelled = false;
+    void createClient()
+      .from('contacts')
+      .select('id, name, phone')
+      .in('id', ids)
+      .then(({ data }) => {
+        if (cancelled || !data) return;
+        setContactNames(
+          new Map(
+            (data as Array<{ id: string; name: string | null; phone: string }>)
+              .map((c) => [c.id, (c.name || c.phone || '').trim()] as const)
+              .filter(([, nome]) => nome)
+          )
+        );
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [tasks]);
 
   React.useEffect(() => {
     void load();
@@ -431,7 +473,11 @@ export function TasksPage() {
                     · {group.tasks.length}
                   </span>
                 </h2>
-                <Panel className="space-y-0.5 p-1">
+                {/* A TABELA: cabeçalho de colunas, réguas entre elas, e a
+                    última linha sem régua embaixo — a borda do painel já é
+                    a régua final. Ver `TASK_GRID` em `task-row.tsx`. */}
+                <Panel className="overflow-hidden p-0 [&>*:last-child]:border-b-0">
+                  <TaskColumnsHeader t={tk} />
                   {group.tasks.map((task) => (
                     <TaskRow
                       key={task.id}
@@ -450,7 +496,9 @@ export function TasksPage() {
                         task.contact_id
                           ? {
                               href: `/contacts?id=${task.contact_id}`,
-                              label: t('contactLink'),
+                              label:
+                                contactNames.get(task.contact_id) ??
+                                t('contactLink'),
                             }
                           : null
                       }
@@ -482,7 +530,8 @@ export function TasksPage() {
                   </span>
                 </button>
                 {showClosed ? (
-                  <Panel className="space-y-0.5 p-1">
+                  <Panel className="overflow-hidden p-0 [&>*:last-child]:border-b-0">
+                    <TaskColumnsHeader t={tk} />
                     {closed.map((task) => (
                       <TaskRow
                         key={task.id}
@@ -501,7 +550,9 @@ export function TasksPage() {
                           task.contact_id
                             ? {
                                 href: `/contacts?id=${task.contact_id}`,
-                                label: t('contactLink'),
+                                label:
+                                  contactNames.get(task.contact_id) ??
+                                  t('contactLink'),
                               }
                             : null
                         }

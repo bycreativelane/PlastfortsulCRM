@@ -4025,6 +4025,8 @@
     "summaryOverdue": "{overdue, plural, other {지연 #개}} · 오늘 {today}개",
     "empty": "작업이 없습니다",
     "emptyHint": "첫 작업을 만들거나 필터를 해제해 동료의 작업을 보세요.",
+    "showClosed": "보기",
+    "hideClosed": "숨기기",
     "bucket": {
       "overdue": "지연",
       "today": "오늘",

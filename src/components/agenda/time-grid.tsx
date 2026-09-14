@@ -309,7 +309,23 @@ export function TimeGrid({
                   // Um dia fechado não some da grade — fica visivelmente
                   // fechado. Sumir responderia "não existe sábado", que é
                   // falso e esconde a tarefa que alguém marcou nele.
-                  closed && 'bg-muted/20'
+                  //
+                  // LISTRADO, e não cinza liso. Medido na tela: o cinza do
+                  // domingo fechado e o véu azul de hoje saíam quase da
+                  // mesma cor, e a grade dizia "hoje" em dois dias. Listra
+                  // é o sinal de "indisponível" de todo calendário, e um
+                  // sinal que não se confunde com tom nenhum.
+                  closed &&
+                    'bg-[repeating-linear-gradient(135deg,transparent_0_6px,color-mix(in_oklab,var(--muted-foreground)_9%,transparent)_6px_7px)]',
+                  // HOJE ganha um véu da cor primária, quase nada. A bolinha
+                  // azul no cabeçalho diz qual é o dia; o véu diz isso de
+                  // novo a 600px de distância, quando o cabeçalho já saiu
+                  // de vista e o olho está no meio da tarde.
+                  //
+                  // Só com MAIS DE UM dia na tela. O véu é um contraste
+                  // entre colunas; na visão de dia não há outra coluna para
+                  // contrastar, e ele só acinzentava a grade inteira.
+                  days.length > 1 && iso === todayIso && 'bg-primary/[0.05]'
                 )}
               >
                 {/* Uma linha por HORA, e não por meia hora. Eram
@@ -320,7 +336,13 @@ export function TimeGrid({
                   slot.endsWith(':00') ? (
                     <div
                       key={slot}
-                      className="border-border/60 absolute inset-x-0 border-t"
+                      // `border-border` inteiro, e não `/60`: sobre o card
+                      // claro o `/60` dava uma régua de ~0,95 de
+                      // luminosidade, que some. Sem régua visível a grade
+                      // vira uma folha branca com blocos flutuando, e ler
+                      // "isto é às 14h" passa a exigir contar a partir da
+                      // borda.
+                      className="border-border absolute inset-x-0 border-t"
                       style={{ top: (i / slots.length) * 100 + '%' }}
                       aria-hidden
                     />
@@ -364,16 +386,42 @@ export function TimeGrid({
                   const lane = laneOfItem;
                   const of = Math.min(lane?.of ?? 1, maxLanes);
                   const index = lane?.index ?? 0;
+                  // A altura em PIXELS, que é o que decide se hora e título
+                  // cabem em duas linhas. A posição chega em porcentagem;
+                  // quem sabe quanto é isso na tela é a grade.
+                  const alturaPx = (pos.height / 100) * bodyHeight - 2;
+                  // Linhas de título que cabem embaixo da hora: tira os 8px
+                  // de respiro vertical e a linha da própria hora, e divide
+                  // pelo passo de uma linha de `text-2xs leading-tight`
+                  // (11px × 1,25). Arredonda PARA BAIXO — meia linha é a
+                  // tira cortada que isto existe para não desenhar.
+                  const linhaPx = 11 * 1.25;
+                  const titleLines = Math.max(
+                    1,
+                    Math.floor((alturaPx - 8 - linhaPx) / linhaPx)
+                  );
                   return (
                     <AgendaChip
                       key={item.id}
                       item={item}
-                      density="tight"
+                      // `block`, e não `tight`: aqui a altura é a duração.
+                      // Ver a nota "O BLOCO" em `agenda-chip.tsx` — o
+                      // `tight` virou ponto para o mês e levou a semana
+                      // junto.
+                      density="block"
+                      short={alturaPx < 36}
+                      titleLines={titleLines}
                       onSelect={item.kind === 'task' ? onSelectTask : undefined}
-                      className="absolute z-10 overflow-hidden"
+                      className="absolute z-10 overflow-hidden shadow-xs"
                       style={{
-                        top: `${pos.top}%`,
-                        minHeight: `${pos.height}%`,
+                        top: `calc(${pos.top}% + 1px)`,
+                        // `height` e não `minHeight`: com `minHeight` um
+                        // título de duas linhas esticava o bloco além da
+                        // duração e ele invadia a hora de baixo — o
+                        // desenho mentia sobre quanto tempo aquilo ocupa.
+                        // Um piso de 18px garante que o mais curto ainda
+                        // seja clicável.
+                        height: `max(calc(${pos.height}% - 2px), 18px)`,
                         left: `calc(${(index / of) * 100}% + 0.25rem)`,
                         width: `calc(${(1 / of) * 100}% - 0.5rem)`,
                       }}

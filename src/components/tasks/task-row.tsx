@@ -2,12 +2,22 @@
 
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
-import { Check, Clock, Loader2, RotateCcw } from 'lucide-react';
+import {
+  Check,
+  CircleDot,
+  Clock,
+  CornerUpRight,
+  FileText,
+  Loader2,
+  MapPin,
+  Phone,
+  RotateCcw,
+  Users,
+} from 'lucide-react';
 
 import type { DirectoryMember } from '@/hooks/use-member-directory';
 import { MemberAvatar } from '@/components/presence/member-avatar';
 import { StatusBadge } from '@/components/ui/status-badge';
-import { Tag } from '@/components/ui/tag';
 import { isDueToday, isOverdue } from '@/lib/tasks/queries';
 import { fromISO } from '@/lib/calendar';
 import { formatTime } from '@/components/ui/time-field';
@@ -98,19 +108,58 @@ const TASK_GRID =
   'grid items-center gap-x-2 gap-y-1 grid-cols-[1rem_minmax(0,1fr)_auto] md:gap-x-0 md:grid-cols-[2.25rem_minmax(0,1fr)_7rem_11rem_10rem_3rem]';
 
 /** A régua vertical entre colunas, só onde há colunas. */
-const TASK_CELL = 'md:border-border/60 md:border-l md:px-3 md:py-2';
+const TASK_CELL = 'md:border-border md:border-l md:px-3 md:py-2';
+
+/**
+ * O ÍCONE DE CADA TIPO.
+ *
+ * A coluna TIPO era uma pílula cinza por linha — e numa tela com quinze
+ * tarefas isso é uma coluna inteira de retângulos que repetem quatro
+ * palavras. Pílula é o tratamento certo para uma taxonomia que aparece
+ * SOLTA (num cartão, numa ficha); numa coluna de tabela, onde o rótulo já
+ * está escrito no cabeçalho, ela só engorda a linha.
+ *
+ * Ícone à frente do nome resolve os dois lados: dá para varrer a coluna
+ * pelo desenho, sem ler, e o nome continua lá para quem não decorou os
+ * seis. É o mesmo idioma do calendário, que já desenha tipo como glifo.
+ */
+const KIND_ICON: Record<string, React.ComponentType<{ className?: string }>> = {
+  call: Phone,
+  meeting: Users,
+  visit: MapPin,
+  followup: CornerUpRight,
+  quote: FileText,
+  todo: CircleDot,
+};
 
 /**
  * O cabeçalho da tabela. Só existe de `md` para cima — no telefone não há
  * colunas para nomear.
+ *
+ * `sticky`: em `/tasks` ele é o cabeçalho de UMA tabela, que rola por
+ * dezenas de linhas. Antes havia um por grupo — quatro cópias de
+ * "TAREFA · TIPO · PRAZO · VÍNCULO · RESP." numa tela só —, e repetir o
+ * nome das colunas a cada duas linhas não é redundância inofensiva: some
+ * com o que a lista está dizendo. Um cabeçalho, preso no topo, faz o
+ * trabalho das quatro cópias.
  */
-export function TaskColumnsHeader({ t }: { t: Translator }) {
+export function TaskColumnsHeader({
+  t,
+  sticky = false,
+}: {
+  t: Translator;
+  sticky?: boolean;
+}) {
   return (
     <div
       aria-hidden
       className={cn(
         TASK_GRID,
-        'text-muted-foreground border-border/60 hidden border-b md:grid'
+        'text-muted-foreground border-border hidden border-b md:grid',
+        // `bg-card` é obrigatório junto do `sticky`: sem fundo próprio, as
+        // linhas passariam por baixo do cabeçalho e apareceriam através
+        // dele.
+        sticky && 'bg-card sticky top-0 z-10 rounded-t-lg'
       )}
     >
       <span />
@@ -149,6 +198,64 @@ export function TaskColumnsHeader({ t }: { t: Translator }) {
       >
         {t('columnOwner')}
       </span>
+    </div>
+  );
+}
+
+/**
+ * A FAIXA DE UM GRUPO, dentro da mesma tabela.
+ *
+ * "Atrasadas", "Hoje", "Amanhã" eram quatro `<section>` com quatro painéis
+ * — quatro molduras, quatro cabeçalhos, quatro cantos arredondados —, e a
+ * tela lia como quatro listas diferentes que por acaso estavam empilhadas.
+ * São uma lista só, ordenada por urgência.
+ *
+ * Então o grupo vira uma LINHA DE FAIXA dentro do painel, como o
+ * agrupamento de uma planilha: a largura inteira, um fundo levemente mais
+ * escuro, o nome e a contagem. As colunas continuam alinhadas de ponta a
+ * ponta porque nunca deixaram de ser as mesmas.
+ *
+ * Atrasado é o único que ganha cor. Não por decoração: é o único grupo
+ * cuja existência é um problema.
+ */
+export function TaskGroupBand({
+  label,
+  count,
+  tone = 'neutral',
+  children,
+}: {
+  label: string;
+  count: number;
+  tone?: 'neutral' | 'danger';
+  /** O botão de abrir/fechar, quando o grupo é dobrável (Concluídas). */
+  children?: React.ReactNode;
+}) {
+  return (
+    <div
+      className={cn(
+        'border-border flex items-center gap-1.5 border-b px-3 py-1.5',
+        tone === 'danger' ? 'bg-danger-soft' : 'bg-muted/70'
+      )}
+    >
+      <span
+        aria-hidden
+        className={cn(
+          'size-1.5 shrink-0 rounded-full',
+          tone === 'danger' ? 'bg-danger' : 'bg-muted-foreground/40'
+        )}
+      />
+      <span
+        className={cn(
+          'eyebrow',
+          tone === 'danger' ? 'text-danger-ink' : 'text-muted-foreground'
+        )}
+      >
+        {label}
+      </span>
+      <span className="text-muted-foreground text-2xs tabular-nums">
+        · {count}
+      </span>
+      {children}
     </div>
   );
 }
@@ -200,7 +307,7 @@ export function TaskRow({
           ? // A linha da tabela: régua embaixo, realce no ponteiro, e nada
             // de cantos arredondados — um retângulo arredondado dentro de
             // uma grade de réguas lê como um cartão solto na planilha.
-            cn(TASK_GRID, 'border-border/60 hover:bg-muted/40 border-b')
+            cn(TASK_GRID, 'border-border hover:bg-muted/40 border-b')
           : 'row-interactive flex items-start gap-2 rounded-lg px-1.5 py-1.5'
       )}
     >
@@ -279,12 +386,19 @@ export function TaskRow({
           comfortable && 'md:contents'
         )}
       >
-        {/* O TIPO É TAXONOMIA, então é `Tag`: retângulo arredondado, não
-            pílula. Saía como texto cinza cru, indistinguível do prazo ao
-            lado — duas informações de naturezas diferentes com a mesma
-            aparência. */}
-        <span className={cn(comfortable && TASK_CELL)}>
-          <Tag size="sm">{kindLabel(task.kind, t)}</Tag>
+        {/* O TIPO: ícone + nome. Ver `KIND_ICON` para por que não é mais
+            uma pílula. O glifo é `text-muted-foreground` e não colorido —
+            seis cores de tipo brigariam com as três que a tela já usa
+            para dizer atrasada, hoje e concluída, que é a informação que
+            de fato muda o que você faz agora. */}
+        <span
+          className={cn(
+            'text-muted-foreground flex min-w-0 items-center gap-1.5 text-2xs',
+            comfortable && TASK_CELL
+          )}
+        >
+          <KindIcon kind={task.kind} />
+          <span className="truncate">{kindLabel(task.kind, t)}</span>
         </span>
 
         <span
@@ -363,6 +477,19 @@ export function TaskRow({
       </span>
     </div>
   );
+}
+
+/**
+ * O glifo do tipo — e nada quando a conta inventou um tipo próprio.
+ *
+ * `tasks.kind` é TEXT e a 068 aceita o que a conta escrever. Um ícone
+ * padrão para o desconhecido diria "é isto aqui" sobre algo que ninguém
+ * classificou; o espaço vazio ao lado do nome é mais honesto, e o nome
+ * continua sendo escrito por extenso.
+ */
+function KindIcon({ kind }: { kind: string }) {
+  const Icon = KIND_ICON[kind];
+  return Icon ? <Icon className="size-3.5 shrink-0" /> : null;
 }
 
 /**

@@ -4025,6 +4025,8 @@
     "summaryOverdue": "{overdue, plural, =1 {1 overdue} other {# overdue}} · {today} due today",
     "empty": "No tasks here",
     "emptyHint": "Create the first one, or clear the filters to see your colleagues’.",
+    "showClosed": "Show",
+    "hideClosed": "Hide",
     "bucket": {
       "overdue": "Overdue",
       "today": "Today",

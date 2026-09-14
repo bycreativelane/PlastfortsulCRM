@@ -21,7 +21,22 @@ import { AgendaChip } from './agenda-chip';
  * por hora de dois pixels. O mês responde "em que dias tem coisa"; quem
  * pergunta "a que horas" clica no dia e cai na tela que sabe responder.
  */
-const MAX_CHIPS = 3;
+/*
+ * DOIS, E O "+N" NA LINHA DO NÚMERO.
+ *
+ * Eram três chips e o "+N" embaixo deles. Medido na tela de tarefas, que
+ * divide a altura da janela entre seis semanas: a 760px de janela uma
+ * célula tem ~80px, o número leva 24, e sobram lugar para DOIS chips. O
+ * terceiro era cortado pelo fundo da célula — e o "+N", que viria depois
+ * dele, também. O dia 14 tinha três tarefas e mostrava duas, sem nenhum
+ * sinal de que havia outra. Um calendário que esconde uma tarefa em
+ * silêncio é pior do que um feio.
+ *
+ * Então: dois chips, que cabem em qualquer altura razoável, e o contador
+ * sobe para o canto de cima, ao lado do número, onde nenhum corte alcança.
+ * A célula inteira continua levando ao dia, onde estão todas.
+ */
+const MAX_CHIPS = 2;
 
 export function MonthView({
   cursor,
@@ -51,7 +66,9 @@ export function MonthView({
     <MonthGrid
       month={cursor}
       onSelect={onPickDay}
-      size="md"
+      // `lg` e não `md`: o `md` é o tamanho do painel do dashboard, sem
+      // régua entre as células. Ver a nota do `lg` em `month-grid.tsx`.
+      size="lg"
       fill={fill}
       dayDescription={(day) => {
         const count = byDay.get(day.iso)?.length ?? 0;
@@ -65,8 +82,8 @@ export function MonthView({
         return (
           <div
             className={cn(
-              'mt-0.5 w-full min-w-0 space-y-0.5',
-              day.outside && 'opacity-50'
+              'w-full min-w-0 space-y-0.5 overflow-hidden',
+              day.outside && 'opacity-60'
             )}
           >
             {/*
@@ -90,9 +107,11 @@ export function MonthView({
               />
             ))}
             {rest > 0 ? (
-              <div className="text-muted-foreground text-3xs px-1">
+              // No canto, na altura do número: ver a nota do `MAX_CHIPS`.
+              // `span` e não `button` — a célula já é o botão que leva ao dia.
+              <span className="bg-muted text-secondary-foreground text-3xs absolute top-2 right-1.5 rounded px-1 py-px font-semibold tabular-nums">
                 {t('more', { count: rest })}
-              </div>
+              </span>
             ) : null}
           </div>
         );

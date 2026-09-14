@@ -33,7 +33,11 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { TaskDialog } from '@/components/tasks/task-dialog';
-import { TaskColumnsHeader, TaskRow } from '@/components/tasks/task-row';
+import {
+  TaskColumnsHeader,
+  TaskGroupBand,
+  TaskRow,
+} from '@/components/tasks/task-row';
 import { Skeleton } from '@/components/dashboard/skeleton';
 import { TasksBoard } from '@/components/tasks/tasks-board';
 import { TasksCalendar } from '@/components/tasks/tasks-calendar';
@@ -439,100 +443,84 @@ export function TasksPage() {
             description={t('emptyHint')}
           />
         ) : (
-          <div className="flex flex-col gap-5">
+          /*
+           * UMA TABELA SÓ.
+           *
+           * Isto eram quatro `<section>`, cada uma com o próprio painel e o
+           * próprio cabeçalho de colunas — na tela, quatro molduras e quatro
+           * cópias de "TAREFA · TIPO · PRAZO · VÍNCULO · RESP." empilhadas,
+           * às vezes separando DUAS linhas uma da outra. Não são quatro
+           * listas: é uma lista ordenada por urgência, e "Atrasadas" e
+           * "Hoje" são posições dentro dela.
+           *
+           * Então: um painel, um cabeçalho preso no topo, e cada grupo vira
+           * uma faixa de largura inteira dentro da tabela — o agrupamento
+           * de uma planilha. As colunas passam a se alinhar de ponta a
+           * ponta da tela, que era o pedido original ("como um excel").
+           */
+          <Panel className="p-0 [&>*:last-child]:border-b-0">
+            <TaskColumnsHeader t={tk} sticky />
             {groups.map((group) => (
-              <section key={group.bucket} className="space-y-1.5">
-                {/* O MESMO CABEÇALHO DA COLUNA DO QUADRO: bolinha, nome,
-                  contagem. As três visões mostram a mesma tarefa, e não havia
-                  razão para o agrupamento da lista ter uma escrita própria.
-
-                  `eyebrow` é o micro-rótulo canônico do `globals.css`, e
-                  estava reescrito à mão aqui — com peso 600 em vez de 700 e
-                  um passo de tipografia acima. */}
-                <h2 className="flex items-center gap-1.5 px-1">
-                  <span
-                    aria-hidden
-                    className={cn(
-                      'size-2 shrink-0 rounded-full',
-                      group.bucket === 'overdue'
-                        ? 'bg-danger'
-                        : 'bg-muted-foreground/40'
-                    )}
+              <React.Fragment key={group.bucket}>
+                <TaskGroupBand
+                  label={t(`bucket.${group.bucket}`)}
+                  count={group.tasks.length}
+                  tone={group.bucket === 'overdue' ? 'danger' : 'neutral'}
+                />
+                {group.tasks.map((task) => (
+                  <TaskRow
+                    key={task.id}
+                    task={task}
+                    todayIso={todayIso}
+                    locale={locale}
+                    assignee={
+                      task.assigned_to
+                        ? (members.get(task.assigned_to) ?? null)
+                        : null
+                    }
+                    busy={busy === task.id}
+                    canWrite={canSendMessages}
+                    density="comfortable"
+                    contact={
+                      task.contact_id
+                        ? {
+                            href: `/contacts?id=${task.contact_id}`,
+                            label:
+                              contactNames.get(task.contact_id) ??
+                              t('contactLink'),
+                          }
+                        : null
+                    }
+                    onToggle={() => toggle(task)}
+                    onEdit={() => setEditing(task)}
+                    t={tk}
                   />
-                  <span
-                    className={cn(
-                      'eyebrow',
-                      group.bucket === 'overdue'
-                        ? 'text-danger-ink'
-                        : 'text-muted-foreground'
-                    )}
-                  >
-                    {t(`bucket.${group.bucket}`)}
-                  </span>
-                  <span className="text-muted-foreground text-2xs tabular-nums">
-                    · {group.tasks.length}
-                  </span>
-                </h2>
-                {/* A TABELA: cabeçalho de colunas, réguas entre elas, e a
-                    última linha sem régua embaixo — a borda do painel já é
-                    a régua final. Ver `TASK_GRID` em `task-row.tsx`. */}
-                <Panel className="overflow-hidden p-0 [&>*:last-child]:border-b-0">
-                  <TaskColumnsHeader t={tk} />
-                  {group.tasks.map((task) => (
-                    <TaskRow
-                      key={task.id}
-                      task={task}
-                      todayIso={todayIso}
-                      locale={locale}
-                      assignee={
-                        task.assigned_to
-                          ? (members.get(task.assigned_to) ?? null)
-                          : null
-                      }
-                      busy={busy === task.id}
-                      canWrite={canSendMessages}
-                      density="comfortable"
-                      contact={
-                        task.contact_id
-                          ? {
-                              href: `/contacts?id=${task.contact_id}`,
-                              label:
-                                contactNames.get(task.contact_id) ??
-                                t('contactLink'),
-                            }
-                          : null
-                      }
-                      onToggle={() => toggle(task)}
-                      onEdit={() => setEditing(task)}
-                      t={tk}
-                    />
-                  ))}
-                </Panel>
-              </section>
+                ))}
+              </React.Fragment>
             ))}
 
+            {/* CONCLUÍDAS continua dobrável, e agora dobra DENTRO da mesma
+                tabela. A faixa carrega o botão; fechada, ela é a última
+                linha do painel e diz quantas estão guardadas ali. */}
             {closed.length > 0 ? (
-              <section className="space-y-1.5">
-                <button
-                  type="button"
-                  onClick={() => setShowClosed((v) => !v)}
-                  className="text-muted-foreground hover:text-foreground eyebrow flex items-center gap-1 px-1 transition-colors"
-                >
-                  <ChevronDown
-                    className={cn(
-                      'size-3 transition-transform duration-(--dur-1)',
-                      !showClosed && '-rotate-90'
-                    )}
-                  />
-                  {t('bucket.closed')}
-                  <span className="text-2xs font-normal tabular-nums">
-                    · {closed.length}
-                  </span>
-                </button>
-                {showClosed ? (
-                  <Panel className="overflow-hidden p-0 [&>*:last-child]:border-b-0">
-                    <TaskColumnsHeader t={tk} />
-                    {closed.map((task) => (
+              <>
+                <TaskGroupBand label={t('bucket.closed')} count={closed.length}>
+                  <button
+                    type="button"
+                    onClick={() => setShowClosed((v) => !v)}
+                    className="text-muted-foreground hover:text-foreground text-2xs ml-auto flex items-center gap-1 transition-colors"
+                  >
+                    {showClosed ? t('hideClosed') : t('showClosed')}
+                    <ChevronDown
+                      className={cn(
+                        'size-3 transition-transform duration-(--dur-1)',
+                        !showClosed && '-rotate-90'
+                      )}
+                    />
+                  </button>
+                </TaskGroupBand>
+                {showClosed
+                  ? closed.map((task) => (
                       <TaskRow
                         key={task.id}
                         task={task}
@@ -560,12 +548,11 @@ export function TasksPage() {
                         onEdit={() => setEditing(task)}
                         t={tk}
                       />
-                    ))}
-                  </Panel>
-                ) : null}
-              </section>
+                    ))
+                  : null}
+              </>
             ) : null}
-          </div>
+          </Panel>
         )}
       </div>
 

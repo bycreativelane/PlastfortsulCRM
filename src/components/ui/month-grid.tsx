@@ -33,6 +33,24 @@ import {
  * Two sizes. `sm` is the popover's: 28px, a comfortable mouse target that is
  * an unusable thumb one, so it grows to 40 under a coarse pointer. `md` fills
  * its column and is tall enough to carry markers under the number.
+ *
+ * ------------------------------------------------------------------
+ * E UM TERCEIRO, `lg` — O CALENDÁRIO DE PÁGINA INTEIRA
+ * ------------------------------------------------------------------
+ *
+ * `/tasks` e `/agenda` desenhavam o mês com o `md`, que é o tamanho do
+ * painel do dashboard: células sem régua nenhuma, um número centralizado
+ * flutuando sobre o fundo cinza da página, e os dias de outubro com o
+ * mesmo peso dos de setembro. Num widget de 300px isso é leve e está
+ * certo. Esticado sobre uma tela inteira, é o que o Gabriel chamou de
+ * "ridícula de feia": seis semanas de números soltos, sem nada que diga
+ * onde um dia termina e o outro começa.
+ *
+ * `lg` é a grade de calendário de verdade: um cartão, uma régua de 1px
+ * entre as células (o `gap-px` sobre fundo `bg-border` — a régua é o
+ * vão, então ela nunca dobra de espessura onde duas células se encostam),
+ * o número no canto de cima, hoje num círculo cheio e os dias vizinhos
+ * visivelmente de fora. O `md` do dashboard continua como estava.
  */
 
 export interface MonthGridDay {
@@ -50,7 +68,7 @@ interface MonthGridProps {
   month: Date;
   selected?: Date | null;
   onSelect: (date: Date) => void;
-  size?: 'sm' | 'md';
+  size?: 'sm' | 'md' | 'lg';
   /**
    * Estica as seis semanas para dividir a altura do pai, em vez de fixar
    * 40px por célula.
@@ -93,8 +111,8 @@ export function MonthGrid({
   // campo de data tem 34px e só cabe a letra. Ver a nota em
   // `weekdayLabels` sobre o D S T Q Q S S do português.
   const weekdays = React.useMemo(
-    () => weekdayLabels(locale, weekStart, size === 'md' ? 'short' : 'narrow'),
-    [locale, weekStart]
+    () => weekdayLabels(locale, weekStart, size === 'sm' ? 'narrow' : 'short'),
+    [locale, weekStart, size]
   );
 
   const longDate = React.useMemo(
@@ -115,6 +133,98 @@ export function MonthGrid({
 
   const today = new Date();
   const md = size === 'md';
+  const lg = size === 'lg';
+
+  if (lg) {
+    return (
+      <div
+        className={cn(
+          // A régua é o VÃO: `gap-px` sobre `bg-border`, e cada célula pinta
+          // o próprio fundo por cima. Borda em cada célula dobraria a
+          // espessura onde duas se encostam.
+          'bg-border border-border grid grid-cols-7 gap-px overflow-hidden rounded-lg border',
+          fill && 'h-full grid-rows-[auto_repeat(6,minmax(0,1fr))]',
+          className
+        )}
+      >
+        {weekdays.map((day, i) => (
+          <span
+            key={i}
+            // Fundo OPACO, e isso vale para toda célula desta grade: por
+            // baixo dela está o `bg-border` que desenha as réguas. Um
+            // `bg-muted/60` translúcido deixava a régua vazar pelos 40% que
+            // faltam e o cabeçalho saía cinza-chumbo.
+            className="text-muted-foreground text-2xs flex h-8 items-center bg-[color-mix(in_oklab,var(--muted)_70%,var(--card))] px-2 font-semibold uppercase"
+          >
+            {day}
+          </span>
+        ))}
+
+        {grid.map((date) => {
+          const day: MonthGridDay = {
+            date,
+            iso: toISO(date),
+            outside: date.getMonth() !== month.getMonth(),
+            today: isSameDay(date, today),
+            selected: selected ? isSameDay(date, selected) : false,
+          };
+          const description = dayDescription?.(day);
+
+          return (
+            <button
+              key={day.iso}
+              type="button"
+              onClick={() => onSelect(date)}
+              aria-label={
+                description
+                  ? `${longDate.format(date)} — ${description}`
+                  : longDate.format(date)
+              }
+              aria-pressed={selected === undefined ? undefined : day.selected}
+              aria-current={day.today ? 'date' : undefined}
+              className={cn(
+                // `min-w-0`, pelo mesmo motivo do `md` abaixo: sem ele um
+                // título comprido alarga a coluna e as sete deixam de ter a
+                // mesma largura.
+                // `relative`: o "+N" do `MonthView` se ancora no canto de
+                // cima da célula, na linha do número — ver lá por quê.
+                'focus-visible:ring-ring relative flex min-w-0 flex-col items-stretch gap-1 overflow-hidden p-1.5 text-left transition-colors focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-inset',
+                fill ? 'min-h-0' : 'min-h-24',
+                // Os dias vizinhos ficam de FORA sem sumir: fundo levemente
+                // mais escuro e número apagado. Continuam clicáveis — levam
+                // ao dia —, então o número não pode cair abaixo do contraste
+                // de texto; quem diz "outro mês" é o fundo.
+                //
+                // OPACO, pela mesma razão do cabeçalho: um `bg-muted/40`
+                // deixava 60% do `bg-border` de baixo aparecer, e a última
+                // semana inteira saía cinza sólido — a coisa mais pesada do
+                // mês, o contrário do que "não é deste mês" pede. A mistura
+                // é feita aqui em cima, com `color-mix`, e a célula pinta
+                // uma cor inteira.
+                day.outside
+                  ? 'bg-[color-mix(in_oklab,var(--muted)_45%,var(--card))] hover:bg-[color-mix(in_oklab,var(--muted)_85%,var(--card))]'
+                  : 'bg-card hover:bg-[color-mix(in_oklab,var(--muted)_55%,var(--card))]'
+              )}
+            >
+              <span
+                className={cn(
+                  'grid size-6 shrink-0 place-items-center rounded-full text-xs tabular-nums',
+                  day.today
+                    ? 'bg-primary text-primary-foreground font-semibold'
+                    : day.outside
+                      ? 'text-muted-foreground'
+                      : 'text-foreground font-medium'
+                )}
+              >
+                {date.getDate()}
+              </span>
+              {marker?.(day)}
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
 
   return (
     <div

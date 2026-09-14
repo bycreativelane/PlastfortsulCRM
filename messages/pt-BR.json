@@ -4025,6 +4025,8 @@
     "summaryOverdue": "{overdue, plural, =1 {1 atrasada} other {# atrasadas}} · {today} para hoje",
     "empty": "Nenhuma tarefa por aqui",
     "emptyHint": "Crie a primeira, ou tire os filtros para ver as dos colegas.",
+    "showClosed": "Mostrar",
+    "hideClosed": "Ocultar",
     "bucket": {
       "overdue": "Atrasadas",
       "today": "Hoje",

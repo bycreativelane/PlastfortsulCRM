@@ -67,3 +67,20 @@ export const TONE_CHIP: Record<AgendaTone, string> = {
   danger: 'bg-danger-soft text-danger-ink',
   neutral: 'bg-muted text-muted-foreground',
 };
+
+/**
+ * O BLOCO DA GRADE DE HORAS: fundo claro e uma barra de cor na borda
+ * esquerda.
+ *
+ * É o desenho de todo calendário com eixo de horas, e há um motivo além do
+ * costume: a barra carrega o TOM sozinha, então o fundo pode ser suave o
+ * bastante para o texto ler bem por cima dele. Um bloco inteiro em cor
+ * forte, empilhado numa semana cheia, vira uma parede — foi o que o mês
+ * mostrava antes de virar ponto.
+ */
+export const TONE_BLOCK: Record<AgendaTone, string> = {
+  human: 'bg-human-soft text-human-ink border-l-human',
+  auto: 'bg-auto-soft text-auto-ink border-l-auto',
+  danger: 'bg-danger-soft text-danger-ink border-l-danger',
+  neutral: 'bg-muted text-muted-foreground border-l-muted-foreground/40',
+};

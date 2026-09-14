@@ -3,7 +3,16 @@
 import { useCallback, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
-import { FileDown, FolderOpen, Loader2 } from 'lucide-react';
+import {
+  ChevronDown,
+  FileDown,
+  FileText,
+  FolderOpen,
+  Image as ImageIcon,
+  Loader2,
+  MessageSquare,
+  Send,
+} from 'lucide-react';
 import { toast } from 'sonner';
 
 import type { Quote } from '@/lib/quotes/quote';
@@ -14,6 +23,15 @@ import {
   type QuoteLabels,
 } from '@/components/quotes/quote-document';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
   Dialog,
   DialogContent,
@@ -65,12 +83,45 @@ import {
  * ela sai do MESMO desenho e do MESMO cálculo, que é a condição que ele
  * impõe.
  */
+/**
+ * ENVIAR PELO WHATSAPP — o que o diálogo precisa saber para oferecer.
+ *
+ * O pedido do Gabriel: "envia no whatsapp ou envia como imagem e fica o
+ * PDF salvo na plataforma". As duas formas, e não uma, porque elas servem
+ * a coisas diferentes do lado de quem recebe: a IMAGEM abre direto na
+ * conversa, sem ninguém tocar em nada; o PDF chega como um cartão de
+ * arquivo, que é o que se guarda, imprime e encaminha para o financeiro.
+ *
+ * Quem sabe PARA QUEM e SE DÁ é a gaveta que abriu o diálogo — ela tem o
+ * contato, a conversa e a janela de 24h. O diálogo só desenha a escolha
+ * e devolve os rótulos, que só ele tem (vive dentro do provider de i18n).
+ *
+ * Ausente no `/chart-lab` e no arquivo, e é por isso que é opcional: sem
+ * conversa para onde mandar, o botão simplesmente não existe.
+ */
+export interface QuoteSend {
+  /** Quem recebe — o nome do contato, para a primeira linha do menu. */
+  recipient: string;
+  /**
+   * Por que não dá para mandar AGORA, ou `null` quando dá.
+   *
+   * As duas razões têm a mesma consequência — só um template chega — e são
+   * fatos diferentes, então são frases diferentes: uma janela que FECHOU
+   * não é um contato que nunca escreveu.
+   */
+  blocked: 'window' | 'noConversation' | null;
+  /** A conversa, para ir lá usar um template quando está bloqueado. */
+  conversationHref?: string | null;
+  onSend: (labels: QuoteLabels, as: 'image' | 'document') => Promise<boolean>;
+}
+
 export function DealQuote({
   open,
   onOpenChange,
   quote,
   brand,
   onGenerate,
+  send,
   fileUrl,
   onPrinted,
   archiveHref,
@@ -89,6 +140,8 @@ export function DealQuote({
    * dele.
    */
   onGenerate?: (labels: QuoteLabels) => Promise<boolean>;
+  /** Enviar pelo WhatsApp. Ver `QuoteSend`. */
+  send?: QuoteSend;
   /**
    * Chamado quando o documento foi mandado para a impressora.
    *
@@ -107,6 +160,7 @@ export function DealQuote({
 }) {
   const t = useTranslations('Quote');
   const [gerando, setGerando] = useState(false);
+  const [enviando, setEnviando] = useState<'image' | 'document' | null>(null);
 
   /**
    * Os rótulos, num objeto simples.
@@ -173,6 +227,22 @@ export function DealQuote({
     setGerando(false);
     if (!ok) toast.error(t('noBrowser'));
   }, [onGenerate, labels, t]);
+
+  /**
+   * Manda para a conversa, e fecha o diálogo quando foi.
+   *
+   * Fechar é a resposta certa ao sucesso: quem mandou o orçamento terminou
+   * o que veio fazer aqui, e o documento continua a um clique — no arquivo
+   * e, agora, na própria conversa. Na falha ele fica aberto, com o toast
+   * dizendo por quê, para a pessoa tentar a outra forma ou ir à conversa.
+   */
+  const enviar = async (como: 'image' | 'document') => {
+    if (!send || enviando) return;
+    setEnviando(como);
+    const ok = await send.onSend(labels, como);
+    setEnviando(null);
+    if (ok) onOpenChange(false);
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -250,15 +320,28 @@ export function DealQuote({
               variant="ghost"
               size="sm"
               render={<Link href={archiveHref} />}
+              nativeButton={false}
               className="text-muted-foreground hover:text-foreground mr-auto"
             >
               <FolderOpen className="size-4" />
               {t('archive')}
             </Button>
           )}
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            {t('close')}
-          </Button>
+          {/*
+            "FECHAR" CEDE O LUGAR QUANDO HÁ ENVIO — medido, e não por gosto.
+
+            O rodapé tem 412px. Com o link do arquivo, Fechar, Gerar PDF e
+            Enviar, a soma passava disso e o botão principal quebrava
+            SOZINHO para uma segunda linha, que lê como acidente. O diálogo
+            já tem o X no canto, o Esc e o clique fora; um quarto jeito de
+            fechar não vale a linha que custa. Sem envio — o bench, o
+            arquivo — o rodapé tem folga e ele continua ali.
+          */}
+          {!send && (
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              {t('close')}
+            </Button>
+          )}
           {/*
             ARQUIVA E IMPRIME, nesta ordem.
 
@@ -289,7 +372,14 @@ export function DealQuote({
             forma.
           */}
           {onGenerate && (
-            <Button onClick={() => void gerar()} disabled={gerando}>
+            <Button
+              // O azul cheio é de UMA ação por tela. Quando dá para mandar
+              // pela conversa, ela é a principal — o orçamento existe para
+              // chegar ao cliente — e gerar o PDF desce para contorno.
+              variant={send ? 'outline' : 'default'}
+              onClick={() => void gerar()}
+              disabled={gerando || enviando !== null}
+            >
               {gerando ? (
                 <Loader2 className="size-4 animate-spin" />
               ) : (
@@ -298,10 +388,103 @@ export function DealQuote({
               {t('generate')}
             </Button>
           )}
+          {send && (
+            <DropdownMenu>
+              {/* "Enviar", curto, com o nome inteiro no `title` e no
+                  leitor de tela: a primeira linha do menu já diz para quem,
+                  e as duas opções dizem como. Pelo WhatsApp é a única
+                  saída que este CRM tem. */}
+              <DropdownMenuTrigger
+                render={
+                  <Button
+                    disabled={gerando || enviando !== null}
+                    title={t('send')}
+                    aria-label={t('send')}
+                  />
+                }
+              >
+                {enviando ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Send className="size-4" />
+                )}
+                {t('sendShort')}
+                <ChevronDown className="size-3.5 opacity-70" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-72">
+                {send.blocked ? (
+                  /*
+                   * BLOQUEADO, E DIZENDO POR QUÊ — dentro do menu, e não
+                   * como um botão apagado.
+                   *
+                   * Um botão desabilitado não explica nada, e um tooltip em
+                   * botão desabilitado não chega a quem usa teclado ou
+                   * leitor de tela. A frase aparece onde a pessoa foi
+                   * procurar a ação, e a única saída que existe — um
+                   * template, na conversa — vem logo abaixo dela.
+                   */
+                  <DropdownMenuGroup>
+                    <DropdownMenuLabel className="text-foreground px-2 py-1.5 leading-snug font-normal">
+                      {send.blocked === 'window'
+                        ? t('sendBlockedWindow')
+                        : t('sendBlockedNoConversation')}
+                    </DropdownMenuLabel>
+                    {send.conversationHref && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          render={<Link href={send.conversationHref} />}
+                        >
+                          <MessageSquare />
+                          {t('openConversation')}
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                  </DropdownMenuGroup>
+                ) : (
+                  <DropdownMenuGroup>
+                    <DropdownMenuLabel>
+                      {t('sendTo', { name: send.recipient })}
+                    </DropdownMenuLabel>
+                    {/* Cada forma com a frase do que ela FAZ do lado de
+                        lá. "Imagem" e "PDF" dizem o formato; quem escolhe
+                        precisa saber o que o cliente vai ver. */}
+                    <DropdownMenuItem
+                      onClick={() => void enviar('image')}
+                      className="items-start py-1.5"
+                    >
+                      <ImageIcon className="mt-0.5" />
+                      <span className="grid">
+                        <span>{t('sendAsImage')}</span>
+                        <span className="text-muted-foreground text-2xs">
+                          {t('sendAsImageHint')}
+                        </span>
+                      </span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => void enviar('document')}
+                      className="items-start py-1.5"
+                    >
+                      <FileText className="mt-0.5" />
+                      <span className="grid">
+                        <span>{t('sendAsPdf')}</span>
+                        <span className="text-muted-foreground text-2xs">
+                          {t('sendAsPdfHint')}
+                        </span>
+                      </span>
+                    </DropdownMenuItem>
+                  </DropdownMenuGroup>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
           {/* No arquivo, o PDF já existe: abrir o que foi enviado é o que
               se quer, e não desenhar um parecido de novo. */}
           {fileUrl && (
-            <Button render={<Link href={fileUrl} target="_blank" />}>
+            <Button
+              render={<Link href={fileUrl} target="_blank" />}
+              nativeButton={false}
+            >
               <FileDown className="size-4" />
               {t('openPdf')}
             </Button>

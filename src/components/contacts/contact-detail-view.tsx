@@ -752,6 +752,7 @@ export function ContactDetailView({
                     <Button
                       size="sm"
                       render={<Link href={`/inbox?c=${conversationId}`} />}
+                      nativeButton={false}
                       onClick={() => onOpenChange(false)}
                     >
                       <MessageSquare className="size-4" />

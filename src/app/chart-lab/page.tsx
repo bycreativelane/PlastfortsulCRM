@@ -882,6 +882,8 @@ const MARCA = {
 function QuoteBench() {
   const [completo, setCompleto] = useState(false);
   const [magro, setMagro] = useState(false);
+  const [comEnvio, setComEnvio] = useState(false);
+  const [janelaFechada, setJanelaFechada] = useState(false);
   const cheio = buildQuote({
     // TREZE DÍGITOS de propósito, e não os cinco do exemplo do pacote.
     // Foi num número assim que o X de fechar do diálogo passou por cima
@@ -964,6 +966,12 @@ function QuoteBench() {
       <Button variant="outline" onClick={() => setMagro(true)}>
         Abrir — só o valor
       </Button>
+      <Button variant="outline" onClick={() => setComEnvio(true)}>
+        Abrir — com envio pelo WhatsApp
+      </Button>
+      <Button variant="outline" onClick={() => setJanelaFechada(true)}>
+        Abrir — envio com a janela fechada
+      </Button>
       <DealQuote
         open={completo}
         onOpenChange={setCompleto}
@@ -977,6 +985,45 @@ function QuoteBench() {
         onOpenChange={setMagro}
         quote={enxuto}
         brand={{ name: 'PlastfortSul' }}
+      />
+      {/*
+        O ENVIO, nos dois estados que mudam o desenho.
+
+        `onSend` é fixture: espera um instante e responde que foi, sem
+        rede nenhuma — o bench continua sendo fixture e nunca uma
+        consulta. O que se olha aqui é o menu: a hierarquia dos botões do
+        rodapé, as duas formas com a frase do que cada uma faz, e a recusa
+        explicada quando a janela de 24h fechou.
+      */}
+      <DealQuote
+        open={comEnvio}
+        onOpenChange={setComEnvio}
+        quote={cheio}
+        brand={MARCA}
+        // O link do arquivo junto, como na gaveta: é com ele que o rodapé
+        // fica apertado, e o bench tem de medir o caso que existe.
+        archiveHref="#"
+        onGenerate={async () => true}
+        send={{
+          recipient: 'Euclides Fernando Goncalves',
+          blocked: null,
+          onSend: () =>
+            new Promise((resolve) => setTimeout(() => resolve(true), 900)),
+        }}
+      />
+      <DealQuote
+        open={janelaFechada}
+        onOpenChange={setJanelaFechada}
+        quote={cheio}
+        brand={MARCA}
+        archiveHref="#"
+        onGenerate={async () => true}
+        send={{
+          recipient: 'Euclides Fernando Goncalves',
+          blocked: 'window',
+          conversationHref: '#',
+          onSend: async () => false,
+        }}
       />
     </Panel>
   );

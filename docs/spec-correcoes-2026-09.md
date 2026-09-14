@@ -910,6 +910,35 @@ que nenhuma coluna nova escorregou para a parte que vai sempre. Provado
 reintroduzindo as duas formas antigas: ele acusa `payment_terms: da 75` e
 `camada 71: fingerprint é da 74`.
 
-**O envio pelo WhatsApp ainda não está ligado.** O PNG já é gerado e já
-sobe para o bucket junto com o PDF; falta o botão que o manda para a conversa
-pela cadeia de `sendMediaMessage` que já existe.
+### Enviar pelo WhatsApp — 14 de setembro
+
+> envia no whatsapp ou envia como imagem e fica o PDF salvo na plataforma
+
+O diálogo do orçamento ganhou **Enviar**, com as duas formas e a frase do que
+cada uma faz do lado de lá: **como imagem** abre direto na conversa; **como
+PDF** chega como cartão de arquivo, que é o que se guarda e imprime. O PDF
+continua salvo em Documentos → Orçamentos nos dois casos.
+
+**Pelo mesmo caminho de qualquer mensagem da equipe** (`/api/whatsapp/send`),
+e não por uma rota nova: ele confere o papel, grava a mensagem na conversa com
+o nome de quem mandou, e dispara `team_message_sent` — o gatilho que move
+oportunidade. A legenda leva o número do pedido e o total, porque é ela que
+aparece na prévia da lista de conversas. Gerar e enviar em seguida não custa
+um segundo Chromium: a impressão digital da 074 devolve os mesmos arquivos.
+
+**A janela de 24h manda.** Ela é medida quando o orçamento ABRE — pela mesma
+`sessionWindow` da caixa de entrada — e, fechada, o menu diz por quê e oferece
+a única saída: abrir a conversa e usar um template. Se ela vencer com o
+diálogo aberto, a Meta recusa com 131047 e a tela diz isso em vez do erro cru.
+
+Verificado no `/chart-lab`, com fixture, nos dois estados e nos dois temas:
+o rodapé cabe numa linha no caso real da gaveta (medido: 412px, e antes o
+botão principal quebrava sozinho para a linha de baixo), o clique mostra o
+carregando e fecha o diálogo, e o estado bloqueado explica e oferece a
+conversa. O envio de VERDADE para a Meta não foi exercitado — ele exige
+sessão autenticada e um cliente com a janela aberta.
+
+De passagem, um guarda novo: `button-link-native.test.ts`. Três `Button`
+renderizados como link não diziam `nativeButton={false}`, e o Base UI acusava
+no console a cada renderização — o link do arquivo e o "Abrir PDF" do
+orçamento, e o "Abrir conversa" da ficha do contato.

@@ -4066,7 +4066,22 @@
     "freightMode": "Frete por conta",
     "volumes": "Volumes",
     "grossWeight": "Peso bruto",
-    "amount": "Valor"
+    "amount": "Valor",
+    "send": "Enviar pelo WhatsApp",
+    "sendTo": "Enviar para {name}",
+    "sendAsImage": "Como imagem",
+    "sendAsImageHint": "Abre direto na conversa",
+    "sendAsPdf": "Como PDF",
+    "sendAsPdfHint": "O arquivo, para guardar e imprimir",
+    "sendBlockedWindow": "A janela de 24h com este cliente está fechada — só um template chega agora.",
+    "sendBlockedNoConversation": "Este contato ainda não escreveu — só um template chega a ele.",
+    "openConversation": "Abrir a conversa",
+    "sent": "Orçamento enviado pelo WhatsApp",
+    "sendFailed": "Não foi possível enviar: {reason}",
+    "sendWindowClosed": "A janela de 24h fechou e o orçamento não foi enviado. Use um template na conversa.",
+    "caption": "Orçamento {order} · Total {total}",
+    "captionNoOrder": "Orçamento · Total {total}",
+    "sendShort": "Enviar"
   },
   "Quotes": {
     "title": "Orçamentos",

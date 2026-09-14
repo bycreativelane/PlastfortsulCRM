@@ -55,7 +55,9 @@ import { StatusBadge } from '@/components/ui/status-badge';
 import { OptionSelect } from '@/components/ui/option-select';
 import { useBusinessHours } from '@/hooks/use-business-hours';
 import { localParts } from '@/lib/automations/local-time';
-import { buildQuote } from '@/lib/quotes/quote';
+import { buildQuote, quoteFileName } from '@/lib/quotes/quote';
+import type { QuoteLabels } from '@/components/quotes/quote-document';
+import { sessionWindow, type SessionState } from '@/lib/inbox/session-window';
 import { brandFromAccount } from '@/lib/quotes/brand';
 import { DealQuote } from './deal-quote';
 import { ChoiceChip } from '@/components/ui/choice-chip';
@@ -316,6 +318,18 @@ export function DealForm({
   const [linkedConversation, setLinkedConversation] =
     useState<Conversation | null>(null);
 
+  /**
+   * A janela de 24h da conversa deste contato, medida quando o ORÇAMENTO
+   * abre — e não quando a gaveta abre.
+   *
+   * Uma gaveta fica aberta por muito tempo enquanto alguém monta um
+   * pedido; a janela é uma contagem regressiva. Medir no momento em que a
+   * pessoa vai mandar é medir o que importa. `null` enquanto não se sabe,
+   * e aí o envio é oferecido: se a janela tiver fechado de verdade, a Meta
+   * recusa com 131047 e `enviarOrcamento` diz isso em vez de um erro cru.
+   */
+  const [janela, setJanela] = useState<SessionState | null>(null);
+
   const [saving, setSaving] = useState(false);
   const [statusAction, setStatusAction] = useState<DealStatus | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -534,6 +548,36 @@ export function DealForm({
       cancelled = true;
     };
   }, [open, contactId, supabase]);
+
+  useEffect(() => {
+    if (!quoteOpen || !linkedConversation?.id) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setJanela(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      // A MESMA regra da conversa: a janela conta da última mensagem do
+      // CLIENTE, e `sessionWindow` é quem decide os três estados. Uma
+      // segunda conta aqui seria a gaveta e a caixa de entrada discordando
+      // sobre se dá para responder a mesma pessoa.
+      const { data } = await supabase
+        .from('messages')
+        .select('created_at')
+        .eq('conversation_id', linkedConversation.id)
+        .eq('sender_type', 'customer')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (cancelled) return;
+      setJanela(
+        sessionWindow((data as { created_at: string } | null)?.created_at).state
+      );
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [quoteOpen, linkedConversation?.id, supabase]);
 
   // The lines decide the value when there are lines. The trigger in 054 does
   // this again server-side — this is only so the row is right in the same
@@ -866,6 +910,126 @@ export function DealForm({
     );
     onOpenChange(false);
     onSaved();
+  }
+
+  /**
+   * Pede ao servidor o PDF e a imagem deste orçamento.
+   *
+   * Uma função, e não mais o corpo do `onGenerate`, porque agora são DUAS
+   * portas para ela: gerar para conferir e gerar para mandar. A impressão
+   * digital da 074 é o que torna a segunda barata — apertar "Enviar" logo
+   * depois de "Gerar PDF" devolve os mesmos arquivos, sem Chromium de novo.
+   *
+   * O que sobe é INSUMO e não resultado: linhas, valor digitado, frete.
+   * A conta é refeita lá pelo mesmo `buildQuote`.
+   */
+  async function gerarArquivos(
+    labels: QuoteLabels
+  ): Promise<
+    { pdfUrl: string | null; imageUrl: string | null } | 'no_browser' | null
+  > {
+    const res = await fetch('/api/quotes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        dealId: deal?.id ?? null,
+        orderNumber: salesOrder,
+        issuedOn: hojeIso,
+        customerName: contatoAtual?.name || contatoAtual?.phone,
+        customerCompany: contatoAtual?.company,
+        customerPhone: contatoAtual?.phone,
+        items,
+        value,
+        currency,
+        shipping,
+        paymentTerms,
+        installments,
+        carrier,
+        // Traduzido AQUI, onde existe o provider de i18n: a rota desenha
+        // o documento longe dele e recebe o rótulo pronto, como já recebe
+        // todos os outros.
+        freightMode: freightMode ? t(freightMode) : null,
+        freightVolumes,
+        grossWeight,
+        owner: profiles.find((pf) => pf.id === assignedTo)?.full_name,
+        notes,
+        labels,
+      }),
+    });
+    const dados = await res.json().catch(() => ({}));
+    if (res.ok && (dados.pdfUrl || dados.imageUrl)) {
+      return { pdfUrl: dados.pdfUrl ?? null, imageUrl: dados.imageUrl ?? null };
+    }
+    if (dados.error === 'no_browser') return 'no_browser';
+    return null;
+  }
+
+  /**
+   * MANDA O ORÇAMENTO PARA A CONVERSA — como imagem ou como PDF.
+   *
+   * Pelo MESMO caminho de qualquer mensagem da equipe, `/api/whatsapp/send`,
+   * e não por uma rota nova: ele já confere o papel, grava a mensagem na
+   * conversa com o nome de quem mandou, e dispara `team_message_sent` —
+   * que é o gatilho que move oportunidade. Um orçamento que chegasse ao
+   * cliente por fora dele seria invisível para o funil.
+   *
+   * A legenda leva o número do pedido e o total. Quem recebe uma imagem no
+   * meio de uma conversa precisa saber o que é sem abrir; e é essa linha
+   * que aparece na prévia da lista de conversas dos dois lados.
+   */
+  async function enviarOrcamento(
+    labels: QuoteLabels,
+    como: 'image' | 'document'
+  ): Promise<boolean> {
+    if (!linkedConversation) return false;
+
+    const arquivos = await gerarArquivos(labels);
+    if (arquivos === 'no_browser') {
+      toast.error(tQuote('noBrowser'));
+      return false;
+    }
+    const link = como === 'image' ? arquivos?.imageUrl : arquivos?.pdfUrl;
+    if (!link) {
+      toast.error(tQuote('generateFailed'));
+      return false;
+    }
+
+    const total = formatCurrencyExact(orcamento.total, orcamento.currency);
+    const legenda = orcamento.orderNumber
+      ? tQuote('caption', { order: orcamento.orderNumber, total })
+      : tQuote('captionNoOrder', { total });
+
+    const res = await fetch('/api/whatsapp/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        conversation_id: linkedConversation.id,
+        message_type: como,
+        media_url: link,
+        content_text: legenda,
+        // Só o documento tem nome de arquivo — é o que aparece no cartão
+        // do lado de lá, e "orcamento-14350.pdf" diz o que é antes de
+        // alguém tocar.
+        filename:
+          como === 'document' ? `${quoteFileName(orcamento)}.pdf` : undefined,
+      }),
+    });
+    if (res.ok) {
+      toast.success(tQuote('sent'));
+      return true;
+    }
+
+    const dados = await res.json().catch(() => ({}));
+    const motivo = String(dados?.error ?? `HTTP ${res.status}`);
+    // 131047 é a Meta dizendo que a janela fechou. Acontece quando ela
+    // venceu com o diálogo aberto — a medição acima é de quando ele abriu.
+    if (motivo.includes('131047')) {
+      setJanela('expired');
+      toast.error(tQuote('sendWindowClosed'));
+      return false;
+    }
+    toast.error(tQuote('sendFailed', { reason: motivo }));
+    return false;
   }
 
   async function handleDelete() {
@@ -1648,59 +1812,46 @@ export function DealForm({
         brand={brandFromAccount(account)}
         archiveHref="/documentos/orcamentos"
         /*
-         * ARQUIVAR E RENDERIZAR VIRARAM A MESMA CHAMADA.
+         * ARQUIVAR E RENDERIZAR VIRARAM A MESMA CHAMADA — `gerarArquivos`.
          *
-         * Antes esta gaveta gravava a linha por conta própria e mandava o
-         * navegador imprimir. Agora a rota faz as duas coisas na ordem
-         * certa — grava, desenha, sobe os arquivos — porque só ela pode:
-         * o Chromium é do servidor, e os totais precisam ser refeitos
-         * longe de quem os enviou.
-         *
-         * O que sobe é INSUMO e não resultado: linhas, valor digitado,
-         * frete. A conta é refeita lá pelo mesmo `buildQuote`.
+         * A rota grava, desenha e sobe os arquivos, na ordem certa, porque
+         * só ela pode: o Chromium é do servidor, e os totais precisam ser
+         * refeitos longe de quem os enviou.
          */
         onGenerate={async (labels) => {
-          const res = await fetch('/api/quotes', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              dealId: deal?.id ?? null,
-              orderNumber: salesOrder,
-              issuedOn: hojeIso,
-              customerName: contatoAtual?.name || contatoAtual?.phone,
-              customerCompany: contatoAtual?.company,
-              customerPhone: contatoAtual?.phone,
-              items,
-              value,
-              currency,
-              shipping,
-              paymentTerms,
-              installments,
-              carrier,
-              // Traduzido AQUI, onde existe o provider de i18n: a rota
-              // desenha o documento longe dele e recebe o rótulo pronto,
-              // como já recebe todos os outros.
-              freightMode: freightMode ? t(freightMode) : null,
-              freightVolumes,
-              grossWeight,
-              owner: profiles.find((pf) => pf.id === assignedTo)?.full_name,
-              notes,
-              labels,
-            }),
-          });
-          const dados = await res.json().catch(() => ({}));
-          if (res.ok && dados.pdfUrl) {
+          const arquivos = await gerarArquivos(labels);
+          if (arquivos === 'no_browser') return false;
+          if (arquivos?.pdfUrl) {
             // Uma aba nova e não um download forçado: quem gerou quer
             // CONFERIR antes de mandar, e o visualizador do navegador é
             // onde isso acontece sem baixar nada.
-            window.open(dados.pdfUrl, '_blank', 'noopener');
+            window.open(arquivos.pdfUrl, '_blank', 'noopener');
             toast.success(tQuote('generated'));
             return true;
           }
-          if (dados.error === 'no_browser') return false;
           toast.error(tQuote('generateFailed'));
           return true;
         }}
+        send={
+          // Só para quem pode mandar mensagem, e só com um contato escolhido
+          // — sem os dois não há para quem, nem quem.
+          canWrite && contactId
+            ? {
+                recipient: contatoAtual?.name || contatoAtual?.phone || '',
+                blocked: !linkedConversation
+                  ? 'noConversation'
+                  : janela === 'expired'
+                    ? 'window'
+                    : janela === 'none'
+                      ? 'noConversation'
+                      : null,
+                conversationHref: linkedConversation
+                  ? `/inbox?c=${linkedConversation.id}`
+                  : null,
+                onSend: enviarOrcamento,
+              }
+            : undefined
+        }
       />
 
       <DealOutcomeDialogs {...outcome.dialogProps} />

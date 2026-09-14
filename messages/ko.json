@@ -4066,7 +4066,22 @@
     "freightMode": "운임 부담",
     "volumes": "포장 수",
     "grossWeight": "총중량",
-    "amount": "금액"
+    "amount": "금액",
+    "send": "WhatsApp으로 보내기",
+    "sendTo": "{name}님에게 보내기",
+    "sendAsImage": "이미지로",
+    "sendAsImageHint": "대화에서 바로 열립니다",
+    "sendAsPdf": "PDF로",
+    "sendAsPdfHint": "보관하고 인쇄할 파일",
+    "sendBlockedWindow": "이 고객과의 24시간 창이 닫혔습니다 — 지금은 템플릿만 전달됩니다.",
+    "sendBlockedNoConversation": "이 연락처는 아직 메시지를 보낸 적이 없습니다 — 템플릿만 전달됩니다.",
+    "openConversation": "대화 열기",
+    "sent": "견적서를 WhatsApp으로 보냈습니다",
+    "sendFailed": "보내지 못했습니다: {reason}",
+    "sendWindowClosed": "24시간 창이 닫혀 견적서를 보내지 못했습니다. 대화에서 템플릿을 사용하세요.",
+    "caption": "견적서 {order} · 합계 {total}",
+    "captionNoOrder": "견적서 · 합계 {total}",
+    "sendShort": "보내기"
   },
   "Quotes": {
     "title": "견적서",

@@ -4066,7 +4066,22 @@
     "freightMode": "Freight paid by",
     "volumes": "Packages",
     "grossWeight": "Gross weight",
-    "amount": "Amount"
+    "amount": "Amount",
+    "send": "Send on WhatsApp",
+    "sendTo": "Send to {name}",
+    "sendAsImage": "As an image",
+    "sendAsImageHint": "Opens right in the chat",
+    "sendAsPdf": "As a PDF",
+    "sendAsPdfHint": "The file, to keep and print",
+    "sendBlockedWindow": "The 24-hour window with this customer is closed — only a template gets through now.",
+    "sendBlockedNoConversation": "This contact has not written yet — only a template reaches them.",
+    "openConversation": "Open the conversation",
+    "sent": "Quote sent on WhatsApp",
+    "sendFailed": "Could not send: {reason}",
+    "sendWindowClosed": "The 24-hour window closed and the quote was not sent. Use a template in the conversation.",
+    "caption": "Quote {order} · Total {total}",
+    "captionNoOrder": "Quote · Total {total}",
+    "sendShort": "Send"
   },
   "Quotes": {
     "title": "Quotes",

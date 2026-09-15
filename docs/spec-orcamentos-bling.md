@@ -2,12 +2,14 @@
 
 **Escrito em:** 14/09/2026
 **Fonte funcional:** `ESPECIFICACAO_CRM_ORCAMENTOS_INTEGRACAO_BLING.md` (14/09/2026, fora do repositório)
-**Estado:** Fase 0 com todos os itens implementados em 14/09 (F0.1 a F0.8).
-- A migração 078 está escrita e **ainda não aplicada**. Sem ela, os campos
-  de outras despesas e desconto geral não aparecem e a gravação segue pelo
-  caminho antigo.
-- Depois de aplicá-la, falta exercitar na tela a `save_deal_order` e os dois
-  campos novos.
+**Estado:** Fase 0 implementada e conferida em 14/09 (F0.1 a F0.8).
+- A 078 foi aplicada em 14/09 e exercitada na tela: os dois campos novos
+  aparecem, a gaveta grava por uma única chamada à `save_deal_order`, um item
+  inválido desfaz a oportunidade inteira (na edição e na criação), e o
+  orçamento gerado guarda outras despesas, desconto e valor do desconto.
+- A **079** está escrita e **ainda não aplicada**: a 078 revogou a função de
+  PUBLIC, o que no Supabase não a tira de `anon` (medido). Sem a 079 nada
+  quebra — a RLS barra `anon` —, mas a porta fica aberta.
 
 Nada do Bling implementado. Doze decisões abertas (§3).
 
@@ -452,9 +454,11 @@ não altera configuração de conta.
 ## 5. Fases
 
 Os números de migração são atribuídos na implementação, a partir da próxima
-livre (**078** em 14/09). Cada migração segue a regra da casa: nunca editar uma
-aplicada, e o código tolera a migração ainda não aplicada (`pg-errors.ts`,
-`unapplied-columns.test.ts`).
+livre (**080** depois da Fase 0). Cada migração segue a regra da casa: nunca
+editar uma aplicada, e o código tolera a migração ainda não aplicada
+(`pg-errors.ts`, `unapplied-columns.test.ts`). Função nova que só logados
+chamam revoga `anon` por nome — `REVOKE ... FROM PUBLIC` não basta no
+Supabase (`function-grants.test.ts`).
 
 ### Fase 0 — Consertar a base que a integração vai consumir (sem Bling)
 

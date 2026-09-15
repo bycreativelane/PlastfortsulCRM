@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+import type { ProductFacts } from '@/lib/deals/order-rules';
 import { isUnknownColumn } from '@/lib/supabase/pg-errors';
 import { fromCents, lineTotalCents } from '@/lib/money';
 
@@ -477,6 +478,25 @@ export function itemSnapshot(
       : (product.revenue_category_bling_id ?? null),
     definesOrderCategory: product.defines_order_category !== false,
     blingProductType: product.bling_product_type ?? null,
+  };
+}
+
+/**
+ * O que a linha deveria ter congelado do produto COMO ELE ESTÁ AGORA — o
+ * vínculo, o tipo, a categoria resolvida e "define a categoria". A gaveta e
+ * o servidor comparam o snapshot da linha com isto (`snapshotMatches`): uma
+ * linha montada antes de o produto mudar no Bling não vai ao pedido.
+ */
+export function productFacts(
+  product: Product,
+  resolver?: (product: Product) => string | null
+): ProductFacts {
+  const snapshot = itemSnapshot(product, resolver);
+  return {
+    blingProductId: snapshot.blingProductId ?? null,
+    blingProductType: snapshot.blingProductType ?? null,
+    revenueCategoryBlingId: snapshot.revenueCategoryBlingId ?? null,
+    definesOrderCategory: snapshot.definesOrderCategory !== false,
   };
 }
 

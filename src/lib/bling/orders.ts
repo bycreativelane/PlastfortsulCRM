@@ -9,7 +9,7 @@ import { BlingApiError, BlingConnectionError, BlingLeaseLostError } from './erro
 import { foldName, type BlingSettingsRow } from './health';
 import { loadOrderContext } from '@/lib/deals/order-context';
 import { orderReadiness, type ProductFacts } from '@/lib/deals/order-rules';
-import type { Product } from '@/lib/products/catalog';
+import { productFacts, type Product } from '@/lib/products/catalog';
 
 import {
   buildOrderPayload,
@@ -199,12 +199,7 @@ async function currentProductFacts(
     loadOrderContext(db, accountId),
   ]);
   for (const produto of (data ?? []) as Array<Product & { id: string }>) {
-    mapa.set(produto.id, {
-      blingProductId: produto.bling_product_id ?? null,
-      blingProductType: produto.bling_product_type ?? null,
-      revenueCategoryBlingId: contexto.resolveCategory(produto),
-      definesOrderCategory: produto.defines_order_category !== false,
-    });
+    mapa.set(produto.id, productFacts(produto, contexto.resolveCategory));
   }
   return mapa;
 }

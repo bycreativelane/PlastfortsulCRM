@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { Reference } from './health';
 import {
   blingStatusId,
+  boardMoveBlock,
   canChangeStatus,
   classifyAction,
   dealPatchForStatus,
@@ -105,5 +106,26 @@ describe('a etapa acompanha (D1-B) e o cancelado perde (D3)', () => {
     expect(dragAllowed({ orderStatus: 'em_aberto', accountsLaunchedAt: null, targetStageName: 'Follow-up' })).toBe(true);
     expect(dragAllowed({ orderStatus: 'em_andamento', accountsLaunchedAt: '2026-09-15', targetStageName: 'Follow-up' })).toBe(false);
     expect(dragAllowed({ orderStatus: 'em_andamento', accountsLaunchedAt: '2026-09-15', targetStageName: 'Em Andamento' })).toBe(true);
+  });
+});
+
+describe('boardMoveBlock — o quadro, o seletor de etapa e a conversa', () => {
+  const pedido = { blingOrderId: '5001', orderStatus: 'em_aberto', accountsLaunchedAt: null };
+
+  it('sem pedido no Bling, nada é recusado', () => {
+    expect(boardMoveBlock({ ...pedido, blingOrderId: null, targetStageName: 'Venda Perdida' })).toBeNull();
+  });
+
+  it('pedido Em aberto: etapa comum pode; ganho ou perdido não — vem da situação', () => {
+    expect(boardMoveBlock({ ...pedido, targetStageName: 'Negociação' })).toBeNull();
+    expect(boardMoveBlock({ ...pedido, targetStageName: 'Em Andamento' })).toBe('outcome');
+    expect(boardMoveBlock({ ...pedido, targetStageName: 'Venda Perdida' })).toBe('outcome');
+  });
+
+  it('com contas lançadas: só a etapa da própria situação', () => {
+    const lancado = { blingOrderId: '5001', orderStatus: 'em_andamento', accountsLaunchedAt: '2026-09-15T12:00:00Z' };
+    expect(boardMoveBlock({ ...lancado, targetStageName: 'Negociação' })).toBe('launched');
+    expect(boardMoveBlock({ ...lancado, targetStageName: 'Em Andamento' })).toBeNull();
+    expect(boardMoveBlock({ ...lancado, targetStageName: 'Atendido' })).toBe('launched');
   });
 });

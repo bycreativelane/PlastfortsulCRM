@@ -18,6 +18,12 @@ interface OptionRow {
   value: string;
   label: React.ReactNode;
   key: string;
+  /**
+   * `<option disabled>` — read and kept. The first version dropped it, so a
+   * seller already linked to someone else stayed pickable in the Bling
+   * seller list, and the save failed after the click.
+   */
+  disabled?: boolean;
 }
 
 /** A run of rows, headed by an `<optgroup label>` when there is one. */
@@ -114,6 +120,7 @@ function OptionSelect({
             value: String(props.value ?? ''),
             label: props.children as React.ReactNode,
             key: String(child.key ?? props.value ?? here),
+            disabled: props.disabled === true,
           });
           return;
         }
@@ -163,7 +170,11 @@ function OptionSelect({
   );
 
   const row = (option: OptionRow) => (
-    <SelectItem key={option.key} value={option.value}>
+    <SelectItem
+      key={option.key}
+      value={option.value}
+      disabled={option.disabled}
+    >
       {option.label}
     </SelectItem>
   );

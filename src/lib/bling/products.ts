@@ -246,12 +246,23 @@ export async function importProducts(
   const renovarAntesDe = now() - renovarDias * 86_400_000;
   let restante = orcamento;
 
+  // O que um admin mandou ignorar continua ignorado: a importação seguinte
+  // regravava a pendência como 'pending' e desfazia o clique.
+  const { data: ignoradas } = await db
+    .from('bling_product_matches')
+    .select('bling_product_id')
+    .eq('connection_id', conexao.id)
+    .eq('status', 'ignored');
+  const idsIgnorados = new Set(((ignoradas ?? []) as Array<{ bling_product_id: string }>).map((m) => m.bling_product_id));
+
   const pendencia = async (
     item: Objeto,
     produto: BlingProduct | null,
     motivo: 'no_sku' | 'sku_linked_elsewhere' | 'sku_too_long',
     candidato: CrmProduct | null
   ) => {
+    const idDoBling = idDe(item.id);
+    if (idDoBling && idsIgnorados.has(idDoBling)) return;
     const { error } = await db.from('bling_product_matches').upsert(
       {
         account_id: conexao.account_id,

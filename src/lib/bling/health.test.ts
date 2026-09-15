@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildHealth, foldName, type BlingSettingsRow, type Reference } from './health';
+import { buildHealth, foldName, nextPaymentMethodIds, type BlingSettingsRow, type Reference } from './health';
 
 const ref = (kind: string, bling_id: string, label: string, extra: Partial<Reference> = {}): Reference => ({
   kind,
@@ -135,5 +135,19 @@ describe('foldName', () => {
   it('tira acento, caixa e espaço sobrando', () => {
     expect(foldName('  Em   ANDAMENTO ')).toBe('em andamento');
     expect(foldName('Sacolas Boca de Palhaço')).toBe('sacolas boca de palhaco');
+  });
+});
+
+describe('nextPaymentMethodIds', () => {
+  const alive = new Set(['7001', '7002']);
+
+  it('a forma que sumiu do Bling sai no primeiro clique, e não volta', () => {
+    expect(nextPaymentMethodIds({ confirmed: ['7001', '9999'], alive, id: '7002', checked: true })).toEqual(['7001', '7002']);
+    expect(nextPaymentMethodIds({ confirmed: ['7001', '9999'], alive, id: '9999', checked: false })).toEqual(['7001']);
+    expect(nextPaymentMethodIds({ confirmed: ['7001'], alive, id: '9999', checked: true })).toEqual(['7001']);
+  });
+
+  it('desmarcar uma viva', () => {
+    expect(nextPaymentMethodIds({ confirmed: ['7001', '7002'], alive, id: '7001', checked: false })).toEqual(['7002']);
   });
 });

@@ -59,7 +59,7 @@ import { SegBar } from '@/components/ui/seg-bar';
 import { StatusDot } from '@/components/ui/status-badge';
 import { CountBadge } from '@/components/ui/count-badge';
 import { flattenDealTags } from '@/lib/deals/tags';
-import { dragAllowed } from '@/lib/bling/transitions';
+import { boardMoveBlock } from '@/lib/bling/transitions';
 import { FilterChip } from '@/components/ui/filter-chip';
 
 // Pipeline creation is admin-class (settings-tier write under
@@ -363,6 +363,53 @@ function PipelinesPageInner() {
     setDeals(await loadDeals(selectedPipelineId));
   }, [loadDeals, selectedPipelineId]);
 
+  /*
+   * O AVISO CLICADO COM O QUADRO JÁ ABERTO. `?deal=` era lido uma vez, na
+   * montagem: com a página aberta, clicar num aviso de pedido trocava a URL e
+   * nada acontecia (auditoria da 0.11.0). O da montagem continua com os
+   * carregadores acima; este cuida dos que chegam depois.
+   */
+  const dealDaUrl = searchParams.get('deal');
+  const dealDaUrlTratado = useRef<string | null>(dealDaUrl);
+  useEffect(() => {
+    if (!dealDaUrl) {
+      dealDaUrlTratado.current = null;
+      return;
+    }
+    if (dealDaUrl === dealDaUrlTratado.current) return;
+    dealDaUrlTratado.current = dealDaUrl;
+    let cancelled = false;
+    void (async () => {
+      const { data } = await supabase
+        .from('deals')
+        .select('pipeline_id')
+        .eq('id', dealDaUrl)
+        .maybeSingle();
+      const funil = (data as { pipeline_id?: string } | null)?.pipeline_id;
+      if (cancelled || !funil) return;
+      dealParaAbrir.current = dealDaUrl;
+      // Outro funil: trocar de funil recarrega o quadro, e o carregamento
+      // abre o negócio.
+      if (funil !== selectedPipelineId) {
+        selectPipeline(funil);
+        return;
+      }
+      const lista = await loadDeals(funil);
+      if (cancelled) return;
+      setDeals(lista);
+      const alvo = lista.find((negocio) => negocio.id === dealDaUrl);
+      if (alvo) {
+        dealParaAbrir.current = null;
+        setEditingDeal(alvo);
+        setDefaultStageId(alvo.stage_id);
+        setDealFormOpen(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [dealDaUrl, supabase, selectedPipelineId, selectPipeline, loadDeals]);
+
   const outcome = useDealOutcome({
     defaultCurrency,
     // Cancelling leaves the card where the drag put it, so a refetch is the
@@ -400,16 +447,19 @@ function PipelinesPageInner() {
        * "Mudar situação", na área Pedido. Antes de lançamento, o arrasto é
        * livre e o pedido no Bling continua como está.
        */
-      if (
-        moved?.bling_order_id &&
-        target &&
-        !dragAllowed({
-          orderStatus: moved.order_status,
-          accountsLaunchedAt: moved.accounts_launched_at,
-          targetStageName: target.name,
-        })
-      ) {
-        toast.error(t('dragBlockedLaunched'));
+      const bloqueio =
+        moved && target
+          ? boardMoveBlock({
+              blingOrderId: moved.bling_order_id,
+              orderStatus: moved.order_status,
+              accountsLaunchedAt: moved.accounts_launched_at,
+              targetStageName: target.name,
+            })
+          : null;
+      if (bloqueio) {
+        // Ganho e perdido de um pedido no Bling também não passam pelo
+        // arrasto: o diálogo gravaria o desfecho só no funil.
+        toast.error(t(bloqueio === 'launched' ? 'dragBlockedLaunched' : 'dragBlockedOutcome'));
         refreshDeals();
         return;
       }
@@ -785,13 +835,18 @@ function PipelinesPageInner() {
             stages={stages}
             deals={visibleDeals}
             onDealMoved={handleDealMoved}
-            onRequestOutcome={(deal, status) =>
-              outcome.request(
+            onRequestOutcome={(deal, status) => {
+              // Ganho e perdido de um pedido no Bling vêm da situação dele.
+              if (deal.bling_order_id) {
+                toast.error(t('dragBlockedOutcome'));
+                return true;
+              }
+              return outcome.request(
                 deal,
                 stages.find((s) => s.id === deal.stage_id) ?? null,
                 status
-              )
-            }
+              );
+            }}
             onAddDeal={handleAddDeal}
             onEditDeal={handleEditDeal}
             onDealChanged={refreshDeals}

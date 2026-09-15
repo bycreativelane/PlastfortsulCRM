@@ -1,4 +1,5 @@
 import type { OrderStatus } from '@/lib/deals/order-lock';
+import { isLostStage, isWonStage } from '@/lib/deals/outcome';
 
 import { foldName, STATUS_COLUMN, type BlingSettingsRow, type Reference, type StatusRole } from './health';
 
@@ -235,4 +236,28 @@ export function dragAllowed(args: {
   const status = args.orderStatus as OrderStatus | null | undefined;
   if (!status || !(status in ETAPA_DA_SITUACAO)) return false;
   return ETAPA_DA_SITUACAO[status].includes(foldName(args.targetStageName));
+}
+
+/**
+ * Por que o quadro recusa mover esta oportunidade para esta etapa — ou
+ * `null` quando pode.
+ *
+ * - `launched`: contas lançadas, e a etapa não é a da situação (`dragAllowed`).
+ * - `outcome`: a etapa é de ganho ou de perda, e o negócio é pedido no Bling.
+ *   O diálogo de ganho/perdido do quadro gravaria o desfecho no funil sem
+ *   mexer no pedido; com o pedido no Bling, ganho e perdido vêm da situação
+ *   (D1 = B, "Mudar situação" na oportunidade).
+ */
+export function boardMoveBlock(args: {
+  blingOrderId: string | null | undefined;
+  orderStatus: string | null | undefined;
+  accountsLaunchedAt: string | null | undefined;
+  targetStageName: string;
+}): 'launched' | 'outcome' | null {
+  if (!args.blingOrderId) return null;
+  if (!dragAllowed(args)) return 'launched';
+  const status = args.orderStatus as OrderStatus | null | undefined;
+  const daPropriaSituacao = !!status && status in ETAPA_DA_SITUACAO && ETAPA_DA_SITUACAO[status].includes(foldName(args.targetStageName));
+  if (!daPropriaSituacao && (isWonStage(args.targetStageName) || isLostStage(args.targetStageName))) return 'outcome';
+  return null;
 }

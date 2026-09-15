@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useState, useEffect } from 'react';
+import { useCallback, useMemo, useRef, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
@@ -42,16 +42,22 @@ import {
 import {
   isColumnFree,
   isOrderLockedError,
-  orderLock,
   pickFreeColumns,
 } from '@/lib/deals/order-lock';
+import {
+  currentOrder,
+  remoteOrderState,
+  watchOperation,
+  type RemoteOrderState,
+} from '@/lib/deals/order-state';
 import { orderReadiness } from '@/lib/deals/order-rules';
 import {
   EMPTY_ORDER_CONTEXT,
   loadOrderContext,
   type OrderContext,
 } from '@/lib/deals/order-context';
-import type { Product } from '@/lib/products/catalog';
+import { productFacts, type Product } from '@/lib/products/catalog';
+import { dragAllowed } from '@/lib/bling/transitions';
 import { DealOrderSection, describeSyncError } from './deal-order-section';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import type { OrderStatus } from '@/lib/deals/order-lock';
@@ -170,6 +176,9 @@ function espera(
   if (!id || lista.some((item) => item.id === id)) return null;
   return <option value={id}>{rotulo}</option>;
 }
+
+/** A pausa entre duas consultas à fila. */
+const aguardar = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 /**
  * O ícone do motivo, quando existe um.
@@ -350,15 +359,32 @@ export function DealForm({
   const [catalog, setCatalog] = useState<Product[]>([]);
   /**
    * O pedido no Bling como a fila deixou (086) — sobrepõe o `deal` da prop,
-   * que só é relido quando o quadro recarrega.
+   * que só é relido quando o quadro recarrega. Leva também a trava (vínculo,
+   * contas lançadas), a etapa e o ganho/perdido: a gaveta continua aberta
+   * depois de mudar a situação, e ler isso da prop fazia o próximo "Salvar"
+   * mandar itens a um pedido já travado, ou devolver a etapa que o pedido
+   * acabou de mudar (auditoria da 0.11.0).
    */
-  const [remoto, setRemoto] = useState<{
-    orderStatus: string | null;
-    syncStatus: string | null;
-    syncError: string | null;
-    blingOrderNumber: string | null;
-  } | null>(null);
+  const [remoto, setRemoto] = useState<RemoteOrderState | null>(null);
   const [sincronizando, setSincronizando] = useState(false);
+  /**
+   * Um registro/mudança por vez, e já no clique: o estado `sincronizando`
+   * só vale no próximo render, e dois cliques no mesmo quadro gravavam a
+   * oportunidade nova duas vezes.
+   */
+  const ocupado = useRef(false);
+  /**
+   * A abertura da gaveta. Os laços que acompanham a fila conferem a cada
+   * volta: fechar a gaveta, ou abrir outra oportunidade, encerra o laço em
+   * silêncio — em vez de o toast e o estado de uma cair na outra.
+   */
+  const geracao = useRef(0);
+  /** O número do pedido que a última sincronização desta gaveta devolveu. */
+  const ultimoNumero = useRef<string | null>(null);
+  useEffect(() => {
+    geracao.current += 1;
+    ultimoNumero.current = null;
+  }, [open, deal?.id]);
   const handleItems = useCallback(
     (state: {
       items: DealItemDraft[];
@@ -778,17 +804,22 @@ export function DealForm({
   const contatoAtual = contacts.find((c) => c.id === contactId);
 
   /**
+   * O PEDIDO COMO ESTÁ AGORA — a prop com o que a fila deixou por cima
+   * (`lib/deals/order-state.ts`).
+   */
+  const pedido = currentOrder(deal, remoto);
+  /**
    * A TRAVA DA SITUAÇÃO (085) — a mesma regra do gatilho, lida do pedido
    * GRAVADO. O que ela segura aparece apagado e não vai no `update`; ver
    * `lib/deals/order-lock.ts`.
    */
-  const trava = orderLock(deal?.order_status, deal?.accounts_launched_at);
+  const trava = pedido.lock;
   /**
    * D1 = B: com o pedido no Bling, ganho e perdido vêm da SITUAÇÃO (Em
    * andamento ganha; Cancelado perde com "Pedido cancelado"). Os botões do
    * topo mudariam só o funil e deixariam o Bling dizendo outra coisa.
    */
-  const desfechoPeloPedido = orderContext.ordersEnabled && !!deal?.bling_order_id;
+  const desfechoPeloPedido = orderContext.ordersEnabled && !!pedido.blingOrderId;
   const livre = (coluna: string) => canWrite && isColumnFree(coluna, trava);
   const pedidoAberto = trava === 'open';
 
@@ -806,6 +837,11 @@ export function DealForm({
     contact: contatoAtual ?? null,
     lines: items,
     activeProductIds: catalog.length ? new Set(catalog.map((p) => p.id)) : null,
+    // O mesmo confronto do servidor: a linha montada antes de o produto
+    // mudar no Bling aparece como sem vínculo, com o botão na linha.
+    currentProducts: catalog.length
+      ? new Map(catalog.map((p) => [p.id, productFacts(p, orderContext.resolveCategory)]))
+      : null,
     weightExceptionNote: orderFields.weightExceptionNote,
     chosenCategoryId: orderFields.revenueCategoryBlingId || null,
     installments,
@@ -854,7 +890,9 @@ export function DealForm({
    * — a condição que o item 55 impõe para as duas saídas do documento.
    */
   const orcamento = buildQuote({
-    orderNumber: salesOrder,
+    // Com o pedido registrado, o número é o do Bling — o mesmo do PDF que o
+    // servidor gera e do nome do arquivo.
+    orderNumber: pedido.blingOrderNumber || salesOrder,
     issuedOn: hojeIso,
     company: account?.name,
     customerName: contatoAtual?.name || contatoAtual?.phone,
@@ -1210,26 +1248,53 @@ export function DealForm({
    * sincronizado: o envio do orçamento só segue com ele.
    */
   async function sincronizarPedido(): Promise<boolean> {
-    const dealId = await persist({ silent: true });
-    if (!dealId) return false;
+    // Um por vez, decidido no clique (ver `ocupado`).
+    if (ocupado.current) return false;
+    ocupado.current = true;
     setSincronizando(true);
+    const minha = geracao.current;
+    const dealId = await persist({ silent: true });
+    if (!dealId) {
+      ocupado.current = false;
+      setSincronizando(false);
+      return false;
+    }
     // Sem `try/finally`: a análise do React Compiler (a regra de hooks do
     // lint) não entende `finally` e desistiria da gaveta inteira.
-    const ok = await acompanharPedido(dealId).catch(() => {
-      toast.error(tOrder('syncFailed'));
+    const ok = await acompanharPedido(dealId, minha).catch(() => {
+      if (geracao.current === minha) toast.error(tOrder('syncFailed'));
       return false;
     });
+    ocupado.current = false;
     setSincronizando(false);
     return ok;
+  }
+
+  /** O que a rota recusou, em frase — nunca o código cru. */
+  function recusaDaRota(corpo: { error?: string; missing?: string[] }, status: number): string {
+    if (corpo.error === 'not_ready') {
+      return tOrder('syncNotReady', {
+        items: (corpo.missing ?? []).map((k) => tOrder(`ready.${k}`)).join(', '),
+      });
+    }
+    return describeSyncError(corpo.error ?? `http_${status}`, tOrder);
   }
 
   /**
    * MUDAR A SITUAÇÃO DO PEDIDO (Fase 5, D1 = B) — confirmação que diz o
    * efeito financeiro, e acompanhamento até a fila terminar.
+   *
+   * Com o pedido Em aberto e a trava aberta, grava e SINCRONIZA antes de
+   * perguntar: Em andamento lança as contas do pedido que o Bling tem, e a
+   * confirmação mostra o total do pedido gravado — não o da tela. Cancelar
+   * não precisa (e um pedido que não sincroniza ainda tem de poder cancelar).
    */
   async function mudarSituacao(destino: OrderStatus) {
     const dealId = deal?.id ?? criadaId;
-    if (!dealId) return;
+    if (!dealId || ocupado.current) return;
+    if (pedido.syncable && destino !== 'cancelado') {
+      if (!(await sincronizarPedido())) return;
+    }
     const ok = await confirm({
       title: tOrder('statusConfirmTitle', { status: tOrder(`status.${destino}`) }),
       description: tOrder(`statusEffect.${destino}`, {
@@ -1238,95 +1303,90 @@ export function DealForm({
       confirmLabel: tOrder('statusConfirm'),
       destructive: destino === 'cancelado',
     });
-    if (!ok) return;
+    if (!ok || ocupado.current) return;
 
+    ocupado.current = true;
     setSincronizando(true);
-    const concluiu = await acompanharSituacao(dealId, destino).catch(() => false);
+    const minha = geracao.current;
+    const concluiu = await acompanharSituacao(dealId, destino, minha).catch(() => false);
+    ocupado.current = false;
     setSincronizando(false);
     if (concluiu) onSaved();
   }
 
-  async function acompanharSituacao(dealId: string, destino: OrderStatus): Promise<boolean> {
+  async function acompanharSituacao(dealId: string, destino: OrderStatus, minha: number): Promise<boolean> {
     const res = await fetch(`/api/bling/orders/${dealId}/status`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ to: destino }),
     });
-    if (!res.ok) {
-      const corpo = (await res.json().catch(() => ({}))) as { error?: string };
-      toast.error(tOrder('syncRefused', { reason: corpo.error ?? `HTTP ${res.status}` }));
+    const corpo = (await res.json().catch(() => ({}))) as { error?: string; operationId?: string };
+    if (!res.ok || !corpo.operationId) {
+      if (geracao.current === minha) toast.error(recusaDaRota(corpo, res.status));
       return false;
     }
     for (let volta = 0; volta < 60; volta++) {
-      await new Promise((r) => setTimeout(r, 1500));
-      const estado = await fetch(`/api/bling/orders/${dealId}`, { cache: 'no-store' })
+      await aguardar(1500);
+      // A gaveta fechou, ou é outra oportunidade: para em silêncio.
+      if (geracao.current !== minha) return false;
+      const estado = await fetch(`/api/bling/orders/${dealId}?operationId=${corpo.operationId}`, { cache: 'no-store' })
         .then((r) => (r.ok ? r.json() : null))
         .catch(() => null);
-      const d = estado?.deal as
-        | { order_status: string | null; sync_status: string | null; sync_error: string | null; bling_order_number: string | null }
-        | undefined;
-      const op = estado?.operation as { kind?: string; status?: string; error?: string | null } | null | undefined;
-      if (!d) continue;
-      setRemoto({
-        orderStatus: d.order_status,
-        syncStatus: d.sync_status,
-        syncError: d.sync_error,
-        blingOrderNumber: d.bling_order_number,
-      });
-      if (op?.kind !== 'change_status') continue;
-      if (op.status === 'succeeded') {
+      if (geracao.current !== minha) return false;
+      const lido = remoteOrderState(estado?.deal);
+      if (lido) setRemoto(lido);
+      const passo = watchOperation(corpo.operationId, estado);
+      if (passo.kind === 'wait') continue;
+      if (passo.ok) {
+        // A etapa que o pedido levou: o próximo "Salvar" não a desfaz.
+        if (lido?.stageId) setStageId(lido.stageId);
         toast.success(tOrder('statusChanged', { status: tOrder(`status.${destino}`) }));
         return true;
       }
-      if (op.status === 'failed') {
-        toast.error(op.error ? describeSyncError(op.error, tOrder) : tOrder('syncFailed'));
-        return false;
-      }
+      toast.error(passo.error ? describeSyncError(passo.error, tOrder) : tOrder('syncFailed'));
+      return false;
     }
     toast.error(tOrder('syncSlow'));
     return false;
   }
 
-  async function acompanharPedido(dealId: string): Promise<boolean> {
+  async function acompanharPedido(dealId: string, minha: number): Promise<boolean> {
     const res = await fetch(`/api/bling/orders/${dealId}/sync`, { method: 'POST' });
-    const corpo = (await res.json().catch(() => ({}))) as { error?: string; missing?: string[] };
-    if (!res.ok) {
-      toast.error(
-        corpo.error === 'not_ready'
-          ? tOrder('syncNotReady', {
-              items: (corpo.missing ?? []).map((k) => tOrder(`ready.${k}`)).join(', '),
-            })
-          : tOrder('syncRefused', { reason: corpo.error ?? `HTTP ${res.status}` })
-      );
+    const corpo = (await res.json().catch(() => ({}))) as {
+      error?: string;
+      missing?: string[];
+      operationId?: string;
+      status?: string;
+    };
+    if (!res.ok || !corpo.operationId) {
+      if (geracao.current === minha) toast.error(recusaDaRota(corpo, res.status));
       return false;
     }
-    // A fila roda depois da resposta; a oportunidade diz quando terminou.
+    // A fila roda depois da resposta; a OPERAÇÃO pedida diz quando terminou.
+    // Uma já concluída (o mesmo pedido pedido de novo) responde na hora.
     for (let volta = 0; volta < 40; volta++) {
-      await new Promise((r) => setTimeout(r, 1500));
-      const estado = await fetch(`/api/bling/orders/${dealId}`, { cache: 'no-store' })
+      if (volta > 0 || corpo.status !== 'succeeded') await aguardar(1500);
+      if (geracao.current !== minha) return false;
+      const estado = await fetch(`/api/bling/orders/${dealId}?operationId=${corpo.operationId}`, { cache: 'no-store' })
         .then((r) => (r.ok ? r.json() : null))
         .catch(() => null);
-      const d = estado?.deal as
-        | {
-            order_status: string | null;
-            sync_status: string | null;
-            sync_error: string | null;
-            bling_order_number: string | null;
-          }
-        | undefined;
-      if (!d) continue;
-      setRemoto({
-        orderStatus: d.order_status,
-        syncStatus: d.sync_status,
-        syncError: d.sync_error,
-        blingOrderNumber: d.bling_order_number,
-      });
-      if (d.sync_status === 'syncing') continue;
-      if (d.sync_status === 'synced') {
-        toast.success(tOrder('synced', { number: d.bling_order_number ?? '' }));
+      if (geracao.current !== minha) return false;
+      const lido = remoteOrderState(estado?.deal);
+      if (lido) setRemoto(lido);
+      const passo = watchOperation(corpo.operationId, estado);
+      if (passo.kind === 'wait') continue;
+      if (passo.ok) {
+        if (lido?.blingOrderNumber) ultimoNumero.current = lido.blingOrderNumber;
+        toast.success(tOrder('synced', { number: lido?.blingOrderNumber ?? '' }));
         return true;
       }
-      toast.error(tOrder(d.sync_status === 'divergent' ? 'syncDivergent' : 'syncFailed'));
+      toast.error(
+        passo.outcome === 'divergent'
+          ? tOrder('syncDivergent')
+          : passo.error
+            ? describeSyncError(passo.error, tOrder)
+            : tOrder('syncFailed')
+      );
       return false;
     }
     toast.error(tOrder('syncSlow'));
@@ -1526,7 +1586,13 @@ export function DealForm({
      * existe no Bling é o processo paralelo que a integração veio encerrar.
      */
     const comPedido = orderContext.ordersEnabled && !orderFieldsPending;
-    if (comPedido) {
+    /*
+     * Só registra/atualiza o que o Bling aceita atualizar: Em aberto, sem
+     * trava. Com o pedido em Compra futura, Em andamento ou fechado, o
+     * orçamento sai como está — o cliente que confirmou precisa receber o
+     * documento, e sincronizar ali era recusa certa, e o envio cancelado.
+     */
+    if (comPedido && pedido.syncable) {
       if (!prontidao.ready) {
         toast.error(tOrder('sendNeedsReady'));
         return false;
@@ -1560,10 +1626,15 @@ export function DealForm({
     }
 
     const total = formatCurrencyExact(orcamento.total, orcamento.currency);
-    // Com o pedido registrado, o número na legenda é o do Bling — o mesmo
-    // que o PDF imprime.
-    const numeroDoPedido =
-      remoto?.blingOrderNumber || deal?.bling_order_number || orcamento.orderNumber;
+    // Com o pedido registrado, o número na legenda e no nome do arquivo é o
+    // do Bling — o mesmo que o PDF imprime. O `orcamento` desta função é o
+    // do render do clique: um pedido que acabou de nascer na sincronização
+    // acima ainda não está nele, e o número vem de `ultimoNumero`.
+    const documento = {
+      ...orcamento,
+      orderNumber: ultimoNumero.current || orcamento.orderNumber,
+    };
+    const numeroDoPedido = documento.orderNumber;
     const legenda = numeroDoPedido
       ? tQuote('caption', { order: numeroDoPedido, total })
       : tQuote('captionNoOrder', { total });
@@ -1580,7 +1651,7 @@ export function DealForm({
         // do lado de lá, e "orcamento-14350.pdf" diz o que é antes de
         // alguém tocar.
         filename:
-          como === 'document' ? `${quoteFileName(orcamento)}.pdf` : undefined,
+          como === 'document' ? `${quoteFileName(documento)}.pdf` : undefined,
       }),
     });
     if (res.ok) {
@@ -2378,16 +2449,17 @@ export function DealForm({
             */}
             {!orderFieldsPending && !installmentsPending && !totalsPending && (
               <DealOrderSection
-                orderStatus={remoto ? remoto.orderStatus : (deal?.order_status ?? null)}
-                syncStatus={remoto ? remoto.syncStatus : (deal?.sync_status ?? null)}
-                syncError={remoto ? remoto.syncError : (deal?.sync_error ?? null)}
-                blingOrderNumber={
-                  remoto ? remoto.blingOrderNumber : (deal?.bling_order_number ?? null)
-                }
+                orderStatus={pedido.orderStatus}
+                syncStatus={pedido.syncStatus}
+                syncError={pedido.syncError}
+                blingOrderNumber={pedido.blingOrderNumber}
                 ordersEnabled={orderContext.ordersEnabled}
-                hasBlingOrder={!!(deal?.bling_order_id || remoto?.blingOrderNumber)}
+                hasBlingOrder={!!pedido.blingOrderId}
                 onChangeStatus={(destino) => void mudarSituacao(destino)}
-                syncBusy={sincronizando}
+                // Salvando também: registrar no meio de um "Salvar" gravaria
+                // duas vezes a oportunidade nova.
+                syncBusy={sincronizando || saving}
+                canSync={pedido.open}
                 // O quadro relê depois: a oportunidade agora é pedido, e o
                 // cartão (e a próxima abertura da gaveta) precisa saber.
                 onSync={() => void sincronizarPedido().then(() => onSaved())}
@@ -2445,15 +2517,34 @@ export function DealForm({
                   id="deal-stage"
                   value={stageId}
                   onValueChange={setStageId}
-                  disabled={!livre('stage_id')}
+                  disabled={!livre('stage_id') || sincronizando}
                   className="border-border bg-muted text-foreground"
                 >
                   {stages.map((s) => (
-                    <option key={s.id} value={s.id}>
+                    // A regra do arrasto no quadro vale aqui: com contas
+                    // lançadas, só a etapa da situação do pedido. O seletor
+                    // era a porta que o quadro fechou.
+                    <option
+                      key={s.id}
+                      value={s.id}
+                      disabled={
+                        s.id !== stageId &&
+                        !dragAllowed({
+                          orderStatus: pedido.orderStatus,
+                          accountsLaunchedAt: pedido.accountsLaunchedAt,
+                          targetStageName: s.name,
+                        })
+                      }
+                    >
                       {s.name}
                     </option>
                   ))}
                 </OptionSelect>
+                {pedido.accountsLaunchedAt && (
+                  <p className="text-muted-foreground text-2xs">
+                    {t('stageFollowsOrder')}
+                  </p>
+                )}
               </div>
             ) : (
               // Uma frase e não um campo. Onde a oportunidade vai cair não é
@@ -2583,6 +2674,10 @@ export function DealForm({
                 disabled={
                   !canWrite ||
                   saving ||
+                  // Enquanto a fila trabalha, a trava e a etapa podem estar
+                  // mudando por baixo: salvar agora reescreveria itens de um
+                  // pedido que o Bling acabou de lançar.
+                  sincronizando ||
                   !contactId ||
                   !stageId ||
                   descontoInvalido
@@ -2599,15 +2694,14 @@ export function DealForm({
             {/* Oportunidade que já é pedido no Bling não se apaga — o
                 gatilho da 085 recusa, e o pedido ficaria órfão lá. A frase
                 no lugar do botão diz por quê. */}
-            {deal && canWrite && (deal.order_status || deal.bling_order_id) && (
+            {deal && canWrite && pedido.isOrder && (
               <p className="text-muted-foreground text-2xs mt-3">
                 {t('deleteBlockedOrder')}
               </p>
             )}
             {deal &&
               canWrite &&
-              !deal.order_status &&
-              !deal.bling_order_id &&
+              !pedido.isOrder &&
               (confirmDelete ? (
                 // Real buttons, not styled spans: these are the two smallest
                 // targets in a sheet that gets used one-handed, and only

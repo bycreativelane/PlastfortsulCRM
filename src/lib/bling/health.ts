@@ -316,3 +316,20 @@ export function buildHealth(
     green: pending === 0,
   };
 }
+
+/**
+ * As formas liberadas depois de marcar ou desmarcar uma. Só formas que ainda
+ * existem no Bling são gravadas: a confirmada que sumiu de lá sai no primeiro
+ * clique em qualquer caixa, e marcá-la de novo não a traz de volta.
+ */
+export function nextPaymentMethodIds(args: {
+  confirmed: readonly string[];
+  alive: ReadonlySet<string>;
+  id: string;
+  checked: boolean;
+}): string[] {
+  const proximas = new Set(args.confirmed.filter((f) => args.alive.has(f)));
+  if (args.checked && args.alive.has(args.id)) proximas.add(args.id);
+  else proximas.delete(args.id);
+  return [...proximas];
+}

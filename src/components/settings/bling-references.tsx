@@ -10,7 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { OptionSelect } from '@/components/ui/option-select';
 import { StatusBadge } from '@/components/ui/status-badge';
 import type { CheckState, HealthReport, RoleCheck, StatusRole } from '@/lib/bling/health';
-import { STATUS_ROLES } from '@/lib/bling/health';
+import { nextPaymentMethodIds, STATUS_ROLES } from '@/lib/bling/health';
 import type { ReferenceOptions } from '@/lib/bling/settings';
 import { cn } from '@/lib/utils';
 
@@ -174,6 +174,13 @@ export function BlingReferences() {
           className="h-8 w-full text-xs"
         >
           <option value="">{t('choose')}</option>
+          {/* Confirmado e depois removido (ou desativado) no Bling: sem esta
+              opção o seletor desenhava o id cru. */}
+          {check.confirmed && !opcoes.some((o) => o.id === check.confirmed?.id) ? (
+            <option value={check.confirmed.id}>
+              {t('removedOption', { label: check.confirmed.label })}
+            </option>
+          ) : null}
           {opcoes.map((o) => (
             <option key={o.id} value={o.id}>
               {o.label}
@@ -193,6 +200,23 @@ export function BlingReferences() {
   );
 
   const formasLiberadas = new Set(health.paymentMethods.map((p) => p.id));
+  /*
+   * AS FORMAS QUE SUMIRAM DO BLING. Confirmadas antes, sem opção na lista:
+   * a caixa delas não existia, então não dava para desmarcar — e a matriz
+   * nunca ficava verde. E cada clique em outra forma regravava o id morto.
+   * Aparecem marcadas, para desmarcar, e nenhuma gravação as carrega.
+   */
+  const formasVivas = new Set(options.paymentMethods.map((f) => f.id));
+  const formasRemovidas = health.paymentMethods.filter((p) => !formasVivas.has(p.id));
+  const gravarFormas = (id: string, marcar: boolean) =>
+    void salvar({
+      payment_method_ids: nextPaymentMethodIds({
+        confirmed: [...formasLiberadas],
+        alive: formasVivas,
+        id,
+        checked: marcar,
+      }),
+    });
 
   return (
     <section className="bg-card mt-6 rounded-lg border">
@@ -318,10 +342,32 @@ export function BlingReferences() {
           <div className="p-4">
             <h4 className="text-foreground text-sm font-semibold">{t('paymentsTitle')}</h4>
             <p className="text-muted-foreground mt-1 text-xs">{t('paymentsDescription')}</p>
-            {options.paymentMethods.length === 0 ? (
+            {options.paymentMethods.length === 0 && formasRemovidas.length === 0 ? (
               <p className="text-muted-foreground mt-2 text-xs">{t('noPayments')}</p>
             ) : (
               <ul className="mt-2 divide-y">
+                {formasRemovidas.map((forma) => {
+                  const inputId = `bling-forma-removida-${forma.id}`;
+                  return (
+                    <li key={forma.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
+                      <label htmlFor={inputId} className="flex min-w-0 items-center gap-2 text-sm">
+                        <Checkbox
+                          id={inputId}
+                          checked
+                          disabled={salvando || rodando}
+                          onCheckedChange={() => gravarFormas(forma.id, false)}
+                        />
+                        <span className="min-w-0">
+                          <span className="text-foreground block truncate">{forma.label}</span>
+                          <span className="text-muted-foreground text-2xs block">{t('paymentRemovedHint')}</span>
+                        </span>
+                      </label>
+                      <StatusBadge size="sm" variant="danger">
+                        {t(`state.${forma.state}`)}
+                      </StatusBadge>
+                    </li>
+                  );
+                })}
                 {options.paymentMethods.map((forma) => {
                   const marcada = formasLiberadas.has(forma.id);
                   const check = health.paymentMethods.find((p) => p.id === forma.id);
@@ -333,12 +379,7 @@ export function BlingReferences() {
                           id={inputId}
                           checked={marcada}
                           disabled={salvando || rodando}
-                          onCheckedChange={(valor) => {
-                            const proximas = new Set(formasLiberadas);
-                            if (valor) proximas.add(forma.id);
-                            else proximas.delete(forma.id);
-                            void salvar({ payment_method_ids: [...proximas] });
-                          }}
+                          onCheckedChange={(valor) => gravarFormas(forma.id, valor === true)}
                         />
                         <span className="min-w-0">
                           <span className="text-foreground block truncate">{forma.label}</span>

@@ -253,6 +253,8 @@ export interface Readiness {
   unlinkedLines: number[];
   /** Entre as sem vínculo: as de produto ativo que mudou depois de entrar na linha. */
   staleLines: number[];
+  /** Por que a transportadora não serve, quando não serve. */
+  carrierIssue: 'missing' | 'inactive' | 'not_linked' | null;
 }
 
 /**
@@ -297,10 +299,15 @@ export function orderReadiness(input: ReadinessInput): Readiness {
     )
     .map(({ i }) => i);
 
-  const carrierOk =
-    input.carrier !== null &&
-    input.carrier.active &&
-    (input.carrier.is_customer_pickup || !!input.carrier.bling_contact_id);
+  const carrierIssue: Readiness['carrierIssue'] =
+    input.carrier === null
+      ? 'missing'
+      : !input.carrier.active
+        ? 'inactive'
+        : input.carrier.is_customer_pickup || input.carrier.bling_contact_id
+          ? null
+          : 'not_linked';
+  const carrierOk = carrierIssue === null;
 
   const items: ReadinessItem[] = [
     {
@@ -325,7 +332,9 @@ export function orderReadiness(input: ReadinessInput): Readiness {
     {
       key: 'category',
       ok: category.status === 'resolved' || category.status === 'chosen',
-      field: 'deal-category',
+      // Sem linha de produto a área da categoria nem aparece: o que resolve
+      // é adicionar o produto.
+      field: category.status === 'empty' ? 'deal-items' : 'deal-category',
     },
     {
       key: 'payment',
@@ -355,5 +364,6 @@ export function orderReadiness(input: ReadinessInput): Readiness {
     installments,
     unlinkedLines,
     staleLines,
+    carrierIssue,
   };
 }

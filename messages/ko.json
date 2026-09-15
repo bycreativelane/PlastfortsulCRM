@@ -503,7 +503,9 @@
       "toastStageChanged": "단계가 변경되었습니다",
       "toastFailedStage": "단계를 변경하지 못했습니다",
       "statusFailed": "상태를 변경하지 못했습니다. 다시 시도하세요.",
-      "moreActions": "추가 작업"
+      "moreActions": "추가 작업",
+      "stageBlockedLaunched": "이 주문은 이미 Bling에 미수금이 등록되어 상태에 맞는 단계에만 머뭅니다. 영업 기회에서 상태를 변경하세요.",
+      "stageBlockedOutcome": "이 거래는 Bling 주문입니다. 성사와 실패는 영업 기회의 주문 상태에서 정해집니다."
     },
     "sessionTimer": {
       "expired": "창 닫힘",
@@ -1246,7 +1248,8 @@
       "filters": "필터",
       "filtersTitle": "보드 필터",
       "ownerLabel": "담당자",
-      "dragBlockedLaunched": "이 주문은 Bling에 미수금이 전기되어 해당 상태의 단계에만 있을 수 있습니다. 바꾸려면 영업 기회에서 \"상태 변경\"을 사용하세요."
+      "dragBlockedLaunched": "이 주문은 Bling에 미수금이 전기되어 해당 상태의 단계에만 있을 수 있습니다. 바꾸려면 영업 기회에서 \"상태 변경\"을 사용하세요.",
+      "dragBlockedOutcome": "이 거래는 Bling 주문입니다. 성사와 실패는 주문 상태에서 정해집니다. 영업 기회에서 \"상태 변경\"을 사용하세요."
     },
     "board": {
       "dropDealHere": "여기에 딜을 놓으세요",
@@ -1387,12 +1390,13 @@
       "freightOwnReceiver": "수취인 자체 운송",
       "freightNone": "운임 없음",
       "toastOrderShapeFailed": "기회는 저장되었지만 결제와 배송 정보는 저장되지 않았습니다.",
-      "carrierNotMapped": "이 운송사는 아직 Bling 연락처에 연결되지 않았습니다(설정 › 영업 기회).",
+      "carrierNotMapped": "이 운송사는 아직 Bling 연락처에 연결되지 않았습니다(설정 › 딜 & 통화).",
       "toastOrderLocked": "이 주문은 현재 Bling 상태에서 잠겨 있어 변경 사항을 저장할 수 없습니다.",
       "deleteBlockedOrder": "이미 Bling 주문이 된 영업 기회는 삭제할 수 없습니다.",
       "installmentMethodNone": "결제 수단 선택",
       "installmentMethodRemoved": "목록에 없는 결제 수단",
-      "installmentNote": "메모"
+      "installmentNote": "메모",
+      "stageFollowsOrder": "Bling에 미수금이 등록되면 단계는 주문 상태를 따릅니다."
     },
     "settings": {
       "managePipeline": "파이프라인 관리",
@@ -1479,7 +1483,10 @@
       "total": "합계",
       "sku": "코드",
       "unit": "단위",
-      "lineTotal": "금액"
+      "lineTotal": "금액",
+      "inactiveProduct": "{name} (비활성 제품)",
+      "staleSnapshot": "품목에 들어간 뒤 카탈로그에서 이 제품이 바뀌었습니다.",
+      "refreshSnapshot": "카탈로그에서 새로고침"
     },
     "order": {
       "title": "주문",
@@ -1547,7 +1554,11 @@
         "methodNotAllowed": "{count, plural, other {관리자가 확인하지 않은 결제 수단의 할부 #건.}}",
         "installmentsShort": "총액까지 {value} 부족합니다.",
         "installmentsOver": "할부 합계가 총액보다 {value} 많습니다.",
-        "dueMissing": "만기일이 없는 할부가 있습니다."
+        "dueMissing": "만기일이 없는 할부가 있습니다.",
+        "stale": "품목에 들어간 뒤 카탈로그에서 제품이 바뀌었습니다: {names}. 해당 줄에서 \"카탈로그에서 새로고침\"을 사용하세요.",
+        "carrierMissing": "주문의 운송사를 선택하세요.",
+        "carrierInactive": "선택한 운송사가 비활성화되어 있습니다.",
+        "carrierNotLinked": "운송사에 Bling 연락처가 없습니다. 설정 › 딜 & 통화 › 운송사에서 연결하세요."
       },
       "address": {
         "zip_code": "우편번호",
@@ -1604,7 +1615,22 @@
         "invalid_status": "알 수 없는 상태입니다.",
         "status_not_mapped": "이 상태는 Bling 설정에서 확인되지 않았습니다.",
         "transition_not_allowed": "주문은 이 상태에서 그 상태로 갈 수 없습니다.",
-        "remote_status_mismatch": "Bling에서 주문이 다른 상태입니다. 여기서 바꾸기 전에 Bling을 확인하세요."
+        "remote_status_mismatch": "Bling에서 주문이 다른 상태입니다. 여기서 바꾸기 전에 Bling을 확인하세요.",
+        "order_locked": "이 상태에서는 주문이 잠겨 있습니다.",
+        "order_not_open": "Bling은 접수 상태의 주문만 업데이트를 받습니다. 접수로 되돌려 업데이트한 뒤 계속하세요.",
+        "order_not_synced": "마지막으로 Bling에 보낸 뒤 주문이 바뀌었습니다. 진행 중으로 옮기기 전에 Bling에서 업데이트하세요.",
+        "not_found": "영업 기회를 찾을 수 없습니다.",
+        "enqueue_failed": "주문을 대기열에 넣지 못했습니다. 다시 시도하세요.",
+        "invalid_transition": "지금은 주문을 이 상태로 옮길 수 없습니다.",
+        "not_created": "주문이 아직 Bling에 없습니다.",
+        "invalid_body": "요청이 서버에 불완전하게 도착했습니다. 다시 시도하세요.",
+        "accounts_not_reversed": "취소 후에도 Bling에 이 주문의 미수금이 남아 있습니다. 미수금 화면에서 확인하세요.",
+        "abandoned": "작업이 여러 번 중간에 멈춰 중단되었습니다. 다시 시도하세요.",
+        "lease_lost": "다른 시도가 이 작업을 넘겨받았습니다.",
+        "deal_missing": "이 주문의 영업 기회가 더 이상 없습니다.",
+        "no_id_returned": "Bling이 생성된 주문을 돌려주지 않았습니다. 다시 확인하는 중입니다.",
+        "save_key_failed": "주문 키를 저장하지 못했습니다. 다시 시도하는 중입니다.",
+        "unknown": "Bling이 지금은 받지 않았습니다 ({code})."
       },
       "statusChange": "상태 변경:",
       "statusConfirmTitle": "주문을 {status}(으)로 바꿀까요?",
@@ -1617,7 +1643,10 @@
         "cancelado": "Bling에서 주문을 취소하고 전기된 것을 역전기하며, 영업 기회를 \"주문 취소\" 사유로 실패 단계로 옮깁니다. 취소는 최종 상태입니다.",
         "compra_futura": "Bling에서 주문이 향후 구매가 되고 영업 기회는 향후 구매 단계로 이동합니다. 전기되는 것은 없습니다.",
         "em_aberto": "Bling에서 주문이 접수 상태로 돌아갑니다. 전기되는 것은 없습니다."
-      }
+      },
+      "syncNotOpen": "주문이 {status} 상태이면 Bling이 업데이트를 받지 않습니다. 업데이트하려면 접수로 되돌리세요.",
+      "categoryNoteLabel": "이 카테고리를 고른 이유",
+      "weightExceptionLabel": "중량 예외 사유"
     }
   },
   "Broadcasts": {
@@ -2709,7 +2738,8 @@
         "unnamed": "이름 없음",
         "selectLabel": "{name}의 Bling 영업 담당자",
         "none": "영업 담당자 없음",
-        "inactiveSeller": "{name}(비활성)"
+        "inactiveSeller": "{name}(비활성)",
+        "removedSeller": "판매자 {id} (Bling에서 삭제됨)"
       }
     },
     "invite": {
@@ -3423,7 +3453,9 @@
         "productsView": "제품 카탈로그 보기",
         "productsViewDesc": "직접 조회할 수 없는 가격은 결국 동료에게 묻게 됩니다.",
         "playbookView": "플레이북 보기"
-      }
+      },
+      "auditValueYes": "예",
+      "auditValueNo": "아니요"
     },
     "assignment": {
       "title": "자동 배정",
@@ -3905,6 +3937,18 @@
       "googleCalendar": {
         "title": "회사 캘린더, 양방향",
         "body": "설정 › 캘린더에서 Google 계정을 연결하세요. 그곳의 일정이 여기 보이고, 여기서 만든 작업이 그곳에 게시됩니다."
+      },
+      "orderShape": {
+        "title": "영업 기회가 판매 주문이 되었습니다",
+        "body": "Bling 주문 순서대로: 번호, 고객과 영업 담당자, 상품, 할부를 편집할 수 있는 결제 조건, 운송, 기타 비용과 할인 — 합계는 데이터베이스와 1센트까지 일치합니다."
+      },
+      "quoteSend": {
+        "title": "회사 브랜드의 견적서를 대화로 전송",
+        "body": "영업 기회 안에서 회사 정보로 견적서를 만드세요. PDF는 저장된 주문에서 만들어지고 문서에 보관되며, WhatsApp으로 이미지나 PDF로 보낼 수 있습니다."
+      },
+      "blingOrders": {
+        "title": "회사가 켜면 Bling 주문",
+        "body": "Bling 연결, 상품과 기초 정보, \"Bling 전송 준비\" 목록, 중복 없는 주문 생성, 미수금을 한 번만 전기하는 상태 변경. 관리자가 켜기 전까지는 꺼져 있습니다."
       }
     },
     "items": {
@@ -3999,7 +4043,23 @@
       "tasksApi": "공개 API의 /api/v1/tasks — tasks:read와 tasks:write 스코프.",
       "developersPage": "API 문서와 릴리스 노트를 담은 /developers 페이지.",
       "realtimeContacts": "자동화가 바꾼 태그, 연락처 필드, 영업기회가 새로고침 없이 반영됩니다.",
-      "callFollowUp": "통화 기록에서 후속 작업 만들기를 제안합니다."
+      "callFollowUp": "통화 기록에서 후속 작업 만들기를 제안합니다.",
+      "orderShape": "영업 기회에 판매 주문 번호, 상품, 운송, 기타 비용과 전체 할인 — Bling 순서대로.",
+      "installmentsBlock": "\"할부 생성\"이 있는 결제 조건: 만기일, 금액, 결제 수단, 메모를 편집할 수 있고 합계가 맞지 않으면 알려 줍니다.",
+      "quoteDocument": "서버에서 만드는 견적서. 로고와 회사 정보가 들어가고 중복 없이 문서 › 견적서에 보관됩니다.",
+      "quoteSend": "견적서를 WhatsApp으로 이미지나 PDF로 전송.",
+      "blingOrders": "Bling 연동: 연결, 상품, 주문, 상태, 미수금, 웹훅 — 관리자가 켜기 전까지 꺼짐.",
+      "contactFiscal": "연락처의 세금 정보와 주소: 구분, 주 등록번호, 우편번호, 도로명, 번지, 동네, 세금계산서 이메일.",
+      "teamMentions": "팀 채팅방의 @멘션과 알림, 사람별 읽지 않음 수.",
+      "notificationSound": "알림 소리 — 알림 유형별로 무엇이 방해할지 각자 고릅니다.",
+      "tasksViews": "작업을 목록, 보드, 캘린더로 — 메뉴 항목 하나에서.",
+      "exactMoney": "정확한 센트 단위: 화면, 견적서, 데이터베이스가 1센트까지 일치합니다.",
+      "futurePurchaseMoves": "향후 구매가 대화를 떠나지 않고 영업 기회를 해당 단계로 옮깁니다.",
+      "automationCreateDeal": "영업 기회를 만드는 자동화가 더 이상 \"잘못된 설정\"으로 멈추지 않습니다.",
+      "templateParams": "생일 및 향후 구매 자동화의 WhatsApp 오류 #132000.",
+      "noUuidLabels": "선택 항목이 이름 대신 식별자를 보여 주지 않습니다.",
+      "datesOffByOne": "하루 전으로 표시되던 날짜.",
+      "anonFunctions": "로그인 없이 데이터베이스 함수를 실행할 수 없습니다."
     },
     "seeIt": "보러 가기"
   },
@@ -4246,7 +4306,7 @@
   },
   "Bling": {
     "title": "Bling",
-    "description": "회사의 Bling 계정을 연결하세요. 이 단계에서 CRM은 연결을 확인하고 회사 기본 정보만 읽습니다. 주문, 제품, 연락처는 다음 단계에서 추가됩니다.",
+    "description": "회사의 Bling 계정을 연결하세요. 참조 데이터와 제품을 여기서 가져오며, Bling 주문을 켜면 영업 기회가 Bling에 판매 주문을 등록합니다.",
     "loading": "연결 정보를 불러오는 중…",
     "loadFailed": "Bling 연결 정보를 불러오지 못했습니다.",
     "retry": "다시 시도",
@@ -4298,7 +4358,8 @@
       "company_failed": "Bling이 회사 정보를 반환하지 않았습니다. 앱에 회사 기본 정보 범위가 있는지 확인하세요.",
       "company_mismatch": "이 계정은 이미 다른 Bling 회사에 연결되어 있습니다. 변경하려면 먼저 연결을 해제하세요.",
       "save_failed": "연결을 저장하지 못했습니다. 다시 연결하세요.",
-      "failed": "연결 중 문제가 발생했습니다. 다시 연결하세요."
+      "failed": "연결 중 문제가 발생했습니다. 다시 연결하세요.",
+      "company_in_use": "이 Bling 회사는 이미 다른 CRM 계정에 연결되어 있습니다. 그곳에서 연결을 해제한 뒤 여기서 연결하세요."
     },
     "references": {
       "title": "Bling 등록 정보",
@@ -4386,7 +4447,9 @@
       "warehouses": "{count, plural, =0 {활성 창고 없음} other {활성 창고 #개}}",
       "logistics": "{count, plural, =0 {활성 물류 없음} other {활성 물류 #개}}",
       "customerTypeOk": "\"Cliente\" 연락처 유형 있음",
-      "customerTypeMissing": "\"Cliente\" 연락처 유형 없음"
+      "customerTypeMissing": "\"Cliente\" 연락처 유형 없음",
+      "removedOption": "{label} (Bling에서 삭제됨)",
+      "paymentRemovedHint": "이전에 확인했지만 Bling에서 삭제되었습니다. 목록에서 빼려면 선택을 해제하세요."
     },
     "products": {
       "title": "Bling 제품",
@@ -4456,7 +4519,8 @@
       "exceptionFor": "{name}의 카테고리",
       "noException": "예외 없음",
       "auxiliary": "보조 품목",
-      "showMore": "더 보기 ({count})"
+      "showMore": "더 보기 ({count})",
+      "removedCategory": "{label} (수익 카테고리 밖)"
     },
     "orders": {
       "title": "Bling 주문",

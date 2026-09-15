@@ -52,7 +52,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ deal
     const { data: deal } = await db
       .from('deals')
       .select(
-        'id, order_status, sync_status, sync_error, bling_order_id, bling_order_number, last_synced_at, accounts_launched_at, stock_launched_at, stage_id, status'
+        'id, order_status, sync_status, sync_error, bling_order_id, bling_external_key, bling_order_number, last_synced_at, accounts_launched_at, stock_launched_at, stage_id, status'
       )
       .eq('id', dealId)
       .eq('account_id', ctx.accountId)

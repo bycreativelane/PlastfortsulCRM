@@ -84,3 +84,19 @@ export interface AuditEntry {
   metadata: Record<string, unknown>;
   created_at: string;
 }
+
+/**
+ * A value from `metadata.changes`, readable: text as is, numbers, yes/no,
+ * lists. The panel used to read only text — turning Bling orders on (`true`)
+ * showed as "— → —", the audit log saying nothing had changed.
+ */
+export function auditValue(value: unknown, labels: { yes: string; no: string }): string {
+  if (typeof value === 'string') return value || '—';
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  if (typeof value === 'boolean') return value ? labels.yes : labels.no;
+  if (Array.isArray(value)) {
+    const parts = value.map((v) => auditValue(v, labels)).filter((v) => v !== '—');
+    return parts.length ? parts.join(', ') : '—';
+  }
+  return '—';
+}

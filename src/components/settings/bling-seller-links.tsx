@@ -102,6 +102,11 @@ export function BlingSellerLinks({ members }: { members: Pessoa[] }) {
                   className="bg-muted border-border text-foreground w-full sm:w-64"
                 >
                   <option value="">{t('none')}</option>
+                  {/* Vínculo com um vendedor que saiu do Bling: sem esta opção
+                      o seletor desenhava o id cru. */}
+                  {atual && !dados.sellers!.some((s) => s.id === atual) ? (
+                    <option value={atual}>{t('removedSeller', { id: atual })}</option>
+                  ) : null}
                   {dados.sellers!.map((s) => {
                     const outro = doOutro.get(s.id);
                     return (

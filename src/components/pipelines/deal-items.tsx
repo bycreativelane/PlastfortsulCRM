@@ -7,11 +7,13 @@ import { Package, Plus, Trash2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { formatCurrencyExact } from '@/lib/currency';
 import { fromCents, linesTotalCents } from '@/lib/money';
+import { snapshotMatches } from '@/lib/deals/order-rules';
 import {
   itemSnapshot,
   lineTotal,
   loadDealItems,
   loadProducts,
+  productFacts,
   type DealItemDraft,
   type Product,
 } from '@/lib/products/catalog';
@@ -196,147 +198,206 @@ export function DealItemsEditor({
         />
       ) : (
         <ul className="border-border divide-border divide-y rounded-md border">
-          {items.map((item, index) => (
-            <li key={index} className="space-y-2 p-2.5">
-              {/* One column on a phone, four on a desk. A quote line is
+          {items.map((item, index) => {
+            const produtoAtual = item.productId
+              ? products.find((p) => p.id === item.productId)
+              : undefined;
+            /*
+             * O PRODUTO MUDOU DEPOIS DE ENTRAR NA LINHA — outro vínculo no
+             * Bling, outro tipo, outra categoria. O servidor não manda uma
+             * linha assim (auditoria da 0.11.0), e escolher o mesmo produto
+             * de novo no seletor não dispara nada: o botão refaz o que a
+             * linha congela do produto, sem mexer em nome, preço e desconto.
+             */
+            const desatualizada =
+              !!produtoAtual &&
+              !snapshotMatches(
+                item,
+                productFacts(produtoAtual, resolveCategory)
+              );
+            return (
+              <li key={index} className="space-y-2 p-2.5">
+                {/* One column on a phone, four on a desk. A quote line is
                   five numbers and a name; side by side they are a table,
                   stacked they are a form — and a table at 360px is a
                   horizontal scrollbar inside a dialog. */}
-              <div className="flex items-start gap-2">
-                <IconTile size="xs" className="mt-1">
-                  <Package />
-                </IconTile>
-                <div className="min-w-0 flex-1 space-y-2">
-                  <OptionSelect
-                    value={item.productId ?? ''}
-                    disabled={disabled}
-                    aria-label={t('product')}
-                    onValueChange={(value) => {
-                      const product = products.find((p) => p.id === value);
-                      // Choosing a product seeds the name and the price;
-                      // clearing it back to free text keeps whatever was
-                      // typed, because the line is usually being renamed
-                      // rather than emptied.
-                      // O código e a unidade vêm junto e ficam CONGELADOS
-                      // na linha (075), como o nome desde a 054: o
-                      // documento imprime as três colunas, e um orçamento
-                      // de junho tem de mostrar o SKU de junho.
-                      patch(index, {
-                        productId: product?.id ?? null,
-                        name: product?.name ?? item.name,
-                        sku: product?.sku ?? (product ? null : item.sku),
-                        unit: product?.unit ?? (product ? null : item.unit),
-                        unitPrice: product?.price ?? item.unitPrice,
-                        // Preço de lista, peso, vínculo, tipo e categoria,
-                        // congelados agora (085) — voltar a texto livre
-                        // limpa tudo, porque não há mais de onde vieram.
-                        ...itemSnapshot(product, resolveCategory),
-                      });
-                    }}
-                  >
-                    <option value="">{t('freeText')}</option>
-                    {products.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {[p.sku, p.name, p.size_label]
-                          .filter(Boolean)
-                          .join(' — ')}
-                      </option>
-                    ))}
-                  </OptionSelect>
+                <div className="flex items-start gap-2">
+                  <IconTile size="xs" className="mt-1">
+                    <Package />
+                  </IconTile>
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <OptionSelect
+                      value={item.productId ?? ''}
+                      disabled={disabled}
+                      aria-label={t('product')}
+                      onValueChange={(value) => {
+                        const product = products.find((p) => p.id === value);
+                        // Choosing a product seeds the name and the price;
+                        // clearing it back to free text keeps whatever was
+                        // typed, because the line is usually being renamed
+                        // rather than emptied.
+                        // O código e a unidade vêm junto e ficam CONGELADOS
+                        // na linha (075), como o nome desde a 054: o
+                        // documento imprime as três colunas, e um orçamento
+                        // de junho tem de mostrar o SKU de junho.
+                        patch(index, {
+                          productId: product?.id ?? null,
+                          name: product?.name ?? item.name,
+                          sku: product?.sku ?? (product ? null : item.sku),
+                          unit: product?.unit ?? (product ? null : item.unit),
+                          unitPrice: product?.price ?? item.unitPrice,
+                          // Preço de lista, peso, vínculo, tipo e categoria,
+                          // congelados agora (085) — voltar a texto livre
+                          // limpa tudo, porque não há mais de onde vieram.
+                          ...itemSnapshot(product, resolveCategory),
+                        });
+                      }}
+                    >
+                      <option value="">{t('freeText')}</option>
+                      {/* Produto desativado (ou de fora do catálogo que
+                        carregou): sem esta opção o seletor desenhava o id
+                        cru no lugar do nome. */}
+                      {item.productId && !produtoAtual && (
+                        <option value={item.productId}>
+                          {t('inactiveProduct', {
+                            name: item.name || t('freeText'),
+                          })}
+                        </option>
+                      )}
+                      {products.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {[p.sku, p.name, p.size_label]
+                            .filter(Boolean)
+                            .join(' — ')}
+                        </option>
+                      ))}
+                    </OptionSelect>
 
-                  <Input
-                    value={item.name}
-                    disabled={disabled}
-                    placeholder={t('namePlaceholder')}
-                    aria-label={t('lineName')}
-                    onChange={(e) => patch(index, { name: e.target.value })}
-                  />
+                    {desatualizada && produtoAtual && (
+                      <p className="text-human-ink text-2xs flex flex-wrap items-center gap-x-2">
+                        {t('staleSnapshot')}
+                        {!disabled && (
+                          <Button
+                            type="button"
+                            variant="link"
+                            size="sm"
+                            className="text-2xs h-auto p-0"
+                            onClick={() => {
+                              const atual = itemSnapshot(
+                                produtoAtual,
+                                resolveCategory
+                              );
+                              patch(index, {
+                                unitGrossWeightKg: atual.unitGrossWeightKg,
+                                blingProductId: atual.blingProductId,
+                                blingProductType: atual.blingProductType,
+                                revenueCategoryBlingId:
+                                  atual.revenueCategoryBlingId,
+                                definesOrderCategory:
+                                  atual.definesOrderCategory,
+                              });
+                            }}
+                          >
+                            {t('refreshSnapshot')}
+                          </Button>
+                        )}
+                      </p>
+                    )}
 
-                  {/* CÓDIGO E UNIDADE, os dois campos que o pedido de
+                    <Input
+                      value={item.name}
+                      disabled={disabled}
+                      placeholder={t('namePlaceholder')}
+                      aria-label={t('lineName')}
+                      onChange={(e) => patch(index, { name: e.target.value })}
+                    />
+
+                    {/* CÓDIGO E UNIDADE, os dois campos que o pedido de
                       venda do Bling mostra ao lado da descrição. Vêm
                       preenchidos ao escolher um produto e continuam
                       editáveis, porque uma linha de texto livre —
                       "montagem", "frete" — também pode ter unidade e não
                       tem produto de onde herdar. */}
-                  <div className="grid grid-cols-2 gap-2">
-                    <TextField
-                      label={t('sku')}
-                      value={item.sku ?? ''}
-                      disabled={disabled}
-                      onChange={(v) => patch(index, { sku: v || null })}
-                    />
-                    <TextField
-                      label={t('unit')}
-                      value={item.unit ?? ''}
-                      disabled={disabled}
-                      onChange={(v) => patch(index, { unit: v || null })}
-                    />
-                  </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <TextField
+                        label={t('sku')}
+                        value={item.sku ?? ''}
+                        disabled={disabled}
+                        onChange={(v) => patch(index, { sku: v || null })}
+                      />
+                      <TextField
+                        label={t('unit')}
+                        value={item.unit ?? ''}
+                        disabled={disabled}
+                        onChange={(v) => patch(index, { unit: v || null })}
+                      />
+                    </div>
 
-                  {/* Three across from 320px of CONTAINER, one column
+                    {/* Three across from 320px of CONTAINER, one column
                       below it. A quote line's three numbers at ~95px each
                       is tight and readable; at ~70px — which is what a
                       360px phone leaves once the dialog padding, the
                       product disc and the delete button are paid for —
                       the value is hidden behind the stepper arrows. */}
-                  <div className="grid grid-cols-1 gap-2 @xs:grid-cols-3">
-                    <NumberField
-                      label={t('quantity')}
-                      value={item.quantity}
-                      min={0}
-                      step="0.001"
-                      disabled={disabled}
-                      onChange={(v) => patch(index, { quantity: v })}
-                    />
-                    <NumberField
-                      label={t('unitPrice')}
-                      value={item.unitPrice}
-                      min={0}
-                      step="0.01"
-                      disabled={disabled}
-                      onChange={(v) => patch(index, { unitPrice: v })}
-                    />
-                    <NumberField
-                      label={t('discount')}
-                      value={item.discountPercent}
-                      min={0}
-                      max={100}
-                      step="0.01"
-                      disabled={disabled}
-                      onChange={(v) => patch(index, { discountPercent: v })}
-                    />
+                    <div className="grid grid-cols-1 gap-2 @xs:grid-cols-3">
+                      <NumberField
+                        label={t('quantity')}
+                        value={item.quantity}
+                        min={0}
+                        step="0.001"
+                        disabled={disabled}
+                        onChange={(v) => patch(index, { quantity: v })}
+                      />
+                      <NumberField
+                        label={t('unitPrice')}
+                        value={item.unitPrice}
+                        min={0}
+                        step="0.01"
+                        disabled={disabled}
+                        onChange={(v) => patch(index, { unitPrice: v })}
+                      />
+                      <NumberField
+                        label={t('discount')}
+                        value={item.discountPercent}
+                        min={0}
+                        max={100}
+                        step="0.01"
+                        disabled={disabled}
+                        onChange={(v) => patch(index, { discountPercent: v })}
+                      />
+                    </div>
                   </div>
+
+                  {!disabled && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setItems((prev) => prev.filter((_, i) => i !== index))
+                      }
+                      aria-label={t('removeLine')}
+                      className="text-muted-foreground hover:bg-muted hover:text-destructive mt-1 grid size-7 shrink-0 place-items-center rounded transition-colors"
+                    >
+                      <Trash2 className="size-3.5" />
+                    </button>
+                  )}
                 </div>
 
-                {!disabled && (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setItems((prev) => prev.filter((_, i) => i !== index))
-                    }
-                    aria-label={t('removeLine')}
-                    className="text-muted-foreground hover:bg-muted hover:text-destructive mt-1 grid size-7 shrink-0 place-items-center rounded transition-colors"
-                  >
-                    <Trash2 className="size-3.5" />
-                  </button>
-                )}
-              </div>
-
-              {/* PREÇO TOTAL com o rótulo junto. Era um número solto à
+                {/* PREÇO TOTAL com o rótulo junto. Era um número solto à
                   direita, e um número solto num bloco com outros três não
                   diz qual dos quatro ele é. Em centavos, como o documento
                   imprime: `formatCurrency` arredonda para o real e faria a
                   linha discordar do papel em R$ 0,50. */}
-              <p className="text-secondary-foreground flex items-center justify-end gap-2 text-right text-xs">
-                <span className="text-muted-foreground text-3xs">
-                  {t('lineTotal')}
-                </span>
-                <span className="font-semibold tabular-nums">
-                  {formatCurrencyExact(lineTotal(item), currency)}
-                </span>
-              </p>
-            </li>
-          ))}
+                <p className="text-secondary-foreground flex items-center justify-end gap-2 text-right text-xs">
+                  <span className="text-muted-foreground text-3xs">
+                    {t('lineTotal')}
+                  </span>
+                  <span className="font-semibold tabular-nums">
+                    {formatCurrencyExact(lineTotal(item), currency)}
+                  </span>
+                </p>
+              </li>
+            );
+          })}
         </ul>
       )}
 
@@ -356,8 +417,12 @@ export function DealItemsEditor({
 }
 
 /** NUMERIC chega como número ou texto; ausência continua ausência. */
-function numeroOuNulo(valor: number | string | null | undefined): number | null {
-  return valor === null || valor === undefined || valor === '' ? null : Number(valor);
+function numeroOuNulo(
+  valor: number | string | null | undefined
+): number | null {
+  return valor === null || valor === undefined || valor === ''
+    ? null
+    : Number(valor);
 }
 
 /** Um campo de texto pequeno com rótulo — o irmão do `NumberField`. */

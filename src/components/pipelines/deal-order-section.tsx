@@ -8,6 +8,7 @@ import { fromCents } from '@/lib/money';
 import type { DealOrderFields } from '@/lib/deals/row';
 import type { OrderLock, OrderStatus } from '@/lib/deals/order-lock';
 import { isColumnFree } from '@/lib/deals/order-lock';
+import { describeSyncError } from '@/lib/bling/sync-errors';
 import { NEXT_STATUSES } from '@/lib/bling/transitions';
 import type { Readiness, ReadinessKey } from '@/lib/deals/order-rules';
 import type { DealItemDraft } from '@/lib/products/catalog';
@@ -80,11 +81,17 @@ export function DealOrderSection({
   onSync,
   hasBlingOrder = false,
   onChangeStatus,
+  canSync = true,
 }: {
   /** A chave geral dos pedidos (086): mostra "Registrar no Bling". */
   ordersEnabled?: boolean;
   syncBusy?: boolean;
   onSync?: () => void;
+  /**
+   * O Bling aceita atualizar este pedido: Em aberto (ou ainda sem pedido).
+   * Compra futura destrava os campos no CRM, mas atualizar ali era recusa.
+   */
+  canSync?: boolean;
   /** O pedido já existe no Bling: as mudanças de situação aparecem (Fase 5). */
   hasBlingOrder?: boolean;
   onChangeStatus?: (to: OrderStatus) => void;
@@ -134,11 +141,18 @@ export function DealOrderSection({
         }
         if (customer.stateRegistration) return t('detail.stateRegistration');
         return null;
-      case 'products':
+      case 'products': {
         if (lines.length === 0) return t('detail.noLines');
-        return readiness.unlinkedLines.length
-          ? t('detail.unlinked', { names: readiness.unlinkedLines.map(nomeDaLinha).join(', ') })
-          : null;
+        const velhas = new Set(readiness.staleLines);
+        const semVinculo = readiness.unlinkedLines.filter((i) => !velhas.has(i));
+        const partes = [
+          semVinculo.length ? t('detail.unlinked', { names: semVinculo.map(nomeDaLinha).join(', ') }) : null,
+          readiness.staleLines.length
+            ? t('detail.stale', { names: readiness.staleLines.map(nomeDaLinha).join(', ') })
+            : null,
+        ].filter(Boolean);
+        return partes.length ? partes.join(' ') : null;
+      }
       case 'weight':
         return weight.missing.length
           ? t('detail.noWeight', { names: weight.missing.map(nomeDaLinha).join(', ') })
@@ -172,6 +186,9 @@ export function DealOrderSection({
         if (installments.missingDue.length) return t('detail.dueMissing');
         return null;
       case 'carrier':
+        if (readiness.carrierIssue === 'missing') return t('detail.carrierMissing');
+        if (readiness.carrierIssue === 'inactive') return t('detail.carrierInactive');
+        if (readiness.carrierIssue === 'not_linked') return t('detail.carrierNotLinked');
         return null;
     }
   };
@@ -340,6 +357,7 @@ export function DealOrderSection({
                 id="deal-category-note"
                 value={fields.revenueCategoryNote}
                 onChange={(e) => onChange({ revenueCategoryNote: e.target.value })}
+                aria-label={t('categoryNoteLabel')}
                 placeholder={t('categoryNotePlaceholder')}
                 maxLength={240}
                 disabled={!livre('revenue_category_note')}
@@ -384,6 +402,7 @@ export function DealOrderSection({
               id="deal-weight-exception"
               value={fields.weightExceptionNote}
               onChange={(e) => onChange({ weightExceptionNote: e.target.value })}
+              aria-label={t('weightExceptionLabel')}
               placeholder={
                 canAuthorizeWeight ? t('weightExceptionPlaceholder') : t('weightExceptionAdminOnly')
               }
@@ -466,14 +485,18 @@ export function DealOrderSection({
                 size="sm"
                 variant={blingOrderNumber ? 'outline' : 'default'}
                 onClick={onSync}
-                disabled={disabled || syncBusy || lock !== 'open' || !readiness.ready}
+                disabled={disabled || syncBusy || lock !== 'open' || !canSync || !readiness.ready}
               >
                 {syncBusy && <Loader2 className="size-3.5 animate-spin" />}
                 {blingOrderNumber ? t('syncUpdate') : t('syncCreate')}
               </Button>
-              {!readiness.ready && (
+              {lock === 'open' && !canSync ? (
+                <span className="text-muted-foreground text-2xs">
+                  {t('syncNotOpen', { status: orderStatus ? t(`status.${orderStatus}`) : '' })}
+                </span>
+              ) : !readiness.ready ? (
                 <span className="text-muted-foreground text-2xs">{t('syncNeedsReady')}</span>
-              )}
+              ) : null}
             </div>
           )}
         </div>
@@ -482,67 +505,4 @@ export function DealOrderSection({
   );
 }
 
-/**
- * A mensagem de erro gravada pela fila, na língua de quem lê.
- *
- * Os códigos do CRM (`contact_ambiguous`, `payload:no_category,…`) viram
- * frase; o que o Bling disse (`bling:400:…`) vai como veio, sem o prefixo.
- */
-export function describeSyncError(
-  erro: string,
-  t: (chave: string, valores?: Record<string, string | number>) => string
-): string {
-  if (erro.startsWith('bling:')) {
-    const [, status, ...resto] = erro.split(':');
-    return t('errors.bling', { status, detail: resto.join(':') });
-  }
-  if (erro.startsWith('payload:')) {
-    return erro
-      .slice('payload:'.length)
-      .split(',')
-      .map((codigo) => (CODIGOS_DE_MONTAGEM.has(codigo) ? t(`errors.payload.${codigo}`) : codigo))
-      .join(' ');
-  }
-  if (erro.startsWith('diff:')) {
-    return t('errors.diff', { fields: erro.slice('diff:'.length) });
-  }
-  return CODIGOS_DE_ERRO.has(erro) ? t(`errors.${erro}`) : erro;
-}
-
-const CODIGOS_DE_ERRO = new Set([
-  'orders_disabled',
-  'not_connected',
-  'company_mismatch',
-  'contact_document_missing',
-  'contact_ambiguous',
-  'contact_link_broken',
-  'order_not_created',
-  'order_launched',
-  'duplicate_remote',
-  'remote_not_open',
-  'remote_missing',
-  'daily_limit',
-  'unexpected',
-  'refresh_busy',
-  'refresh_throttled',
-  'limiter_unavailable',
-  'revoked',
-  'not_configured',
-  'invalid_status',
-  'status_not_mapped',
-  'transition_not_allowed',
-  'remote_status_mismatch',
-]);
-
-const CODIGOS_DE_MONTAGEM = new Set([
-  'no_contact',
-  'no_items',
-  'item_not_linked',
-  'no_category',
-  'no_installments',
-  'installment_without_method',
-  'installment_without_due',
-  'installments_mismatch',
-  'no_open_status',
-  'invalid_id',
-]);
+export { describeSyncError };

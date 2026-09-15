@@ -18,6 +18,7 @@ import {
   useDealOutcome,
 } from '@/components/pipelines/deal-outcome';
 import { isLostStage, isWonStage } from '@/lib/deals/outcome';
+import { boardMoveBlock } from '@/lib/bling/transitions';
 import type {
   Conversation,
   Message,
@@ -1012,6 +1013,27 @@ export function MessageThread({
       // deal (no value, no title), so the gate needs the row itself — one
       // read, and only on the two stages that ask for anything.
       const target = dealStages.find((st) => st.id === stageId) ?? null;
+      // A regra do quadro vale aqui (auditoria da 0.11.0): pedido no Bling
+      // com contas lançadas só fica na etapa da situação, e ganho/perdido
+      // de pedido vêm da situação, não deste seletor.
+      const { data: pedido } = await createClient()
+        .from('deals')
+        .select('bling_order_id, order_status, accounts_launched_at')
+        .eq('id', dealId)
+        .maybeSingle();
+      const bloqueio =
+        pedido && target
+          ? boardMoveBlock({
+              blingOrderId: (pedido as Partial<Deal>).bling_order_id,
+              orderStatus: (pedido as Partial<Deal>).order_status,
+              accountsLaunchedAt: (pedido as Partial<Deal>).accounts_launched_at,
+              targetStageName: target.name,
+            })
+          : null;
+      if (bloqueio) {
+        toast.error(t(bloqueio === 'launched' ? 'stageBlockedLaunched' : 'stageBlockedOutcome'));
+        return;
+      }
       if (target && (isWonStage(target.name) || isLostStage(target.name))) {
         const { data } = await createClient()
           .from('deals')

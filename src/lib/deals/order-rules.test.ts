@@ -6,6 +6,8 @@ import {
   orderCategory,
   orderReadiness,
   orderWeight,
+  snapshotMatches,
+  type ProductFacts,
   type ReadinessInput,
 } from './order-rules';
 
@@ -211,5 +213,93 @@ describe('orderReadiness — a lista toda verde', () => {
       'payment',
       'installments',
     ]);
+  });
+});
+
+describe('orderReadiness — o que a auditoria da 0.11.0 acrescentou', () => {
+  const base: ReadinessInput = {
+    contact: {
+      tax_id: '11222333000181',
+      person_type: 'J',
+      zip_code: '90000000',
+      street: 'Rua de Teste',
+      street_number: '100',
+      district: 'Centro',
+      city: 'Cidade Exemplo',
+      state: 'RS',
+      taxpayer_indicator: '9',
+    },
+    lines: [
+      {
+        productId: 'p1',
+        blingProductId: 'b1',
+        quantity: 2,
+        unitGrossWeightKg: 1.5,
+        blingProductType: 'P',
+        revenueCategoryBlingId: 'cat',
+        definesOrderCategory: true,
+      },
+    ],
+    activeProductIds: new Set(['p1']),
+    weightExceptionNote: null,
+    chosenCategoryId: null,
+    installments: [{ amount: 100, dueOn: '2026-10-15', paymentMethodBlingId: '1' }],
+    totalCents: 10000,
+    allowedPaymentMethods: new Set(['1']),
+    carrier: { id: 'c1', active: true, is_customer_pickup: false, bling_contact_id: '99' },
+  };
+  const produto: ProductFacts = {
+    blingProductId: 'b1',
+    blingProductType: 'P',
+    revenueCategoryBlingId: 'cat',
+    definesOrderCategory: true,
+  };
+
+  it('snapshot igual ao produto de agora: pronto', () => {
+    const r = orderReadiness({ ...base, currentProducts: new Map([['p1', produto]]) });
+    expect(r.ready).toBe(true);
+    expect(r.staleLines).toEqual([]);
+  });
+
+  it('cada fato que muda no produto torna a linha velha', () => {
+    for (const mudanca of [
+      { blingProductId: 'b2' },
+      { blingProductType: 'S' },
+      { revenueCategoryBlingId: 'outra' },
+      { definesOrderCategory: false },
+    ] as Array<Partial<ProductFacts>>) {
+      const r = orderReadiness({ ...base, currentProducts: new Map([['p1', { ...produto, ...mudanca }]]) });
+      expect(r.staleLines).toEqual([0]);
+      expect(r.unlinkedLines).toEqual([0]);
+      expect(r.items.find((i) => i.key === 'products')?.ok).toBe(false);
+    }
+  });
+
+  it('produto fora do mapa (inativo) é sem vínculo, mas não "velho"', () => {
+    const r = orderReadiness({ ...base, activeProductIds: null, currentProducts: new Map() });
+    expect(r.unlinkedLines).toEqual([0]);
+    expect(r.staleLines).toEqual([]);
+  });
+
+  it('o motivo da transportadora', () => {
+    expect(orderReadiness(base).carrierIssue).toBeNull();
+    expect(orderReadiness({ ...base, carrier: null }).carrierIssue).toBe('missing');
+    expect(orderReadiness({ ...base, carrier: { ...base.carrier!, active: false } }).carrierIssue).toBe('inactive');
+    expect(orderReadiness({ ...base, carrier: { ...base.carrier!, bling_contact_id: null } }).carrierIssue).toBe('not_linked');
+  });
+
+  it('sem produto, a categoria leva à lista de produtos', () => {
+    const r = orderReadiness({ ...base, lines: [] });
+    expect(r.items.find((i) => i.key === 'category')?.field).toBe('deal-items');
+    expect(orderReadiness(base).items.find((i) => i.key === 'category')?.field).toBe('deal-category');
+  });
+});
+
+describe('snapshotMatches', () => {
+  it('compara vínculo, tipo, categoria e "define a categoria"', () => {
+    const linha = { productId: 'p1', quantity: 1, blingProductId: 'b1', blingProductType: null, revenueCategoryBlingId: 'c', definesOrderCategory: undefined };
+    const fatos: ProductFacts = { blingProductId: 'b1', blingProductType: null, revenueCategoryBlingId: 'c', definesOrderCategory: true };
+    expect(snapshotMatches(linha, fatos)).toBe(true);
+    expect(snapshotMatches({ ...linha, definesOrderCategory: false }, fatos)).toBe(false);
   });
 });

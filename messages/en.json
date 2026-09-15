@@ -503,7 +503,9 @@
       "toastStageChanged": "Stage changed",
       "toastFailedStage": "Could not change the stage",
       "statusFailed": "Could not change the status. Try again.",
-      "moreActions": "More actions"
+      "moreActions": "More actions",
+      "stageBlockedLaunched": "This order already has receivables posted in Bling and stays in its status stage. Change the status on the deal.",
+      "stageBlockedOutcome": "This deal is a Bling order: won and lost come from the order status, on the deal."
     },
     "sessionTimer": {
       "expired": "Window closed",
@@ -1246,7 +1248,8 @@
       "filters": "Filters",
       "filtersTitle": "Board filters",
       "ownerLabel": "Owner",
-      "dragBlockedLaunched": "This order already has receivables posted in Bling and stays in its status's stage. To change it, use \"Change status\" on the deal."
+      "dragBlockedLaunched": "This order already has receivables posted in Bling and stays in its status's stage. To change it, use \"Change status\" on the deal.",
+      "dragBlockedOutcome": "This deal is a Bling order: won and lost come from the order status. Use \"Change status\" on the deal."
     },
     "board": {
       "dropDealHere": "Drop a deal here",
@@ -1387,12 +1390,13 @@
       "freightOwnReceiver": "Receiver's own transport",
       "freightNone": "No freight",
       "toastOrderShapeFailed": "The opportunity was saved, but payment and shipping details could not be.",
-      "carrierNotMapped": "This carrier is not linked to a Bling contact yet (Settings › Deals).",
+      "carrierNotMapped": "This carrier is not linked to a Bling contact yet (Settings › Deals & currency).",
       "toastOrderLocked": "This order is locked in its current Bling status — the changes cannot be saved.",
       "deleteBlockedOrder": "This deal is already an order in Bling and cannot be deleted.",
       "installmentMethodNone": "Pick a method",
       "installmentMethodRemoved": "Method no longer listed",
-      "installmentNote": "Note"
+      "installmentNote": "Note",
+      "stageFollowsOrder": "With receivables posted in Bling, the stage follows the order status."
     },
     "settings": {
       "managePipeline": "Manage Pipeline",
@@ -1479,7 +1483,10 @@
       "total": "Total",
       "sku": "Code",
       "unit": "Unit",
-      "lineTotal": "Line total"
+      "lineTotal": "Line total",
+      "inactiveProduct": "{name} (deactivated product)",
+      "staleSnapshot": "This product changed in the catalog after it went into the line.",
+      "refreshSnapshot": "Refresh from catalog"
     },
     "order": {
       "title": "Order",
@@ -1547,7 +1554,11 @@
         "methodNotAllowed": "{count, plural, one {# installment with a method the admin has not confirmed.} other {# installments with a method the admin has not confirmed.}}",
         "installmentsShort": "{value} short of the total.",
         "installmentsOver": "Installments exceed the total by {value}.",
-        "dueMissing": "An installment has no due date."
+        "dueMissing": "An installment has no due date.",
+        "stale": "The product changed in the catalog after it went into the line: {names}. Use \"Refresh from catalog\" on the line.",
+        "carrierMissing": "Choose the order's carrier.",
+        "carrierInactive": "The chosen carrier is deactivated.",
+        "carrierNotLinked": "The carrier has no contact in Bling. Link it in Settings › Deals & currency › Carriers."
       },
       "address": {
         "zip_code": "ZIP code",
@@ -1604,7 +1615,22 @@
         "invalid_status": "Unknown status.",
         "status_not_mapped": "This status has not been confirmed in the Bling settings.",
         "transition_not_allowed": "The order cannot go from this status to that one.",
-        "remote_status_mismatch": "In Bling the order is in another status. Check it there before changing it here."
+        "remote_status_mismatch": "In Bling the order is in another status. Check it there before changing it here.",
+        "order_locked": "The order is locked in this status.",
+        "order_not_open": "Bling only accepts updates to an Open order. Move it back to Open, update, then continue.",
+        "order_not_synced": "The order changed since it last went to Bling. Update it in Bling before moving it to In progress.",
+        "not_found": "Deal not found.",
+        "enqueue_failed": "Could not queue the order. Try again.",
+        "invalid_transition": "The order cannot move to this status now.",
+        "not_created": "The order does not exist in Bling yet.",
+        "invalid_body": "The request reached the server incomplete. Try again.",
+        "accounts_not_reversed": "Bling still shows open receivables for this order after the reversal. Check Accounts receivable.",
+        "abandoned": "The operation stopped halfway several times and was abandoned. Try again.",
+        "lease_lost": "Another attempt took over this operation.",
+        "deal_missing": "This order's deal no longer exists.",
+        "no_id_returned": "Bling did not return the created order. Checking again.",
+        "save_key_failed": "Could not save the order key. Retrying.",
+        "unknown": "Bling did not accept it just now ({code})."
       },
       "statusChange": "Change status:",
       "statusConfirmTitle": "Change the order to {status}?",
@@ -1617,7 +1643,10 @@
         "cancelado": "This cancels the order in Bling, reverses what was posted and moves the deal to Lost with the reason \"Order canceled\". Canceled is final.",
         "compra_futura": "The order becomes Future purchase in Bling and the deal moves to Future Purchase. Nothing is posted.",
         "em_aberto": "The order goes back to Open in Bling. Nothing is posted."
-      }
+      },
+      "syncNotOpen": "With the order in {status}, Bling does not accept updates. Move it back to Open to update.",
+      "categoryNoteLabel": "Why this category",
+      "weightExceptionLabel": "Reason for the weight exception"
     }
   },
   "Broadcasts": {
@@ -2709,7 +2738,8 @@
         "unnamed": "Unnamed",
         "selectLabel": "Bling salesperson for {name}",
         "none": "No salesperson",
-        "inactiveSeller": "{name} (inactive)"
+        "inactiveSeller": "{name} (inactive)",
+        "removedSeller": "Seller {id} (removed from Bling)"
       }
     },
     "invite": {
@@ -3423,7 +3453,9 @@
         "productsView": "See the product catalogue",
         "productsViewDesc": "A price somebody cannot look up is a price they ask a colleague for.",
         "playbookView": "View the Playbook"
-      }
+      },
+      "auditValueYes": "yes",
+      "auditValueNo": "no"
     },
     "assignment": {
       "title": "Automatic assignment",
@@ -3905,6 +3937,18 @@
       "googleCalendar": {
         "title": "The company calendar, both ways",
         "body": "Connect the Google account in Settings › Calendars: what is already scheduled there shows up here, and tasks created here are published there. You choose per calendar what imports and what publishes."
+      },
+      "orderShape": {
+        "title": "The deal became a sales order",
+        "body": "In Bling's order: number, customer and salesperson, products, payment terms with editable installments, shipping, other expenses and discount — with totals matching the database to the cent."
+      },
+      "quoteSend": {
+        "title": "Branded quotes, sent through the conversation",
+        "body": "Generate the quote inside the deal, with the company identity. The PDF comes from the saved order, is kept under Documents and goes out on WhatsApp as an image or a PDF."
+      },
+      "blingOrders": {
+        "title": "Bling orders, once the company turns them on",
+        "body": "Bling connection, products and registries, the \"Ready for Bling\" list, orders created without duplicates and status changes posting receivables once. Off until an admin turns it on."
       }
     },
     "items": {
@@ -3999,7 +4043,23 @@
       "tasksApi": "/api/v1/tasks in the public API, with the tasks:read and tasks:write scopes.",
       "developersPage": "A /developers page with the API reference and the release notes.",
       "realtimeContacts": "Tags, contact fields and deals changed by an automation now appear without reloading the page.",
-      "callFollowUp": "The call log offers to create the follow-up task, pre-ticked on \"no answer\" and \"call back later\"."
+      "callFollowUp": "The call log offers to create the follow-up task, pre-ticked on \"no answer\" and \"call back later\".",
+      "orderShape": "Sales order number, products, shipping, other expenses and general discount on the deal, in Bling's order.",
+      "installmentsBlock": "Payment terms with \"Generate installments\": editable due date, amount, method and note, and a warning when they don't add up.",
+      "quoteDocument": "Quotes rendered by the server, with logo and company details, kept under Documents › Quotes without duplicates.",
+      "quoteSend": "Send the quote on WhatsApp, as an image or as a PDF.",
+      "blingOrders": "Bling integration: connection, products, orders, status, receivables and webhooks — off until an admin turns it on.",
+      "contactFiscal": "Tax details and address on the contact: person type, state registration, ZIP, street, number, district and invoice email.",
+      "teamMentions": "@mentions in the team room, notifying whoever was called, and per-person unread counts.",
+      "notificationSound": "The bell rings — and each person picks, per notification type, what interrupts them.",
+      "tasksViews": "Tasks as list, board and calendar, from a single menu entry.",
+      "exactMoney": "Exact cents: the screen, the quote and the database agree to the cent.",
+      "futurePurchaseMoves": "Future purchase moves the deal to its stage without leaving the conversation.",
+      "automationCreateDeal": "The automation that creates deals no longer fails with \"invalid configuration\".",
+      "templateParams": "WhatsApp error #132000 in the Birthday and Future purchase automations.",
+      "noUuidLabels": "No select shows an identifier instead of a name.",
+      "datesOffByOne": "Dates that showed one day early.",
+      "anonFunctions": "Database functions are no longer executable without signing in."
     },
     "seeIt": "See it"
   },
@@ -4246,7 +4306,7 @@
   },
   "Bling": {
     "title": "Bling",
-    "description": "Connect the company's Bling account. At this stage the CRM only checks the connection and reads the company's basic details; orders, products and contacts arrive in later phases.",
+    "description": "Connect the company's Bling account. Reference data and products come from here — and, with Bling orders turned on, the deal registers the sales order there.",
     "loading": "Loading the connection…",
     "loadFailed": "Could not load the Bling connection.",
     "retry": "Try again",
@@ -4298,7 +4358,8 @@
       "company_failed": "Bling didn't return the company details. Check that the app has the basic company data scope.",
       "company_mismatch": "This account is already connected to another Bling company. Disconnect before switching.",
       "save_failed": "Could not save the connection. Connect again.",
-      "failed": "Something went wrong while connecting. Connect again."
+      "failed": "Something went wrong while connecting. Connect again.",
+      "company_in_use": "This Bling company is already connected to another CRM account. Disconnect it there before connecting here."
     },
     "references": {
       "title": "Bling registries",
@@ -4386,7 +4447,9 @@
       "warehouses": "{count, plural, =0 {No active warehouses} one {# active warehouse} other {# active warehouses}}",
       "logistics": "{count, plural, =0 {No enabled logistics} one {# enabled logistics} other {# enabled logistics}}",
       "customerTypeOk": "\"Cliente\" contact type found",
-      "customerTypeMissing": "\"Cliente\" contact type not found"
+      "customerTypeMissing": "\"Cliente\" contact type not found",
+      "removedOption": "{label} (removed from Bling)",
+      "paymentRemovedHint": "Confirmed before and removed from Bling. Uncheck to take it off the list."
     },
     "products": {
       "title": "Bling products",
@@ -4456,7 +4519,8 @@
       "exceptionFor": "Category for {name}",
       "noException": "No exception",
       "auxiliary": "Auxiliary item",
-      "showMore": "Show more ({count})"
+      "showMore": "Show more ({count})",
+      "removedCategory": "{label} (outside the revenue categories)"
     },
     "orders": {
       "title": "Bling orders",

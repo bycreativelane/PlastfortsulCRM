@@ -33,6 +33,7 @@ const DESFECHOS = [
   'exchange_failed',
   'company_failed',
   'company_mismatch',
+  'company_in_use',
   'save_failed',
   'failed',
 ] as const;

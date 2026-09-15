@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { AUDIT_ACTIONS, AUDIT_AREA_PREFIXES, auditArea } from './events';
+import { AUDIT_ACTIONS, AUDIT_AREA_PREFIXES, auditArea, auditValue } from './events';
 
 describe('áreas do log de auditoria', () => {
   it('toda ação cai em no máximo uma área pelos prefixos, e auditArea concorda', () => {
@@ -23,5 +23,23 @@ describe('áreas do log de auditoria', () => {
 
   it('o que ninguém conhece continua sendo conta', () => {
     expect(auditArea('algo.novo')).toBe('account');
+  });
+});
+
+describe('auditValue', () => {
+  const rotulos = { yes: 'sim', no: 'não' };
+
+  it('ligar os pedidos no Bling não aparece como "— → —"', () => {
+    expect(`${auditValue(false, rotulos)} → ${auditValue(true, rotulos)}`).toBe('não → sim');
+  });
+
+  it('texto, número, lista e o que não se lê', () => {
+    expect(auditValue('Em andamento', rotulos)).toBe('Em andamento');
+    expect(auditValue('', rotulos)).toBe('—');
+    expect(auditValue(0, rotulos)).toBe('0');
+    expect(auditValue(['7001', '7002'], rotulos)).toBe('7001, 7002');
+    expect(auditValue([], rotulos)).toBe('—');
+    expect(auditValue(null, rotulos)).toBe('—');
+    expect(auditValue({ a: 1 }, rotulos)).toBe('—');
   });
 });

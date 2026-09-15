@@ -443,3 +443,17 @@ describe('textoDoErro — sem dado do cliente', () => {
     expect(texto).toContain('Id da forma de pagamento inválido.');
   });
 });
+
+describe('a categoria da linha confere pelo mesmo caminho que a congelou', () => {
+  it('categoria pela família: o servidor resolve família → categoria, e a linha continua em dia', async () => {
+    const db = banco();
+    db.tables.products[0].revenue_category_bling_id = null;
+    db.tables.products[0].bling_family_id = 'fam-1';
+    db.tables.bling_family_categories = [
+      { account_id: 'acc-1', family_bling_id: 'fam-1', revenue_category_bling_id: '901', company_id: 'emp-1' },
+    ];
+    const pedido = (await loadOrderForBling(db.client, 'acc-1', DEAL))!;
+    expect(pedido.products.get('p-1')?.revenueCategoryBlingId).toBe('901');
+    expect(readinessOfLoaded(pedido).staleLines).toEqual([]);
+  });
+});

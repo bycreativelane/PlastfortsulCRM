@@ -57,6 +57,20 @@ interface Resposta {
 const POR_PAGINA = 50;
 
 /**
+ * A opção de um valor gravado que saiu da lista (categoria removida no Bling,
+ * ou fora da raiz). Sem ela o `OptionSelect` desenha o id cru no campo
+ * fechado. Devolve um `<option>` de verdade — o seletor só lê esses.
+ */
+function opcaoForaDaLista(
+  valor: string | null | undefined,
+  opcoes: ReadonlyArray<{ id: string }>,
+  rotulo: string
+) {
+  if (!valor || opcoes.some((o) => o.id === valor)) return null;
+  return <option value={valor}>{rotulo}</option>;
+}
+
+/**
  * Configurações › Bling › Produtos (D6 e D7).
  *
  * Três perguntas, na ordem em que um admin as responde: o catálogo veio
@@ -344,6 +358,11 @@ export function BlingProducts() {
                   className="h-8 w-full text-xs"
                 >
                   <option value="">{t('noDefault')}</option>
+                  {opcaoForaDaLista(
+                    dados.defaultCategoryId,
+                    categoryOptions,
+                    t('removedCategory', { label: dados.defaultCategoryId ?? '' })
+                  )}
                   {categoryOptions.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.label}
@@ -380,6 +399,11 @@ export function BlingProducts() {
                           className="h-8 w-full text-xs"
                         >
                           <option value="">{t('inheritOrDefault')}</option>
+                          {opcaoForaDaLista(
+                            f.mapping?.id,
+                            categoryOptions,
+                            t('removedCategory', { label: f.mapping?.label ?? '' })
+                          )}
                           {categoryOptions.map((c) => (
                             <option key={c.id} value={c.id}>
                               {c.label}
@@ -458,6 +482,16 @@ export function BlingProducts() {
                         className="h-8 w-full text-xs"
                       >
                         <option value="">{t('noException')}</option>
+                        {opcaoForaDaLista(
+                          p.exceptionCategoryId,
+                          categoryOptions,
+                          t('removedCategory', {
+                            label:
+                              p.categorySource === 'product' && p.category
+                                ? p.category.label
+                                : (p.exceptionCategoryId ?? ''),
+                          })
+                        )}
                         {categoryOptions.map((c) => (
                           <option key={c.id} value={c.id}>
                             {c.label}

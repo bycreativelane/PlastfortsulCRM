@@ -167,6 +167,19 @@ describe('importProducts', () => {
     ]);
   });
 
+  it('pendência que um admin ignorou continua ignorada na importação seguinte', async () => {
+    const db = banco([], {
+      bling_product_matches: [
+        { id: 'm-1', connection_id: 'conn-1', bling_product_id: '20', reason: 'no_sku', status: 'ignored' },
+      ],
+    });
+    const bling = blingFalso([{ item: { id: 20, nome: 'Sem código', situacao: 'A', tipo: 'P' } }]);
+    const stats = await importProducts(db.client, { id: 'conn-1', account_id: 'acc-1' }, deps(bling.impl));
+    expect(stats.pending).toBe(0);
+    expect(db.tables.bling_product_matches).toHaveLength(1);
+    expect(db.tables.bling_product_matches[0].status).toBe('ignored');
+  });
+
   it('não pede detalhe do que não mudou e foi lido há pouco', async () => {
     const item = { id: 30, nome: 'Estável', codigo: 'EST', preco: 5, situacao: 'A', tipo: 'P' };
     const db = banco([

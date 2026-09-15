@@ -61,6 +61,33 @@ export interface Release {
 
 export const RELEASES: Release[] = [
   {
+    version: '0.11.0',
+    date: '2026-09-15',
+    highlights: [
+      { key: 'orderShape', href: '/pipelines' },
+      { key: 'quoteSend', href: '/documentos/orcamentos' },
+      { key: 'blingOrders', href: '/settings?tab=bling' },
+    ],
+    changes: [
+      { kind: 'new', key: 'orderShape' },
+      { kind: 'new', key: 'installmentsBlock' },
+      { kind: 'new', key: 'quoteDocument' },
+      { kind: 'new', key: 'quoteSend' },
+      { kind: 'new', key: 'blingOrders' },
+      { kind: 'new', key: 'contactFiscal' },
+      { kind: 'new', key: 'teamMentions' },
+      { kind: 'new', key: 'notificationSound' },
+      { kind: 'improved', key: 'tasksViews' },
+      { kind: 'improved', key: 'exactMoney' },
+      { kind: 'improved', key: 'futurePurchaseMoves' },
+      { kind: 'fixed', key: 'automationCreateDeal' },
+      { kind: 'fixed', key: 'templateParams' },
+      { kind: 'fixed', key: 'noUuidLabels' },
+      { kind: 'fixed', key: 'datesOffByOne' },
+      { kind: 'fixed', key: 'anonFunctions' },
+    ],
+  },
+  {
     version: '0.10.0',
     date: '2026-09-07',
     highlights: [

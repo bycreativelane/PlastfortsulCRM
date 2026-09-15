@@ -503,7 +503,9 @@
       "toastStageChanged": "Etapa alterada",
       "toastFailedStage": "Não foi possível mudar a etapa",
       "statusFailed": "Não deu para mudar o status. Tente de novo.",
-      "moreActions": "Mais ações"
+      "moreActions": "Mais ações",
+      "stageBlockedLaunched": "Este pedido já tem contas lançadas no Bling e só fica na etapa da situação dele. Mude a situação na oportunidade.",
+      "stageBlockedOutcome": "Este negócio é pedido no Bling: ganho e perdido vêm da situação do pedido, na oportunidade."
     },
     "sessionTimer": {
       "expired": "Janela fechada",
@@ -1246,7 +1248,8 @@
       "filters": "Filtros",
       "filtersTitle": "Filtros do quadro",
       "ownerLabel": "Responsável",
-      "dragBlockedLaunched": "Este pedido já tem contas lançadas no Bling e só fica na etapa da situação dele. Para mudar, use \"Mudar situação\" na oportunidade."
+      "dragBlockedLaunched": "Este pedido já tem contas lançadas no Bling e só fica na etapa da situação dele. Para mudar, use \"Mudar situação\" na oportunidade.",
+      "dragBlockedOutcome": "Este negócio é pedido no Bling: ganho e perdido vêm da situação do pedido. Use \"Mudar situação\" na oportunidade."
     },
     "board": {
       "dropDealHere": "Solte uma oportunidade aqui",
@@ -1387,12 +1390,13 @@
       "freightOwnReceiver": "Próprio, do destinatário",
       "freightNone": "Sem frete",
       "toastOrderShapeFailed": "A oportunidade foi salva, mas pagamento e transporte não puderam ser gravados.",
-      "carrierNotMapped": "Esta transportadora ainda não está ligada a um contato no Bling (Configurações › Oportunidades).",
+      "carrierNotMapped": "Esta transportadora ainda não está ligada a um contato no Bling (Configurações › Oportunidades e moeda).",
       "toastOrderLocked": "Este pedido está travado nesta situação no Bling — o que mudou não pode ser salvo.",
       "deleteBlockedOrder": "Esta oportunidade já é pedido no Bling e não pode ser excluída.",
       "installmentMethodNone": "Escolha a forma",
       "installmentMethodRemoved": "Forma fora da lista",
-      "installmentNote": "Observação"
+      "installmentNote": "Observação",
+      "stageFollowsOrder": "Com contas lançadas no Bling, a etapa acompanha a situação do pedido."
     },
     "settings": {
       "managePipeline": "Gerenciar pipeline",
@@ -1479,7 +1483,10 @@
       "total": "Total",
       "sku": "Código",
       "unit": "Un",
-      "lineTotal": "Preço total"
+      "lineTotal": "Preço total",
+      "inactiveProduct": "{name} (produto desativado)",
+      "staleSnapshot": "Este produto mudou no catálogo depois de entrar na linha.",
+      "refreshSnapshot": "Atualizar do catálogo"
     },
     "order": {
       "title": "Pedido",
@@ -1547,7 +1554,11 @@
         "methodNotAllowed": "{count, plural, one {# parcela com forma que o admin não confirmou.} other {# parcelas com forma que o admin não confirmou.}}",
         "installmentsShort": "Faltam {value} para fechar com o total.",
         "installmentsOver": "As parcelas passam do total em {value}.",
-        "dueMissing": "Há parcela sem vencimento."
+        "dueMissing": "Há parcela sem vencimento.",
+        "stale": "O produto mudou no catálogo depois de entrar na linha: {names}. Use \"Atualizar do catálogo\" na linha.",
+        "carrierMissing": "Escolha a transportadora do pedido.",
+        "carrierInactive": "A transportadora escolhida está desativada.",
+        "carrierNotLinked": "A transportadora não tem contato no Bling. Ligue em Configurações › Oportunidades e moeda › Transportadoras."
       },
       "address": {
         "zip_code": "CEP",
@@ -1604,7 +1615,22 @@
         "invalid_status": "Situação desconhecida.",
         "status_not_mapped": "Esta situação não foi confirmada nas configurações do Bling.",
         "transition_not_allowed": "O pedido não pode ir desta situação para aquela.",
-        "remote_status_mismatch": "No Bling o pedido está em outra situação. Confira lá antes de mudar aqui."
+        "remote_status_mismatch": "No Bling o pedido está em outra situação. Confira lá antes de mudar aqui.",
+        "order_locked": "O pedido está travado nesta situação.",
+        "order_not_open": "O Bling só aceita atualizar o pedido Em aberto. Volte para Em aberto, atualize e siga.",
+        "order_not_synced": "O pedido mudou desde a última vez que foi para o Bling. Atualize no Bling antes de colocar Em andamento.",
+        "not_found": "Oportunidade não encontrada.",
+        "enqueue_failed": "Não foi possível pôr o pedido na fila. Tente de novo.",
+        "invalid_transition": "O pedido não pode ir para esta situação agora.",
+        "not_created": "O pedido ainda não existe no Bling.",
+        "invalid_body": "O pedido chegou incompleto ao servidor. Tente de novo.",
+        "accounts_not_reversed": "O Bling ainda mostra contas a receber vivas deste pedido depois do estorno. Confira no Contas a Receber.",
+        "abandoned": "A operação parou no meio várias vezes e foi abandonada. Tente de novo.",
+        "lease_lost": "Outra tentativa assumiu esta operação.",
+        "deal_missing": "A oportunidade deste pedido não existe mais.",
+        "no_id_returned": "O Bling não devolveu o pedido criado. Conferindo de novo.",
+        "save_key_failed": "Não foi possível gravar a chave do pedido. Tentando de novo.",
+        "unknown": "O Bling não aceitou agora ({code})."
       },
       "statusChange": "Mudar situação:",
       "statusConfirmTitle": "Mudar o pedido para {status}?",
@@ -1617,7 +1643,10 @@
         "cancelado": "Isto cancela o pedido no Bling, estorna o que foi lançado e leva a oportunidade para Venda Perdida, com o motivo \"Pedido cancelado\". Cancelado é final.",
         "compra_futura": "O pedido fica como Compra futura no Bling e a oportunidade vai para Compra Futura. Nada é lançado.",
         "em_aberto": "O pedido volta para Em aberto no Bling. Nada é lançado."
-      }
+      },
+      "syncNotOpen": "Com o pedido em {status}, o Bling não aceita atualização. Volte para Em aberto para atualizar.",
+      "categoryNoteLabel": "Por que esta categoria",
+      "weightExceptionLabel": "Motivo da exceção de peso"
     }
   },
   "Broadcasts": {
@@ -2709,7 +2738,8 @@
         "unnamed": "Sem nome",
         "selectLabel": "Vendedor no Bling de {name}",
         "none": "Sem vendedor",
-        "inactiveSeller": "{name} (inativo)"
+        "inactiveSeller": "{name} (inativo)",
+        "removedSeller": "Vendedor {id} (removido do Bling)"
       }
     },
     "invite": {
@@ -3423,7 +3453,9 @@
         "productsView": "Ver o catálogo de produtos",
         "productsViewDesc": "Um preço que a pessoa não consegue consultar é um preço que ela vai perguntar para um colega.",
         "playbookView": "Ver o Playbook"
-      }
+      },
+      "auditValueYes": "sim",
+      "auditValueNo": "não"
     },
     "assignment": {
       "title": "Atribuição automática",
@@ -3905,6 +3937,18 @@
       "googleCalendar": {
         "title": "A agenda da empresa, dos dois lados",
         "body": "Conecte a conta Google em Configurações › Agendas: o que já está marcado lá aparece aqui, e as tarefas criadas aqui vão para lá. Você escolhe agenda por agenda o que importa e o que publica."
+      },
+      "orderShape": {
+        "title": "A oportunidade virou pedido de venda",
+        "body": "Na ordem do pedido do Bling: número, cliente e vendedor, produtos, condição de pagamento com parcelas editáveis, transporte, outras despesas e desconto — com a conta batendo com o banco no centavo."
+      },
+      "quoteSend": {
+        "title": "Orçamento com a sua marca, enviado pela conversa",
+        "body": "Gere o orçamento dentro da oportunidade, com a identidade da empresa. O PDF sai do pedido gravado, fica guardado em Documentos e vai pelo WhatsApp como imagem ou como PDF."
+      },
+      "blingOrders": {
+        "title": "Pedidos no Bling, quando a empresa ligar",
+        "body": "Conexão, produtos e cadastros do Bling, a lista \"Pronto para o Bling\", o pedido criado sem duplicar e a situação mudando com as contas lançadas uma vez. Desligado até um admin ligar."
       }
     },
     "items": {
@@ -3999,7 +4043,23 @@
       "tasksApi": "/api/v1/tasks na API pública, com os escopos tasks:read e tasks:write.",
       "developersPage": "Página /developers com a documentação da API e as notas de versão.",
       "realtimeContacts": "Etiquetas, campos de contato e oportunidades mudados por automação aparecem sem recarregar a página.",
-      "callFollowUp": "O registro de ligação oferece criar a tarefa de retorno, já marcada em \"não atendeu\" e \"retornar depois\"."
+      "callFollowUp": "O registro de ligação oferece criar a tarefa de retorno, já marcada em \"não atendeu\" e \"retornar depois\".",
+      "orderShape": "Pedido de venda, produtos, transporte, outras despesas e desconto geral na oportunidade, na ordem do Bling.",
+      "installmentsBlock": "Condição de pagamento com \"Gerar parcelas\": vencimento, valor, forma e observação editáveis, e o aviso quando não fecham com o total.",
+      "quoteDocument": "O orçamento gerado pelo servidor, com logo e dados da empresa, guardado em Documentos › Orçamentos sem duplicar.",
+      "quoteSend": "Enviar o orçamento pelo WhatsApp, como imagem ou como PDF.",
+      "blingOrders": "Integração com o Bling: conexão, produtos, pedido, situação, contas e webhooks — desligada até um admin ligar.",
+      "contactFiscal": "Dados fiscais e endereço na ficha do contato: tipo de pessoa, IE, CEP, logradouro, número, bairro e e-mail para nota.",
+      "teamMentions": "@menção na sala da equipe, com aviso para quem foi chamado e o número de não lidas por pessoa.",
+      "notificationSound": "O sino toca — e cada pessoa escolhe, por tipo de aviso, o que a interrompe.",
+      "tasksViews": "Tarefas em lista, quadro e calendário, numa entrada só do menu.",
+      "exactMoney": "Valores em centavos exatos: a tela, o orçamento e o banco batem no centavo.",
+      "futurePurchaseMoves": "Compra futura move a oportunidade para a etapa, sem sair da conversa.",
+      "automationCreateDeal": "A automação que cria oportunidade não trava mais com \"configuração inválida\".",
+      "templateParams": "O erro #132000 do WhatsApp nas automações de Aniversário e Compra futura.",
+      "noUuidLabels": "Nenhum campo de seleção mostra um identificador no lugar do nome.",
+      "datesOffByOne": "Datas que apareciam um dia antes.",
+      "anonFunctions": "Funções do banco deixam de ser executáveis sem login."
     },
     "seeIt": "Ver na prática"
   },
@@ -4246,7 +4306,7 @@
   },
   "Bling": {
     "title": "Bling",
-    "description": "Conecte a conta do Bling da empresa. Nesta etapa o CRM só confere a conexão e lê os dados básicos da empresa; pedidos, produtos e contatos chegam nas próximas fases.",
+    "description": "Conecte a conta do Bling da empresa. Daqui vêm os cadastros de referência e os produtos — e, com Pedidos no Bling ligado, a oportunidade registra o pedido de venda lá.",
     "loading": "Carregando a conexão…",
     "loadFailed": "Não foi possível carregar a conexão com o Bling.",
     "retry": "Tentar de novo",
@@ -4298,7 +4358,8 @@
       "company_failed": "O Bling não informou os dados da empresa. Confira se o aplicativo tem o escopo de dados básicos da empresa.",
       "company_mismatch": "Esta conta já está conectada a outra empresa do Bling. Desconecte antes de trocar.",
       "save_failed": "Não foi possível gravar a conexão. Conecte de novo.",
-      "failed": "Algo deu errado ao conectar. Conecte de novo."
+      "failed": "Algo deu errado ao conectar. Conecte de novo.",
+      "company_in_use": "Esta empresa do Bling já está conectada a outra conta do CRM. Desconecte lá antes de conectar aqui."
     },
     "references": {
       "title": "Cadastros do Bling",
@@ -4386,7 +4447,9 @@
       "warehouses": "{count, plural, =0 {Nenhum depósito ativo} one {# depósito ativo} other {# depósitos ativos}}",
       "logistics": "{count, plural, =0 {Nenhuma logística habilitada} one {# logística habilitada} other {# logísticas habilitadas}}",
       "customerTypeOk": "Tipo de contato \"Cliente\" encontrado",
-      "customerTypeMissing": "Tipo de contato \"Cliente\" não encontrado"
+      "customerTypeMissing": "Tipo de contato \"Cliente\" não encontrado",
+      "removedOption": "{label} (removido do Bling)",
+      "paymentRemovedHint": "Confirmada antes, e removida do Bling. Desmarque para tirar da lista."
     },
     "products": {
       "title": "Produtos do Bling",
@@ -4456,7 +4519,8 @@
       "exceptionFor": "Categoria de {name}",
       "noException": "Sem exceção",
       "auxiliary": "Item auxiliar",
-      "showMore": "Mostrar mais ({count})"
+      "showMore": "Mostrar mais ({count})",
+      "removedCategory": "{label} (fora das categorias de receita)"
     },
     "orders": {
       "title": "Pedidos no Bling",

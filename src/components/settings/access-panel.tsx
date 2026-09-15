@@ -36,7 +36,7 @@ import {
   type Capability,
   type PermissionOverrides,
 } from '@/lib/auth/capabilities';
-import type { AuditArea } from '@/lib/audit/events';
+import { auditValue, type AuditArea } from '@/lib/audit/events';
 import { dateLocale } from '@/lib/i18n/dates';
 import { APP_LOCALE } from '@/lib/i18n/locale';
 import { cn } from '@/lib/utils';
@@ -692,7 +692,7 @@ function AuditRowView({ entry }: { entry: AuditRow }) {
     'bling.mapping_updated': t('actionBlingMappingUpdated'),
   };
 
-  const detail = describe(entry);
+  const detail = describe(entry, { yes: t('auditValueYes'), no: t('auditValueNo') });
 
   return (
     // THREE THINGS ON ONE LINE, AT THREE HEIGHTS.
@@ -768,7 +768,7 @@ function AuditRowView({ entry }: { entry: AuditRow }) {
  * its prefix. Anything this function has no rule for shows nothing,
  * which is better than rendering raw JSON at somebody.
  */
-function describe(entry: AuditRow): string | null {
+function describe(entry: AuditRow, rotulos: { yes: string; no: string }): string | null {
   const meta = entry.metadata ?? {};
   if (entry.action === 'member.role_changed') {
     const from = typeof meta.from === 'string' ? meta.from : '—';
@@ -798,7 +798,7 @@ function describe(entry: AuditRow): string | null {
     // `status_in_progress_id: Em aberto → Em andamento` — rótulos do Bling,
     // que a rota gravou no lugar dos ids.
     return Object.entries(meta.changes as Record<string, { from?: unknown; to?: unknown }>)
-      .map(([field, c]) => `${field}: ${typeof c.from === 'string' ? c.from : '—'} → ${typeof c.to === 'string' ? c.to : '—'}`)
+      .map(([field, c]) => `${field}: ${auditValue(c.from, rotulos)} → ${auditValue(c.to, rotulos)}`)
       .join(' · ');
   }
   return null;

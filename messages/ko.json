@@ -1245,7 +1245,8 @@
       },
       "filters": "필터",
       "filtersTitle": "보드 필터",
-      "ownerLabel": "담당자"
+      "ownerLabel": "담당자",
+      "dragBlockedLaunched": "이 주문은 Bling에 미수금이 전기되어 해당 상태의 단계에만 있을 수 있습니다. 바꾸려면 영업 기회에서 \"상태 변경\"을 사용하세요."
     },
     "board": {
       "dropDealHere": "여기에 딜을 놓으세요",
@@ -1459,7 +1460,8 @@
         "productMismatch": "제품 불일치",
         "other": "기타",
         "noNeedNow": "지금은 필요 없음",
-        "gaveUp": "포기함"
+        "gaveUp": "포기함",
+        "orderCanceled": "주문 취소"
       }
     },
     "items": {
@@ -1598,7 +1600,23 @@
           "installments_mismatch": "할부 합계가 총액과 맞지 않습니다.",
           "no_open_status": "접수 상태가 확인되지 않았습니다.",
           "invalid_id": "잘못된 식별자가 있습니다."
-        }
+        },
+        "invalid_status": "알 수 없는 상태입니다.",
+        "status_not_mapped": "이 상태는 Bling 설정에서 확인되지 않았습니다.",
+        "transition_not_allowed": "주문은 이 상태에서 그 상태로 갈 수 없습니다.",
+        "remote_status_mismatch": "Bling에서 주문이 다른 상태입니다. 여기서 바꾸기 전에 Bling을 확인하세요."
+      },
+      "statusChange": "상태 변경:",
+      "statusConfirmTitle": "주문을 {status}(으)로 바꿀까요?",
+      "statusConfirm": "Bling에서 변경",
+      "statusChanged": "Bling에서 주문이 {status} 상태가 되었습니다.",
+      "outcomeViaOrder": "이 영업 기회는 Bling 주문입니다. 성사와 실패는 주문 영역의 주문 상태로 정해집니다.",
+      "statusEffect": {
+        "em_andamento": "Bling 미수금에 {total}을(를) 한 번 전기하고 영업 기회를 성사로 표시합니다. 이후 고객, 품목, 가격, 운임, 할부는 바꿀 수 없습니다.",
+        "atendido": "주문을 완료로 표시하고, 전이가 자동으로 하지 않으면 Bling에 재고를 전기합니다. 완료는 최종 상태입니다.",
+        "cancelado": "Bling에서 주문을 취소하고 전기된 것을 역전기하며, 영업 기회를 \"주문 취소\" 사유로 실패 단계로 옮깁니다. 취소는 최종 상태입니다.",
+        "compra_futura": "Bling에서 주문이 향후 구매가 되고 영업 기회는 향후 구매 단계로 이동합니다. 전기되는 것은 없습니다.",
+        "em_aberto": "Bling에서 주문이 접수 상태로 돌아갑니다. 전기되는 것은 없습니다."
       }
     }
   },
@@ -3661,13 +3679,15 @@
         "new_message": "고객 메시지",
         "conversation_assigned": "나에게 배정된 대화",
         "task_due": "할 일 알림",
-        "team_mention": "팀 멘션"
+        "team_mention": "팀 멘션",
+        "bling_order": "Bling 주문"
       },
       "hints": {
         "new_message": "대화당 5분에 최대 한 번 알립니다.",
         "conversation_assigned": "동료가 대화를 넘길 때.",
         "task_due": "내 할 일의 기한이 다가올 때.",
-        "team_mention": "팀 방에서 누군가 @나를 언급할 때."
+        "team_mention": "팀 방에서 누군가 @나를 언급할 때.",
+        "bling_order": "내 주문이 Bling에서 직접 바뀌거나, CRM과 달라지거나, 거부되었을 때."
       }
     },
     "carriers": {
@@ -3724,7 +3744,13 @@
     "mentionTitle": "{actor}님이 회원님을 멘션했습니다",
     "mentionNoText": "팀 방에서 회원님을 멘션했습니다",
     "soundOn": "알림 소리 켜짐 — 클릭하면 음소거",
-    "soundOff": "알림 소리 꺼짐 — 클릭하면 켜기"
+    "soundOff": "알림 소리 꺼짐 — 클릭하면 켜기",
+    "blingOrderTitle": "Bling 주문 {number}",
+    "blingOrderBody": {
+      "manual_change": "Bling에서 직접 상태가 바뀌어 영업 기회도 따라 옮겨졌습니다.",
+      "divergent": "Bling의 주문이 CRM과 다릅니다. 주문 영역을 확인하세요.",
+      "refused": "Bling이 이 주문의 변경을 거부했습니다."
+    }
   },
   "Routes": {
     "loading": "불러오는 중…",

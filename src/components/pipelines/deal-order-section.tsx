@@ -6,8 +6,9 @@ import { CheckCircle2, CircleDashed, Loader2, Lock, Scale } from 'lucide-react';
 import { formatCurrencyExact } from '@/lib/currency';
 import { fromCents } from '@/lib/money';
 import type { DealOrderFields } from '@/lib/deals/row';
-import type { OrderLock } from '@/lib/deals/order-lock';
+import type { OrderLock, OrderStatus } from '@/lib/deals/order-lock';
 import { isColumnFree } from '@/lib/deals/order-lock';
+import { NEXT_STATUSES } from '@/lib/bling/transitions';
 import type { Readiness, ReadinessKey } from '@/lib/deals/order-rules';
 import type { DealItemDraft } from '@/lib/products/catalog';
 import { cn } from '@/lib/utils';
@@ -77,11 +78,16 @@ export function DealOrderSection({
   ordersEnabled = false,
   syncBusy = false,
   onSync,
+  hasBlingOrder = false,
+  onChangeStatus,
 }: {
   /** A chave geral dos pedidos (086): mostra "Registrar no Bling". */
   ordersEnabled?: boolean;
   syncBusy?: boolean;
   onSync?: () => void;
+  /** O pedido já existe no Bling: as mudanças de situação aparecem (Fase 5). */
+  hasBlingOrder?: boolean;
+  onChangeStatus?: (to: OrderStatus) => void;
   orderStatus: string | null;
   syncStatus: string | null;
   syncError: string | null;
@@ -108,6 +114,10 @@ export function DealOrderSection({
   const nomeCategoria = (id: string) => categoryLabels.get(id) ?? t('categoryUnknown', { id });
 
   const { weight, category, customer, installments } = readiness;
+  const proximas: readonly OrderStatus[] =
+    ordersEnabled && hasBlingOrder && onChangeStatus
+      ? (NEXT_STATUSES[(orderStatus ?? 'em_aberto') as OrderStatus] ?? [])
+      : [];
   const pesoDiferente =
     weight.totalKg > 0 && (grossWeight === null || Math.abs(grossWeight - weight.totalKg) > 0.0005);
 
@@ -204,6 +214,26 @@ export function DealOrderSection({
       )}
       {syncStatus === 'pending' && (
         <p className="bg-human-soft text-human-ink rounded-md px-2.5 py-1.5 text-xs">{t('sendPending')}</p>
+      )}
+
+      {/* MUDAR SITUAÇÃO (Fase 5, D1 = B) — só as passagens da máquina, cada
+          uma com a confirmação que diz o efeito. */}
+      {proximas.length > 0 && onChangeStatus && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-muted-foreground text-2xs mr-1">{t('statusChange')}</span>
+          {proximas.map((destino) => (
+            <Button
+              key={destino}
+              type="button"
+              size="sm"
+              variant={destino === 'cancelado' ? 'destructive' : 'outline'}
+              disabled={disabled || syncBusy}
+              onClick={() => onChangeStatus(destino)}
+            >
+              {t(`status.${destino}`)}
+            </Button>
+          ))}
+        </div>
       )}
 
       {lock !== 'open' && (
@@ -498,6 +528,10 @@ const CODIGOS_DE_ERRO = new Set([
   'limiter_unavailable',
   'revoked',
   'not_configured',
+  'invalid_status',
+  'status_not_mapped',
+  'transition_not_allowed',
+  'remote_status_mismatch',
 ]);
 
 const CODIGOS_DE_MONTAGEM = new Set([

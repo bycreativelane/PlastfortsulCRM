@@ -1245,7 +1245,8 @@
       },
       "filters": "Filtros",
       "filtersTitle": "Filtros do quadro",
-      "ownerLabel": "Responsável"
+      "ownerLabel": "Responsável",
+      "dragBlockedLaunched": "Este pedido já tem contas lançadas no Bling e só fica na etapa da situação dele. Para mudar, use \"Mudar situação\" na oportunidade."
     },
     "board": {
       "dropDealHere": "Solte uma oportunidade aqui",
@@ -1459,7 +1460,8 @@
         "productMismatch": "Produto incompatível",
         "other": "Outro",
         "noNeedNow": "Sem necessidade no momento",
-        "gaveUp": "Desistiu"
+        "gaveUp": "Desistiu",
+        "orderCanceled": "Pedido cancelado"
       }
     },
     "items": {
@@ -1598,7 +1600,23 @@
           "installments_mismatch": "As parcelas não fecham com o total.",
           "no_open_status": "A situação Em aberto não foi confirmada.",
           "invalid_id": "Há um identificador inválido."
-        }
+        },
+        "invalid_status": "Situação desconhecida.",
+        "status_not_mapped": "Esta situação não foi confirmada nas configurações do Bling.",
+        "transition_not_allowed": "O pedido não pode ir desta situação para aquela.",
+        "remote_status_mismatch": "No Bling o pedido está em outra situação. Confira lá antes de mudar aqui."
+      },
+      "statusChange": "Mudar situação:",
+      "statusConfirmTitle": "Mudar o pedido para {status}?",
+      "statusConfirm": "Mudar no Bling",
+      "statusChanged": "Pedido em {status} no Bling.",
+      "outcomeViaOrder": "Este negócio é pedido no Bling: ganho e perdido vêm da situação do pedido, na área Pedido.",
+      "statusEffect": {
+        "em_andamento": "Isto lança {total} no Contas a Receber do Bling, uma vez, e marca a oportunidade como ganha. Depois disso cliente, itens, preços, frete e parcelas não mudam mais.",
+        "atendido": "Isto marca o pedido como atendido e lança o estoque no Bling, se a transição não lançar sozinha. Atendido é final.",
+        "cancelado": "Isto cancela o pedido no Bling, estorna o que foi lançado e leva a oportunidade para Venda Perdida, com o motivo \"Pedido cancelado\". Cancelado é final.",
+        "compra_futura": "O pedido fica como Compra futura no Bling e a oportunidade vai para Compra Futura. Nada é lançado.",
+        "em_aberto": "O pedido volta para Em aberto no Bling. Nada é lançado."
       }
     }
   },
@@ -3661,13 +3679,15 @@
         "new_message": "Mensagem de cliente",
         "conversation_assigned": "Conversa atribuída a você",
         "task_due": "Lembrete de tarefa",
-        "team_mention": "Menção na equipe"
+        "team_mention": "Menção na equipe",
+        "bling_order": "Pedidos no Bling"
       },
       "hints": {
         "new_message": "No máximo um aviso a cada cinco minutos por conversa.",
         "conversation_assigned": "Quando alguém passa uma conversa para você.",
         "task_due": "Quando uma tarefa sua está chegando na hora.",
-        "team_mention": "Quando alguém escreve @você na sala da equipe."
+        "team_mention": "Quando alguém escreve @você na sala da equipe.",
+        "bling_order": "Quando um pedido seu muda direto no Bling, fica diferente do CRM ou é recusado."
       }
     },
     "carriers": {
@@ -3724,7 +3744,13 @@
     "mentionTitle": "{actor} mencionou você",
     "mentionNoText": "Mencionou você na sala da equipe",
     "soundOn": "Som de aviso ligado — clique para silenciar",
-    "soundOff": "Som de aviso desligado — clique para ligar"
+    "soundOff": "Som de aviso desligado — clique para ligar",
+    "blingOrderTitle": "Pedido {number} no Bling",
+    "blingOrderBody": {
+      "manual_change": "A situação mudou direto no Bling, e a oportunidade acompanhou.",
+      "divergent": "O pedido no Bling ficou diferente do CRM. Confira a área Pedido.",
+      "refused": "O Bling recusou uma mudança neste pedido."
+    }
   },
   "Routes": {
     "loading": "Carregando…",

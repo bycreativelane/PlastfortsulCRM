@@ -1245,7 +1245,8 @@
       },
       "filters": "Filters",
       "filtersTitle": "Board filters",
-      "ownerLabel": "Owner"
+      "ownerLabel": "Owner",
+      "dragBlockedLaunched": "This order already has receivables posted in Bling and stays in its status's stage. To change it, use \"Change status\" on the deal."
     },
     "board": {
       "dropDealHere": "Drop a deal here",
@@ -1459,7 +1460,8 @@
         "productMismatch": "Wrong product fit",
         "other": "Other",
         "noNeedNow": "No need right now",
-        "gaveUp": "Gave up"
+        "gaveUp": "Gave up",
+        "orderCanceled": "Order canceled"
       }
     },
     "items": {
@@ -1598,7 +1600,23 @@
           "installments_mismatch": "Installments do not add up to the total.",
           "no_open_status": "The Open status has not been confirmed.",
           "invalid_id": "An identifier is invalid."
-        }
+        },
+        "invalid_status": "Unknown status.",
+        "status_not_mapped": "This status has not been confirmed in the Bling settings.",
+        "transition_not_allowed": "The order cannot go from this status to that one.",
+        "remote_status_mismatch": "In Bling the order is in another status. Check it there before changing it here."
+      },
+      "statusChange": "Change status:",
+      "statusConfirmTitle": "Change the order to {status}?",
+      "statusConfirm": "Change in Bling",
+      "statusChanged": "Order is {status} in Bling.",
+      "outcomeViaOrder": "This deal is an order in Bling: won and lost come from the order status, in the Order area.",
+      "statusEffect": {
+        "em_andamento": "This posts {total} to Bling's Accounts Receivable, once, and marks the deal as won. After that, customer, items, prices, freight and installments can no longer change.",
+        "atendido": "This marks the order fulfilled and posts stock in Bling, unless the transition already does. Fulfilled is final.",
+        "cancelado": "This cancels the order in Bling, reverses what was posted and moves the deal to Lost with the reason \"Order canceled\". Canceled is final.",
+        "compra_futura": "The order becomes Future purchase in Bling and the deal moves to Future Purchase. Nothing is posted.",
+        "em_aberto": "The order goes back to Open in Bling. Nothing is posted."
       }
     }
   },
@@ -3661,13 +3679,15 @@
         "new_message": "Customer message",
         "conversation_assigned": "Conversation assigned to you",
         "task_due": "Task reminder",
-        "team_mention": "Team mention"
+        "team_mention": "Team mention",
+        "bling_order": "Bling orders"
       },
       "hints": {
         "new_message": "At most one alert every five minutes per conversation.",
         "conversation_assigned": "When a teammate hands you a conversation.",
         "task_due": "When one of your tasks is coming due.",
-        "team_mention": "When somebody writes @you in the team room."
+        "team_mention": "When somebody writes @you in the team room.",
+        "bling_order": "When one of your orders changes directly in Bling, drifts from the CRM or is refused."
       }
     },
     "carriers": {
@@ -3724,7 +3744,13 @@
     "mentionTitle": "{actor} mentioned you",
     "mentionNoText": "Mentioned you in the team room",
     "soundOn": "Notification sound on — click to mute",
-    "soundOff": "Notification sound off — click to turn on"
+    "soundOff": "Notification sound off — click to turn on",
+    "blingOrderTitle": "Order {number} in Bling",
+    "blingOrderBody": {
+      "manual_change": "The status changed directly in Bling, and the deal followed.",
+      "divergent": "The order in Bling differs from the CRM. Check the Order area.",
+      "refused": "Bling refused a change to this order."
+    }
   },
   "Routes": {
     "loading": "Loading…",

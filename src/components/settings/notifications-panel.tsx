@@ -2,7 +2,7 @@
 
 import { useSyncExternalStore } from 'react';
 import { useTranslations } from 'next-intl';
-import { AtSign, ListChecks, MessageSquare, UserPlus } from 'lucide-react';
+import { AtSign, ListChecks, MessageSquare, ReceiptText, UserPlus } from 'lucide-react';
 
 import {
   isNotificationSoundOn,
@@ -57,6 +57,7 @@ const ICONE: Record<SoundType, typeof MessageSquare> = {
   conversation_assigned: UserPlus,
   task_due: ListChecks,
   team_mention: AtSign,
+  bling_order: ReceiptText,
 };
 
 export function NotificationsPanel() {

@@ -52,7 +52,9 @@ import {
   type OrderContext,
 } from '@/lib/deals/order-context';
 import type { Product } from '@/lib/products/catalog';
-import { DealOrderSection } from './deal-order-section';
+import { DealOrderSection, describeSyncError } from './deal-order-section';
+import { useConfirm } from '@/components/ui/confirm-dialog';
+import type { OrderStatus } from '@/lib/deals/order-lock';
 import { loadLastOrderNumber, nextOrderNumber } from '@/lib/deals/order-number';
 import type {
   Contact,
@@ -117,7 +119,7 @@ import { useTranslations } from 'next-intl';
  * perdas antigas. Uma linha gravada com chave fora deste conjunto faria
  * `t()` estourar, então ela simplesmente não é desenhada.
  */
-const KNOWN_LOSS_REASONS = new Set<string>([...LOSS_REASONS, 'noReply']);
+const KNOWN_LOSS_REASONS = new Set<string>([...LOSS_REASONS, 'noReply', 'orderCanceled']);
 
 /**
  * Os dois estados de transporte que não são uma transportadora.
@@ -249,6 +251,7 @@ export function DealForm({
   // A exceção de peso é uma autorização, e não um campo de digitação: só
   // admin assina (o nome fica em `weight_exception_by`).
   const canAuthorize = useCan('edit-settings');
+  const { confirm } = useConfirm();
 
   /**
    * A data que o orçamento carimba: hoje, no fuso da CONTA.
@@ -780,6 +783,12 @@ export function DealForm({
    * `lib/deals/order-lock.ts`.
    */
   const trava = orderLock(deal?.order_status, deal?.accounts_launched_at);
+  /**
+   * D1 = B: com o pedido no Bling, ganho e perdido vêm da SITUAÇÃO (Em
+   * andamento ganha; Cancelado perde com "Pedido cancelado"). Os botões do
+   * topo mudariam só o funil e deixariam o Bling dizendo outra coisa.
+   */
+  const desfechoPeloPedido = orderContext.ordersEnabled && !!deal?.bling_order_id;
   const livre = (coluna: string) => canWrite && isColumnFree(coluna, trava);
   const pedidoAberto = trava === 'open';
 
@@ -1214,6 +1223,70 @@ export function DealForm({
     return ok;
   }
 
+  /**
+   * MUDAR A SITUAÇÃO DO PEDIDO (Fase 5, D1 = B) — confirmação que diz o
+   * efeito financeiro, e acompanhamento até a fila terminar.
+   */
+  async function mudarSituacao(destino: OrderStatus) {
+    const dealId = deal?.id ?? criadaId;
+    if (!dealId) return;
+    const ok = await confirm({
+      title: tOrder('statusConfirmTitle', { status: tOrder(`status.${destino}`) }),
+      description: tOrder(`statusEffect.${destino}`, {
+        total: formatCurrencyExact(totalGeral, currency),
+      }),
+      confirmLabel: tOrder('statusConfirm'),
+      destructive: destino === 'cancelado',
+    });
+    if (!ok) return;
+
+    setSincronizando(true);
+    const concluiu = await acompanharSituacao(dealId, destino).catch(() => false);
+    setSincronizando(false);
+    if (concluiu) onSaved();
+  }
+
+  async function acompanharSituacao(dealId: string, destino: OrderStatus): Promise<boolean> {
+    const res = await fetch(`/api/bling/orders/${dealId}/status`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ to: destino }),
+    });
+    if (!res.ok) {
+      const corpo = (await res.json().catch(() => ({}))) as { error?: string };
+      toast.error(tOrder('syncRefused', { reason: corpo.error ?? `HTTP ${res.status}` }));
+      return false;
+    }
+    for (let volta = 0; volta < 60; volta++) {
+      await new Promise((r) => setTimeout(r, 1500));
+      const estado = await fetch(`/api/bling/orders/${dealId}`, { cache: 'no-store' })
+        .then((r) => (r.ok ? r.json() : null))
+        .catch(() => null);
+      const d = estado?.deal as
+        | { order_status: string | null; sync_status: string | null; sync_error: string | null; bling_order_number: string | null }
+        | undefined;
+      const op = estado?.operation as { kind?: string; status?: string; error?: string | null } | null | undefined;
+      if (!d) continue;
+      setRemoto({
+        orderStatus: d.order_status,
+        syncStatus: d.sync_status,
+        syncError: d.sync_error,
+        blingOrderNumber: d.bling_order_number,
+      });
+      if (op?.kind !== 'change_status') continue;
+      if (op.status === 'succeeded') {
+        toast.success(tOrder('statusChanged', { status: tOrder(`status.${destino}`) }));
+        return true;
+      }
+      if (op.status === 'failed') {
+        toast.error(op.error ? describeSyncError(op.error, tOrder) : tOrder('syncFailed'));
+        return false;
+      }
+    }
+    toast.error(tOrder('syncSlow'));
+    return false;
+  }
+
   async function acompanharPedido(dealId: string): Promise<boolean> {
     const res = await fetch(`/api/bling/orders/${dealId}/sync`, { method: 'POST' });
     const corpo = (await res.json().catch(() => ({}))) as { error?: string; missing?: string[] };
@@ -1601,7 +1674,8 @@ export function DealForm({
                       size="sm"
                       variant="ghost"
                       onClick={() => handleStatusChange('open')}
-                      disabled={!canWrite || !!statusAction}
+                      disabled={!canWrite || !!statusAction || desfechoPeloPedido}
+                      title={desfechoPeloPedido ? tOrder('outcomeViaOrder') : undefined}
                       className="text-muted-foreground hover:text-foreground"
                     >
                       {t('reopenDeal')}
@@ -1618,7 +1692,8 @@ export function DealForm({
                         // com o Salvar, que é o único "aperte aqui" daqui.
                         variant="ok"
                         onClick={() => handleStatusChange('won')}
-                        disabled={!canWrite || !!statusAction}
+                        disabled={!canWrite || !!statusAction || desfechoPeloPedido}
+                        title={desfechoPeloPedido ? tOrder('outcomeViaOrder') : undefined}
                       >
                         {statusAction === 'won' ? (
                           <Loader2 className="animate-spin" />
@@ -1632,7 +1707,8 @@ export function DealForm({
                         size="sm"
                         variant="destructive"
                         onClick={() => handleStatusChange('lost')}
-                        disabled={!canWrite || !!statusAction}
+                        disabled={!canWrite || !!statusAction || desfechoPeloPedido}
+                        title={desfechoPeloPedido ? tOrder('outcomeViaOrder') : undefined}
                       >
                         {statusAction === 'lost' ? (
                           <Loader2 className="animate-spin" />
@@ -2309,6 +2385,8 @@ export function DealForm({
                   remoto ? remoto.blingOrderNumber : (deal?.bling_order_number ?? null)
                 }
                 ordersEnabled={orderContext.ordersEnabled}
+                hasBlingOrder={!!(deal?.bling_order_id || remoto?.blingOrderNumber)}
+                onChangeStatus={(destino) => void mudarSituacao(destino)}
                 syncBusy={sincronizando}
                 // O quadro relê depois: a oportunidade agora é pedido, e o
                 // cartão (e a próxima abertura da gaveta) precisa saber.

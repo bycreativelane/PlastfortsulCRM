@@ -1034,6 +1034,31 @@ BEGIN
     RAISE EXCEPTION 'bling_settings.orders_enabled must default to false (086)';
   END IF;
 
+  -- 088: the order history is readable by members and written only by the
+  -- server; the queue breaks created_at ties by sequence; the bell knows
+  -- the Bling order type.
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+     WHERE schemaname = 'public' AND tablename = 'deal_order_events' AND cmd = 'SELECT'
+  ) OR EXISTS (
+    SELECT 1 FROM pg_policies
+     WHERE schemaname = 'public' AND tablename = 'deal_order_events' AND cmd <> 'SELECT'
+  ) THEN
+    RAISE EXCEPTION 'deal_order_events policies are not the 088 design';
+  END IF;
+
+  IF (SELECT prosrc FROM pg_proc WHERE proname = 'bling_claim_operations' LIMIT 1) NOT ILIKE '%a.seq%' THEN
+    RAISE EXCEPTION 'bling_claim_operations does not break created_at ties by seq — migration 088 did not apply';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+     WHERE conname = 'notifications_type_check'
+       AND pg_get_constraintdef(oid) LIKE '%bling_order%'
+  ) THEN
+    RAISE EXCEPTION 'notifications.type does not accept bling_order (088)';
+  END IF;
+
   RAISE NOTICE 'schema verification passed';
 END
 $$;

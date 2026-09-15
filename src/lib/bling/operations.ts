@@ -6,8 +6,13 @@ import {
   orderSourceHash,
   syncOrder,
   type LoadedOrder,
+  type OrderEvent,
   type OrderOutcome,
 } from './orders';
+import { loadReferences } from './settings';
+import { changeOrderStatus } from './status-change';
+import { canChangeStatus } from './transitions';
+import { isOrderStatus, type OrderStatus } from '@/lib/deals/order-lock';
 
 /**
  * A FILA DE ESCRITAS NO BLING (086) — enfileirar, pegar com lease, terminar.
@@ -20,7 +25,7 @@ import {
  * lease (demorou mais que ele) não sobrescreve o que o outro gravou.
  */
 
-export type OrderKind = 'create_order' | 'update_order';
+export type OrderKind = 'create_order' | 'update_order' | 'change_status';
 
 export interface EnqueueResult {
   operationId: string;
@@ -72,6 +77,65 @@ export async function enqueueOrderSync(
   return { operationId: linha.operation_id, status: linha.operation_status, created: linha.created, kind };
 }
 
+/**
+ * Enfileira mudar a situação do pedido (Fase 5).
+ *
+ * A chave leva a versão da sincronização: dois cliques no mesmo "Em
+ * andamento" caem na mesma operação; voltar de Compra futura para Em aberto e
+ * ir de novo para Compra futura, depois, é outra — a versão mudou no meio.
+ */
+export async function enqueueStatusChange(
+  db: SupabaseClient,
+  args: { accountId: string; dealId: string; userId: string | null; to: string }
+): Promise<EnqueueResult | { error: 'not_found' | 'not_created' | 'invalid_transition' | 'enqueue_failed'; detail?: string }> {
+  if (!isOrderStatus(args.to)) return { error: 'invalid_transition' };
+  const { data: deal } = await db
+    .from('deals')
+    .select('id, order_status, bling_order_id, sync_version')
+    .eq('id', args.dealId)
+    .eq('account_id', args.accountId)
+    .maybeSingle();
+  const d = deal as { order_status: string | null; bling_order_id: string | null; sync_version: number | null } | null;
+  if (!d) return { error: 'not_found' };
+  if (!d.bling_order_id) return { error: 'not_created' };
+  const origem = (d.order_status ?? 'em_aberto') as OrderStatus;
+  if (!canChangeStatus(origem, args.to)) return { error: 'invalid_transition' };
+
+  const { data, error } = await db.rpc('bling_enqueue_operation', {
+    p_account_id: args.accountId,
+    p_deal_id: args.dealId,
+    p_kind: 'change_status',
+    p_key: `change_status:${args.dealId}:${args.to}:${d.sync_version ?? 0}`,
+    p_payload_hash: null,
+    p_params: { from: origem, to: args.to },
+    p_requested_by: args.userId,
+  });
+  if (error) return { error: 'enqueue_failed', detail: error.message };
+  const linha = (Array.isArray(data) ? data[0] : data) as
+    | { operation_id: string; operation_status: string; created: boolean }
+    | undefined;
+  if (!linha) return { error: 'enqueue_failed', detail: 'sem linha' };
+
+  if (linha.created) {
+    await db.from('deal_order_events').insert({
+      account_id: args.accountId,
+      deal_id: args.dealId,
+      kind: 'status_requested',
+      from_status: origem,
+      to_status: args.to,
+      source: 'crm',
+      operation_id: linha.operation_id,
+      actor_id: args.userId,
+    });
+  }
+  return {
+    operationId: linha.operation_id,
+    status: linha.operation_status,
+    created: linha.created,
+    kind: 'change_status',
+  };
+}
+
 interface Operacao {
   id: string;
   account_id: string;
@@ -79,6 +143,8 @@ interface Operacao {
   kind: string;
   attempts: number;
   max_attempts: number;
+  params?: Record<string, unknown> | null;
+  requested_by?: string | null;
 }
 
 export interface RunDeps {
@@ -101,12 +167,34 @@ export async function accountToday(db: SupabaseClient, accountId: string, now = 
 
 async function processar(db: SupabaseClient, op: Operacao, deps: RunDeps): Promise<OrderOutcome> {
   if (!op.deal_id) return { status: 'failed', error: 'deal_missing' };
-  if (op.kind !== 'create_order' && op.kind !== 'update_order') {
-    // As mudanças de situação e os lançamentos chegam na Fase 5.
+  if (op.kind !== 'create_order' && op.kind !== 'update_order' && op.kind !== 'change_status') {
+    // Lançar e estornar isolados não são pedidos pela tela: acontecem dentro
+    // da mudança de situação.
     return { status: 'failed', error: `unsupported:${op.kind}` };
   }
   const pedido = await loadOrderForBling(db, op.account_id, op.deal_id);
   if (!pedido) return { status: 'failed', error: 'deal_missing' };
+
+  if (op.kind === 'change_status') {
+    const [referencias, etapas] = await Promise.all([
+      pedido.connection ? loadReferences(db, pedido.connection.id) : Promise.resolve([]),
+      pedido.deal.pipeline_id
+        ? db
+            .from('pipeline_stages')
+            .select('id, name, pipeline_id')
+            .eq('pipeline_id', pedido.deal.pipeline_id)
+            .then(({ data }) => (data ?? []) as Array<{ id: string; name: string; pipeline_id: string }>)
+        : Promise.resolve([]),
+    ]);
+    return changeOrderStatus(db, pedido, String(op.params?.to ?? ''), {
+      references: referencias,
+      stages: etapas,
+      operationId: op.id,
+      actorId: op.requested_by ?? null,
+      deps: deps.client,
+      now: deps.now,
+    });
+  }
   const today = deps.today ? await deps.today(op.account_id) : await accountToday(db, op.account_id, (deps.now ?? Date.now)());
   return syncOrder(db, pedido, op.kind, { today, deps: deps.client, now: deps.now });
 }
@@ -136,7 +224,11 @@ async function terminar(
       .select('id');
     // Perdeu o lease: outro processo é dono agora, e a oportunidade é dele.
     if (!data?.length || !op.deal_id) return;
-    await db.from('deals').update({ sync_error: desfecho.error.slice(0, 600) }).eq('id', op.deal_id);
+    await gravarEventos(db, op, desfecho.events);
+    await db
+      .from('deals')
+      .update({ sync_error: desfecho.error.slice(0, 600), ...(desfecho.dealPatch ?? {}) })
+      .eq('id', op.deal_id);
     return;
   }
 
@@ -157,6 +249,7 @@ async function terminar(
     .eq('lock_token', lockToken)
     .select('id');
   if (!data?.length || !op.deal_id) return;
+  await gravarEventos(db, op, desfecho.events);
 
   if (desfecho.status === 'succeeded') {
     if (Object.keys(desfecho.dealPatch).length > 0) {
@@ -166,11 +259,34 @@ async function terminar(
     }
     return;
   }
-  const patch =
-    desfecho.status === 'failed' && desfecho.dealPatch
-      ? desfecho.dealPatch
-      : { sync_status: 'error', sync_error: erro };
-  await db.from('deals').update(patch).eq('id', op.deal_id);
+  // O que a falha trouxe (divergente, carimbos do que deu certo) vence o
+  // "erro" genérico.
+  await db
+    .from('deals')
+    .update({ sync_status: 'error', sync_error: erro, ...(desfecho.dealPatch ?? {}) })
+    .eq('id', op.deal_id);
+}
+
+/**
+ * O histórico do pedido (088). Falhar aqui não desfaz a operação: o evento é
+ * registro, e a verdade continua na oportunidade e no Bling.
+ */
+async function gravarEventos(db: SupabaseClient, op: Operacao, eventos: OrderEvent[] | undefined): Promise<void> {
+  if (!eventos?.length || !op.deal_id) return;
+  const { error } = await db.from('deal_order_events').insert(
+    eventos.map((e) => ({
+      account_id: op.account_id,
+      deal_id: op.deal_id,
+      kind: e.kind,
+      from_status: e.from_status ?? null,
+      to_status: e.to_status ?? null,
+      source: 'crm',
+      operation_id: op.id,
+      actor_id: op.requested_by ?? null,
+      detail: e.detail ?? {},
+    }))
+  );
+  if (error) console.error('[bling] não consegui gravar o histórico do pedido:', error.message);
 }
 
 /**
@@ -199,7 +315,7 @@ export async function runOperations(
   for (const pega of pegas) {
     const { data: linha } = await db
       .from('bling_operations')
-      .select('id, account_id, deal_id, kind, attempts, max_attempts')
+      .select('id, account_id, deal_id, kind, attempts, max_attempts, params, requested_by')
       .eq('id', pega.id)
       .maybeSingle();
     if (!linha) continue;

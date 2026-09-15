@@ -6,6 +6,7 @@ import {
   Bell,
   ListChecks,
   MessageSquare,
+  ReceiptText,
   UserPlus,
 } from 'lucide-react';
 
@@ -74,6 +75,7 @@ const TYPE_ICON: Record<Notification['type'], typeof Bell> = {
   new_message: MessageSquare,
   task_due: ListChecks,
   team_mention: AtSign,
+  bling_order: ReceiptText,
 };
 
 type Translator = (key: string, values?: Record<string, string>) => string;

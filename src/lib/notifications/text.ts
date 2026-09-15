@@ -105,6 +105,20 @@ export function notificationText(
     };
   }
 
+  if (notification.type === 'bling_order') {
+    // O servidor grava o CÓDIGO do acontecimento em `body` (`manual_change`,
+    // `divergent`, `refused`) e o número do pedido em `title`; a frase é
+    // composta aqui, na língua da instalação, como as outras.
+    const codigo = notification.body?.trim() ?? '';
+    const numero = notification.title?.trim() || '—';
+    return {
+      title: t('blingOrderTitle', { number: numero }),
+      body: ['manual_change', 'divergent', 'refused'].includes(codigo)
+        ? t(`blingOrderBody.${codigo}`)
+        : codigo || null,
+    };
+  }
+
   return {
     title: notification.title?.trim() || t('assignedContactUnknown'),
     body: notification.body ?? null,

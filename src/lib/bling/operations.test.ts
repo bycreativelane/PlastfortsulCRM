@@ -97,10 +97,10 @@ describe('runOperations — terminar com compare-and-set', () => {
     expect(db.tables.deals[0]).toMatchObject({ sync_status: 'error', sync_error: 'orders_disabled' });
   });
 
-  it('tipo que esta fase não executa: falha, não repete', async () => {
-    const db = banco([op({ kind: 'change_status' })]);
+  it('lançar isolado não é operação da tela: falha, não repete', async () => {
+    const db = banco([op({ kind: 'launch_accounts' })]);
     await runOperations(db.client, {}, { today: async () => '2026-09-15' });
-    expect(db.tables.bling_operations[0]).toMatchObject({ status: 'failed', error: 'unsupported:change_status' });
+    expect(db.tables.bling_operations[0]).toMatchObject({ status: 'failed', error: 'unsupported:launch_accounts' });
   });
 
   it('estouro no meio de criar: incerto, com a próxima tentativa agendada', async () => {

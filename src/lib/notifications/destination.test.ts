@@ -30,6 +30,12 @@ function notification(over: Partial<Notification>): Notification {
 }
 
 describe('destinationFor', () => {
+  it('o aviso de pedido no Bling abre a oportunidade, antes do contato', () => {
+    expect(
+      destinationFor(notification({ type: 'bling_order', deal_id: 'd1', contact_id: 'ct1' }))
+    ).toBe('/pipelines?deal=d1');
+  });
+
   it('prefers the conversation', () => {
     expect(
       destinationFor(notification({ conversation_id: 'c1', contact_id: 'ct1' }))

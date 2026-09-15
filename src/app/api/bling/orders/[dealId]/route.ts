@@ -49,7 +49,9 @@ export async function GET(_request: Request, { params }: { params: Promise<{ dea
 
     const { data: deal } = await db
       .from('deals')
-      .select('id, order_status, sync_status, sync_error, bling_order_id, bling_order_number, last_synced_at')
+      .select(
+        'id, order_status, sync_status, sync_error, bling_order_id, bling_order_number, last_synced_at, accounts_launched_at, stock_launched_at, stage_id, status'
+      )
       .eq('id', dealId)
       .eq('account_id', ctx.accountId)
       .maybeSingle();

@@ -59,6 +59,7 @@ import { SegBar } from '@/components/ui/seg-bar';
 import { StatusDot } from '@/components/ui/status-badge';
 import { CountBadge } from '@/components/ui/count-badge';
 import { flattenDealTags } from '@/lib/deals/tags';
+import { dragAllowed } from '@/lib/bling/transitions';
 import { FilterChip } from '@/components/ui/filter-chip';
 
 // Pipeline creation is admin-class (settings-tier write under
@@ -151,6 +152,8 @@ function PipelinesPageInner() {
 
   // Guard against double-seeding (React StrictMode double-effect in dev).
   const seedAttempted = useRef(false);
+  /** O negócio que o aviso mandou abrir (`?deal=`), até ele ser aberto. */
+  const dealParaAbrir = useRef<string | null>(searchParams.get('deal'));
 
   const loadPipelines = useCallback(async () => {
     const { data, error } = await supabase
@@ -264,11 +267,26 @@ function PipelinesPageInner() {
         if (seeded) list = await loadPipelines();
       }
 
+      // `?deal=` (o aviso de um pedido no Bling, 088) abre o funil DO NEGÓCIO,
+      // que pode não ser o primeiro.
+      let funilDoNegocio: string | null = null;
+      if (dealParaAbrir.current) {
+        const { data } = await supabase
+          .from('deals')
+          .select('pipeline_id')
+          .eq('id', dealParaAbrir.current)
+          .maybeSingle();
+        funilDoNegocio = (data as { pipeline_id?: string } | null)?.pipeline_id ?? null;
+      }
+
       if (cancelled) return;
       setPipelines(list);
       if (list.length > 0) {
         setSelectedPipelineId((prev) => {
           if (prev && list.some((p) => p.id === prev)) return prev;
+          if (funilDoNegocio && list.some((p) => p.id === funilDoNegocio)) {
+            return funilDoNegocio;
+          }
           // A `?p=` that names a funnel this account cannot see falls back to
           // the first one rather than showing an empty board.
           if (
@@ -287,7 +305,7 @@ function PipelinesPageInner() {
     return () => {
       cancelled = true;
     };
-  }, [loadPipelines, seedDefaultPipeline, initialPipelineId]);
+  }, [loadPipelines, seedDefaultPipeline, initialPipelineId, supabase]);
 
   // Load stages + deals whenever selected pipeline changes.
   // Clearing on no-selection is a legitimate sync with URL/prop
@@ -310,6 +328,17 @@ function PipelinesPageInner() {
       if (cancelled) return;
       setStages(s);
       setDeals(d);
+      // O negócio do `?deal=`, uma vez: abrir de novo a cada recarga do
+      // quadro prenderia a gaveta aberta.
+      const alvo = dealParaAbrir.current
+        ? d.find((negocio) => negocio.id === dealParaAbrir.current)
+        : undefined;
+      if (alvo) {
+        dealParaAbrir.current = null;
+        setEditingDeal(alvo);
+        setDefaultStageId(alvo.stage_id);
+        setDealFormOpen(true);
+      }
     })();
     return () => {
       cancelled = true;
@@ -363,6 +392,27 @@ function PipelinesPageInner() {
     async (dealId: string, newStageId: string) => {
       const moved = deals.find((d) => d.id === dealId);
       const target = stages.find((s) => s.id === newStageId) ?? null;
+
+      /*
+       * D1 = B: ARRASTAR NÃO MEXE NO BLING. Um pedido com contas lançadas
+       * só fica na etapa da própria situação — tirá-lo dali deixaria o quadro
+       * dizendo uma coisa e o financeiro outra. A mudança de verdade é
+       * "Mudar situação", na área Pedido. Antes de lançamento, o arrasto é
+       * livre e o pedido no Bling continua como está.
+       */
+      if (
+        moved?.bling_order_id &&
+        target &&
+        !dragAllowed({
+          orderStatus: moved.order_status,
+          accountsLaunchedAt: moved.accounts_launched_at,
+          targetStageName: target.name,
+        })
+      ) {
+        toast.error(t('dragBlockedLaunched'));
+        refreshDeals();
+        return;
+      }
 
       // Dropping a card into Atendido or Perdido is the same decision as
       // pressing the button in the sheet, so it meets the same gate. The

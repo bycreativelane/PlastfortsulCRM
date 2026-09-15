@@ -60,6 +60,7 @@ export interface LoadedOrder {
     accounts_launched_at?: string | null;
     stock_launched_at?: string | null;
     weight_exception_note?: string | null;
+    pipeline_id?: string | null;
   };
   items: OrderSourceItem[];
   installments: OrderSourceInstallment[];
@@ -224,10 +225,23 @@ export async function activeProductIds(
   return new Set(((data ?? []) as Array<{ id: string }>).map((p) => p.id));
 }
 
+/** Uma linha de `deal_order_events` (088), sem conta, oportunidade e autor. */
+export interface OrderEvent {
+  kind: string;
+  from_status?: string | null;
+  to_status?: string | null;
+  detail?: Record<string, unknown>;
+}
+
+/**
+ * O desfecho de uma operação. `dealPatch` vai para a oportunidade também na
+ * falha e na repetição: um lançamento que DEU CERTO antes de a operação cair
+ * tem de ficar carimbado, ou a repetição lançaria de novo.
+ */
 export type OrderOutcome =
-  | { status: 'succeeded'; result: Record<string, unknown>; dealPatch: Record<string, unknown> }
-  | { status: 'failed'; error: string; dealPatch?: Record<string, unknown> }
-  | { status: 'retry'; error: string; uncertain: boolean };
+  | { status: 'succeeded'; result: Record<string, unknown>; dealPatch: Record<string, unknown>; events?: OrderEvent[] }
+  | { status: 'failed'; error: string; dealPatch?: Record<string, unknown>; events?: OrderEvent[] }
+  | { status: 'retry'; error: string; uncertain: boolean; dealPatch?: Record<string, unknown>; events?: OrderEvent[] };
 
 interface PedidoRemoto {
   id?: number | string;
@@ -441,6 +455,21 @@ export async function syncOrder(
   };
   if (kind === 'create_order' && !deal.order_status) dealPatch.order_status = 'em_aberto';
 
+  const eventos: OrderEvent[] = [
+    {
+      kind: kind === 'create_order' ? 'order_created' : 'order_updated',
+      to_status: kind === 'create_order' ? 'em_aberto' : null,
+      detail: {
+        blingOrderId: remotoId,
+        number: dealPatch.bling_order_number ?? null,
+        // Achado pela chave (uma repetição depois de timeout) ou criado agora.
+        linkedExisting: kind === 'create_order' && !escreveu,
+        contact: contato.action,
+      },
+    },
+  ];
+  if (diferencas.length) eventos.push({ kind: 'divergence', detail: { fields: diferencas } });
+
   return {
     status: 'succeeded',
     result: {
@@ -451,5 +480,6 @@ export async function syncOrder(
       payloadHash: montagem.hash,
     },
     dealPatch,
+    events: eventos,
   };
 }

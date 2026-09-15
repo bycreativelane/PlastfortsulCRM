@@ -91,13 +91,18 @@ export function isNotificationSoundOn(): boolean {
  * Tudo ligado por padrão, e por aparelho, como o interruptor geral.
  */
 export type SoundType =
-  'new_message' | 'conversation_assigned' | 'task_due' | 'team_mention';
+  | 'new_message'
+  | 'conversation_assigned'
+  | 'task_due'
+  | 'team_mention'
+  | 'bling_order';
 
 export const SOUND_TYPES: SoundType[] = [
   'new_message',
   'conversation_assigned',
   'task_due',
   'team_mention',
+  'bling_order',
 ];
 
 function lerTipos(): Partial<Record<SoundType, boolean>> {

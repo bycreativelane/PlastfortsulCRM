@@ -333,7 +333,13 @@ export type NotificationType =
   /** Um lembrete de tarefa, escrito pela varredura do cron (068). */
   | 'task_due'
   /** Alguém chamou a pessoa com `@` na sala da equipe (077). */
-  | 'team_mention';
+  | 'team_mention'
+  /**
+   * O pedido no Bling mudou por fora do CRM, divergiu ou foi recusado
+   * (088). O título é a frase já composta pelo servidor; `deal_id` leva à
+   * oportunidade.
+   */
+  | 'bling_order';
 
 export interface Notification {
   id: string;
@@ -357,6 +363,8 @@ export interface Notification {
   task_id?: string | null;
   /** A mensagem da sala que mencionou, para `type = 'team_mention'` (077). */
   team_message_id?: string | null;
+  /** A oportunidade do pedido, para `type = 'bling_order'` (088). */
+  deal_id?: string | null;
   /** Who triggered it. Null when an automation/system assigned it. */
   actor_user_id?: string | null;
   title: string | null;

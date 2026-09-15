@@ -250,12 +250,13 @@ describe('syncOrder — criar', () => {
     expect(bling.chamadas.filter((c) => c.startsWith('POST /pedidos'))).toHaveLength(1);
   });
 
-  it('já ligado: termina sem chamar o Bling', async () => {
+  it('já ligado (a reconciliação ligou pela chave): não cria outro — atualiza com o conteúdo de agora', async () => {
     const db = banco({ deal: { bling_order_id: '77' } });
-    const bling = blingFalso();
+    const bling = blingFalso({ existentes: [{ id: 77, numero: 14577, numeroLoja: externalKey(DEAL) }] });
     const r = await syncOrder(db.client, (await loadOrderForBling(db.client, 'acc-1', DEAL))!, 'create_order', opcoes(bling.impl));
     expect(r.status).toBe('succeeded');
-    expect(bling.chamadas).toEqual([]);
+    expect(bling.chamadas.some((c) => c.startsWith('POST /pedidos'))).toBe(false);
+    expect(bling.chamadas.filter((c) => c.startsWith('PUT /pedidos'))).toHaveLength(1);
   });
 
   it('dois pedidos com a mesma chave lá: divergente, sem criar', async () => {
@@ -297,7 +298,10 @@ describe('syncOrder — criar', () => {
     const bling = blingFalso();
     const r = await syncOrder(db.client, (await loadOrderForBling(db.client, 'acc-1', DEAL))!, 'create_order', opcoes(bling.impl));
     expect(r).toMatchObject({ status: 'failed', error: 'payload:installments_mismatch' });
-    expect(bling.chamadas.some((c) => c.includes('/pedidos'))).toBe(false);
+    // Só a consulta pela chave; nada escrito, e a chave NÃO foi gravada — a
+    // oportunidade continua podendo ser apagada.
+    expect(bling.chamadas.filter((c) => !c.startsWith('GET'))).toEqual([]);
+    expect(db.tables.deals[0].bling_external_key).toBeNull();
   });
 });
 
@@ -351,7 +355,7 @@ describe('auditoria da 0.11.0 — o que o servidor confere antes de mandar', () 
     expect(readinessOfLoaded(pedido).staleLines).toEqual([0]);
     const r = await syncOrder(db.client, pedido, 'create_order', opcoes(bling.impl));
     expect(r).toMatchObject({ status: 'failed', error: 'payload:item_not_linked' });
-    expect(bling.chamadas).toEqual([]);
+    expect(bling.chamadas.filter((c) => !c.startsWith('GET'))).toEqual([]);
   });
 
   it('categoria forjada na linha também não passa', async () => {
@@ -420,10 +424,15 @@ describe('auditoria da 0.11.0 — o que o servidor confere antes de mandar', () 
     expect(bling.chamadas).toEqual([]);
   });
 
-  it('já ligado pela reconciliação: termina sincronizado e Em aberto', async () => {
+  it('já ligado pela reconciliação: termina sincronizado e Em aberto, com o resumo do que foi agora', async () => {
     const db = banco({ deal: { bling_order_id: '77' } });
-    const r = await syncOrder(db.client, (await loadOrderForBling(db.client, 'acc-1', DEAL))!, 'create_order', opcoes(blingFalso().impl));
-    expect(r).toMatchObject({ status: 'succeeded', dealPatch: { sync_status: 'synced', order_status: 'em_aberto' } });
+    const bling = blingFalso({ existentes: [{ id: 77, numero: 14577, numeroLoja: externalKey(DEAL) }] });
+    const pedido = (await loadOrderForBling(db.client, 'acc-1', DEAL))!;
+    const r = await syncOrder(db.client, pedido, 'create_order', opcoes(bling.impl));
+    expect(r).toMatchObject({
+      status: 'succeeded',
+      dealPatch: { sync_status: 'synced', order_status: 'em_aberto', bling_source_hash: orderSourceHash(pedido) },
+    });
   });
 });
 
@@ -455,5 +464,105 @@ describe('a categoria da linha confere pelo mesmo caminho que a congelou', () =>
     const pedido = (await loadOrderForBling(db.client, 'acc-1', DEAL))!;
     expect(pedido.products.get('p-1')?.revenueCategoryBlingId).toBe('901');
     expect(readinessOfLoaded(pedido).staleLines).toEqual([]);
+  });
+});
+
+describe('criação incerta — a revisão da 090', () => {
+  it('a repetição acha o pedido da tentativa anterior e LEVA o conteúdo de agora antes de gravar o resumo', async () => {
+    const db = banco({ deal: { bling_external_key: externalKey(DEAL) } });
+    // O pedido que a tentativa anterior criou, com o conteúdo de então.
+    const bling = blingFalso({ existentes: [{ id: 5009, numero: 14509, numeroLoja: externalKey(DEAL) }] });
+    const pedido = (await loadOrderForBling(db.client, 'acc-1', DEAL))!;
+    const r = await syncOrder(db.client, pedido, 'create_order', opcoes(bling.impl));
+    expect(r.status).toBe('succeeded');
+    expect(bling.chamadas.some((c) => c.startsWith('POST /pedidos'))).toBe(false);
+    const put = bling.corpos.find((c) => c.itens) as Record<string, unknown>;
+    expect(put).toBeDefined();
+    expect(put).not.toHaveProperty('situacao');
+    if (r.status !== 'succeeded') return;
+    expect(r.dealPatch).toMatchObject({ bling_order_id: '5009', bling_source_hash: orderSourceHash(pedido), order_status: 'em_aberto' });
+    expect(r.events?.[0]).toMatchObject({ kind: 'order_created', detail: { linkedExisting: true } });
+  });
+
+  it('achado pela chave e o conteúdo de agora não pode ir: liga o pedido, sem o resumo', async () => {
+    const db = banco({ deal: { bling_external_key: externalKey(DEAL) } });
+    db.tables.deal_items[0].bling_product_id = '9999';
+    const bling = blingFalso({ existentes: [{ id: 5009, numero: 14509, numeroLoja: externalKey(DEAL) }] });
+    const r = await syncOrder(db.client, (await loadOrderForBling(db.client, 'acc-1', DEAL))!, 'create_order', opcoes(bling.impl));
+    expect(r).toMatchObject({
+      status: 'failed',
+      error: 'payload:item_not_linked',
+      dealPatch: { bling_order_id: '5009', bling_order_number: '14509', order_status: 'em_aberto' },
+    });
+    expect(r.status === 'failed' && r.dealPatch).not.toHaveProperty('bling_source_hash');
+    expect(bling.chamadas.filter((c) => !c.startsWith('GET'))).toEqual([]);
+  });
+
+  it('achado pela chave e o Bling fora do ar na hora de atualizar: repete, já ligado', async () => {
+    const db = banco({ deal: { bling_external_key: externalKey(DEAL) } });
+    const base = blingFalso({ existentes: [{ id: 5009, numero: 14509, numeroLoja: externalKey(DEAL) }] });
+    const impl: FetchLike = async (url, init) => {
+      if ((init?.method ?? 'GET') === 'PUT' && String(url).includes('/pedidos/vendas/5009')) {
+        return new Response(JSON.stringify({ error: { type: 'SERVER_ERROR', description: 'fora' } }), { status: 503 });
+      }
+      return base.impl(url, init);
+    };
+    const r = await syncOrder(db.client, (await loadOrderForBling(db.client, 'acc-1', DEAL))!, 'create_order', opcoes(impl));
+    expect(r).toMatchObject({ status: 'retry', uncertain: false, dealPatch: { bling_order_id: '5009' } });
+  });
+
+  it('POST recusado de vez numa chave gravada agora: a chave sai', async () => {
+    const db = banco();
+    const bling = blingFalso({ postRecusa: true });
+    const r = await syncOrder(db.client, (await loadOrderForBling(db.client, 'acc-1', DEAL))!, 'create_order', opcoes(bling.impl));
+    expect(r).toMatchObject({ status: 'failed', dealPatch: { bling_external_key: null } });
+  });
+
+  it('POST recusado com a chave de uma tentativa anterior: a chave fica (a anterior pode ter criado)', async () => {
+    const db = banco({ deal: { bling_external_key: externalKey(DEAL) } });
+    const bling = blingFalso({ postRecusa: true });
+    const r = await syncOrder(db.client, (await loadOrderForBling(db.client, 'acc-1', DEAL))!, 'create_order', opcoes(bling.impl));
+    expect(r.status).toBe('failed');
+    expect(r.status === 'failed' && r.dealPatch).toBeFalsy();
+  });
+
+  it('leitura dos produtos que falha não vira "item sem vínculo": estoura, e a fila repete', async () => {
+    const db = banco();
+    const original = db.client.from.bind(db.client);
+    (db.client as unknown as { from: typeof db.client.from }).from = ((nome: string) => {
+      if (nome === 'products') {
+        const b = original(nome);
+        const falha = { data: null, error: { code: '57014', message: 'statement timeout' } };
+        const cadeia = { select: () => cadeia, eq: () => cadeia, in: () => cadeia, then: (r: (v: unknown) => unknown) => Promise.resolve(falha).then(r) };
+        void b;
+        return cadeia as unknown as ReturnType<typeof original>;
+      }
+      return original(nome);
+    }) as unknown as typeof db.client.from;
+    await expect(loadOrderForBling(db.client, 'acc-1', DEAL)).rejects.toThrow('produtos do pedido');
+  });
+});
+
+describe('leitura incompleta do contexto', () => {
+  it('cadastros que não vieram não viram "categoria mudou": estoura, e a fila repete', async () => {
+    const db = banco();
+    const original = db.client.from.bind(db.client);
+    (db.client as unknown as { from: typeof db.client.from }).from = ((nome: string) => {
+      if (nome === 'bling_references') {
+        const falha = { data: null, error: { code: '57014', message: 'statement timeout' } };
+        const cadeia = {
+          select: () => cadeia,
+          eq: () => cadeia,
+          in: () => cadeia,
+          is: () => cadeia,
+          order: () => cadeia,
+          range: () => cadeia,
+          then: (r: (v: unknown) => unknown) => Promise.resolve(falha).then(r),
+        };
+        return cadeia as unknown as ReturnType<typeof original>;
+      }
+      return original(nome);
+    }) as unknown as typeof db.client.from;
+    await expect(loadOrderForBling(db.client, 'acc-1', DEAL)).rejects.toThrow('mapa de famílias');
   });
 });

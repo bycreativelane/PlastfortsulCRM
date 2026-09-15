@@ -189,7 +189,7 @@ async function currentProductFacts(
   const ids = [...new Set(linhas.map((l) => l.product_id).filter((id): id is string => !!id))];
   const mapa = new Map<string, ProductFacts>();
   if (ids.length === 0) return mapa;
-  const [{ data }, contexto] = await Promise.all([
+  const [{ data, error }, contexto] = await Promise.all([
     db
       .from('products')
       .select('id, active, bling_product_id, bling_product_type, bling_family_id, revenue_category_bling_id, defines_order_category')
@@ -198,6 +198,13 @@ async function currentProductFacts(
       .in('id', ids),
     loadOrderContext(db, accountId),
   ]);
+  // Uma leitura que falhou não é "produto inativo" nem "categoria mudou":
+  // quem chama repete (a fila trata o estouro como passageiro) em vez de
+  // falhar o pedido com "item sem vínculo".
+  if (error) throw new Error(`[bling] não consegui ler os produtos do pedido: ${error.message}`);
+  if (!contexto.categoriesComplete) {
+    throw new Error('[bling] não consegui ler os ajustes, os cadastros ou o mapa de famílias do pedido');
+  }
   for (const produto of (data ?? []) as Array<Product & { id: string }>) {
     mapa.set(produto.id, productFacts(produto, contexto.resolveCategory));
   }
@@ -427,76 +434,26 @@ export async function syncOrder(
   if (!settings?.orders_enabled) return { status: 'failed', error: 'orders_disabled' };
   if (!connection || connection.status === 'revoked') return { status: 'failed', error: 'not_connected' };
   if (settings.company_id !== connection.company_id) return { status: 'failed', error: 'company_mismatch' };
-  if (!pedido.contact) return { status: 'failed', error: 'contact_document_missing' };
-
-  // Criar de novo o que já foi criado é o que esta função existe para não
-  // fazer: a operação repetida termina sem chamar o Bling. (A reconciliação
-  // pode ter ligado o pedido pela chave antes de a criação incerta repetir.)
-  if (kind === 'create_order' && deal.bling_order_id) {
-    return {
-      status: 'succeeded',
-      result: { alreadyLinked: deal.bling_order_id },
-      dealPatch: { sync_status: 'synced', sync_error: null, ...(deal.order_status ? {} : { order_status: 'em_aberto' }) },
-    };
-  }
   if (kind === 'update_order' && !deal.bling_order_id) return { status: 'failed', error: 'order_not_created' };
-  if (kind === 'update_order' && (deal.accounts_launched_at || deal.stock_launched_at)) {
-    return { status: 'failed', error: 'order_launched' };
-  }
-  // Compra futura destrava o pedido no CRM, mas o Bling só aceita PUT Em
-  // aberto: atualizar aqui terminaria sempre "divergente".
-  if (kind === 'update_order' && deal.order_status && deal.order_status !== 'em_aberto') {
-    return { status: 'failed', error: 'order_not_open' };
-  }
-
-  // O snapshot das linhas é escrito pelo navegador: conferido contra o
-  // produto como está agora, e texto livre não vai (a rota conferiu a lista
-  // inteira; isto fecha a janela entre a rota e esta operação).
-  if (readinessOfLoaded(pedido).unlinkedLines.length > 0) {
-    return { status: 'failed', error: 'payload:item_not_linked' };
-  }
-
-  let contato;
-  try {
-    contato = await resolveBlingContact(db, connection.id, pedido.contact, {
-      clientTypeId: pedido.clientTypeId,
-      accountId: deal.account_id,
-      deps,
-    });
-  } catch (erro) {
-    return desfechoDoErro(erro, false);
-  }
 
   const chave = deal.bling_external_key || externalKey(deal.id);
-  if (!deal.bling_external_key) {
-    // A chave vai para o banco ANTES do POST: é por ela que a próxima
-    // tentativa acha o pedido.
-    const { error } = await db.from('deals').update({ bling_external_key: chave }).eq('id', deal.id);
-    if (error) return { status: 'retry', error: 'save_key_failed', uncertain: false };
-  }
 
-  const montagem = buildOrderPayload(
-    {
-      deal: { ...deal, bling_external_key: chave },
-      items: pedido.items,
-      installments: pedido.installments,
-      contactBlingId: contato.blingId,
-      carrier: pedido.carrier,
-      sellerBlingId: pedido.sellerBlingId,
-      statusOpenId: settings.status_open_id,
-      today: opcoes.today,
-    },
-    kind === 'create_order' ? 'create' : 'update'
-  );
-  if (!montagem.ok) return { status: 'failed', error: `payload:${montagem.problems.join(',')}` };
-
-  const contactId = Number(contato.blingId);
-  const itemCount = (montagem.payload.itens as unknown[]).length;
-  let remotoId: string;
-  let escreveu = false;
-
-  try {
-    if (kind === 'create_order') {
+  /*
+   * ONDE O PEDIDO ESTÁ. Ligado: é aquele — inclusive numa criação que a
+   * reconciliação ligou pela chave enquanto esperava a repetição. Sem vínculo,
+   * procura pela chave ANTES de qualquer outra conferência: uma tentativa
+   * anterior pode ter criado o pedido, e um pedido que existe no Bling é
+   * ligado mesmo que o conteúdo de agora ainda não possa ir.
+   *
+   * Pedido que já existe recebe o conteúdo de AGORA (PUT). Ligar sem enviar
+   * gravava como "o que o Bling recebeu" um pedido que ele nunca recebeu — e
+   * Em andamento lançava as contas do conteúdo da tentativa antiga.
+   */
+  let remotoId: string | null = deal.bling_order_id ? String(deal.bling_order_id) : null;
+  let achadoPelaChave = false;
+  let numeroAchado: string | null = null;
+  if (!remotoId) {
+    try {
       const busca = await blingRequest<{ data?: PedidoRemoto[] }>(
         db,
         connection.id,
@@ -512,61 +469,164 @@ export async function syncOrder(
           dealPatch: { sync_status: 'divergent', sync_error: 'duplicate_remote' },
         };
       }
-      if (achados.length === 1 && achados[0].id !== undefined) {
+      if (achados.length === 1 && achados[0].id !== undefined && achados[0].id !== null) {
         remotoId = String(achados[0].id);
-      } else {
-        escreveu = true;
-        const criado = await blingRequest<{ data?: { id?: number | string } }>(
-          db,
-          connection.id,
-          '/pedidos/vendas',
-          { method: 'POST', body: montagem.payload },
-          deps
-        );
-        if (criado?.data?.id === undefined || criado?.data?.id === null) {
-          return { status: 'retry', error: 'no_id_returned', uncertain: true };
-        }
-        remotoId = String(criado.data.id);
+        achadoPelaChave = true;
+        numeroAchado = achados[0].numero !== undefined && achados[0].numero !== null ? String(achados[0].numero) : null;
       }
+    } catch (erro) {
+      return desfechoDoErro(erro, false);
+    }
+  }
+
+  /**
+   * O pedido achado pela chave fica ligado em qualquer desfecho: a próxima
+   * tentativa (ou o próximo "Atualizar") o atualiza em vez de procurar de novo.
+   * Sem o resumo — o conteúdo não foi.
+   */
+  const comVinculo = (saida: OrderOutcome): OrderOutcome => {
+    if (!achadoPelaChave || saida.status === 'succeeded') return saida;
+    return {
+      ...saida,
+      dealPatch: {
+        bling_order_id: remotoId,
+        bling_external_key: chave,
+        bling_order_number: numeroAchado,
+        ...(deal.order_status ? {} : { order_status: 'em_aberto' }),
+        ...(saida.dealPatch ?? {}),
+      },
+      events: [
+        { kind: 'order_created', to_status: 'em_aberto', detail: { blingOrderId: remotoId, number: numeroAchado, linkedExisting: true, contentSent: false } },
+        ...(saida.events ?? []),
+      ],
+    };
+  };
+
+  const atualizar = remotoId !== null;
+  if (atualizar && (deal.accounts_launched_at || deal.stock_launched_at)) {
+    return comVinculo({ status: 'failed', error: 'order_launched' });
+  }
+  // Compra futura destrava o pedido no CRM, mas o Bling só aceita PUT Em
+  // aberto: atualizar aqui terminaria sempre "divergente".
+  if (atualizar && deal.order_status && deal.order_status !== 'em_aberto') {
+    return comVinculo({ status: 'failed', error: 'order_not_open' });
+  }
+  if (!pedido.contact) return comVinculo({ status: 'failed', error: 'contact_document_missing' });
+
+  // O snapshot das linhas é escrito pelo navegador: conferido contra o
+  // produto como está agora, e texto livre não vai (a rota conferiu a lista
+  // inteira; isto fecha a janela entre a rota e esta operação).
+  if (readinessOfLoaded(pedido).unlinkedLines.length > 0) {
+    return comVinculo({ status: 'failed', error: 'payload:item_not_linked' });
+  }
+
+  // O pedido fecha? Conferido antes de encostar no cliente do Bling (com um
+  // id de ensaio): um pedido que não sai não completa cadastro lá.
+  const fonte = {
+    deal: { ...deal, bling_external_key: chave },
+    items: pedido.items,
+    installments: pedido.installments,
+    carrier: pedido.carrier,
+    sellerBlingId: pedido.sellerBlingId,
+    statusOpenId: settings.status_open_id,
+    today: opcoes.today,
+  };
+  const ensaio = buildOrderPayload({ ...fonte, contactBlingId: '1' }, atualizar ? 'update' : 'create');
+  if (!ensaio.ok) return comVinculo({ status: 'failed', error: `payload:${ensaio.problems.join(',')}` });
+
+  let contato;
+  try {
+    contato = await resolveBlingContact(db, connection.id, pedido.contact, {
+      clientTypeId: pedido.clientTypeId,
+      accountId: deal.account_id,
+      deps,
+    });
+  } catch (erro) {
+    return comVinculo(desfechoDoErro(erro, false));
+  }
+
+  const montagem = buildOrderPayload({ ...fonte, contactBlingId: contato.blingId }, atualizar ? 'update' : 'create');
+  if (!montagem.ok) return comVinculo({ status: 'failed', error: `payload:${montagem.problems.join(',')}` });
+
+  const contactId = Number(contato.blingId);
+  const itemCount = (montagem.payload.itens as unknown[]).length;
+  let escreveu = false;
+  let chaveNova = false;
+
+  try {
+    if (!atualizar) {
+      if (!deal.bling_external_key) {
+        // A chave vai para o banco ANTES do POST — é por ela que a próxima
+        // tentativa acha o pedido — e só agora, com o pedido pronto para ir:
+        // uma montagem recusada não deixa chave, e a oportunidade continua
+        // podendo ser apagada.
+        const { error } = await db
+          .from('deals')
+          .update({ bling_external_key: chave })
+          .eq('id', deal.id)
+          .eq('account_id', deal.account_id);
+        if (error) return { status: 'retry', error: 'save_key_failed', uncertain: false };
+        chaveNova = true;
+      }
+      escreveu = true;
+      const criado = await blingRequest<{ data?: { id?: number | string } }>(
+        db,
+        connection.id,
+        '/pedidos/vendas',
+        { method: 'POST', body: montagem.payload },
+        deps
+      );
+      if (criado?.data?.id === undefined || criado?.data?.id === null) {
+        return { status: 'retry', error: 'no_id_returned', uncertain: true };
+      }
+      remotoId = String(criado.data.id);
     } else {
-      remotoId = String(deal.bling_order_id);
       const atual = await blingRequest<{ data?: PedidoRemoto }>(
         db,
         connection.id,
-        `/pedidos/vendas/${encodeURIComponent(remotoId)}`,
+        `/pedidos/vendas/${encodeURIComponent(String(remotoId))}`,
         {},
         deps
       );
       const situacao = atual?.data?.situacao?.id;
       if (situacao !== undefined && String(situacao) !== String(settings.status_open_id)) {
-        return {
+        return comVinculo({
           status: 'failed',
           error: 'remote_not_open',
           dealPatch: { sync_status: 'divergent', sync_error: 'remote_not_open' },
-        };
+        });
       }
       escreveu = true;
       await blingRequest(
         db,
         connection.id,
-        `/pedidos/vendas/${encodeURIComponent(remotoId)}`,
+        `/pedidos/vendas/${encodeURIComponent(String(remotoId))}`,
         { method: 'PUT', body: montagem.payload },
         deps
       );
     }
   } catch (erro) {
-    // PUT é idempotente: repetir não duplica. POST que pode ter passado é
-    // incerto até a consulta dizer o contrário.
-    const incerto = escreveu && kind === 'create_order';
-    if (erro instanceof BlingApiError && erro.status === 404 && kind === 'update_order') {
+    if (erro instanceof BlingApiError && erro.status === 404 && atualizar) {
+      // Achado pela chave e sumido no meio: a próxima tentativa procura de novo.
+      if (achadoPelaChave) return { status: 'retry', error: textoDoErro(erro), uncertain: false };
       return {
         status: 'failed',
         error: 'remote_missing',
         dealPatch: { sync_status: 'divergent', sync_error: 'remote_missing' },
       };
     }
-    return desfechoDoErro(erro, incerto);
+    // POST recusado de vez numa chave gravada AGORA: nada foi criado, e a
+    // chave sai — senão a oportunidade ficaria impossível de apagar por um
+    // pedido que não existe. 408, 409 e 429 ficam de fora: podem ter passado.
+    if (!atualizar && chaveNova && erro instanceof BlingApiError && RECUSA_DEFINITIVA.has(erro.status)) {
+      return { status: 'failed', error: textoDoErro(erro), dealPatch: { bling_external_key: null } };
+    }
+    // PUT é idempotente: repetir não duplica. POST que pode ter passado é
+    // incerto até a consulta dizer o contrário.
+    return comVinculo(desfechoDoErro(erro, escreveu && !atualizar));
   }
+
+  const idDoPedido = String(remotoId);
 
   // Conferir o que ficou gravado lá. Uma falha AQUI não desfaz nada: o
   // pedido existe; repete-se só a conferência.
@@ -575,7 +635,7 @@ export async function syncOrder(
     const lido = await blingRequest<{ data?: PedidoRemoto }>(
       db,
       connection.id,
-      `/pedidos/vendas/${encodeURIComponent(remotoId)}`,
+      `/pedidos/vendas/${encodeURIComponent(idDoPedido)}`,
       {},
       deps
     );
@@ -589,28 +649,31 @@ export async function syncOrder(
     : [];
 
   const dealPatch: Record<string, unknown> = {
-    bling_order_id: remotoId,
+    bling_order_id: idDoPedido,
     bling_external_key: chave,
-    bling_order_number: remoto?.numero !== undefined ? String(remoto.numero) : (deal.bling_order_number ?? null),
+    bling_order_number:
+      remoto?.numero !== undefined ? String(remoto.numero) : (numeroAchado ?? deal.bling_order_number ?? null),
     sync_status: diferencas.length ? 'divergent' : 'synced',
     sync_error: diferencas.length ? `diff:${diferencas.join(',')}` : null,
     last_synced_at: agora,
     // O incremento é do banco (`bling_finish_operation`); o valor é informativo.
     sync_version: (deal.sync_version ?? 0) + 1,
-    // O que o Bling recebeu: a mudança para Em andamento confere contra isto.
+    // O que o Bling recebeu — enviado AGORA, pelo POST ou pelo PUT. A mudança
+    // para Em andamento confere contra isto.
     bling_source_hash: orderSourceHash(pedido),
   };
-  if (kind === 'create_order' && !deal.order_status) dealPatch.order_status = 'em_aberto';
+  if (!deal.order_status) dealPatch.order_status = 'em_aberto';
 
+  const criou = !atualizar || achadoPelaChave;
   const eventos: OrderEvent[] = [
     {
-      kind: kind === 'create_order' ? 'order_created' : 'order_updated',
-      to_status: kind === 'create_order' ? 'em_aberto' : null,
+      kind: criou ? 'order_created' : 'order_updated',
+      to_status: criou ? 'em_aberto' : null,
       detail: {
-        blingOrderId: remotoId,
+        blingOrderId: idDoPedido,
         number: dealPatch.bling_order_number ?? null,
-        // Achado pela chave (uma repetição depois de timeout) ou criado agora.
-        linkedExisting: kind === 'create_order' && !escreveu,
+        // Achado pela chave (uma repetição depois de timeout) e atualizado, ou criado agora.
+        linkedExisting: achadoPelaChave,
         contact: contato.action,
       },
     },
@@ -620,7 +683,7 @@ export async function syncOrder(
   return {
     status: 'succeeded',
     result: {
-      blingOrderId: remotoId,
+      blingOrderId: idDoPedido,
       number: dealPatch.bling_order_number,
       contact: { action: contato.action, filled: contato.filled, differences: contato.differences },
       differences: diferencas,
@@ -630,3 +693,9 @@ export async function syncOrder(
     events: eventos,
   };
 }
+
+/**
+ * Recusas em que o POST certamente não criou nada. 408 (tempo esgotado no
+ * gateway), 409 (conflito — talvez o próprio pedido) e 429 ficam de fora.
+ */
+const RECUSA_DEFINITIVA = new Set([400, 401, 403, 404, 422]);

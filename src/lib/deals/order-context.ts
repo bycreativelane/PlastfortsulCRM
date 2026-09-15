@@ -48,6 +48,13 @@ export interface OrderContext {
   categoryLabels: ReadonlyMap<string, string>;
   /** A categoria que a linha congela ao receber este produto. */
   resolveCategory: (product: Product) => string | null;
+  /**
+   * Ajustes, cadastros e mapa de famílias foram lidos sem erro — o
+   * `resolveCategory` é o de verdade. A gaveta segue com o que leu; o
+   * servidor, que decide o que vai ao Bling, não decide em cima de leitura
+   * pela metade (uma queda de rede virava "item sem vínculo" para sempre).
+   */
+  categoriesComplete: boolean;
 }
 
 export const EMPTY_ORDER_CONTEXT: OrderContext = {
@@ -58,6 +65,7 @@ export const EMPTY_ORDER_CONTEXT: OrderContext = {
   paymentMethods: [],
   categoryLabels: new Map(),
   resolveCategory: (product) => product.revenue_category_bling_id ?? null,
+  categoriesComplete: false,
 };
 
 const TABELA_AUSENTE = ['PGRST205', '42P01'];
@@ -71,7 +79,10 @@ interface LinhaReferencia {
 
 const PAGINA = 1000;
 
-async function lerReferencias(db: SupabaseClient, accountId: string): Promise<LinhaReferencia[]> {
+async function lerReferencias(
+  db: SupabaseClient,
+  accountId: string
+): Promise<{ linhas: LinhaReferencia[]; completas: boolean }> {
   const linhas: LinhaReferencia[] = [];
   for (let de = 0; de < 50 * PAGINA; de += PAGINA) {
     const { data, error } = await db
@@ -82,11 +93,11 @@ async function lerReferencias(db: SupabaseClient, accountId: string): Promise<Li
       .is('removed_at', null)
       .order('bling_id', { ascending: true })
       .range(de, de + PAGINA - 1);
-    if (error) return linhas;
+    if (error) return { linhas, completas: false };
     linhas.push(...((data ?? []) as LinhaReferencia[]));
     if ((data ?? []).length < PAGINA) break;
   }
-  return linhas;
+  return { linhas, completas: true };
 }
 
 /**
@@ -122,7 +133,7 @@ export async function loadOrderContext(
   db: SupabaseClient,
   accountId: string
 ): Promise<OrderContext> {
-  const [transportadoras, ajustes, referencias, familias] = await Promise.all([
+  const [transportadoras, ajustes, lidas, familias] = await Promise.all([
     db.from('carriers').select('*').eq('account_id', accountId).order('name'),
     db.from('bling_settings').select('*').eq('account_id', accountId).maybeSingle(),
     lerReferencias(db, accountId),
@@ -135,6 +146,7 @@ export async function loadOrderContext(
   const available = !(
     transportadoras.error && TABELA_AUSENTE.includes(transportadoras.error.code ?? '')
   );
+  const referencias = lidas.linhas;
   const settings = ajustes.error
     ? null
     : (ajustes.data as {
@@ -177,5 +189,6 @@ export async function loadOrderContext(
           defaultCategoryId: settings.default_revenue_category_id ?? null,
         })
       : EMPTY_ORDER_CONTEXT.resolveCategory,
+    categoriesComplete: !ajustes.error && lidas.completas && !familias.error,
   };
 }

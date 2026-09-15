@@ -25,9 +25,10 @@ describe('currentOrder — a prop com a fila por cima', () => {
     expect(p).toMatchObject({ lock: 'open', open: false, syncable: false });
   });
 
-  it('é pedido também com a chave gravada (criação incerta) ou com estado de sincronização', () => {
+  it('é pedido também com a chave gravada (criação incerta); o estado de sincronização sozinho, não', () => {
     expect(currentOrder({ bling_external_key: 'CRM-ORC-1' }, null).isOrder).toBe(true);
-    expect(currentOrder({ sync_status: 'error' }, null).isOrder).toBe(true);
+    // Uma sincronização que falhou antes de enviar não deixou pedido no Bling (091).
+    expect(currentOrder({ sync_status: 'error' }, null).isOrder).toBe(false);
     expect(currentOrder({ sync_status: 'not_sent' }, null).isOrder).toBe(false);
     expect(currentOrder(null, null)).toMatchObject({ isOrder: false, syncable: true, lock: 'open' });
   });

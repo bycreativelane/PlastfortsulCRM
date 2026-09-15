@@ -1148,6 +1148,27 @@ BEGIN
     RAISE EXCEPTION 'a Bling company can be live in two accounts — idx_bling_connections_company_live is missing (090)';
   END IF;
 
+  -- 091: the finish locks the deal before the operation (the enqueue's
+  -- order), a transient webhook waits before it can be claimed again, and a
+  -- deal is not undeletable just because a sync failed before sending.
+  IF (
+    SELECT position('FOR UPDATE' IN prosrc) = 0
+        OR position('FOR UPDATE' IN prosrc) > position('UPDATE bling_operations o' IN prosrc)
+      FROM pg_proc WHERE proname = 'bling_finish_operation' LIMIT 1
+  ) THEN
+    RAISE EXCEPTION 'bling_finish_operation does not lock the deal before the operation (091)';
+  END IF;
+
+  IF (SELECT prosrc FROM pg_proc WHERE proname = 'bling_claim_webhook_events' LIMIT 1)
+       NOT ILIKE '%e.locked_until IS NULL OR e.locked_until <= NOW()%'
+  THEN
+    RAISE EXCEPTION 'bling_claim_webhook_events claims pending events before their retry wait (091)';
+  END IF;
+
+  IF (SELECT prosrc FROM pg_proc WHERE proname = 'guard_deal_order_columns' LIMIT 1) ILIKE '%COALESCE(OLD.sync_status%' THEN
+    RAISE EXCEPTION 'guard_deal_order_columns still refuses deletes by sync_status (091)';
+  END IF;
+
   RAISE NOTICE 'schema verification passed';
 END
 $$;

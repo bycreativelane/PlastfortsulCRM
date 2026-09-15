@@ -96,9 +96,9 @@ Detalhes: [docker.md](./docker.md).
 
 ## Checklist antes de apontar o WhatsApp para produção
 
-- [ ] Migrações 001–090 aplicadas no Supabase de produção, **em ordem**. Algumas
+- [ ] Migrações 001–091 aplicadas no Supabase de produção, **em ordem**. Algumas
       corrigem as anteriores (073 a 072, 079–081 os privilégios de funções, 087 a
-      086, 090 a fila e as guardas da 085–089) — pular uma deixa a seguinte sem o
+      086, 090 a fila e as guardas da 085–089, 091 a 090) — pular uma deixa a seguinte sem o
       que ela conserta. O `verify-schema.sql` da CI confere o desenho de cada uma
 - [ ] Bling (se for usar): as três variáveis, o cron de `/api/bling/cron`, os webhooks, e
       **Pedidos no Bling desligado** até terminar a semana só lendo ([operacao-bling.md](./operacao-bling.md))

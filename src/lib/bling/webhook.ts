@@ -138,6 +138,18 @@ interface EventoLinha {
   event: string;
   resource_id: string | null;
   summary: Record<string, unknown>;
+  attempts?: number | null;
+}
+
+/**
+ * Quanto um evento com erro passageiro espera antes de ser pego de novo,
+ * pelas tentativas já feitas. Sem espera, pegar um por vez fazia o mesmo
+ * evento ser pego de novo na volta seguinte — as dez tentativas iam em
+ * segundos, e a queda de vinte segundos do Bling abandonava o evento (091).
+ */
+export function webhookRetryDelaySeconds(tentativas: number): number {
+  const escada = [30, 60, 120, 300, 600, 900, 1800, 3600];
+  return escada[Math.min(Math.max(tentativas, 1), escada.length) - 1];
 }
 
 /** Uma linha do claim: `{ id, lock_token }` desde a 090 (a 089 devolvia só o id). */
@@ -179,30 +191,36 @@ export async function processWebhookEvents(
 
     const { data: linha } = await db
       .from('bling_webhook_events')
-      .select('id, account_id, connection_id, event, resource_id, summary')
+      .select('id, account_id, connection_id, event, resource_id, summary, attempts')
       .eq('id', pega.id)
       .maybeSingle();
     if (!linha) continue;
+    const evento = linha as EventoLinha;
 
     let status: 'processed' | 'ignored' | 'failed' | 'pending' = 'processed';
     let erro: string | null = null;
     try {
-      status = await processarEvento(db, linha as EventoLinha, opcoes);
+      status = await processarEvento(db, evento, opcoes);
     } catch (e) {
-      // Passageiro (rede, 5xx do Bling): volta a pendente e o cron tenta de
-      // novo; a claim para em dez tentativas.
+      // Passageiro (rede, 5xx do Bling): volta a pendente, com espera, e o
+      // cron tenta de novo; a claim para em dez tentativas.
       const passageiro = e instanceof BlingApiError ? e.isTransient || e.isRateLimited : true;
       status = passageiro ? 'pending' : 'failed';
       erro = (e instanceof Error ? e.message : String(e)).slice(0, 600);
     }
+    const agora = (opcoes.now ?? Date.now)();
     let termino = db
       .from('bling_webhook_events')
       .update({
         status,
         error: erro,
-        locked_until: null,
+        // Pendente de novo: o claim (091) só pega depois da espera.
+        locked_until:
+          status === 'pending'
+            ? new Date(agora + webhookRetryDelaySeconds(Number(evento.attempts ?? 1)) * 1000).toISOString()
+            : null,
         lock_token: null,
-        processed_at: status === 'pending' ? null : new Date((opcoes.now ?? Date.now)()).toISOString(),
+        processed_at: status === 'pending' ? null : new Date(agora).toISOString(),
       })
       .eq('id', pega.id);
     if (pega.lockToken) termino = termino.eq('lock_token', pega.lockToken);

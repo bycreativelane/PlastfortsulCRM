@@ -123,7 +123,9 @@ export async function enqueueStatusChange(
   if (!d.bling_order_id) return { error: 'not_created' };
   const origem = (d.order_status ?? 'em_aberto') as OrderStatus;
   if (!canChangeStatus(origem, args.to)) return { error: 'invalid_transition' };
-  if (statusNeedsSyncedOrder(args.to) && !orderIsSynced(pedido)) return { error: 'order_not_synced' };
+  if (statusNeedsSyncedOrder(args.to) && !orderIsSynced(pedido) && !(await repeatsStatusChange(db, args, d.accounts_launched_at))) {
+    return { error: 'order_not_synced' };
+  }
 
   const { data, error } = await db.rpc('bling_enqueue_operation', {
     p_account_id: args.accountId,
@@ -158,6 +160,34 @@ export async function enqueueStatusChange(
     created: linha.created,
     kind: 'change_status',
   };
+}
+
+/**
+ * O pedido de Em andamento é a REPETIÇÃO de uma mudança que ficou pela metade?
+ *
+ * As contas já lançadas, ou uma mudança para a mesma situação na fila ou que
+ * falhou: a exigência de "sincronizado" é da primeira vez. Sem esta saída, a
+ * mudança que passou do PATCH e caiu nas tentativas seguintes deixava o CRM
+ * Em aberto (com o carimbo), o Bling Em andamento, e nenhum caminho de volta:
+ * pedir de novo dava `order_not_synced`, atualizar dava `order_locked`, e
+ * cancelar dava "o Bling está em outra situação" (revisão da 090). A operação
+ * confere de novo antes do PATCH — a repetição que ainda não passou dele
+ * continua exigindo o pedido igual ao do Bling.
+ */
+async function repeatsStatusChange(
+  db: SupabaseClient,
+  args: { accountId: string; dealId: string; to: string },
+  contasLancadas: string | null | undefined
+): Promise<boolean> {
+  if (contasLancadas) return true;
+  const { data } = await db
+    .from('bling_operations')
+    .select('kind, status, params')
+    .eq('account_id', args.accountId)
+    .eq('deal_id', args.dealId)
+    .eq('kind', 'change_status')
+    .in('status', ['queued', 'running', 'uncertain', 'failed']);
+  return ((data ?? []) as Array<{ params: Record<string, unknown> | null }>).some((o) => o.params?.to === args.to);
 }
 
 interface Operacao {

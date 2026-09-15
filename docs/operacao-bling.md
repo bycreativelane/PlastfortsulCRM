@@ -21,7 +21,7 @@ webhook em [configuracao-env.md](./configuracao-env.md#bling--opcional).
 | 2 | `BLING_CLIENT_ID`, `BLING_CLIENT_SECRET`, `BLING_OAUTH_REDIRECT_URI` no servidor | Gabriel |
 | 3 | Cron **a cada minuto** em `/api/bling/cron` com o `AUTOMATION_CRON_SECRET` | Gabriel |
 | 4 | Webhooks `order` e `product` apontando para `/api/bling/webhook` (URL pública HTTPS) | Gabriel |
-| 5 | Migrações até a **090** aplicadas | quem aplica migração |
+| 5 | Migrações até a **091** aplicadas | quem aplica migração |
 | 6 | Conta ou protocolo de homologação (D9) — o Bling não tem sandbox | Gabriel + financeiro |
 
 ## 2. Implantação gradual (Fase 7)
@@ -96,8 +96,12 @@ fila para de processar operações novas (as que já estão lá falham com
 - **"O limite diário de chamadas ao Bling acabou"** — só amanhã. A fila espera.
 - **"O pedido mudou desde a última vez que foi para o Bling"** — ao pedir Em
   andamento. O Bling lança as contas do pedido que **ele** tem; o CRM só deixa
-  com o pedido sincronizado e igual. A gaveta sincroniza antes de perguntar;
-  pela API ou com a sincronização falhando, "Atualizar no Bling" primeiro.
+  com o pedido sincronizado e igual. A gaveta atualiza no Bling sozinha quando
+  recebe esta resposta e pede de novo; se a atualização falhar (a lista
+  "Pronto para o Bling" incompleta, por exemplo), corrigir e repetir. Uma
+  mudança para Em andamento que ficou pela metade (a situação mudou lá e o
+  lançamento caiu) pode ser pedida de novo sem esta exigência: a repetição
+  completa o que faltou.
 - **"O Bling só aceita atualizar o pedido Em aberto"** — o pedido está em
   Compra futura. Voltar para Em aberto, atualizar, e seguir.
 - **"A operação parou no meio várias vezes e foi abandonada"** — o processo

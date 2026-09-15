@@ -22,12 +22,12 @@ redesenho das telas de trabalho, a oportunidade no formato do pedido de venda,
 o orçamento (documento, PDF no servidor, arquivo, envio pelo WhatsApp), a sala
 da equipe com `@menção` e som, as tarefas em três visões, o endurecimento das
 funções do banco (079–081), a integração com o Bling (Fases 1–7) e as
-correções das três auditorias que leram a integração antes do release (090,
-`7d473fa` e `a439ad8`).
+correções das três auditorias que leram a integração antes do release (090
+e 091, `7d473fa`, `a439ad8` e o commit da revisão).
 
 | Verificação | Estado |
 | --- | --- |
-| `npm test` | 2528 testes em 214 arquivos, todos passando |
+| `npm test` | 2539 testes em 214 arquivos, todos passando |
 | `npm run typecheck` | limpo |
 | `npm run lint` | 0 erros (52 avisos, todos anteriores) |
 | `npm run build` | passa (Next 16.2.12, 127 páginas) |
@@ -38,20 +38,28 @@ Três agentes independentes leram a integração com o Bling — segurança, tel
 e correção do fluxo de pedidos — e acharam 36 problemas, um crítico (a fila
 podia criar o mesmo pedido duas vezes com o Bling lento). Todos foram
 corrigidos na própria 0.11.0, e cada correção foi desfeita de propósito para
-ver o teste acusar (60 mutações, 60 acusadas). O que cada um era está nas
-mensagens de `7d473fa` (servidor e banco) e `a439ad8` (tela). As regras que
-ficaram, para não desfazer sem querer:
+ver o teste acusar. Uma quarta leitura, das próprias correções, achou mais
+sete pontos (nenhum crítico), corrigidos na 091 e no commit seguinte — 74
+mutações ao todo, 74 acusadas. O que cada um era está nas mensagens de
+`7d473fa` (servidor e banco), `a439ad8` (tela) e do commit da revisão. As
+regras que ficaram, para não desfazer sem querer:
 
 - **A fila pega uma operação por vez** e renova o lease antes de cada escrita
   no Bling (`beforeWrite` → `bling_touch_operation`). O término é
   `bling_finish_operation`, numa transação, e só escreve as colunas de
   `FINISH_PATCH_COLUMNS`.
 - **Em andamento exige o pedido sincronizado** (`deals.bling_source_hash`
-  igual ao resumo do pedido gravado). A gaveta sincroniza antes de perguntar.
+  igual ao resumo do pedido gravado) — menos na repetição de uma mudança que
+  ficou pela metade. A gaveta grava, pede, e só atualiza no Bling quando a
+  rota responde `order_not_synced`.
 - **A gaveta lê o pedido de `currentOrder`** (a prop com a leitura da fila por
   cima) e acompanha a operação que pediu, pelo id.
 - **Toda leitura filha do pedido leva a conta**, e a 090 recusa referência de
   outra conta no banco.
+- **Pedido que já existe no Bling recebe o conteúdo de agora.** A criação que
+  acha o pedido pela chave (tentativa anterior) faz PUT antes de gravar o
+  resumo; a chave só é gravada logo antes do POST.
+- **Travas sempre na mesma ordem**: oportunidade, depois operação (091).
 
 `npm run format:check` **falha com centenas de arquivos e isso é falso
 positivo** — `core.autocrlf=true` entrega CRLF ao prettier, que exige LF. A CI
@@ -61,9 +69,9 @@ não roda esse comando. Não "conserte".
 
 ## O banco
 
-**As migrações até a 090 estão aplicadas no banco de teste**, e cada uma foi
+**As migrações até a 091 estão aplicadas no banco de teste**, e cada uma foi
 conferida depois de aplicar (as conferências estão nas mensagens dos commits).
-A próxima livre é a **091**.
+A próxima livre é a **092**.
 
 Desde 3 de setembro quem aplica é o Claude, pelo MCP do Supabase — ver
 [O MCP do Supabase](#o-mcp-do-supabase-e-a-pegadinha-da-raiz). Quando o MCP
@@ -75,12 +83,13 @@ Duas regras da casa que as últimas migrações reforçaram:
 
 - **Nunca editar migração aplicada.** A 087 existe porque a 086 tinha um
   defeito descoberto minutos depois de aplicada; a 088 desempata a fila da 086;
-  a 090 substitui funções e guardas da 085–089 depois das auditorias.
+  a 090 substitui funções e guardas da 085–089 depois das auditorias, e a 091
+  corrige a 090.
 - **Função nova revoga `anon` por nome.** `REVOKE ... FROM PUBLIC` não tira o
   que o Supabase concede por padrão. `function-grants.test.ts` lê as migrações
   e acusa.
 
-O `supabase/ci/verify-schema.sql` confere o desenho de 082 a 090 (políticas,
+O `supabase/ci/verify-schema.sql` confere o desenho de 082 a 091 (políticas,
 privilégios, gatilhos, índices únicos), e cada asserção nova foi rodada contra
 o banco — e rodada alterada, para ver que acusa.
 
@@ -180,6 +189,6 @@ com "ok" de execução**:
 - `docs/pesquisa-plataformas-de-agente.md` — a pesquisa que o acompanha.
 - `docs/spec-transporte-secundario.md` — Baileys ao lado da Cloud API.
 
-Os dois specs reivindicavam a numeração 070 em diante, hoje ocupada até a 090:
-a próxima livre é a **091**, e eles precisam ser renumerados na hora de
+Os dois specs reivindicavam a numeração 070 em diante, hoje ocupada até a 091:
+a próxima livre é a **092**, e eles precisam ser renumerados na hora de
 escrever.

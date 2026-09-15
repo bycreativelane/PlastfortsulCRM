@@ -47,7 +47,11 @@ export interface CurrentOrder extends Omit<RemoteOrderState, 'stageId' | 'status
   open: boolean;
   /** Registrar/atualizar faz sentido agora: trava aberta E Em aberto. */
   syncable: boolean;
-  /** Já é pedido no Bling (ou pode ser: a chave foi gravada antes do POST). */
+  /**
+   * Já é pedido no Bling (ou pode ser: a chave é gravada logo antes do POST).
+   * O estado de sincronização sozinho não conta: uma sincronização que falhou
+   * antes de enviar não deixa pedido nenhum lá (091).
+   */
   isOrder: boolean;
 }
 
@@ -84,11 +88,7 @@ export function currentOrder(deal: DealLike | null | undefined, remoto: RemoteOr
     lock,
     open,
     syncable: lock === 'open' && open,
-    isOrder:
-      !!base.blingOrderId ||
-      !!base.orderStatus ||
-      !!base.blingExternalKey ||
-      (!!base.syncStatus && base.syncStatus !== 'not_sent'),
+    isOrder: !!base.blingOrderId || !!base.orderStatus || !!base.blingExternalKey,
   };
 }
 

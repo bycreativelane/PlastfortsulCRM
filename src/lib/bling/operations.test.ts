@@ -464,3 +464,50 @@ describe('a lista de colunas do término é a do SQL', () => {
     for (const coluna of doSql) expect(corpo).toMatch(new RegExp(`\\b${coluna} = CASE WHEN v_patch \\? '${coluna}'`));
   });
 });
+
+describe('enqueueStatusChange — a repetição de uma mudança que ficou pela metade', () => {
+  function comEnfileirar(db: ReturnType<typeof bancoCompleto>) {
+    const chamadas: Linha[] = [];
+    const rpcOriginal = db.client.rpc.bind(db.client);
+    (db.client as unknown as { rpc: typeof db.client.rpc }).rpc = (async (nome: string, args: Linha) => {
+      if (nome === 'bling_enqueue_operation') {
+        chamadas.push(args);
+        return { data: [{ operation_id: 'op-r', operation_status: 'queued', created: false }], error: null };
+      }
+      return rpcOriginal(nome, args);
+    }) as unknown as typeof db.client.rpc;
+    return chamadas;
+  }
+  const args = { accountId: 'acc-1', dealId: DEAL, userId: 'u-1', to: 'em_andamento' };
+
+  it('contas já lançadas (a mudança passou do PATCH e caiu depois): pode pedir de novo', async () => {
+    const db = bancoCompleto([], { sync_status: 'error', accounts_launched_at: '2026-09-15T11:00:00Z' });
+    const chamadas = comEnfileirar(db);
+    expect(await enqueueStatusChange(db.client, args)).toMatchObject({ operationId: 'op-r' });
+    expect(chamadas).toHaveLength(1);
+  });
+
+  it('uma mudança para Em andamento na fila ou que falhou: pedir de novo é a repetição dela', async () => {
+    for (const status of ['queued', 'failed']) {
+      const db = bancoCompleto(
+        [{ id: 'op-v', account_id: 'acc-1', deal_id: DEAL, kind: 'change_status', status, params: { from: 'em_aberto', to: 'em_andamento' } }],
+        { sync_status: 'syncing' }
+      );
+      comEnfileirar(db);
+      expect(await enqueueStatusChange(db.client, args)).toMatchObject({ operationId: 'op-r' });
+    }
+  });
+
+  it('a de outra situação, ou uma concluída, não conta', async () => {
+    const db = bancoCompleto(
+      [
+        { id: 'op-a', account_id: 'acc-1', deal_id: DEAL, kind: 'change_status', status: 'failed', params: { to: 'compra_futura' } },
+        { id: 'op-b', account_id: 'acc-1', deal_id: DEAL, kind: 'change_status', status: 'succeeded', params: { to: 'em_andamento' } },
+      ],
+      { sync_status: 'error' }
+    );
+    const chamadas = comEnfileirar(db);
+    expect(await enqueueStatusChange(db.client, args)).toEqual({ error: 'order_not_synced' });
+    expect(chamadas).toHaveLength(0);
+  });
+});

@@ -6,7 +6,14 @@ import { encrypt } from '@/lib/whatsapp/encryption';
 
 import { fakeDb } from './fake-db';
 import { BLING_TOKEN_URL, type FetchLike } from './oauth';
-import { parseWebhook, processWebhookEvents, receiveWebhook, verifyBlingSignature, webhookSummary } from './webhook';
+import {
+  parseWebhook,
+  processWebhookEvents,
+  receiveWebhook,
+  verifyBlingSignature,
+  webhookRetryDelaySeconds,
+  webhookSummary,
+} from './webhook';
 
 const SEGREDO = 'segredo-de-teste';
 const AGORA = Date.parse('2026-09-15T12:00:00.000Z');
@@ -232,6 +239,8 @@ describe('processWebhookEvents', () => {
     await processWebhookEvents(db.client, {}, opcoes(blingFalso(15, { falha503: true }).impl));
     expect(db.tables.bling_webhook_events[0]).toMatchObject({ status: 'pending' });
     expect(String(db.tables.bling_webhook_events[0].error)).toContain('503');
+    // Com espera: o claim (091) não pega de novo na volta seguinte.
+    expect(db.tables.bling_webhook_events[0].locked_until).toBe(new Date(AGORA + 30_000).toISOString());
     expect(db.tables.deals[0].order_status).toBe('em_aberto');
   });
 });
@@ -270,5 +279,11 @@ describe('processWebhookEvents — auditoria da 0.11.0', () => {
     });
     const corpo = corpoDe();
     await expect(receiveWebhook(db.client, corpo, assinar(corpo), SEGREDO, () => AGORA)).rejects.toThrow('conexão do webhook');
+  });
+});
+
+describe('webhookRetryDelaySeconds', () => {
+  it('sobe em escada e para em uma hora', () => {
+    expect([1, 2, 3, 4, 5, 6, 7, 8, 12].map(webhookRetryDelaySeconds)).toEqual([30, 60, 120, 300, 600, 900, 1800, 3600, 3600]);
   });
 });

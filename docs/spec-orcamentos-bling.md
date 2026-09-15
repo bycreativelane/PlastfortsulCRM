@@ -3,7 +3,7 @@
 **Escrito em:** 14/09/2026
 **Fonte funcional:** `ESPECIFICACAO_CRM_ORCAMENTOS_INTEGRACAO_BLING.md` (14/09/2026, fora do repositório)
 
-> **Estado em 16/09/2026: as oito fases estão escritas, as migrações até a 090
+> **Estado em 16/09/2026: as oito fases estão escritas, as migrações até a 091
 > aplicadas e conferidas no banco de teste — e nada foi exercitado contra o
 > Bling de verdade**, porque o aplicativo ainda não foi cadastrado (§4). Três
 > auditorias leram a integração antes do release; o que acharam está
@@ -23,7 +23,7 @@
 > | 5 situação, contas, estoque | `5d02926` | 088 |
 > | 6 webhooks e reconciliação | `c83eaf8` | 089 |
 > | 7 implantação gradual | este documento, `operacao-bling.md` | — |
-> | auditorias | `7d473fa`, `a439ad8` | 090 |
+> | auditorias e revisão | `7d473fa`, `a439ad8` e seguinte | 090, 091 |
 
 **Estado (histórico):** Fase 0 implementada e conferida em 14/09 (F0.1 a F0.8).
 - A 078 foi aplicada em 14/09 e exercitada na tela: os dois campos novos
@@ -1187,6 +1187,25 @@ problemas; todos corrigidos antes do release — `7d473fa` (servidor e 090) e
   não passam por ali.
 - **Achado no caminho:** com os pedidos ligados, o cron nunca mais importava
   cadastros e produtos (o "webhooks" do tique contava como trabalho longo).
+
+**A revisão das correções (091 e o commit seguinte)** achou mais sete pontos:
+
+- A criação que acha o pedido pela chave (uma tentativa anterior) **faz PUT**
+  com o conteúdo de agora antes de gravar o resumo; se o conteúdo não pode ir,
+  liga o pedido sem o resumo. Criação de pedido já ligado também atualiza.
+- A chave é gravada **logo antes do POST** (montagem recusada não deixa chave)
+  e sai quando o Bling recusa de vez um POST de chave nova; apagar a
+  oportunidade não depende mais de `sync_status` (091).
+- Em andamento pedido de novo depois de uma mudança que ficou pela metade
+  (contas lançadas, ou mudança para lá na fila ou que falhou) não exige mais o
+  pedido sincronizado na rota — a operação confere antes do PATCH.
+- Webhook com erro passageiro espera antes de ser pego de novo (091); antes,
+  as dez tentativas iam na mesma rodada.
+- Terminar trava a oportunidade antes da operação, a ordem de enfileirar (091).
+- A gaveta não sincroniza antes de toda mudança: grava, pede, e só atualiza no
+  Bling quando a rota responde "não sincronizado".
+- Leitura incompleta de produtos ou cadastros no servidor estoura (a fila
+  repete) em vez de falhar o pedido com "item sem vínculo".
 
 ### Pendente
 

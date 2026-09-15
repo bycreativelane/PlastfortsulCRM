@@ -1252,22 +1252,22 @@ export function DealForm({
     if (ocupado.current) return false;
     ocupado.current = true;
     setSincronizando(true);
-    const minha = geracao.current;
-    const dealId = await persist({ silent: true });
-    if (!dealId) {
-      ocupado.current = false;
-      setSincronizando(false);
-      return false;
-    }
     // Sem `try/finally`: a análise do React Compiler (a regra de hooks do
     // lint) não entende `finally` e desistiria da gaveta inteira.
-    const ok = await acompanharPedido(dealId, minha).catch(() => {
-      if (geracao.current === minha) toast.error(tOrder('syncFailed'));
-      return false;
-    });
+    const ok = await registrarNoBling(geracao.current);
     ocupado.current = false;
     setSincronizando(false);
     return ok;
+  }
+
+  /** Grava e registra/atualiza — para quem já está com a vez (`ocupado`). */
+  async function registrarNoBling(minha: number): Promise<boolean> {
+    const dealId = await persist({ silent: true });
+    if (!dealId) return false;
+    return acompanharPedido(dealId, minha).catch(() => {
+      if (geracao.current === minha) toast.error(tOrder('syncFailed'));
+      return false;
+    });
   }
 
   /** O que a rota recusou, em frase — nunca o código cru. */
@@ -1284,17 +1284,17 @@ export function DealForm({
    * MUDAR A SITUAÇÃO DO PEDIDO (Fase 5, D1 = B) — confirmação que diz o
    * efeito financeiro, e acompanhamento até a fila terminar.
    *
-   * Com o pedido Em aberto e a trava aberta, grava e SINCRONIZA antes de
-   * perguntar: Em andamento lança as contas do pedido que o Bling tem, e a
-   * confirmação mostra o total do pedido gravado — não o da tela. Cancelar
-   * não precisa (e um pedido que não sincroniza ainda tem de poder cancelar).
+   * Em andamento lança as contas do pedido que o Bling tem. Por isso, com o
+   * pedido Em aberto: o que está na tela vai ao banco antes (o total da
+   * confirmação é o da tela), a rota confere se o gravado é o que o Bling
+   * recebeu, e só quando não é a gaveta atualiza no Bling e pede de novo.
+   * Sincronizar antes de toda mudança exigia a lista "Pronto para o Bling"
+   * completa até para Compra futura — e um produto desativado depois do
+   * registro prendia o pedido (revisão da 090).
    */
   async function mudarSituacao(destino: OrderStatus) {
     const dealId = deal?.id ?? criadaId;
     if (!dealId || ocupado.current) return;
-    if (pedido.syncable && destino !== 'cancelado') {
-      if (!(await sincronizarPedido())) return;
-    }
     const ok = await confirm({
       title: tOrder('statusConfirmTitle', { status: tOrder(`status.${destino}`) }),
       description: tOrder(`statusEffect.${destino}`, {
@@ -1308,13 +1308,34 @@ export function DealForm({
     ocupado.current = true;
     setSincronizando(true);
     const minha = geracao.current;
-    const concluiu = await acompanharSituacao(dealId, destino, minha).catch(() => false);
+    const concluiu = await executarMudanca(dealId, destino, minha).catch(() => false);
     ocupado.current = false;
     setSincronizando(false);
     if (concluiu) onSaved();
   }
 
-  async function acompanharSituacao(dealId: string, destino: OrderStatus, minha: number): Promise<boolean> {
+  async function executarMudanca(dealId: string, destino: OrderStatus, minha: number): Promise<boolean> {
+    const lancaDoPedido = destino === 'em_andamento' && pedido.syncable;
+    if (lancaDoPedido && !(await persist({ silent: true }))) return false;
+
+    let resposta = await pedirSituacao(dealId, destino);
+    if ('error' in resposta && resposta.error === 'order_not_synced' && lancaDoPedido) {
+      if (geracao.current !== minha) return false;
+      // O gravado não é o que o Bling tem: atualiza lá e pede de novo.
+      if (!(await registrarNoBling(minha))) return false;
+      resposta = await pedirSituacao(dealId, destino);
+    }
+    if ('error' in resposta) {
+      if (geracao.current === minha) toast.error(recusaDaRota(resposta, resposta.httpStatus));
+      return false;
+    }
+    return acompanharSituacao(dealId, resposta.operationId, destino, minha);
+  }
+
+  async function pedirSituacao(
+    dealId: string,
+    destino: OrderStatus
+  ): Promise<{ operationId: string } | { error: string; missing?: string[]; httpStatus: number }> {
     const res = await fetch(`/api/bling/orders/${dealId}/status`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1322,20 +1343,28 @@ export function DealForm({
     });
     const corpo = (await res.json().catch(() => ({}))) as { error?: string; operationId?: string };
     if (!res.ok || !corpo.operationId) {
-      if (geracao.current === minha) toast.error(recusaDaRota(corpo, res.status));
-      return false;
+      return { error: corpo.error ?? `http_${res.status}`, httpStatus: res.status };
     }
+    return { operationId: corpo.operationId };
+  }
+
+  async function acompanharSituacao(
+    dealId: string,
+    operationId: string,
+    destino: OrderStatus,
+    minha: number
+  ): Promise<boolean> {
     for (let volta = 0; volta < 60; volta++) {
       await aguardar(1500);
       // A gaveta fechou, ou é outra oportunidade: para em silêncio.
       if (geracao.current !== minha) return false;
-      const estado = await fetch(`/api/bling/orders/${dealId}?operationId=${corpo.operationId}`, { cache: 'no-store' })
+      const estado = await fetch(`/api/bling/orders/${dealId}?operationId=${operationId}`, { cache: 'no-store' })
         .then((r) => (r.ok ? r.json() : null))
         .catch(() => null);
       if (geracao.current !== minha) return false;
       const lido = remoteOrderState(estado?.deal);
       if (lido) setRemoto(lido);
-      const passo = watchOperation(corpo.operationId, estado);
+      const passo = watchOperation(operationId, estado);
       if (passo.kind === 'wait') continue;
       if (passo.ok) {
         // A etapa que o pedido levou: o próximo "Salvar" não a desfaz.

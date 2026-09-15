@@ -7,9 +7,10 @@
   aparecem, a gaveta grava por uma única chamada à `save_deal_order`, um item
   inválido desfaz a oportunidade inteira (na edição e na criação), e o
   orçamento gerado guarda outras despesas, desconto e valor do desconto.
-- A **079** está escrita e **ainda não aplicada**: a 078 revogou a função de
-  PUBLIC, o que no Supabase não a tira de `anon` (medido). Sem a 079 nada
-  quebra — a RLS barra `anon` —, mas a porta fica aberta.
+- A **079** foi aplicada em 14/09: a 078 revogou a função de PUBLIC, o que no
+  Supabase não a tira de `anon` (medido). Conferido depois: só com a anon key
+  a chamada dá 42501; com a sessão de um usuário, a função continua
+  executando.
 
 Nada do Bling implementado. Doze decisões abertas (§3).
 

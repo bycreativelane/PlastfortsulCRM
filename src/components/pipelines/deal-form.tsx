@@ -7,6 +7,12 @@ import { useAuth } from '@/hooks/use-auth';
 import { useCan } from '@/hooks/use-can';
 import { formatCurrencyExact } from '@/lib/currency';
 import { fromCents, linesTotalCents, toCents } from '@/lib/money';
+import {
+  FREIGHT_LABEL_KEY,
+  FREIGHT_PAYER_CODES,
+  freightCode,
+  freightLabelKey,
+} from '@/lib/deals/freight';
 import { replaceDealItems, type DealItemDraft } from '@/lib/products/catalog';
 import { DealItemsEditor } from './deal-items';
 import { DealInstallments } from './deal-installments';
@@ -92,25 +98,17 @@ const KNOWN_LOSS_REASONS = new Set<string>([...LOSS_REASONS, 'noReply']);
  */
 const CARRIER_STATES = ['carrierPickup', 'carrierTbd'] as const;
 
-/**
- * "Frete por conta", com as opções do Bling.
+/*
+ * "Frete por conta", com as opções do Bling: `FREIGHT_PAYER_CODES`.
  *
- * São seis códigos de domínio de lá — 0 CIF, 1 FOB, 2 terceiros, 3 e 4
- * próprio, 9 sem frete. O que vai para a coluna é o TEXTO, e não o
- * número, pela mesma razão escrita na 075: um código sozinho não se lê,
- * e o documento imprime o que está guardado.
+ * O que vai para a coluna é o CÓDIGO (0, 1, 2, 3, 4 ou 9) desde a 078. O
+ * comentário que morava aqui dizia que ia "o TEXTO", e o que ia de fato
+ * era a chave do catálogo de tradução — nem um nem outro. O rótulo é
+ * traduzido na hora de desenhar e de imprimir; ver `lib/deals/freight.ts`.
  *
  * A lista é fechada porque esta, ao contrário do transportador e da forma
  * de pagamento, é um padrão fiscal e não um cadastro da conta.
  */
-const FREIGHT_MODES = [
-  'freightCif',
-  'freightFob',
-  'freightThird',
-  'freightOwnSender',
-  'freightOwnReceiver',
-  'freightNone',
-] as const;
 
 /**
  * A opção que segura o valor enquanto a lista dele não chegou.
@@ -345,7 +343,8 @@ export function DealForm({
       setShipping(deal.shipping_cost ?? null);
       setCarrier(deal.carrier ?? '');
       setPaymentTerms(deal.payment_terms ?? '');
-      setFreightMode(deal.freight_mode ?? '');
+      // Código ou chave antiga (antes da 078) — os dois viram o código.
+      setFreightMode(freightCode(deal.freight_mode) ?? '');
       setFreightVolumes(deal.freight_volumes ?? null);
       setGrossWeight(deal.gross_weight ?? null);
       setCurrency(deal.currency || defaultCurrency);
@@ -606,6 +605,10 @@ export function DealForm({
    */
   const contatoAtual = contacts.find((c) => c.id === contactId);
 
+  /** O rótulo do frete por conta, que o documento imprime — do código. */
+  const chaveFrete = freightLabelKey(freightMode);
+  const rotuloFrete = chaveFrete ? t(chaveFrete) : null;
+
   /**
    * O orçamento a partir do que está NA TELA, e não do que está gravado.
    *
@@ -632,7 +635,7 @@ export function DealForm({
     paymentTerms,
     installments,
     carrier,
-    freightMode: freightMode ? t(freightMode) : null,
+    freightMode: rotuloFrete,
     freightVolumes,
     grossWeight,
     owner: profiles.find((pf) => pf.id === assignedTo)?.full_name,
@@ -950,7 +953,7 @@ export function DealForm({
         // Traduzido AQUI, onde existe o provider de i18n: a rota desenha
         // o documento longe dele e recebe o rótulo pronto, como já recebe
         // todos os outros.
-        freightMode: freightMode ? t(freightMode) : null,
+        freightMode: rotuloFrete,
         freightVolumes,
         grossWeight,
         owner: profiles.find((pf) => pf.id === assignedTo)?.full_name,
@@ -1489,9 +1492,14 @@ export function DealForm({
                       className="border-border bg-muted text-foreground"
                     >
                       <option value="">{t('freightModeNone')}</option>
-                      {FREIGHT_MODES.map((chave) => (
-                        <option key={chave} value={chave}>
-                          {t(chave)}
+                      {/* O NÚMERO NA FRENTE, como o Bling mostra: quem
+                          confere o pedido lá procura "0 - …", e o mesmo
+                          número aqui é o que faz as duas telas se lerem
+                          lado a lado. O documento do cliente leva só o
+                          rótulo. */}
+                      {FREIGHT_PAYER_CODES.map((codigo) => (
+                        <option key={codigo} value={codigo}>
+                          {`${codigo} · ${t(FREIGHT_LABEL_KEY[codigo])}`}
                         </option>
                       ))}
                     </OptionSelect>

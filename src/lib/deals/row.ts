@@ -21,6 +21,8 @@
  * migrações e confere que nenhuma coluna nova escorregou para `base`.
  */
 
+import { freightCode } from './freight';
+
 export const ORDER_SHAPE_MIGRATION = 75;
 
 export interface DealFields {
@@ -59,11 +61,13 @@ export function dealRow(f: DealFields) {
   };
 
   const orderShape = {
-    // A CHAVE, e não o rótulo traduzido: `freight_mode` é código de domínio
-    // de outro sistema, e guardar "Frete por conta do remetente" faria a
-    // coluna mudar de conteúdo com o idioma da interface. O documento
-    // traduz na hora de imprimir.
-    freight_mode: f.freightMode || null,
+    // O CÓDIGO do Bling (0, 1, 2, 3, 4, 9), e nem o rótulo traduzido nem a
+    // chave do catálogo. O comentário anterior dizia "a chave", e ela era
+    // detalhe de interface gravado como dado: renomear a mensagem mudaria
+    // o que as linhas significam. `freightCode` também aceita a chave
+    // antiga, então nada gravado antes da 078 se perde. O documento traduz
+    // na hora de imprimir.
+    freight_mode: freightCode(f.freightMode),
     freight_volumes: f.freightVolumes,
     gross_weight: f.grossWeight,
     payment_terms: f.paymentTerms.trim() || null,

@@ -166,7 +166,7 @@ A do próprio pacote (item 34), com o 37 recolocado.
 | —      | itens 38–59: oportunidade e orçamento | feito e aplicado em 8 de setembro                                          |
 | —      | a oportunidade no modelo do Bling     | 074, 075 e 076 **aplicadas** em 14 de setembro                              |
 | —      | Minha equipe: prévia, @menção, número | 077 **aplicada** em 14 de setembro; falta exercitar com sessão              |
-| —      | orçamentos × pedidos do Bling         | 078–089 **aplicadas**; oito fases escritas; plano e estado em [spec-orcamentos-bling.md](./spec-orcamentos-bling.md) |
+| —      | orçamentos × pedidos do Bling         | 078–090 **aplicadas**; oito fases escritas e auditadas; plano e estado em [spec-orcamentos-bling.md](./spec-orcamentos-bling.md) |
 
 ---
 

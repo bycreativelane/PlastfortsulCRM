@@ -3,9 +3,11 @@
 **Escrito em:** 14/09/2026
 **Fonte funcional:** `ESPECIFICACAO_CRM_ORCAMENTOS_INTEGRACAO_BLING.md` (14/09/2026, fora do repositório)
 
-> **Estado em 16/09/2026: as oito fases estão escritas, as migrações até a 089
+> **Estado em 16/09/2026: as oito fases estão escritas, as migrações até a 090
 > aplicadas e conferidas no banco de teste — e nada foi exercitado contra o
-> Bling de verdade**, porque o aplicativo ainda não foi cadastrado (§4). Por
+> Bling de verdade**, porque o aplicativo ainda não foi cadastrado (§4). Três
+> auditorias leram a integração antes do release; o que acharam está
+> corrigido e resumido em §11. Por
 > instrução do Gabriel ("termina todas as fases e segue o recomendado e depois
 > eu reviso"), D1–D5 e D9–D12 seguiram a recomendação; as escolhas que a
 > recomendação deixava abertas estão em §11. O roteiro de operação é
@@ -21,6 +23,7 @@
 > | 5 situação, contas, estoque | `5d02926` | 088 |
 > | 6 webhooks e reconciliação | `c83eaf8` | 089 |
 > | 7 implantação gradual | este documento, `operacao-bling.md` | — |
+> | auditorias | `7d473fa`, `a439ad8` | 090 |
 
 **Estado (histórico):** Fase 0 implementada e conferida em 14/09 (F0.1 a F0.8).
 - A 078 foi aplicada em 14/09 e exercitada na tela: os dois campos novos
@@ -1092,9 +1095,10 @@ e a escolha feita, e o que ficou de fora.
   Aberto, Em Andamento, Atendido, Compra Futura, Venda Perdida). O
   "mapeamento configurável" ficou para depois; funil sem etapa com o nome
   deixa a etapa onde está.
-- **Arrastar no quadro** só é barrado quando há contas lançadas e o destino
-  não é a etapa da situação. O arrasto para uma etapa mapeada **não pergunta**
-  se é para mudar o pedido.
+- **Arrastar no quadro** é barrado quando há contas lançadas e o destino
+  não é a etapa da situação — e, desde as auditorias, também para etapa de
+  ganho ou perda de um pedido no Bling. O arrasto para uma etapa mapeada **não
+  pergunta** se é para mudar o pedido.
 - **Ganho/Perdido do topo da gaveta** ficam apagados quando a oportunidade já é
   pedido e os pedidos estão ligados: o desfecho vem da situação.
 - **D2.** Com os pedidos ligados, o envio pelo WhatsApp só acontece com a lista
@@ -1113,7 +1117,7 @@ e a escolha feita, e o que ficou de fora.
 - **D7, o misto.** As linhas que decidem categoria mandam; só auxiliares →
   elas decidem; duas categorias principais → a pessoa escolhe, e a escolha só
   vale enquanto o misto existir. Sem regra administrativa padrão para o misto.
-- **D8.** Transportadoras em Configurações › Oportunidades, com o id do contato
+- **D8.** Transportadoras em Configurações › Oportunidades e moeda, com o id do contato
   no Bling digitado (sem busca ainda); vendedor por pessoa em Configurações ›
   Equipe; forma de pagamento por id na parcela.
 - **D12.** `dataPrevista` = data prevista informada, senão saída (ou venda) +
@@ -1141,6 +1145,48 @@ e a escolha feita, e o que ficou de fora.
 - A regra de hooks do lint (análise do React Compiler) **desiste do componente
   inteiro** quando ele tem `try/finally` — as diretivas de desabilitar da gaveta
   apareceram como "sem uso". A gaveta não usa mais `finally`.
+
+### As auditorias (15/09/2026) e a 090
+
+Três auditorias independentes (segurança, tela, correção do fluxo) acharam 36
+problemas; todos corrigidos antes do release — `7d473fa` (servidor e 090) e
+`a439ad8` (tela). Os que mudam o desenho descrito acima:
+
+- **A fila (086) pega uma operação por vez** e renova o lease antes de cada
+  escrita no Bling; o término é uma transação só (operação, oportunidade,
+  histórico) com compare-and-set. Operação reenfileirada vai para o fim;
+  nenhuma é pega com outra da mesma oportunidade rodando; a que morreu na
+  última tentativa vira `abandoned`. Webhooks também com dono de lease.
+- **Chave de atualização** = oportunidade + `sync_version` + resumo. Só o
+  resumo fazia "150 → 100 → 150" cair na operação antiga, já concluída.
+- **Em andamento exige o pedido sincronizado** (`deals.bling_source_hash`,
+  090): as contas nascem do pedido do Bling. A gaveta sincroniza antes da
+  confirmação.
+- **Compra futura** destrava no CRM mas **não atualiza** no Bling
+  (`order_not_open`): volta-se para Em aberto para atualizar.
+- **Contas a Receber** procuradas desde a data do pedido no Bling (menos 7
+  dias), até 5 páginas; carimbo logo depois de lançar; estorno não confirmado
+  deixa o carimbo e o pedido Divergente (`accounts_not_reversed`).
+- **Falha depois do PATCH** que não se resolve repetindo leva a situação para
+  o CRM com o erro (evento `divergence`/`action_failed`).
+- **Reconciliação/webhook:** a chave achando oportunidade ligada a outro pedido
+  é duplicado (nada dele aplicado); eco só quando uma operação pendente explica
+  a mudança.
+- **Snapshot da linha conferido contra o produto de agora**, no servidor e na
+  tela (a linha ganha "Atualizar do catálogo").
+- **Exceção de peso**: agora também no banco (gatilho só de admin, autor
+  forçado), e o servidor só a aceita de admin.
+- **No banco (090):** referências de outra conta recusadas (contato,
+  transportadora, funil, etapa, responsável, oportunidade, produto); colunas do
+  Bling em `products` só pelo servidor; linhas e parcelas conferem a trava de
+  antes e de depois; apagar funil ou contato de pedido é recusado; apagar
+  oportunidade com a chave gravada também; uma empresa do Bling por conexão
+  viva (`company_in_use` no callback).
+- **Arrastar** (e o menu do cartão, e o seletor de etapa da conversa e da
+  gaveta): além de contas lançadas, ganho/perdido de pedido no Bling também
+  não passam por ali.
+- **Achado no caminho:** com os pedidos ligados, o cron nunca mais importava
+  cadastros e produtos (o "webhooks" do tique contava como trabalho longo).
 
 ### Pendente
 

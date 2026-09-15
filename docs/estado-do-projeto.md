@@ -1,6 +1,6 @@
-# Estado do projeto — 7 de setembro de 2026
+# Estado do projeto — 15 de setembro de 2026
 
-> Escrito no fim da sessão que entregou a 0.10.0, para que o contexto não
+> Escrito no fim da sessão que preparou a 0.11.0, para que o contexto não
 > dependa da memória de uma conversa. Se você está começando agora, leia
 > este arquivo antes de qualquer outro.
 >
@@ -11,84 +11,114 @@
 
 ## Onde o código está
 
-**A `main` está na v0.10.0**, cortada em 7 de setembro de 2026. O
-[PR #1](https://github.com/bycreativelane/PlastfortsulCRM/pull/1) foi
-mesclado por rebase — os 15 commits foram preservados, e a `main` continua
-linear, com 25 no total.
+**A `main` local tem a 0.11.0 preparada e não publicada.** A versão está no
+`package.json`, as notas em `docs/releases/v0.11.0.md` e as Novidades do app
+em `src/lib/releases.ts` — mas **não há tag, push nem release no GitHub**: a
+publicação é decisão do Gabriel, depois da revisão. A última versão publicada
+continua sendo a `v0.10.0` (7 de setembro).
 
-A tag `v0.10.0` está publicada e a
-[release](https://github.com/bycreativelane/PlastfortsulCRM/releases/tag/v0.10.0)
-saiu pelo workflow, com as notas de `docs/releases/v0.10.0.md`. A branch
-`release/0.10.0` aponta para o mesmo commit, como as anteriores.
-
-**Depois da tag**, a `main` recebeu o pacote de correções de 7 de setembro —
-cinco dos seis P0 de [spec-correcoes-2026-09.md](./spec-correcoes-2026-09.md),
-que vieram de testes reais de uso. Esses commits ainda **não estão em
-nenhuma versão publicada**.
+Entre as duas, ~130 commits: o pacote de correções de 7 de setembro, o
+redesenho das telas de trabalho, a oportunidade no formato do pedido de venda,
+o orçamento (documento, PDF no servidor, arquivo, envio pelo WhatsApp), a sala
+da equipe com `@menção` e som, as tarefas em três visões, o endurecimento das
+funções do banco (079–081), a integração com o Bling (Fases 1–7) e as
+correções das três auditorias que leram a integração antes do release (090,
+`7d473fa` e `a439ad8`).
 
 | Verificação | Estado |
 | --- | --- |
-| `npm test` | 1781 testes, 146 arquivos |
+| `npm test` | 2528 testes em 214 arquivos, todos passando |
 | `npm run typecheck` | limpo |
-| `npm run lint` | 0 erros, 42 avisos preexistentes |
-| `npm run build` | compila, saída de produção ~81 MB |
-| CI · Lint, typecheck, test, build | passa |
-| CI · Apply to a clean database | passa |
+| `npm run lint` | 0 erros (52 avisos, todos anteriores) |
+| `npm run build` | passa (Next 16.2.12, 127 páginas) |
 
-`npm run format:check` **falha com ~433 arquivos e isso é falso positivo** —
-`core.autocrlf=true` entrega CRLF ao prettier, que exige LF. Os blobs
-commitados estão todos em LF. A CI não roda esse comando. Não "conserte".
+### As auditorias de 15 de setembro
+
+Três agentes independentes leram a integração com o Bling — segurança, tela
+e correção do fluxo de pedidos — e acharam 36 problemas, um crítico (a fila
+podia criar o mesmo pedido duas vezes com o Bling lento). Todos foram
+corrigidos na própria 0.11.0, e cada correção foi desfeita de propósito para
+ver o teste acusar (60 mutações, 60 acusadas). O que cada um era está nas
+mensagens de `7d473fa` (servidor e banco) e `a439ad8` (tela). As regras que
+ficaram, para não desfazer sem querer:
+
+- **A fila pega uma operação por vez** e renova o lease antes de cada escrita
+  no Bling (`beforeWrite` → `bling_touch_operation`). O término é
+  `bling_finish_operation`, numa transação, e só escreve as colunas de
+  `FINISH_PATCH_COLUMNS`.
+- **Em andamento exige o pedido sincronizado** (`deals.bling_source_hash`
+  igual ao resumo do pedido gravado). A gaveta sincroniza antes de perguntar.
+- **A gaveta lê o pedido de `currentOrder`** (a prop com a leitura da fila por
+  cima) e acompanha a operação que pediu, pelo id.
+- **Toda leitura filha do pedido leva a conta**, e a 090 recusa referência de
+  outra conta no banco.
+
+`npm run format:check` **falha com centenas de arquivos e isso é falso
+positivo** — `core.autocrlf=true` entrega CRLF ao prettier, que exige LF. A CI
+não roda esse comando. Não "conserte".
+
+---
+
+## O banco
+
+**As migrações até a 090 estão aplicadas no banco de teste**, e cada uma foi
+conferida depois de aplicar (as conferências estão nas mensagens dos commits).
+A próxima livre é a **091**.
+
+Desde 3 de setembro quem aplica é o Claude, pelo MCP do Supabase — ver
+[O MCP do Supabase](#o-mcp-do-supabase-e-a-pegadinha-da-raiz). Quando o MCP
+não carrega na sessão, dá para falar com o mesmo endpoint por HTTP com o token
+guardado, **só com autorização explícita do Gabriel e só para o banco de
+teste**, e o script tem de ser apagado depois.
+
+Duas regras da casa que as últimas migrações reforçaram:
+
+- **Nunca editar migração aplicada.** A 087 existe porque a 086 tinha um
+  defeito descoberto minutos depois de aplicada; a 088 desempata a fila da 086;
+  a 090 substitui funções e guardas da 085–089 depois das auditorias.
+- **Função nova revoga `anon` por nome.** `REVOKE ... FROM PUBLIC` não tira o
+  que o Supabase concede por padrão. `function-grants.test.ts` lê as migrações
+  e acusa.
+
+O `supabase/ci/verify-schema.sql` confere o desenho de 082 a 090 (políticas,
+privilégios, gatilhos, índices únicos), e cada asserção nova foi rodada contra
+o banco — e rodada alterada, para ver que acusa.
+
+**A guarda da exceção de peso só foi exercitada no banco no caminho de
+agente** (recusa, autor preservado, limpar zera). O caminho de admin — gravar
+e ter o autor forçado — não: o único admin da conta de teste é o Gabriel, e
+entrar como ele não se faz.
 
 ---
 
 ## Pendências
 
-A migração `069` foi resolvida em 7 de setembro. As duas que restam dependem de
-uma conta na Google e de olhar uma tela, e nenhuma bloqueia o produto: sem
-as credenciais, a integração fica dormente e o resto funciona igual.
+### 1. A integração com o Bling nunca falou com o Bling
 
-### 1. ~~A migração `069`~~ — RESOLVIDO em 7 de setembro de 2026
+Oito fases escritas e testadas contra dublês; nenhuma chamada real. Falta o que
+é do Gabriel (`docs/spec-orcamentos-bling.md` §4): cadastrar o aplicativo
+(escopos antes de conectar), as três variáveis, o cron, os webhooks e a conta
+ou protocolo de homologação. Sem as variáveis a integração fica dormente; com
+elas, pedidos só são criados depois que um admin liga **Pedidos no Bling**.
 
-`069_google_calendar` **foi aplicada** e conferida: as quatro tabelas
-respondem, e `calendar_connections` está com RLS ligada e **zero
-políticas** — o desenho pretendido, porque a linha guarda o refresh token e
-nenhum navegador deve conseguir lê-la. As outras três têm uma política de
-leitura cada, por `is_account_member`.
-
-Conferido também o `UNIQUE (account_id, provider)`, que é a decisão §D0: a
-conexão é da conta e não do vendedor.
-
-**As 69 migrações estão aplicadas.**
+O que ficou de fora e as escolhas feitas estão em §11 do plano; o roteiro de
+operação em `docs/operacao-bling.md`.
 
 ### 2. O OAuth da Google nunca falou com a Google
 
-Falta um app no Google Cloud Console: `GOOGLE_CLIENT_ID`,
-`GOOGLE_CLIENT_SECRET` e `GOOGLE_OAUTH_REDIRECT_URI`. O passo a passo, com
-a armadilha do `redirect_uri_mismatch`, está em `docs/configuracao-env.md`.
+Mesma situação desde a 0.10.0: falta o app no Google Cloud Console
+(`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_OAUTH_REDIRECT_URI`).
 
-Sem as três, a tela Configurações › Agendas diz que a integração não está
-configurada e **o resto do CRM funciona igual**.
+### 3. Telas nunca vistas com sessão de admin
 
-Todo o código da fase 4 e 5 está escrito e testado contra dublês. O que
-nunca aconteceu foi uma chamada real.
+As verificações em tela desta sessão usaram um usuário de teste com papel de
+agente. Promover o usuário a admin foi recusado pelo controle de permissões, e
+não foi contornado. Configurações › Bling, Transportadoras e Vendedor no Bling
+estão testadas nas funções e nas rotas, não na tela.
 
-### 3. Sincronizar os templates da Meta
+### 4. Sincronizar os templates da Meta
 
-`message_templates` está **vazia** no ambiente de desenvolvimento. As
-automações apontam para os onze nomes aprovados
-(`src/lib/whatsapp/approved-templates.ts`), mas nada foi exercitado contra
-corpos reais — e é o corpo real que decide quantas variáveis um envio leva.
-
-A correção do `#132000` fez o envio tolerar valor sobrando, então o modo de
-falha que restou é o contrário: um template com MAIS variáveis do que a
-automação configurou. Isso só aparece com os templates sincronizados.
-
-### 4. A `/agenda` nunca foi vista desenhada
-
-A rota exige sessão autenticada — redireciona para `/login`, o que
-confirma que a proteção funciona e impede a verificação visual. O build
-prerenderiza a rota e os testes cobrem as contas puras, mas ninguém olhou
-a grade.
+`message_templates` continua vazia no ambiente de desenvolvimento.
 
 ---
 
@@ -98,88 +128,58 @@ a grade.
 
 O `.mcp.json` que declara o servidor do Supabase mora na raiz, e os
 servidores MCP são lidos **na abertura da sessão**. Abrir um nível acima
-carrega o repositório mas não o MCP, em silêncio — e sem MCP não há como
-aplicar migração nenhuma.
-
-O token OAuth do Supabase **já está guardado** em
-`~/.claude/.credentials.json` sob `mcpOAuth`, com refresh token. Não é
-preciso autenticar de novo; é preciso abrir na pasta certa e aprovar o
-servidor do `.mcp.json` na primeira vez.
-
-O `~/.claude/projects/` também trata as duas pastas como **projetos
-diferentes**, com memórias separadas. Elas foram sincronizadas à mão em
-2026-09-07.
+carrega o repositório mas não o MCP, em silêncio.
 
 O `.mcp.json` **não é versionado, e isso está decidido** (Gabriel,
 2026-09-07): ele aponta o `project_ref` do banco e é infraestrutura de quem
-desenvolve, não do produto. Está no `.gitignore` para que um `git add -A`
-não o varra para dentro. Quem clonar o repositório precisa criar o seu.
+desenvolve, não do produto.
 
 ---
 
-## O que a 0.10.0 entregou
+## Armadilhas que custaram tempo, para não custarem de novo
 
-O plano é `docs/spec-tarefas-e-agendas.md`, e as sete fases estão marcadas
-como entregues lá. Em uma frase: **o CRM tinha um calendário e não tinha
-nem relógio nem compromisso.**
+**Dois espaços de identificador para "responsável".** `deals.assigned_to`
+referencia `profiles.id`; `tasks.assigned_to` e o vínculo de vendedor do Bling
+(`bling_seller_links.user_id`) referenciam `auth.users`. Onde os dois se
+encontram, há um join.
 
-| | |
-| --- | --- |
-| `066` | Fuso da conta, expediente semanal, exceções |
-| `067` | `contacts`, `contact_tags`, `deals` no realtime |
-| `068` | A entidade Tarefa e o lembrete como notificação |
-| `069` | Conexão Google, agendas seguidas, espelho, vínculo |
+**`uuid_generate_v4()` dentro de função com `search_path` travado.** No
+Supabase a extensão mora em `extensions`; a função não acha a outra e morre com
+42883. Use `gen_random_uuid()`. (DEFAULT de coluna não tem o problema.)
 
-Mais: a página `/agenda` (mês, semana, dia), a integração com a Google nos
-dois sentidos, a ação `create_task` e o gatilho `task_completed` no motor
-de automações, `/api/v1/tasks` na API pública e a página `/developers`.
+**`try/finally` em componente.** A regra de hooks do lint (análise do React
+Compiler) desiste do componente inteiro; o sintoma é diretiva de desabilitar
+"sem uso".
 
-As notas estão em `docs/releases/v0.10.0.md`.
+**O Browser pane com viewport emulado** escala a tela, e cliques por
+coordenada caem fora do alvo. Volte ao `desktop` e clique por script.
 
----
-
-## Três armadilhas que custaram tempo, para não custarem de novo
-
-**O prefixo do id de evento da Google.** O plano sugeria `wacrm`, e `w` não
-existe em base32hex — o alfabeto para em `v`. A Google recusaria todo id, no
-envio e não na compilação. O teste em `map.test.ts` fixa o alfabeto.
-
-**Dois espaços de identificador para "responsável".**
-`deals.assigned_to` referencia `profiles.id`; `tasks.assigned_to` referencia
-`auth.users`. Copiar um para o outro grava um responsável que não existe, e
-a tarefa aparece sem dono **sem que nada falhe**. Onde os dois se encontram,
-há um join — no filtro "Minhas" da agenda e no `deal_owner` das automações.
-
-**O fim exclusivo do dia inteiro.** Um evento que dura só o dia 7 chega da
-Google com `end.date = 2026-09-08`. Guardado como vem, todo evento de um dia
-parece de dois, e o sintoma aparece longe da causa.
+**O fim exclusivo do dia inteiro da Google** e **o prefixo `w` que não existe
+em base32hex** continuam valendo (ver `lib/calendar-sync`).
 
 ---
 
 ## Ferramentas que não se comportam como o esperado nesta máquina
 
-- **`jq` não existe.** Use o `--jq` embutido do `gh`. Um pipe para `jq`
-  falha em silêncio — dois monitores de CI ficaram 15 minutos mudos por isso.
+- **`jq` não existe.** Use o `--jq` embutido do `gh`.
 - **`du -sh` não termina** na pasta do projeto. Use PowerShell com
   `Get-ChildItem -Recurse -File -Force | Measure-Object Length -Sum`.
 - **O cache do Turbopack cresce ~20 GB em duas semanas** em `.next/dev`. É
-  descartável: `.next` está no `.gitignore` e se regenera. Foi apagado em
-  2026-09-06.
+  descartável.
+- **`node -e` com crases dentro de um comando do Bash** quebra: o shell
+  interpreta os template literals. Use um arquivo de script.
 
 ---
 
 ## O que está parado, por decisão
 
-Três documentos de planejamento escritos em 2026-09-04, **nenhum
-implementado e nenhum com "ok" de execução**:
+Três documentos de planejamento de 2026-09-04, **nenhum implementado e nenhum
+com "ok" de execução**:
 
 - `docs/spec-acoes-de-agente.md` — dar ações de escrita à IA interna.
 - `docs/pesquisa-plataformas-de-agente.md` — a pesquisa que o acompanha.
 - `docs/spec-transporte-secundario.md` — Baileys ao lado da Cloud API.
 
-Os dois specs **reivindicam a mesma numeração de migração** (070 em diante)
-e precisam ser renumerados na hora de escrever, conforme a ordem real de
-entrega. Com a `069` ocupada, a próxima livre é a **070**.
-
-Ver também `docs/spec-automacoes-fluxo.md`, cuja decisão 2 ("ligação é uma
-etapa, sem entidade tarefa") foi revogada por este trabalho.
+Os dois specs reivindicavam a numeração 070 em diante, hoje ocupada até a 090:
+a próxima livre é a **091**, e eles precisam ser renumerados na hora de
+escrever.

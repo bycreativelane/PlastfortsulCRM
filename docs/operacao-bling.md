@@ -21,7 +21,7 @@ webhook em [configuracao-env.md](./configuracao-env.md#bling--opcional).
 | 2 | `BLING_CLIENT_ID`, `BLING_CLIENT_SECRET`, `BLING_OAUTH_REDIRECT_URI` no servidor | Gabriel |
 | 3 | Cron **a cada minuto** em `/api/bling/cron` com o `AUTOMATION_CRON_SECRET` | Gabriel |
 | 4 | Webhooks `order` e `product` apontando para `/api/bling/webhook` (URL pública HTTPS) | Gabriel |
-| 5 | Migrações até a **089** aplicadas | quem aplica migração |
+| 5 | Migrações até a **090** aplicadas | quem aplica migração |
 | 6 | Conta ou protocolo de homologação (D9) — o Bling não tem sandbox | Gabriel + financeiro |
 
 ## 2. Implantação gradual (Fase 7)
@@ -35,7 +35,7 @@ criado enquanto **Pedidos no Bling** estiver desligado.
 3. Importar os produtos; resolver as pendências (sem código, código repetido).
 4. Mapear família → categoria de receita e marcar as exceções e os itens
    auxiliares.
-5. Configurações › Oportunidades › **Transportadoras**: ligar cada uma ao
+5. Configurações › Oportunidades e moeda › **Transportadoras**: ligar cada uma ao
    contato dela no Bling (ou marcar "É retirada pelo cliente").
 6. Configurações › Equipe › **Vendedor no Bling**: ligar cada vendedor.
 7. Preencher os dados fiscais dos clientes que vão comprar na semana seguinte.
@@ -94,9 +94,20 @@ fila para de processar operações novas (as que já estão lá falham com
 - **"O Bling respondeu 400: …"** — a mensagem é a do Bling, como veio (forma
   de pagamento inválida, produto inativo, etc.). Corrigir o cadastro e repetir.
 - **"O limite diário de chamadas ao Bling acabou"** — só amanhã. A fila espera.
+- **"O pedido mudou desde a última vez que foi para o Bling"** — ao pedir Em
+  andamento. O Bling lança as contas do pedido que **ele** tem; o CRM só deixa
+  com o pedido sincronizado e igual. A gaveta sincroniza antes de perguntar;
+  pela API ou com a sincronização falhando, "Atualizar no Bling" primeiro.
+- **"O Bling só aceita atualizar o pedido Em aberto"** — o pedido está em
+  Compra futura. Voltar para Em aberto, atualizar, e seguir.
+- **"A operação parou no meio várias vezes e foi abandonada"** — o processo
+  caiu na última tentativa (deploy, servidor reiniciando). Repetir.
 
 Repetir é seguro: criar pedido tem **uma** chave por oportunidade
 (`CRM-ORC-…`), e toda tentativa procura o pedido por essa chave antes de criar.
+A fila processa **uma operação por vez** e confere que ainda é a dona dela
+antes de cada escrita no Bling — dois processos (o envio e o cron) não
+escrevem a mesma operação.
 
 ### Divergente — os motivos
 
@@ -111,7 +122,19 @@ Repetir é seguro: criar pedido tem **uma** chave por oportunidade
 - **"O pedido não existe mais no Bling"** — foi apagado lá. Exclusão está fora
   do escopo; decidir com o financeiro.
 - **"Há dois pedidos no Bling com a chave deste orçamento"** — alguém duplicou
-  à mão. Cancelar o duplicado no Bling.
+  à mão (ou uma criação incerta passou duas vezes). Nada do duplicado é
+  aplicado à oportunidade — nem o número, nem um cancelamento dele. **Apagar**
+  o duplicado no Bling resolve; cancelá-lo deixa o aviso.
+- **"O Bling ainda mostra contas a receber vivas deste pedido depois do
+  estorno"** — ao cancelar. A situação foi para Cancelado, mas a conferência
+  do Contas a Receber ainda acha contas abertas da venda. Conferir no Bling e
+  estornar à mão o que sobrou; o carimbo de contas lançadas continua na
+  oportunidade até isso.
+
+Uma falha que não se resolve repetindo **depois** que a situação mudou no Bling
+(o estoque recusado ao atender, por exemplo) leva a situação para o CRM junto
+com o erro — o histórico registra qual lançamento falhou. O CRM não repete o
+lançamento sozinho: resolver no Bling.
 
 ---
 

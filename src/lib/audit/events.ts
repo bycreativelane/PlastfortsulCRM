@@ -32,6 +32,8 @@ export const AUDIT_ACTIONS = [
   'api_key.revoked',
   'ai.config_updated',
   'whatsapp.config_updated',
+  'bling.connected',
+  'bling.disconnected',
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
@@ -44,12 +46,27 @@ export type AuditAction = (typeof AUDIT_ACTIONS)[number];
  */
 export type AuditArea = 'session' | 'member' | 'account' | 'key' | 'integration';
 
+/**
+ * Which action prefixes belong to each area — the one table both
+ * `auditArea` (a row already in hand) and the audit route's SQL filter
+ * (`action.like.<prefix>*`) read.
+ *
+ * It lived twice, once here as `if`s and once in the route, and adding
+ * `bling.` would have meant remembering both: forget the route and the
+ * Integrations chip silently returns no Bling rows. `events.test.ts`
+ * checks every action lands in exactly one area.
+ */
+export const AUDIT_AREA_PREFIXES: Record<AuditArea, string[]> = {
+  session: ['session.'],
+  member: ['member.'],
+  account: ['account.'],
+  key: ['api_key.'],
+  integration: ['ai.', 'whatsapp.', 'bling.'],
+};
+
 export function auditArea(action: string): AuditArea {
-  if (action.startsWith('session.')) return 'session';
-  if (action.startsWith('member.')) return 'member';
-  if (action.startsWith('api_key.')) return 'key';
-  if (action.startsWith('ai.') || action.startsWith('whatsapp.')) {
-    return 'integration';
+  for (const [area, prefixes] of Object.entries(AUDIT_AREA_PREFIXES)) {
+    if (prefixes.some((p) => action.startsWith(p))) return area as AuditArea;
   }
   return 'account';
 }

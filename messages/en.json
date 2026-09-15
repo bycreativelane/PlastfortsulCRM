@@ -2822,6 +2822,7 @@
       "ai-tools": "AI tools",
       "hooks": "Webhooks",
       "calendars": "Calendars",
+      "bling": "Bling",
       "company": "Company"
     },
     "groups": {
@@ -3223,6 +3224,8 @@
       "actionKeyRevoked": "revoked an API key",
       "actionAiUpdated": "changed the AI settings",
       "actionWhatsappUpdated": "changed the WhatsApp settings",
+      "actionBlingConnected": "connected Bling to the company",
+      "actionBlingDisconnected": "disconnected Bling from the company",
       "caps": {
         "inboxView": "Open the shared inbox",
         "contactsView": "See contacts",
@@ -4020,6 +4023,63 @@
       "save_failed": "Could not save the connection"
     },
     "connected": "Calendar connected"
+  },
+  "Bling": {
+    "title": "Bling",
+    "description": "Connect the company's Bling account. At this stage the CRM only checks the connection and reads the company's basic details; orders, products and contacts arrive in later phases.",
+    "loading": "Loading the connection…",
+    "loadFailed": "Could not load the Bling connection.",
+    "retry": "Try again",
+    "pending": "The Bling integration is not in the database yet: migration 082 still needs to be applied.",
+    "notConfigured": "Bling is not configured on this server.",
+    "notConfiguredHint": "Whoever runs the server needs to set BLING_CLIENT_ID, BLING_CLIENT_SECRET and BLING_OAUTH_REDIRECT_URI. The steps are in docs/configuracao-env.md.",
+    "connect": "Connect to Bling",
+    "connectHint": "You'll go to Bling, sign in with the company account and authorize access. The connection is for the whole team, not just you.",
+    "reconnect": "Connect again",
+    "company": "Connected company",
+    "companyUnknown": "Company with no name in Bling",
+    "cnpj": "CNPJ {cnpj}",
+    "status": {
+      "connected": "Connected",
+      "revoked": "Needs to reconnect",
+      "error": "Failing"
+    },
+    "statusHint": {
+      "revoked": "Bling refused to renew access. Connect again so the CRM can talk to it.",
+      "error": "The last attempts to renew access failed. Test the connection; if it keeps failing, connect again."
+    },
+    "connectedBy": "Connected by",
+    "unknownPerson": "Someone who has left the team",
+    "lastSuccess": "Last response from Bling",
+    "never": "Never",
+    "authorizationUntil": "Authorization valid until",
+    "authorizationIssued": "Issued {when}. Bling allows 30 days.",
+    "accessUntil": "Current access until",
+    "accessUntilHint": "Renewed automatically when it expires.",
+    "scopes": "Authorized scopes",
+    "scopeCount": "{count, plural, =0 {None} one {# scope} other {# scopes}}",
+    "lastError": "Last error",
+    "test": "Test connection",
+    "testOk": "Bling responded: {company}",
+    "testFailed": "Bling did not respond: {message}",
+    "disconnect": "Disconnect",
+    "disconnectConfirm": "Disconnect from Bling?",
+    "disconnectConfirmDesc": "The CRM stops accessing the {company} account, and the authorization is revoked in Bling.",
+    "disconnected": "Bling disconnected",
+    "disconnectedNotRevoked": "Disconnected here, but Bling did not confirm the revocation. You can also revoke it under Central de Extensões › Minhas instalações.",
+    "disconnectFailed": "Could not disconnect from Bling.",
+    "outcome": {
+      "connected": "Bling connected",
+      "denied": "The authorization was declined in Bling.",
+      "invalid_state": "The authorization expired or came from another tab. Connect again.",
+      "not_configured": "Bling is not configured on this server.",
+      "duplicate": "That authorization had already been used. If the connection doesn't show up, connect again.",
+      "exchange_failed": "Bling refused the authorization. Connect again.",
+      "company_failed": "Bling didn't return the company details. Check that the app has the basic company data scope.",
+      "company_mismatch": "This account is already connected to another Bling company. Disconnect before switching.",
+      "save_failed": "Could not save the connection. Connect again.",
+      "failed": "Something went wrong while connecting. Connect again."
+    }
   },
   "TasksPage": {
     "title": "Tasks",

@@ -12,7 +12,18 @@
   a chamada dá 42501; com a sessão de um usuário, a função continua
   executando.
 
-Nada do Bling implementado. Doze decisões abertas (§3).
+**Fase 1 (conexão) escrita em 14/09**, com a **082 ainda não aplicada**. Falta
+também o que é do Gabriel (§4): cadastrar o aplicativo no Bling, as três
+variáveis e a conta de homologação (D9). Sem isso a conexão nunca foi feita
+contra o Bling de verdade; o que está provado é por teste (ver §5, Fase 1,
+"Como ficou"). Nenhuma decisão de §3 foi respondida — a Fase 1 não dependia
+delas.
+
+Endurecimento feito no caminho (fora das fases): a 080 e a 081 tiraram de
+`anon` dezessete funções que ele executava sem ninguém ter decidido isso;
+quatro delas gravavam em qualquer conta com a anon key e um id. A 081 também
+deixou por escrito que `is_account_member` continua aberta. 080 aplicada e
+conferida; 081 por aplicar.
 
 > **Dados pessoais.** A especificação traz prints com nome, CPF, telefone e
 > endereço de clientes reais, e pede que nada disso vá para fixtures, seeds,
@@ -455,7 +466,7 @@ não altera configuração de conta.
 ## 5. Fases
 
 Os números de migração são atribuídos na implementação, a partir da próxima
-livre (**081** depois da Fase 0 e do endurecimento da 080). Cada migração segue a regra da casa: nunca
+livre (**083** depois da conexão da Fase 1). Cada migração segue a regra da casa: nunca
 editar uma aplicada, e o código tolera a migração ainda não aplicada
 (`pg-errors.ts`, `unapplied-columns.test.ts`). Função nova que só logados
 chamam revoga `anon` por nome — `REVOKE ... FROM PUBLIC` não basta no
@@ -562,6 +573,53 @@ em `account_audit_log`, com a área "integração" ampliada.
 **Saída:** conecta e desconecta na conta de homologação; duas chamadas
 simultâneas com o token vencido geram **uma** renovação; nenhum token em log
 nem em resposta.
+
+**Como ficou (14/09/2026)**
+
+- **Migração 082** (`bling_connections`, `bling_oauth_codes`,
+  `bling_take_request`, `bling_claim_refresh`). As funções são só do
+  service role, e o `verify-schema.sql` do CI confere RLS sem política e o
+  privilégio das duas.
+- **O código de autorização é reservado antes da troca.** O SHA-256 dele entra
+  numa chave primária; o segundo acerto do callback cai no UNIQUE e não chama
+  o Bling (reusar revoga o usuário).
+- **Outra empresa não entra por cima.** Se a conta já está ligada a outra
+  empresa do Bling (conectada ou com erro), a nova autorização é recusada e
+  revogada. Conexão revogada pode ser substituída.
+- **Autorização obtida e não gravada é revogada na hora**, por melhor esforço.
+- **O cookie do `state` vive 10 minutos**, não 90 segundos: quem conecta
+  normalmente ainda precisa entrar no Bling.
+- **`refresh_issued_at` só muda quando o refresh token volta diferente.** A
+  tela mostra "autorização válida até" a partir dele, e é assim que a
+  homologação vai ver se o Bling gira o refresh token.
+- **Contrato conferido na documentação oficial.**
+  - Autorização em `www.bling.com.br`, sem `redirect_uri` nem `scope`: o
+    Bling usa os do cadastro.
+  - Token e revogação em `api.bling.com.br/Api/v3`.
+  - Credenciais só no `Basic`, e `enable-jwt: 1` em tudo.
+  - Nenhum desses endereços foi chamado com credencial.
+- **Lacunas do molde da Google corrigidas aqui, não lá.** O callback sempre
+  redireciona (com `?tab=`); desconectar revoga e pede confirmação; o
+  desfecho sai da URL depois do aviso. O `state` passou para
+  `lib/oauth/state.ts` e não assina mais com chave vazia; a Google usa o
+  mesmo módulo.
+- **Auditoria:** `bling.connected` e `bling.disconnected`, na área
+  Integrações. O mapa de prefixos passou a morar num lugar só
+  (`AUDIT_AREA_PREFIXES`), porque a rota do filtro tinha uma cópia.
+  `bling.mapping_updated` fica para a Fase 2, onde há mapeamento.
+- **"Último webhook recebido" fica para a Fase 6.**
+- **Testes:**
+  - a vez de renovar, com duas chamadas simultâneas → uma renovação;
+  - a gravação que não passa por cima de um refresh mais novo;
+  - a revogação por `invalid_grant`;
+  - o limitador antes de cada chamada, e as repetições limitadas a uma;
+  - a ordem do callback;
+  - o sanitizador de token e documento.
+
+  Dez mutações conferidas, todas acusadas.
+- **Não verificado em tela como admin:** o usuário de teste é agente, e
+  promovê-lo foi negado pela permissão da sessão. Como agente, a seção não
+  aparece e as quatro rotas respondem 403.
 
 ### Fase 2 — Cadastros de referência e produtos
 

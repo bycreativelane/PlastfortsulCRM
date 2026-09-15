@@ -247,6 +247,8 @@ describe('what each role can see', () => {
     expect(agent).not.toContain('whatsapp');
     expect(agent).not.toContain('members');
     expect(agent).not.toContain('api');
+    // Quem conecta o Bling abre o ERP da empresa para o CRM.
+    expect(agent).not.toContain('bling');
   });
 
   it('a viewer sees the ungated sections and nothing else', () => {

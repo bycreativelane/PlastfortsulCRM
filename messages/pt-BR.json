@@ -2822,6 +2822,7 @@
       "ai-tools": "Ferramentas de IA",
       "hooks": "Webhooks",
       "calendars": "Agendas",
+      "bling": "Bling",
       "company": "Empresa"
     },
     "groups": {
@@ -3223,6 +3224,8 @@
       "actionKeyRevoked": "revogou uma chave de API",
       "actionAiUpdated": "mexeu nas configurações de IA",
       "actionWhatsappUpdated": "mexeu nas configurações do WhatsApp",
+      "actionBlingConnected": "conectou o Bling à empresa",
+      "actionBlingDisconnected": "desconectou o Bling da empresa",
       "caps": {
         "inboxView": "Abrir o atendimento",
         "contactsView": "Ver contatos",
@@ -4020,6 +4023,63 @@
       "save_failed": "Não foi possível gravar a conexão"
     },
     "connected": "Agenda conectada"
+  },
+  "Bling": {
+    "title": "Bling",
+    "description": "Conecte a conta do Bling da empresa. Nesta etapa o CRM só confere a conexão e lê os dados básicos da empresa; pedidos, produtos e contatos chegam nas próximas fases.",
+    "loading": "Carregando a conexão…",
+    "loadFailed": "Não foi possível carregar a conexão com o Bling.",
+    "retry": "Tentar de novo",
+    "pending": "A integração com o Bling ainda não está no banco: falta aplicar a migração 082.",
+    "notConfigured": "O Bling não está configurado neste servidor.",
+    "notConfiguredHint": "Quem administra o servidor precisa definir BLING_CLIENT_ID, BLING_CLIENT_SECRET e BLING_OAUTH_REDIRECT_URI. O passo a passo está em docs/configuracao-env.md.",
+    "connect": "Conectar ao Bling",
+    "connectHint": "Você vai para o Bling, entra com a conta da empresa e autoriza o acesso. A conexão vale para toda a equipe, não só para você.",
+    "reconnect": "Conectar de novo",
+    "company": "Empresa conectada",
+    "companyUnknown": "Empresa sem nome no Bling",
+    "cnpj": "CNPJ {cnpj}",
+    "status": {
+      "connected": "Conectado",
+      "revoked": "Precisa conectar de novo",
+      "error": "Com erro"
+    },
+    "statusHint": {
+      "revoked": "O Bling recusou a renovação do acesso. Conecte de novo para o CRM voltar a falar com ele.",
+      "error": "As últimas tentativas de renovar o acesso falharam. Teste a conexão; se continuar, conecte de novo."
+    },
+    "connectedBy": "Conectado por",
+    "unknownPerson": "Alguém que já saiu da equipe",
+    "lastSuccess": "Última resposta do Bling",
+    "never": "Nunca",
+    "authorizationUntil": "Autorização válida até",
+    "authorizationIssued": "Emitida em {when}. O Bling dá 30 dias.",
+    "accessUntil": "Acesso atual até",
+    "accessUntilHint": "Renovado sozinho quando vence.",
+    "scopes": "Escopos autorizados",
+    "scopeCount": "{count, plural, =0 {Nenhum} one {# escopo} other {# escopos}}",
+    "lastError": "Último erro",
+    "test": "Testar conexão",
+    "testOk": "O Bling respondeu: {company}",
+    "testFailed": "O Bling não respondeu: {message}",
+    "disconnect": "Desconectar",
+    "disconnectConfirm": "Desconectar do Bling?",
+    "disconnectConfirmDesc": "O CRM deixa de acessar a conta {company}, e a autorização é revogada no Bling.",
+    "disconnected": "Bling desconectado",
+    "disconnectedNotRevoked": "Desconectado aqui, mas o Bling não confirmou a revogação. Se quiser, revogue também em Central de Extensões › Minhas instalações.",
+    "disconnectFailed": "Não foi possível desconectar do Bling.",
+    "outcome": {
+      "connected": "Bling conectado",
+      "denied": "A autorização foi recusada no Bling.",
+      "invalid_state": "A autorização expirou ou veio de outra aba. Conecte de novo.",
+      "not_configured": "O Bling não está configurado neste servidor.",
+      "duplicate": "Essa autorização já tinha sido usada. Se a conexão não aparecer, conecte de novo.",
+      "exchange_failed": "O Bling recusou a autorização. Conecte de novo.",
+      "company_failed": "O Bling não informou os dados da empresa. Confira se o aplicativo tem o escopo de dados básicos da empresa.",
+      "company_mismatch": "Esta conta já está conectada a outra empresa do Bling. Desconecte antes de trocar.",
+      "save_failed": "Não foi possível gravar a conexão. Conecte de novo.",
+      "failed": "Algo deu errado ao conectar. Conecte de novo."
+    }
   },
   "TasksPage": {
     "title": "Tarefas",

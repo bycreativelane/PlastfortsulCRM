@@ -17,6 +17,7 @@ import {
   Lock,
   LogIn,
   PlugZap,
+  ReceiptText,
   RotateCcw,
   ShieldCheck,
   UserCog,
@@ -401,6 +402,9 @@ const AREA_ICON: Record<AuditArea, ComponentType<{ className?: string }>> = {
 const ACTION_ICON: Record<string, ComponentType<{ className?: string }>> = {
   'whatsapp.config_updated': WhatsAppMark,
   'ai.config_updated': Bot,
+  // The same glyph the Bling section wears in the rail.
+  'bling.connected': ReceiptText,
+  'bling.disconnected': ReceiptText,
 };
 
 const AREAS: AuditArea[] = [
@@ -682,6 +686,8 @@ function AuditRowView({ entry }: { entry: AuditRow }) {
     'api_key.revoked': t('actionKeyRevoked'),
     'ai.config_updated': t('actionAiUpdated'),
     'whatsapp.config_updated': t('actionWhatsappUpdated'),
+    'bling.connected': t('actionBlingConnected'),
+    'bling.disconnected': t('actionBlingDisconnected'),
   };
 
   const detail = describe(entry);

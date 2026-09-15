@@ -9,6 +9,7 @@ import { AiToolsPanel } from '@/components/settings/ai-tools-panel';
 import { ApiKeysSettings } from '@/components/settings/api-keys-settings';
 import { AppearancePanel } from '@/components/settings/appearance-panel';
 import { AssignmentPanel } from '@/components/settings/assignment-panel';
+import { BlingPanel } from '@/components/settings/bling-panel';
 import { DealsSettings } from '@/components/settings/deals-settings';
 import { CompanyPanel } from '@/components/settings/company-panel';
 import { FieldsAndTagsPanel } from '@/components/settings/fields-and-tags-panel';
@@ -90,6 +91,8 @@ export function panelFor(
       return <HoursPanel />;
     case 'calendars':
       return <CalendarsPanel />;
+    case 'bling':
+      return <BlingPanel />;
     case 'members':
       return <MembersTab />;
     case 'access':

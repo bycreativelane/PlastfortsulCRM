@@ -20,7 +20,11 @@
 import { NextResponse } from 'next/server';
 
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
-import { auditArea, type AuditEntry } from '@/lib/audit/events';
+import {
+  AUDIT_AREA_PREFIXES,
+  auditArea,
+  type AuditEntry,
+} from '@/lib/audit/events';
 
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 200;
@@ -29,16 +33,11 @@ const MAX_LIMIT = 200;
  * Which action prefixes belong to each area.
  *
  * The filter runs in SQL, so it cannot call `auditArea` — that function
- * derives the area from a row it already has. These are the same
- * groupings expressed as the `LIKE` patterns PostgREST can push down.
+ * derives the area from a row it already has. Both read the same table
+ * in `lib/audit/events.ts`, expressed here as the `LIKE` patterns
+ * PostgREST can push down.
  */
-const AREA_PREFIXES: Record<string, string[]> = {
-  session: ['session.'],
-  member: ['member.'],
-  account: ['account.'],
-  key: ['api_key.'],
-  integration: ['ai.', 'whatsapp.'],
-};
+const AREA_PREFIXES: Record<string, string[] | undefined> = AUDIT_AREA_PREFIXES;
 
 export async function GET(request: Request) {
   try {

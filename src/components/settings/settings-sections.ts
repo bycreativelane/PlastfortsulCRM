@@ -13,6 +13,7 @@ import {
   MessagesSquare,
   Shield,
   MessageSquareText,
+  ReceiptText,
   Shuffle,
   Sparkles,
   ShieldCheck,
@@ -131,6 +132,11 @@ export const SETTINGS_SECTIONS = [
   // combina isso. Quem conecta a Google acabou de terminar de configurar
   // o expediente.
   'calendars',
+  // Depois de Agendas, a outra ponte com um sistema de fora: aquela liga o
+  // CRM à agenda da empresa, esta ao ERP onde o pedido vira venda. Mesmo
+  // grupo, mesma permissão, e o mesmo gesto de "conectar a conta da
+  // empresa" (§5, Fase 1, de `docs/spec-orcamentos-bling.md`).
+  'bling',
   'members',
   // Right after the roster, because it is the roster's other half: the
   // Team tab answers "who is here", this one answers "what may they do"
@@ -293,6 +299,13 @@ export const SECTION_META: Record<SettingsSection, SectionMeta> = {
     id: 'calendars',
     label: 'Calendars',
     icon: CalendarSync,
+    group: 'workspace',
+    capability: 'settings.manage',
+  },
+  bling: {
+    id: 'bling',
+    label: 'Bling',
+    icon: ReceiptText,
     group: 'workspace',
     capability: 'settings.manage',
   },

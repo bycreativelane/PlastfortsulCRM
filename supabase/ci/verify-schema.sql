@@ -870,6 +870,43 @@ BEGIN
     RAISE EXCEPTION 'notifications.task_id is missing — migration 068 did not apply';
   END IF;
 
+  -- 082: the Bling connection holds a refresh token that opens the
+  -- company's ERP. RLS on with NO policy is the design (the settings screen
+  -- reads it through a route), and the rate limiter and the refresh lease
+  -- belong to the service role alone. All three apply without an error
+  -- whether they are right or wrong, so they are asserted here.
+  IF (
+    SELECT count(*) FROM pg_class c
+      JOIN pg_namespace n ON n.oid = c.relnamespace
+     WHERE n.nspname = 'public'
+       AND c.relname IN ('bling_connections', 'bling_oauth_codes')
+       AND c.relrowsecurity
+  ) <> 2 THEN
+    RAISE EXCEPTION 'bling_connections/bling_oauth_codes missing or without RLS — migration 082 did not apply';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM pg_policies
+     WHERE schemaname = 'public'
+       AND tablename IN ('bling_connections', 'bling_oauth_codes')
+  ) THEN
+    RAISE EXCEPTION 'bling_connections/bling_oauth_codes must have no RLS policy — only the service role reads the tokens (082)';
+  END IF;
+
+  IF NOT has_function_privilege('service_role', 'public.bling_take_request(uuid)', 'EXECUTE')
+     OR has_function_privilege('anon', 'public.bling_take_request(uuid)', 'EXECUTE')
+     OR has_function_privilege('authenticated', 'public.bling_take_request(uuid)', 'EXECUTE')
+  THEN
+    RAISE EXCEPTION 'bling_take_request must be executable by service_role only (082)';
+  END IF;
+
+  IF NOT has_function_privilege('service_role', 'public.bling_claim_refresh(uuid)', 'EXECUTE')
+     OR has_function_privilege('anon', 'public.bling_claim_refresh(uuid)', 'EXECUTE')
+     OR has_function_privilege('authenticated', 'public.bling_claim_refresh(uuid)', 'EXECUTE')
+  THEN
+    RAISE EXCEPTION 'bling_claim_refresh must be executable by service_role only (082)';
+  END IF;
+
   RAISE NOTICE 'schema verification passed';
 END
 $$;

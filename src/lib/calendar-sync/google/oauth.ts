@@ -1,5 +1,3 @@
-import crypto from 'crypto';
-
 /**
  * O OAuth da Google, por `fetch` cru.
  *
@@ -65,50 +63,9 @@ export function googleOAuthConfig(): GoogleOAuthConfig | null {
 // O `state`, que é a defesa contra CSRF
 // ------------------------------------------------------------
 
-/**
- * Um nonce assinado, e por que ele não é opcional.
- *
- * Sem conferir o `state`, o callback aceita uma autorização que OUTRO site
- * iniciou: alguém induz um admin logado a abrir um endereço de callback com
- * um `code` da conta Google do atacante, e o CRM da vítima passa a publicar
- * as tarefas da empresa na agenda de quem atacou. O ataque é silencioso —
- * a tela diz "conectado" e está dizendo a verdade, só que à conta errada.
- *
- * O valor vai no parâmetro `state` e o mesmo nonce vai num cookie
- * `httpOnly` de vida curta; o callback exige que os dois batam. Assinado
- * com `ENCRYPTION_KEY`, que já existe, em vez de guardar estado no banco:
- * um nonce que vive noventa segundos não merece uma tabela.
- */
-export function signState(nonce: string): string {
-  const key = process.env.ENCRYPTION_KEY ?? '';
-  const mac = crypto.createHmac('sha256', key).update(nonce).digest('hex');
-  return `${nonce}.${mac}`;
-}
-
-export function newStateNonce(): string {
-  return crypto.randomBytes(16).toString('hex');
-}
-
-/**
- * Confere o `state` do retorno contra o nonce guardado no cookie.
- *
- * `timingSafeEqual` e não `===`: a comparação de um MAC byte a byte com
- * saída antecipada vaza, pelo tempo, quantos bytes iniciais estavam
- * certos. É pouco explorável aqui, mas comparar MAC assim é o hábito que
- * evita a próxima vez em que for explorável.
- */
-export function verifyState(state: string, cookieNonce: string): boolean {
-  if (!state || !cookieNonce) return false;
-  const [nonce, mac] = state.split('.');
-  if (!nonce || !mac) return false;
-  if (nonce !== cookieNonce) return false;
-
-  const expected = signState(nonce).split('.')[1];
-  const a = Buffer.from(mac, 'hex');
-  const b = Buffer.from(expected, 'hex');
-  if (a.length !== b.length || a.length === 0) return false;
-  return crypto.timingSafeEqual(a, b);
-}
+// Mora em `lib/oauth/state.ts` desde que o Bling precisou do mesmo; o
+// comentário de lá explica por que ele não é opcional.
+export { newStateNonce, signState, verifyState } from '@/lib/oauth/state';
 
 // ------------------------------------------------------------
 // O fluxo

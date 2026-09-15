@@ -46,6 +46,7 @@ import {
 } from '@/components/ui/panel';
 import { Skeleton } from '@/components/dashboard/skeleton';
 import { StatePanel } from '@/components/ui/state-panel';
+import { StatusBadge } from '@/components/ui/status-badge';
 import { Textarea } from '@/components/ui/textarea';
 import { IconTile } from '@/components/ui/icon-tile';
 
@@ -130,6 +131,11 @@ export function ProductCatalog() {
   const [draft, setDraft] = useState<ProductDraft>(() =>
     empty(defaultCurrency)
   );
+  /** O produto em edição veio do Bling (084): nome, código, unidade e preço travados. */
+  const editingLinked =
+    editing !== null &&
+    editing !== 'new' &&
+    Boolean(products?.find((p) => p.id === editing)?.bling_product_id);
 
   const fetchProducts = useCallback(async () => {
     if (!accountId) return null;
@@ -357,6 +363,16 @@ export function ProductCatalog() {
                 void commit();
               }}
             >
+              {/* VEM DO BLING (D6). Nome, código, unidade e preço de um
+                  produto vinculado são reescritos na próxima importação:
+                  deixar editar aqui seria deixar alguém corrigir um preço
+                  que volta sozinho amanhã. O resto (medidas, descrição) é do
+                  CRM e continua editável. */}
+              {editingLinked ? (
+                <p className="bg-muted text-muted-foreground rounded-md px-3 py-2 text-xs">
+                  {t('fromBlingNotice')}
+                </p>
+              ) : null}
               <div className="grid gap-3 @md:grid-cols-[2fr_1fr]">
                 <FieldRow label={t('name')} htmlFor="prod-name">
                   <Input
@@ -364,6 +380,7 @@ export function ProductCatalog() {
                     value={draft.name}
                     maxLength={120}
                     autoFocus
+                    disabled={editingLinked}
                     onChange={(e) =>
                       setDraft({ ...draft, name: e.target.value })
                     }
@@ -373,6 +390,7 @@ export function ProductCatalog() {
                   <Input
                     id="prod-sku"
                     value={draft.sku}
+                    disabled={editingLinked}
                     maxLength={60}
                     placeholder={t('skuPlaceholder')}
                     onChange={(e) =>
@@ -484,6 +502,7 @@ export function ProductCatalog() {
                 <FieldRow label={t('price')} htmlFor="prod-price">
                   <CurrencyInput
                     id="prod-price"
+                    disabled={editingLinked}
                     value={draft.price}
                     onValueChange={(v) => setDraft({ ...draft, price: v })}
                     currency={draft.currency}
@@ -506,6 +525,7 @@ export function ProductCatalog() {
                 <FieldRow label={t('unit')} htmlFor="prod-unit">
                   <Input
                     id="prod-unit"
+                    disabled={editingLinked}
                     value={draft.unit}
                     maxLength={16}
                     placeholder={t('unitPlaceholder')}
@@ -612,8 +632,13 @@ export function ProductCatalog() {
                     <Package />
                   </IconTile>
                   <div className="min-w-0 flex-1">
-                    <p className="text-foreground truncate text-sm font-medium">
-                      {product.name}
+                    <p className="text-foreground flex min-w-0 items-center gap-2 text-sm font-medium">
+                      <span className="truncate">{product.name}</span>
+                      {product.bling_product_id ? (
+                        <StatusBadge size="sm" variant="neutral" className="shrink-0">
+                          {t('fromBlingTag')}
+                        </StatusBadge>
+                      ) : null}
                     </p>
                     <p className="text-muted-foreground text-2xs truncate">
                       {[

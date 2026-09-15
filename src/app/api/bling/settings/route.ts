@@ -5,6 +5,7 @@ import { auditActorLabel, logAuditEvent } from '@/lib/audit/log';
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import { loadAccountConnection } from '@/lib/bling/account-connection';
 import { blingAdmin } from '@/lib/bling/admin-client';
+import { isUnderRoot } from '@/lib/bling/categories';
 import type { BlingSettingsRow } from '@/lib/bling/health';
 import {
   describeSettingsChanges,
@@ -42,6 +43,24 @@ export async function PATCH(request: Request) {
       .maybeSingle();
     const anterior = atual as BlingSettingsRow | null;
     const mesmaEmpresa = anterior?.company_id === connection.company_id;
+
+    // A categoria padrão ("Demais produtos") precisa estar embaixo da raiz —
+    // a que vem neste mesmo pedido ou a já confirmada.
+    const padrao = validacao.patch.default_revenue_category_id;
+    if (padrao) {
+      const raiz =
+        validacao.patch.revenue_root_category_id !== undefined
+          ? validacao.patch.revenue_root_category_id
+          : mesmaEmpresa
+            ? anterior?.revenue_root_category_id ?? null
+            : null;
+      const pai = new Map(
+        referencias.filter((r) => r.kind === 'revenue_category').map((r) => [r.bling_id, r.parent_bling_id])
+      );
+      if (!raiz || padrao === raiz || !isUnderRoot(padrao, raiz, pai)) {
+        return NextResponse.json({ error: 'a categoria padrão precisa estar embaixo da raiz confirmada' }, { status: 400 });
+      }
+    }
 
     const { error } = await db.from('bling_settings').upsert(
       {

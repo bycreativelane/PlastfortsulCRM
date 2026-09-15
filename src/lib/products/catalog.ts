@@ -47,6 +47,13 @@ export interface Product {
   material?: string | null;
   color?: string | null;
   size_label?: string | null;
+  /**
+   * Vínculo com o Bling (084). Com ele, nome, código, unidade, preço e
+   * situação vêm do Bling, e a próxima importação sobrescreve o que for
+   * editado aqui. Ausente num banco sem a 084.
+   */
+  bling_product_id?: string | null;
+  gross_weight_kg?: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -92,6 +99,9 @@ const PRODUCT_COLUMNS_BASE =
 
 const PRODUCT_SELECT = `${PRODUCT_COLUMNS_BASE}, width_cm, height_cm, thickness_micron, material, color, size_label`;
 
+/** O degrau da 084: o vínculo com o Bling e o peso que veio de lá. */
+const PRODUCT_SELECT_084 = `${PRODUCT_SELECT}, bling_product_id, gross_weight_kg`;
+
 const ITEM_SELECT =
   'id, account_id, deal_id, product_id, name, sku, unit, quantity, unit_price, discount_percent, total, position';
 
@@ -136,16 +146,28 @@ export async function loadProducts(
   accountId: string,
   opts: { includeInactive?: boolean } = {}
 ): Promise<Product[] | 'missing-table'> {
-  let query = db
+  // A escada: 084, depois 055, depois o conjunto de 054. Uma coluna que o
+  // banco ainda não tem derruba a leitura inteira, e aqui a leitura é o
+  // catálogo.
+  let widest = db
     .from('products')
-    .select(PRODUCT_SELECT)
+    .select(PRODUCT_SELECT_084)
     .eq('account_id', accountId);
+  if (!opts.includeInactive) widest = widest.eq('active', true);
+  const top = await widest.order('name', { ascending: true });
+  let data = top.data as Product[] | null;
+  let error = top.error;
 
-  if (!opts.includeInactive) query = query.eq('active', true);
-
-  const wide = await query.order('name', { ascending: true });
-  let data = wide.data as Product[] | null;
-  let error = wide.error;
+  if (error && isUnknownColumn(error)) {
+    let query = db
+      .from('products')
+      .select(PRODUCT_SELECT)
+      .eq('account_id', accountId);
+    if (!opts.includeInactive) query = query.eq('active', true);
+    const wide = await query.order('name', { ascending: true });
+    data = wide.data as Product[] | null;
+    error = wide.error;
+  }
 
   if (error && isUnknownColumn(error)) {
     let narrow = db

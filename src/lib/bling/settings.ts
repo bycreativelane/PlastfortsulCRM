@@ -19,6 +19,9 @@ export const ROLE_FIELDS = {
   status_canceled_id: 'order_status',
   status_future_purchase_id: 'order_status',
   revenue_root_category_id: 'revenue_category',
+  // "Demais produtos → Outros produtos" (especificação, §4.2): a categoria de
+  // quem não tem exceção nem família mapeada. Coluna da 084.
+  default_revenue_category_id: 'revenue_category',
 } as const;
 
 export type RoleField = keyof typeof ROLE_FIELDS;
@@ -37,6 +40,7 @@ export const EMPTY_SETTINGS: Omit<BlingSettingsRow, 'company_id'> = {
   status_canceled_id: null,
   status_future_purchase_id: null,
   revenue_root_category_id: null,
+  default_revenue_category_id: null,
   payment_method_ids: [],
 };
 

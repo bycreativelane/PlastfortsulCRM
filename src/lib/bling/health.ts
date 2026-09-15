@@ -78,6 +78,8 @@ export interface BlingSettingsRow {
   status_canceled_id: string | null;
   status_future_purchase_id: string | null;
   revenue_root_category_id: string | null;
+  /** 084. Ausente num banco sem a 084. */
+  default_revenue_category_id?: string | null;
   payment_method_ids: string[] | null;
 }
 

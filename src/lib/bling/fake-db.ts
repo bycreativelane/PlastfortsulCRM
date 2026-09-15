@@ -58,6 +58,7 @@ export function fakeDb(options: FakeDbOptions = {}): FakeDb {
     let payload: Linha | Linha[] | null = null;
     let conflito: string | undefined;
     let devolverLinhas = false;
+    let intervalo: [number, number] | null = null;
     const filtros: Filtro[] = [];
 
     async function executar(): Promise<{ data: unknown; error: ErroPg | null }> {
@@ -70,7 +71,8 @@ export function fakeDb(options: FakeDbOptions = {}): FakeDb {
       const casam = () => linhas.filter((l) => filtros.every((f) => f(l)));
 
       if (op === 'select') {
-        return { data: casam().map((l) => ({ ...l })), error: null };
+        const todas = casam().map((l) => ({ ...l }));
+        return { data: intervalo ? todas.slice(intervalo[0], intervalo[1] + 1) : todas, error: null };
       }
       if (op === 'insert' || op === 'upsert') {
         const novas = (Array.isArray(payload) ? payload : [payload]) as Linha[];
@@ -146,6 +148,26 @@ export function fakeDb(options: FakeDbOptions = {}): FakeDb {
       },
       in(coluna: string, valores: unknown[]) {
         filtros.push((l) => valores.includes(l[coluna]));
+        return b;
+      },
+      neq(coluna: string, valor: unknown) {
+        filtros.push((l) => l[coluna] !== valor);
+        return b;
+      },
+      ilike(coluna: string, padrao: string) {
+        // Só o suficiente: sem curinga (com escape) é igualdade sem caixa.
+        const literal = padrao.replace(/\\([\\%_])/g, '$1');
+        filtros.push((l) => typeof l[coluna] === 'string' && (l[coluna] as string).toLowerCase() === literal.toLowerCase());
+        return b;
+      },
+      order() {
+        return b;
+      },
+      limit() {
+        return b;
+      },
+      range(de: number, ate: number) {
+        intervalo = [de, ate];
         return b;
       },
       or(expressao: string) {

@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { ClientDeps } from './client';
 import { describeBlingFailure } from './errors';
 import { finishSync } from './jobs';
+import { importProducts, type ImportOptions } from './products';
 import { syncReferences } from './references';
 
 /**
@@ -48,4 +49,42 @@ export async function runReferencesSync(
       stats: { code: falha.code },
     });
   }
+}
+
+/**
+ * A importação de produtos. `partial` quando sobrou produto para a próxima
+ * rodada (teto de detalhe) ou alguma gravação falhou — o cron volta antes.
+ */
+export async function runProductsImport(
+  db: SupabaseClient,
+  conexao: RunConnection,
+  deps: ClientDeps = {},
+  opcoes: ImportOptions = {}
+): Promise<void> {
+  try {
+    const stats = await importProducts(db, conexao, deps, opcoes);
+    const incompleto = stats.remaining > 0 || stats.writeErrors > 0;
+    await finishSync(db, conexao.id, 'products', {
+      status: incompleto ? 'partial' : 'ok',
+      error: stats.writeErrors > 0 ? `${stats.writeErrors} gravação(ões) falharam` : null,
+      stats: { ...stats },
+    });
+  } catch (erro) {
+    const falha = describeBlingFailure(erro);
+    console.error('[bling] importação de produtos falhou:', falha);
+    await finishSync(db, conexao.id, 'products', {
+      status: 'error',
+      error: falha.message,
+      stats: { code: falha.code },
+    });
+  }
+}
+
+/**
+ * Quanto a importação de produtos pode esperar: dez minutos quando a última
+ * rodada deixou produto para trás, um dia quando terminou.
+ */
+export function productsMaxAgeMs(stats: Record<string, unknown> | null | undefined): number {
+  const restante = typeof stats?.remaining === 'number' ? stats.remaining : 0;
+  return restante > 0 ? 10 * 60_000 : 24 * 60 * 60_000;
 }

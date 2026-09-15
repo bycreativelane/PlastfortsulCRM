@@ -931,6 +931,26 @@ BEGIN
     RAISE EXCEPTION 'bling_claim_sync must be executable by service_role only (083)';
   END IF;
 
+  -- 084: products carry the Bling link, and one Bling product maps to at
+  -- most one CRM product per account. The match queue has no policy.
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_indexes
+     WHERE schemaname = 'public' AND tablename = 'products'
+       AND indexname = 'idx_products_account_bling'
+       AND indexdef ILIKE '%UNIQUE%'
+  ) THEN
+    RAISE EXCEPTION 'products.bling_product_id is not unique per account — migration 084 did not apply';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'bling_product_matches'
+  ) OR NOT EXISTS (
+    SELECT 1 FROM pg_policies
+     WHERE schemaname = 'public' AND tablename = 'bling_family_categories' AND cmd = 'SELECT'
+  ) THEN
+    RAISE EXCEPTION 'bling_product_matches/bling_family_categories policies are not the 084 design';
+  END IF;
+
   RAISE NOTICE 'schema verification passed';
 END
 $$;

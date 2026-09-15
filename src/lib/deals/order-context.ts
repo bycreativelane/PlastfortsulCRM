@@ -40,6 +40,8 @@ export interface OrderContext {
   carriers: Carrier[];
   /** Há `bling_settings` para esta conta: o admin já passou pela configuração. */
   blingConfigured: boolean;
+  /** A chave geral dos pedidos (086): com ela, a oportunidade registra e envia. */
+  ordersEnabled: boolean;
   /** As formas confirmadas pelo admin (`bling_settings.payment_method_ids`), com nome. */
   paymentMethods: NamedRef[];
   /** id → nome de toda categoria de receita conhecida. */
@@ -52,6 +54,7 @@ export const EMPTY_ORDER_CONTEXT: OrderContext = {
   available: false,
   carriers: [],
   blingConfigured: false,
+  ordersEnabled: false,
   paymentMethods: [],
   categoryLabels: new Map(),
   resolveCategory: (product) => product.revenue_category_bling_id ?? null,
@@ -138,6 +141,7 @@ export async function loadOrderContext(
         company_id: string;
         payment_method_ids: string[] | null;
         default_revenue_category_id?: string | null;
+        orders_enabled?: boolean | null;
       } | null);
 
   const nomesDeForma = new Map(
@@ -161,6 +165,7 @@ export async function loadOrderContext(
     available,
     carriers: available ? ((transportadoras.data ?? []) as Carrier[]) : [],
     blingConfigured: !!settings,
+    ordersEnabled: settings?.orders_enabled === true,
     paymentMethods: (settings?.payment_method_ids ?? [])
       .filter((id) => nomesDeForma.has(id))
       .map((id) => ({ id, label: nomesDeForma.get(id) as string })),

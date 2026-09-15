@@ -87,7 +87,16 @@ export function archiveLayers(args: {
     discount_amount: quote.discount?.amount ?? null,
   };
 
+  // Validade e prazo de entrega, que o documento imprime desde a 085 e o
+  // arquivo guarda desde a 086.
+  const da086 = {
+    ...da078,
+    valid_until: quote.validUntil,
+    delivery_days: quote.deliveryDays,
+  };
+
   return [
+    { migration: 86, row: da086 },
     { migration: 78, row: da078 },
     { migration: 76, row: da076 },
     { migration: 74, row: da074 },

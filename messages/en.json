@@ -1554,6 +1554,51 @@
         "district": "district",
         "city": "city",
         "state": "state"
+      },
+      "sendPending": "Send pending: the order is in Bling, but the quote did not reach the customer. Sending again updates the same order.",
+      "syncCreate": "Register in Bling",
+      "syncUpdate": "Update in Bling",
+      "syncNeedsReady": "Complete the list above to register.",
+      "syncNotReady": "Still missing for Bling: {items}.",
+      "syncRefused": "The order did not go to Bling: {reason}.",
+      "synced": "Order {number} registered in Bling.",
+      "syncDivergent": "The order went to Bling but came back different. Check the Order area.",
+      "syncFailed": "Bling refused the order. The reason is in the Order area.",
+      "syncSlow": "Bling is taking a while. The order is still queued and the Order area shows when it finishes.",
+      "sendNeedsReady": "With Bling orders on, a quote is only sent once the \"Ready for Bling\" list is complete.",
+      "errors": {
+        "bling": "Bling answered {status}: {detail}",
+        "diff": "The order in Bling differs in: {fields}.",
+        "orders_disabled": "Bling orders are turned off for this account.",
+        "not_connected": "Bling is not connected.",
+        "company_mismatch": "The connected company is not the configured one. Confirm the roles again.",
+        "contact_document_missing": "The customer needs a valid CPF or CNPJ.",
+        "contact_ambiguous": "More than one customer in Bling has this tax ID. Resolve it there.",
+        "contact_link_broken": "The linked customer no longer exists in Bling.",
+        "order_not_created": "The order has not been created in Bling yet.",
+        "order_launched": "The order already has postings and cannot be changed.",
+        "duplicate_remote": "There are two orders in Bling with this quote's key.",
+        "remote_not_open": "The order left Open in Bling and can no longer be updated.",
+        "remote_missing": "The order no longer exists in Bling.",
+        "daily_limit": "The daily Bling call limit is used up. Try again tomorrow.",
+        "unexpected": "Something went wrong. Retrying.",
+        "refresh_busy": "Renewing Bling access. Retrying.",
+        "refresh_throttled": "Renewing Bling access. Retrying.",
+        "limiter_unavailable": "The call limiter did not respond. Retrying.",
+        "revoked": "Bling access was revoked. Connect again.",
+        "not_configured": "Bling is not configured on this server.",
+        "payload": {
+          "no_contact": "The customer is missing in Bling.",
+          "no_items": "The order has no items.",
+          "item_not_linked": "An item has no Bling product.",
+          "no_category": "The revenue category is missing.",
+          "no_installments": "Installments are missing.",
+          "installment_without_method": "An installment has no payment method.",
+          "installment_without_due": "An installment has no due date.",
+          "installments_mismatch": "Installments do not add up to the total.",
+          "no_open_status": "The Open status has not been confirmed.",
+          "invalid_id": "An identifier is invalid."
+        }
       }
     }
   },
@@ -4386,6 +4431,28 @@
       "noException": "No exception",
       "auxiliary": "Auxiliary item",
       "showMore": "Show more ({count})"
+    },
+    "orders": {
+      "title": "Bling orders",
+      "offHint": "Off: the CRM only reads from Bling (registries and products). No order is created.",
+      "onHint": "On: \"Register in Bling\" shows on the deal, and sending the quote creates or updates the Open order.",
+      "on": "On",
+      "off": "Off",
+      "turnOn": "Turn on Bling orders",
+      "turnOff": "Turn off",
+      "confirmEnableTitle": "Turn on Bling orders?",
+      "confirmEnable": "From now on, registering or sending a quote creates the Open order in the connected company's Bling. Recommended: one week read-only first, then a pilot with a few orders checked by hand.",
+      "notReady": "Configuration is still missing.",
+      "saveFailed": "Could not change the orders switch.",
+      "enabled": "Bling orders turned on",
+      "disabled": "Bling orders turned off",
+      "blockers": {
+        "no_settings": "Confirm the Bling roles (statuses, categories and payment methods).",
+        "company_mismatch": "The confirmed roles belong to another company.",
+        "no_open_status": "Confirm the \"Open\" status.",
+        "no_revenue_root": "Confirm the revenue category root.",
+        "no_payment_methods": "Pick at least one payment method."
+      }
     }
   },
   "TasksPage": {

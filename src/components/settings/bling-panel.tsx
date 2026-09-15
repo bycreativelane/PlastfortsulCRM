@@ -6,6 +6,7 @@ import { useLocale, useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { Loader2, PlugZap, RefreshCw, Unplug } from 'lucide-react';
 
+import { BlingOrdersFlag } from '@/components/settings/bling-orders-flag';
 import { BlingProducts } from '@/components/settings/bling-products';
 import { BlingReferences } from '@/components/settings/bling-references';
 import { SettingsPanelHead } from '@/components/settings/settings-panel-head';
@@ -338,6 +339,7 @@ export function BlingPanel() {
         <>
           <BlingReferences />
           <BlingProducts />
+          <BlingOrdersFlag />
         </>
       ) : null}
     </div>

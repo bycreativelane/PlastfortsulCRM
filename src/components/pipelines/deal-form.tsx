@@ -216,6 +216,7 @@ export function DealForm({
   const tCard = useTranslations('Pipelines.card');
   const tOutcome = useTranslations('Pipelines.outcome');
   const tQuote = useTranslations('Quote');
+  const tOrder = useTranslations('Pipelines.order');
   const supabase = createClient();
   const { account, accountId, defaultCurrency, user } = useAuth();
 
@@ -344,6 +345,17 @@ export function DealForm({
     useState<OrderContext>(EMPTY_ORDER_CONTEXT);
   /** O catálogo ativo, que o editor de itens já carrega. */
   const [catalog, setCatalog] = useState<Product[]>([]);
+  /**
+   * O pedido no Bling como a fila deixou (086) — sobrepõe o `deal` da prop,
+   * que só é relido quando o quadro recarrega.
+   */
+  const [remoto, setRemoto] = useState<{
+    orderStatus: string | null;
+    syncStatus: string | null;
+    syncError: string | null;
+    blingOrderNumber: string | null;
+  } | null>(null);
+  const [sincronizando, setSincronizando] = useState(false);
   const handleItems = useCallback(
     (state: {
       items: DealItemDraft[];
@@ -412,6 +424,7 @@ export function DealForm({
     if (!open) return;
     setConfirmDelete(false);
     setCriadaId(null);
+    setRemoto(null);
     if (deal) {
       setSalesOrder(deal.sales_order_number ?? '');
       setValue(deal.value ?? null);
@@ -1181,6 +1194,73 @@ export function DealForm({
   }
 
   /**
+   * REGISTRAR OU ATUALIZAR O PEDIDO NO BLING (Fase 4, D2).
+   *
+   * Grava primeiro — o pedido que vai é o GRAVADO —, pede à rota, e acompanha
+   * a oportunidade até a fila terminar. Devolve se o pedido ficou
+   * sincronizado: o envio do orçamento só segue com ele.
+   */
+  async function sincronizarPedido(): Promise<boolean> {
+    const dealId = await persist({ silent: true });
+    if (!dealId) return false;
+    setSincronizando(true);
+    // Sem `try/finally`: a análise do React Compiler (a regra de hooks do
+    // lint) não entende `finally` e desistiria da gaveta inteira.
+    const ok = await acompanharPedido(dealId).catch(() => {
+      toast.error(tOrder('syncFailed'));
+      return false;
+    });
+    setSincronizando(false);
+    return ok;
+  }
+
+  async function acompanharPedido(dealId: string): Promise<boolean> {
+    const res = await fetch(`/api/bling/orders/${dealId}/sync`, { method: 'POST' });
+    const corpo = (await res.json().catch(() => ({}))) as { error?: string; missing?: string[] };
+    if (!res.ok) {
+      toast.error(
+        corpo.error === 'not_ready'
+          ? tOrder('syncNotReady', {
+              items: (corpo.missing ?? []).map((k) => tOrder(`ready.${k}`)).join(', '),
+            })
+          : tOrder('syncRefused', { reason: corpo.error ?? `HTTP ${res.status}` })
+      );
+      return false;
+    }
+    // A fila roda depois da resposta; a oportunidade diz quando terminou.
+    for (let volta = 0; volta < 40; volta++) {
+      await new Promise((r) => setTimeout(r, 1500));
+      const estado = await fetch(`/api/bling/orders/${dealId}`, { cache: 'no-store' })
+        .then((r) => (r.ok ? r.json() : null))
+        .catch(() => null);
+      const d = estado?.deal as
+        | {
+            order_status: string | null;
+            sync_status: string | null;
+            sync_error: string | null;
+            bling_order_number: string | null;
+          }
+        | undefined;
+      if (!d) continue;
+      setRemoto({
+        orderStatus: d.order_status,
+        syncStatus: d.sync_status,
+        syncError: d.sync_error,
+        blingOrderNumber: d.bling_order_number,
+      });
+      if (d.sync_status === 'syncing') continue;
+      if (d.sync_status === 'synced') {
+        toast.success(tOrder('synced', { number: d.bling_order_number ?? '' }));
+        return true;
+      }
+      toast.error(tOrder(d.sync_status === 'divergent' ? 'syncDivergent' : 'syncFailed'));
+      return false;
+    }
+    toast.error(tOrder('syncSlow'));
+    return false;
+  }
+
+  /**
    * Fechar a gaveta — avisando o quadro quando ela criou uma oportunidade.
    *
    * Gerar o orçamento de um negócio novo grava a oportunidade em silêncio
@@ -1365,20 +1445,54 @@ export function DealForm({
   ): Promise<boolean> {
     if (!linkedConversation) return false;
 
+    /*
+     * D2: COM OS PEDIDOS NO BLING LIGADOS, o envio registra (ou atualiza) o
+     * pedido ANTES de gerar o arquivo — e o PDF sai com o número que o Bling
+     * devolveu (`from-deal.ts` prefere `bling_order_number`). Sem pedido
+     * sincronizado, nada é enviado: um orçamento na mão do cliente que não
+     * existe no Bling é o processo paralelo que a integração veio encerrar.
+     */
+    const comPedido = orderContext.ordersEnabled && !orderFieldsPending;
+    if (comPedido) {
+      if (!prontidao.ready) {
+        toast.error(tOrder('sendNeedsReady'));
+        return false;
+      }
+      if (!(await sincronizarPedido())) return false;
+    }
+    const marcarEnvio = (evento: 'sent' | 'send_failed') => {
+      const id = deal?.id ?? criadaId;
+      if (!comPedido || !id) return;
+      void fetch(`/api/bling/orders/${id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ event: evento }),
+      })
+        .catch(() => undefined)
+        // O quadro relê: o cartão passa a mostrar o pedido (e o envio pendente).
+        .then(() => onSaved());
+    };
+
     const arquivos = await gerarArquivos(labels);
     if (arquivos === 'no_browser') {
       toast.error(tQuote('noBrowser'));
+      marcarEnvio('send_failed');
       return false;
     }
     const link = como === 'image' ? arquivos?.imageUrl : arquivos?.pdfUrl;
     if (!link) {
       toast.error(tQuote('generateFailed'));
+      marcarEnvio('send_failed');
       return false;
     }
 
     const total = formatCurrencyExact(orcamento.total, orcamento.currency);
-    const legenda = orcamento.orderNumber
-      ? tQuote('caption', { order: orcamento.orderNumber, total })
+    // Com o pedido registrado, o número na legenda é o do Bling — o mesmo
+    // que o PDF imprime.
+    const numeroDoPedido =
+      remoto?.blingOrderNumber || deal?.bling_order_number || orcamento.orderNumber;
+    const legenda = numeroDoPedido
+      ? tQuote('caption', { order: numeroDoPedido, total })
       : tQuote('captionNoOrder', { total });
 
     const res = await fetch('/api/whatsapp/send', {
@@ -1398,9 +1512,13 @@ export function DealForm({
     });
     if (res.ok) {
       toast.success(tQuote('sent'));
+      marcarEnvio('sent');
       return true;
     }
 
+    // "Envio pendente": o pedido existe no Bling e o cliente não recebeu.
+    // Reenviar depois atualiza o mesmo pedido — nunca cria outro.
+    marcarEnvio('send_failed');
     const dados = await res.json().catch(() => ({}));
     const motivo = String(dados?.error ?? `HTTP ${res.status}`);
     // 131047 é a Meta dizendo que a janela fechou. Acontece quando ela
@@ -2184,10 +2302,17 @@ export function DealForm({
             */}
             {!orderFieldsPending && !installmentsPending && !totalsPending && (
               <DealOrderSection
-                orderStatus={deal?.order_status ?? null}
-                syncStatus={deal?.sync_status ?? null}
-                syncError={deal?.sync_error ?? null}
-                blingOrderNumber={deal?.bling_order_number ?? null}
+                orderStatus={remoto ? remoto.orderStatus : (deal?.order_status ?? null)}
+                syncStatus={remoto ? remoto.syncStatus : (deal?.sync_status ?? null)}
+                syncError={remoto ? remoto.syncError : (deal?.sync_error ?? null)}
+                blingOrderNumber={
+                  remoto ? remoto.blingOrderNumber : (deal?.bling_order_number ?? null)
+                }
+                ordersEnabled={orderContext.ordersEnabled}
+                syncBusy={sincronizando}
+                // O quadro relê depois: a oportunidade agora é pedido, e o
+                // cartão (e a próxima abertura da gaveta) precisa saber.
+                onSync={() => void sincronizarPedido().then(() => onSaved())}
                 lock={trava}
                 disabled={!canWrite}
                 canAuthorizeWeight={canAuthorize}

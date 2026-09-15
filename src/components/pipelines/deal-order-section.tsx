@@ -1,7 +1,7 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
-import { CheckCircle2, CircleDashed, Lock, Scale } from 'lucide-react';
+import { CheckCircle2, CircleDashed, Loader2, Lock, Scale } from 'lucide-react';
 
 import { formatCurrencyExact } from '@/lib/currency';
 import { fromCents } from '@/lib/money';
@@ -74,7 +74,14 @@ export function DealOrderSection({
   onUseWeight,
   currency,
   showReadiness,
+  ordersEnabled = false,
+  syncBusy = false,
+  onSync,
 }: {
+  /** A chave geral dos pedidos (086): mostra "Registrar no Bling". */
+  ordersEnabled?: boolean;
+  syncBusy?: boolean;
+  onSync?: () => void;
   orderStatus: string | null;
   syncStatus: string | null;
   syncError: string | null;
@@ -185,8 +192,18 @@ export function DealOrderSection({
         )}
       </div>
 
-      {syncError && (syncStatus === 'error' || syncStatus === 'divergent' || syncStatus === 'pending') && (
-        <p className="text-danger-ink bg-danger-soft rounded-md px-2.5 py-1.5 text-xs">{syncError}</p>
+      {syncError && (syncStatus === 'error' || syncStatus === 'divergent' || syncStatus === 'syncing') && (
+        <p
+          className={cn(
+            'rounded-md px-2.5 py-1.5 text-xs break-words',
+            syncStatus === 'syncing' ? 'bg-human-soft text-human-ink' : 'bg-danger-soft text-danger-ink'
+          )}
+        >
+          {describeSyncError(syncError, t)}
+        </p>
+      )}
+      {syncStatus === 'pending' && (
+        <p className="bg-human-soft text-human-ink rounded-md px-2.5 py-1.5 text-xs">{t('sendPending')}</p>
       )}
 
       {lock !== 'open' && (
@@ -410,8 +427,88 @@ export function DealOrderSection({
               );
             })}
           </ul>
+          {/* D2: o botão explícito, para quando o orçamento sai por outro
+              canal. O envio pelo WhatsApp faz o mesmo antes de mandar. */}
+          {ordersEnabled && onSync && (
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <Button
+                type="button"
+                size="sm"
+                variant={blingOrderNumber ? 'outline' : 'default'}
+                onClick={onSync}
+                disabled={disabled || syncBusy || lock !== 'open' || !readiness.ready}
+              >
+                {syncBusy && <Loader2 className="size-3.5 animate-spin" />}
+                {blingOrderNumber ? t('syncUpdate') : t('syncCreate')}
+              </Button>
+              {!readiness.ready && (
+                <span className="text-muted-foreground text-2xs">{t('syncNeedsReady')}</span>
+              )}
+            </div>
+          )}
         </div>
       )}
     </section>
   );
 }
+
+/**
+ * A mensagem de erro gravada pela fila, na língua de quem lê.
+ *
+ * Os códigos do CRM (`contact_ambiguous`, `payload:no_category,…`) viram
+ * frase; o que o Bling disse (`bling:400:…`) vai como veio, sem o prefixo.
+ */
+export function describeSyncError(
+  erro: string,
+  t: (chave: string, valores?: Record<string, string | number>) => string
+): string {
+  if (erro.startsWith('bling:')) {
+    const [, status, ...resto] = erro.split(':');
+    return t('errors.bling', { status, detail: resto.join(':') });
+  }
+  if (erro.startsWith('payload:')) {
+    return erro
+      .slice('payload:'.length)
+      .split(',')
+      .map((codigo) => (CODIGOS_DE_MONTAGEM.has(codigo) ? t(`errors.payload.${codigo}`) : codigo))
+      .join(' ');
+  }
+  if (erro.startsWith('diff:')) {
+    return t('errors.diff', { fields: erro.slice('diff:'.length) });
+  }
+  return CODIGOS_DE_ERRO.has(erro) ? t(`errors.${erro}`) : erro;
+}
+
+const CODIGOS_DE_ERRO = new Set([
+  'orders_disabled',
+  'not_connected',
+  'company_mismatch',
+  'contact_document_missing',
+  'contact_ambiguous',
+  'contact_link_broken',
+  'order_not_created',
+  'order_launched',
+  'duplicate_remote',
+  'remote_not_open',
+  'remote_missing',
+  'daily_limit',
+  'unexpected',
+  'refresh_busy',
+  'refresh_throttled',
+  'limiter_unavailable',
+  'revoked',
+  'not_configured',
+]);
+
+const CODIGOS_DE_MONTAGEM = new Set([
+  'no_contact',
+  'no_items',
+  'item_not_linked',
+  'no_category',
+  'no_installments',
+  'installment_without_method',
+  'installment_without_due',
+  'installments_mismatch',
+  'no_open_status',
+  'invalid_id',
+]);

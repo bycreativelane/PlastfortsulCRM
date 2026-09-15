@@ -313,6 +313,18 @@ describe('as camadas de `deal_quotes`', () => {
     ).toEqual([]);
   });
 
+  it('a camada mais nova grava toda coluna de conteúdo que `deal_quotes` tem', () => {
+    // Uma coluna criada por migração e esquecida na camada é um campo que o
+    // documento imprime e o arquivo não guarda — reabrir o orçamento
+    // mostraria outro papel. Fora da conta: o que não é conteúdo.
+    // Os arquivos (072) são gravados depois, pela rota, quando o PDF existe.
+    const naoConteudo = new Set(['id', 'created_at', 'pdf_url', 'image_url', 'pdf_path', 'image_path']);
+    const todas = [...(COLUNAS.get('deal_quotes')?.keys() ?? [])].filter((c) => !naoConteudo.has(c));
+    const topo = Object.keys(camadas[0].row);
+    expect(todas.length).toBeGreaterThan(10);
+    expect(todas.filter((c) => !topo.includes(c)).sort()).toEqual([]);
+  });
+
   it('descem em ordem, e cada uma tira só o que a seguinte acrescentou', () => {
     for (let i = 1; i < camadas.length; i++) {
       const nova = camadas[i - 1];

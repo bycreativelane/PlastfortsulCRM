@@ -1554,6 +1554,51 @@
         "district": "동네",
         "city": "도시",
         "state": "주"
+      },
+      "sendPending": "전송 대기: 주문은 Bling에 있지만 견적서가 고객에게 가지 않았습니다. 다시 보내면 같은 주문이 업데이트됩니다.",
+      "syncCreate": "Bling에 등록",
+      "syncUpdate": "Bling에서 업데이트",
+      "syncNeedsReady": "등록하려면 위 목록을 완성하세요.",
+      "syncNotReady": "Bling에 아직 부족한 항목: {items}.",
+      "syncRefused": "주문이 Bling으로 가지 않았습니다: {reason}.",
+      "synced": "주문 {number}번이 Bling에 등록되었습니다.",
+      "syncDivergent": "주문이 Bling으로 갔지만 다르게 저장되었습니다. 주문 영역을 확인하세요.",
+      "syncFailed": "Bling이 주문을 거부했습니다. 사유는 주문 영역에 있습니다.",
+      "syncSlow": "Bling 응답이 늦습니다. 주문은 대기열에 있으며 끝나면 주문 영역에 표시됩니다.",
+      "sendNeedsReady": "Bling 주문이 켜져 있으면 \"Bling 전송 준비\" 목록이 완성되어야 견적서를 보낼 수 있습니다.",
+      "errors": {
+        "bling": "Bling 응답 {status}: {detail}",
+        "diff": "Bling의 주문이 다음 항목에서 다릅니다: {fields}.",
+        "orders_disabled": "이 계정의 Bling 주문이 꺼져 있습니다.",
+        "not_connected": "Bling이 연결되어 있지 않습니다.",
+        "company_mismatch": "연결된 회사가 설정된 회사와 다릅니다. 역할을 다시 확인하세요.",
+        "contact_document_missing": "고객에게 유효한 CPF 또는 CNPJ가 필요합니다.",
+        "contact_ambiguous": "Bling에 이 세금 번호를 가진 고객이 여러 명 있습니다. Bling에서 정리하세요.",
+        "contact_link_broken": "연결된 고객이 Bling에 더 이상 없습니다.",
+        "order_not_created": "주문이 아직 Bling에 생성되지 않았습니다.",
+        "order_launched": "이미 전기된 주문은 변경할 수 없습니다.",
+        "duplicate_remote": "이 견적서 키로 된 주문이 Bling에 두 건 있습니다.",
+        "remote_not_open": "Bling에서 주문이 접수 상태를 벗어나 더 이상 업데이트할 수 없습니다.",
+        "remote_missing": "주문이 Bling에 더 이상 없습니다.",
+        "daily_limit": "Bling 일일 호출 한도를 모두 사용했습니다. 내일 다시 시도하세요.",
+        "unexpected": "문제가 발생했습니다. 다시 시도하는 중입니다.",
+        "refresh_busy": "Bling 접근을 갱신하는 중입니다. 다시 시도합니다.",
+        "refresh_throttled": "Bling 접근을 갱신하는 중입니다. 다시 시도합니다.",
+        "limiter_unavailable": "호출 제한기가 응답하지 않았습니다. 다시 시도합니다.",
+        "revoked": "Bling 접근이 취소되었습니다. 다시 연결하세요.",
+        "not_configured": "이 서버에 Bling이 설정되어 있지 않습니다.",
+        "payload": {
+          "no_contact": "Bling 고객이 없습니다.",
+          "no_items": "주문에 품목이 없습니다.",
+          "item_not_linked": "Bling 상품이 없는 품목이 있습니다.",
+          "no_category": "매출 카테고리가 없습니다.",
+          "no_installments": "할부가 없습니다.",
+          "installment_without_method": "결제 수단이 없는 할부가 있습니다.",
+          "installment_without_due": "만기일이 없는 할부가 있습니다.",
+          "installments_mismatch": "할부 합계가 총액과 맞지 않습니다.",
+          "no_open_status": "접수 상태가 확인되지 않았습니다.",
+          "invalid_id": "잘못된 식별자가 있습니다."
+        }
       }
     }
   },
@@ -4386,6 +4431,28 @@
       "noException": "예외 없음",
       "auxiliary": "보조 품목",
       "showMore": "더 보기 ({count})"
+    },
+    "orders": {
+      "title": "Bling 주문",
+      "offHint": "꺼짐: CRM은 Bling에서 읽기만 합니다(기초 정보와 상품). 주문은 생성되지 않습니다.",
+      "onHint": "켜짐: 영업 기회에 \"Bling에 등록\"이 표시되고, 견적서를 보내면 접수 주문이 생성되거나 업데이트됩니다.",
+      "on": "켜짐",
+      "off": "꺼짐",
+      "turnOn": "Bling 주문 켜기",
+      "turnOff": "끄기",
+      "confirmEnableTitle": "Bling 주문을 켤까요?",
+      "confirmEnable": "이제부터 견적서를 등록하거나 보내면 연결된 회사의 Bling에 접수 주문이 생성됩니다. 권장: 먼저 일주일간 읽기만 하고, 소수 주문으로 직접 확인하는 시범 운영을 하세요.",
+      "notReady": "켜려면 설정이 더 필요합니다.",
+      "saveFailed": "주문 스위치를 바꾸지 못했습니다.",
+      "enabled": "Bling 주문을 켰습니다",
+      "disabled": "Bling 주문을 껐습니다",
+      "blockers": {
+        "no_settings": "Bling 역할(상태, 카테고리, 결제 수단)을 확인하세요.",
+        "company_mismatch": "확인된 역할이 다른 회사의 것입니다.",
+        "no_open_status": "\"접수\" 상태를 확인하세요.",
+        "no_revenue_root": "매출 카테고리의 최상위를 확인하세요.",
+        "no_payment_methods": "결제 수단을 하나 이상 고르세요."
+      }
     }
   },
   "TasksPage": {

@@ -999,6 +999,41 @@ BEGIN
     RAISE EXCEPTION 'deal_order_locked does not implement the 085 lock table';
   END IF;
 
+  -- 086/087: the Bling write queue is server-only, one row per idempotency
+  -- key, and the orders switch starts OFF. A policy on the queue or an
+  -- EXECUTE for authenticated would let a browser enqueue writes to the ERP.
+  IF EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'bling_operations'
+  ) OR NOT EXISTS (
+    SELECT 1 FROM pg_indexes
+     WHERE schemaname = 'public' AND tablename = 'bling_operations'
+       AND indexname = 'idx_bling_operations_key' AND indexdef ILIKE '%UNIQUE%'
+  ) THEN
+    RAISE EXCEPTION 'bling_operations is not the 086 design (no policy, unique idempotency key)';
+  END IF;
+
+  IF NOT has_function_privilege('service_role', 'public.bling_enqueue_operation(uuid, uuid, text, text, text, jsonb, uuid)', 'EXECUTE')
+     OR has_function_privilege('authenticated', 'public.bling_enqueue_operation(uuid, uuid, text, text, text, jsonb, uuid)', 'EXECUTE')
+     OR has_function_privilege('anon', 'public.bling_enqueue_operation(uuid, uuid, text, text, text, jsonb, uuid)', 'EXECUTE')
+     OR NOT has_function_privilege('service_role', 'public.bling_claim_operations(uuid, uuid, integer, integer)', 'EXECUTE')
+     OR has_function_privilege('authenticated', 'public.bling_claim_operations(uuid, uuid, integer, integer)', 'EXECUTE')
+     OR has_function_privilege('anon', 'public.bling_claim_operations(uuid, uuid, integer, integer)', 'EXECUTE')
+  THEN
+    RAISE EXCEPTION 'bling queue functions must be executable by service_role only (086)';
+  END IF;
+
+  -- 087: the claim must not depend on uuid-ossp being on the search_path.
+  IF (SELECT prosrc FROM pg_proc WHERE proname = 'bling_claim_operations' LIMIT 1) ILIKE '%uuid_generate_v4%' THEN
+    RAISE EXCEPTION 'bling_claim_operations still calls uuid_generate_v4 — migration 087 did not apply';
+  END IF;
+
+  IF (
+    SELECT column_default FROM information_schema.columns
+     WHERE table_schema = 'public' AND table_name = 'bling_settings' AND column_name = 'orders_enabled'
+  ) IS DISTINCT FROM 'false' THEN
+    RAISE EXCEPTION 'bling_settings.orders_enabled must default to false (086)';
+  END IF;
+
   RAISE NOTICE 'schema verification passed';
 END
 $$;

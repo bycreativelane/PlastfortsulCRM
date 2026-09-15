@@ -4,6 +4,7 @@ import { after, NextResponse } from 'next/server';
 import { blingAdmin } from '@/lib/bling/admin-client';
 import { claimSync, isJobDue, loadJob } from '@/lib/bling/jobs';
 import { blingOAuthConfig } from '@/lib/bling/oauth';
+import { runOperations } from '@/lib/bling/operations';
 import { productsMaxAgeMs, runProductsImport, runReferencesSync } from '@/lib/bling/run';
 
 /**
@@ -51,8 +52,27 @@ export async function GET(request: Request) {
   }
 
   const iniciados: string[] = [];
+
+  // Fase 4: a fila de escritas no Bling (086). Toda conexão viva com a chave
+  // geral ligada — são operações curtas, uma a uma, e o lease impede que o
+  // `after()` da rota e o cron peguem a mesma.
+  const { data: ligadas } = await db
+    .from('bling_settings')
+    .select('account_id')
+    .eq('orders_enabled', true)
+    .limit(200);
+  const contasComPedido = new Set(((ligadas ?? []) as Array<{ account_id: string }>).map((s) => s.account_id));
+  for (const conexao of (conexoes ?? []) as Array<{ account_id: string }>) {
+    if (!contasComPedido.has(conexao.account_id)) continue;
+    const accountId = conexao.account_id;
+    iniciados.push(`operations:${accountId}`);
+    after(() => runOperations(db, { accountId, limit: 10 }).then(() => undefined));
+  }
+
   for (const conexao of (conexoes ?? []) as Array<{ id: string; account_id: string; company_id: string }>) {
-    if (iniciados.length > 0) break;
+    // Um trabalho LONGO por tique (cadastros ou produtos); a fila acima não
+    // conta, porque são chamadas curtas.
+    if (iniciados.some((i) => !i.startsWith('operations:'))) break;
 
     // Cadastros primeiro: a importação de produtos lê o rótulo das famílias
     // do cache que eles preenchem.

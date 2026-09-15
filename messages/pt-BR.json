@@ -1554,6 +1554,51 @@
         "district": "bairro",
         "city": "cidade",
         "state": "UF"
+      },
+      "sendPending": "Envio pendente: o pedido está no Bling, mas o orçamento não chegou ao cliente. Enviar de novo atualiza o mesmo pedido.",
+      "syncCreate": "Registrar no Bling",
+      "syncUpdate": "Atualizar no Bling",
+      "syncNeedsReady": "Complete a lista acima para registrar.",
+      "syncNotReady": "Ainda falta para o Bling: {items}.",
+      "syncRefused": "O pedido não foi para o Bling: {reason}.",
+      "synced": "Pedido {number} registrado no Bling.",
+      "syncDivergent": "O pedido foi para o Bling, mas voltou diferente. Confira a área Pedido.",
+      "syncFailed": "O Bling recusou o pedido. O motivo está na área Pedido.",
+      "syncSlow": "O Bling está demorando. O pedido continua na fila e a área Pedido mostra quando terminar.",
+      "sendNeedsReady": "Com os pedidos no Bling ligados, o orçamento só é enviado com a lista \"Pronto para o Bling\" completa.",
+      "errors": {
+        "bling": "O Bling respondeu {status}: {detail}",
+        "diff": "O pedido no Bling ficou diferente em: {fields}.",
+        "orders_disabled": "Os pedidos no Bling estão desligados nesta conta.",
+        "not_connected": "O Bling não está conectado.",
+        "company_mismatch": "A empresa conectada não é a da configuração. Confirme os papéis de novo.",
+        "contact_document_missing": "O cliente precisa de CPF ou CNPJ válido.",
+        "contact_ambiguous": "Há mais de um cliente com este documento no Bling. Resolva lá qual é o certo.",
+        "contact_link_broken": "O cliente vinculado não existe mais no Bling.",
+        "order_not_created": "O pedido ainda não foi criado no Bling.",
+        "order_launched": "O pedido já tem lançamento e não pode ser alterado.",
+        "duplicate_remote": "Há dois pedidos no Bling com a chave deste orçamento.",
+        "remote_not_open": "O pedido saiu de Em aberto no Bling e não pode mais ser atualizado.",
+        "remote_missing": "O pedido não existe mais no Bling.",
+        "daily_limit": "O limite diário de chamadas ao Bling acabou. Tenta de novo amanhã.",
+        "unexpected": "Algo deu errado. Tentando de novo.",
+        "refresh_busy": "Renovando o acesso ao Bling. Tentando de novo.",
+        "refresh_throttled": "Renovando o acesso ao Bling. Tentando de novo.",
+        "limiter_unavailable": "O limitador de chamadas não respondeu. Tentando de novo.",
+        "revoked": "O acesso ao Bling foi revogado. Conecte de novo.",
+        "not_configured": "O Bling não está configurado neste servidor.",
+        "payload": {
+          "no_contact": "Falta o cliente no Bling.",
+          "no_items": "O pedido não tem itens.",
+          "item_not_linked": "Há item sem produto do Bling.",
+          "no_category": "Falta a categoria de receita.",
+          "no_installments": "Faltam as parcelas.",
+          "installment_without_method": "Há parcela sem forma de pagamento.",
+          "installment_without_due": "Há parcela sem vencimento.",
+          "installments_mismatch": "As parcelas não fecham com o total.",
+          "no_open_status": "A situação Em aberto não foi confirmada.",
+          "invalid_id": "Há um identificador inválido."
+        }
       }
     }
   },
@@ -4386,6 +4431,28 @@
       "noException": "Sem exceção",
       "auxiliary": "Item auxiliar",
       "showMore": "Mostrar mais ({count})"
+    },
+    "orders": {
+      "title": "Pedidos no Bling",
+      "offHint": "Desligado: o CRM só lê do Bling (cadastros e produtos). Nenhum pedido é criado.",
+      "onHint": "Ligado: \"Registrar no Bling\" aparece na oportunidade, e enviar o orçamento cria ou atualiza o pedido Em aberto.",
+      "on": "Ligado",
+      "off": "Desligado",
+      "turnOn": "Ligar pedidos no Bling",
+      "turnOff": "Desligar",
+      "confirmEnableTitle": "Ligar os pedidos no Bling?",
+      "confirmEnable": "A partir de agora, registrar ou enviar um orçamento cria o pedido Em aberto no Bling da empresa conectada. Recomendado: uma semana só lendo antes, e um piloto com poucos pedidos conferidos à mão.",
+      "notReady": "Ainda falta configuração para ligar.",
+      "saveFailed": "Não foi possível mudar a chave dos pedidos.",
+      "enabled": "Pedidos no Bling ligados",
+      "disabled": "Pedidos no Bling desligados",
+      "blockers": {
+        "no_settings": "Confirme os papéis do Bling (situações, categorias e formas).",
+        "company_mismatch": "Os papéis confirmados são de outra empresa.",
+        "no_open_status": "Confirme a situação \"Em aberto\".",
+        "no_revenue_root": "Confirme a raiz das categorias de receita.",
+        "no_payment_methods": "Escolha ao menos uma forma de pagamento."
+      }
     }
   },
   "TasksPage": {

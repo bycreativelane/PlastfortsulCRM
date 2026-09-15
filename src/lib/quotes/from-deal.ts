@@ -61,6 +61,7 @@ interface LinhaDeal {
   /** 085. `internal_notes` também vem no `*` e NUNCA é lido aqui. */
   valid_until?: string | null;
   delivery_days?: number | string | null;
+  bling_order_number?: string | null;
 }
 
 interface LinhaContato {
@@ -94,7 +95,9 @@ export function quoteInputFromRows(args: {
   const codigoFrete = freightCode(deal.freight_mode);
 
   return {
-    orderNumber: deal.sales_order_number,
+    // Depois do envio, o número do Bling é o oficial (§7, risco 12): o PDF
+    // que sai com o pedido registrado leva o número que o Bling devolveu.
+    orderNumber: deal.bling_order_number || deal.sales_order_number,
     issuedOn: args.issuedOn,
     company: args.company,
     customerName: args.contact?.name || args.contact?.phone || null,

@@ -455,7 +455,7 @@ não altera configuração de conta.
 ## 5. Fases
 
 Os números de migração são atribuídos na implementação, a partir da próxima
-livre (**080** depois da Fase 0). Cada migração segue a regra da casa: nunca
+livre (**081** depois da Fase 0 e do endurecimento da 080). Cada migração segue a regra da casa: nunca
 editar uma aplicada, e o código tolera a migração ainda não aplicada
 (`pg-errors.ts`, `unapplied-columns.test.ts`). Função nova que só logados
 chamam revoga `anon` por nome — `REVOKE ... FROM PUBLIC` não basta no

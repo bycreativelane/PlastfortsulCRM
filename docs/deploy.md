@@ -47,6 +47,12 @@ Nunca commite `.env.local`. No host de produção as variáveis vão no **painel
      `AUTOMATION_CRON_SECRET`: um segundo segredo para o mesmo agendador
      seria mais uma variável para alguém esquecer, e o modo de falha disso
      é uma rota respondendo 503 para sempre sem ninguém perceber.
+   - `GET https://seu-dominio/api/bling/cron` — **a cada minuto**, só com o
+     Bling configurado (sem as três variáveis responde `dormant`). O que ele
+     faz está em [configuracao-env.md](./configuracao-env.md#o-tique-do-bling-cron).
+9. Bling (opcional): webhooks `order` e `product` do aplicativo apontando para
+   `https://seu-dominio/api/bling/webhook`. O caminho para ligar os pedidos
+   está em [operacao-bling.md](./operacao-bling.md).
 
    A cada minuto porque é este tique que leva as mudanças de etapa ao
    motor de automações (`/aberto` → Em Aberto, o cancelamento por
@@ -73,7 +79,7 @@ docker compose --env-file .env.local up --build -d
 
 Na frente, um reverse proxy (Caddy/Nginx) com TLS apontando para a porta publicada (`HOST_PORT`, padrão 3000).
 
-Mesmos passos 5–8 do caminho A (Auth URLs, migrações, webhook Meta, cron).
+Mesmos passos 5–9 do caminho A (Auth URLs, migrações, webhook Meta, cron, Bling).
 
 Detalhes: [docker.md](./docker.md).
 
@@ -90,7 +96,12 @@ Detalhes: [docker.md](./docker.md).
 
 ## Checklist antes de apontar o WhatsApp para produção
 
-- [ ] Migrações 001–065 aplicadas no Supabase de produção
+- [ ] Migrações 001–089 aplicadas no Supabase de produção, **em ordem**. Algumas
+      corrigem as anteriores (073 a 072, 079–081 os privilégios de funções, 087 a
+      086) — pular uma deixa a seguinte sem o que ela conserta. O `verify-schema.sql`
+      da CI confere o desenho de cada uma
+- [ ] Bling (se for usar): as três variáveis, o cron de `/api/bling/cron`, os webhooks, e
+      **Pedidos no Bling desligado** até terminar a semana só lendo ([operacao-bling.md](./operacao-bling.md))
 - [ ] As doze etapas do funil de Vendas criadas com os nomes do fluxo oficial, e as respostas rápidas `/aberto`, `/andamento` e `/atendido` (ver [playbook-comercial.md](./playbook-comercial.md))
 - [ ] `ENCRYPTION_KEY` gerada e **guardada** (trocar depois apaga tokens já gravados)
 - [ ] `SUPABASE_SERVICE_ROLE_KEY` só no servidor, nunca `NEXT_PUBLIC_*`

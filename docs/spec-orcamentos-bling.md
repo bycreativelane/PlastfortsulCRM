@@ -2,7 +2,27 @@
 
 **Escrito em:** 14/09/2026
 **Fonte funcional:** `ESPECIFICACAO_CRM_ORCAMENTOS_INTEGRACAO_BLING.md` (14/09/2026, fora do repositório)
-**Estado:** Fase 0 implementada e conferida em 14/09 (F0.1 a F0.8).
+
+> **Estado em 16/09/2026: as oito fases estão escritas, as migrações até a 089
+> aplicadas e conferidas no banco de teste — e nada foi exercitado contra o
+> Bling de verdade**, porque o aplicativo ainda não foi cadastrado (§4). Por
+> instrução do Gabriel ("termina todas as fases e segue o recomendado e depois
+> eu reviso"), D1–D5 e D9–D12 seguiram a recomendação; as escolhas que a
+> recomendação deixava abertas estão em §11. O roteiro de operação é
+> [operacao-bling.md](./operacao-bling.md).
+>
+> | Fase | Commit | Migração |
+> |---|---|---|
+> | 0 | vários (14/09) | 078, 079 |
+> | 1 conexão | `cbfab56` | 082 |
+> | 2 cadastros e produtos | `7137e55`, `6d58b9c` | 083, 084 |
+> | 3 pedido completo no CRM | `0742747` | 085 |
+> | 4 criar, atualizar, enviar | `b111681` | 086, 087 |
+> | 5 situação, contas, estoque | `5d02926` | 088 |
+> | 6 webhooks e reconciliação | `c83eaf8` | 089 |
+> | 7 implantação gradual | este documento, `operacao-bling.md` | — |
+
+**Estado (histórico):** Fase 0 implementada e conferida em 14/09 (F0.1 a F0.8).
 - A 078 foi aplicada em 14/09 e exercitada na tela: os dois campos novos
   aparecem, a gaveta grava por uma única chamada à `save_deal_order`, um item
   inválido desfaz a oportunidade inteira (na edição e na criação), e o
@@ -1051,3 +1071,90 @@ deles tocam coisas que ela usa.
    a Fase 0 (F0.6).
 6. **Continuam abertos** o A7 (templates D1–D3 com `{{deal.title}}`) e o
    `status: 'active'` no `POST /api/v1/deals`, os dois registrados antes.
+
+---
+
+## 11. Como ficou — Fases 3 a 7 (16/09/2026)
+
+Escrito no fim da implementação, para a revisão do Gabriel. As decisões
+seguiram a recomendação de §3; abaixo, o que a recomendação deixava em aberto
+e a escolha feita, e o que ficou de fora.
+
+### Escolhas feitas na implementação
+
+- **Travas (085).** Em andamento congela cliente, itens, preços, descontos,
+  categoria, frete e parcelas; datas de saída e prevista, prazo, volumes e peso
+  continuam livres (são da produção). Atendido **e Cancelado** deixam só o que
+  é do CRM (título, observações, responsável, etapa, ganho/perdido) — a tabela
+  dizia "nada" para Cancelado, mas D3 precisa mover a etapa e marcar a perda.
+  A trava é por exclusão, num gatilho: coluna nova nasce travada.
+- **D1-B, a etapa acompanha pelo NOME**, no mesmo funil da oportunidade (Em
+  Aberto, Em Andamento, Atendido, Compra Futura, Venda Perdida). O
+  "mapeamento configurável" ficou para depois; funil sem etapa com o nome
+  deixa a etapa onde está.
+- **Arrastar no quadro** só é barrado quando há contas lançadas e o destino
+  não é a etapa da situação. O arrasto para uma etapa mapeada **não pergunta**
+  se é para mudar o pedido.
+- **Ganho/Perdido do topo da gaveta** ficam apagados quando a oportunidade já é
+  pedido e os pedidos estão ligados: o desfecho vem da situação.
+- **D2.** Com os pedidos ligados, o envio pelo WhatsApp só acontece com a lista
+  "Pronto para o Bling" completa; registra ou atualiza antes, o PDF e a legenda
+  saem com o número do Bling, e falha de envio marca "Envio pendente". Gerar
+  PDF ou prévia nunca encosta no Bling.
+- **D3.** Cancelado vira perda com o motivo `orderCanceled` ("Pedido
+  cancelado"), e passa a contar como perdida nos relatórios — a pergunta que o
+  plano deixava aberta foi respondida assim, por ser a leitura direta de
+  "Venda Perdida".
+- **D5.** Nome no Bling = empresa para pessoa jurídica, nome para física. As
+  diferenças encontradas (nomes de campo, nunca valores) ficam no resultado da
+  operação; **a gaveta ainda não as mostra**.
+- **D6.** Linha de texto livre também bloqueia a lista "Pronto para o Bling":
+  "produto sem vínculo não entra em pedido".
+- **D7, o misto.** As linhas que decidem categoria mandam; só auxiliares →
+  elas decidem; duas categorias principais → a pessoa escolhe, e a escolha só
+  vale enquanto o misto existir. Sem regra administrativa padrão para o misto.
+- **D8.** Transportadoras em Configurações › Oportunidades, com o id do contato
+  no Bling digitado (sem busca ainda); vendedor por pessoa em Configurações ›
+  Equipe; forma de pagamento por id na parcela.
+- **D12.** `dataPrevista` = data prevista informada, senão saída (ou venda) +
+  prazo, senão a data do pedido.
+- **Exceção de peso** só por admin, com quem autorizou gravado.
+- **Chave do pedido:** `CRM-ORC-` + 16 hexadecimais do id da oportunidade.
+- **Estoque não é conferível pela API** (não há consulta de movimento por
+  pedido): o CRM confia na ação da transição do Bling ou chama
+  `lancar-estoque` uma vez. As contas são conferidas pelo Contas a Receber
+  (origem da venda).
+- **Webhook de empresa desconhecida** responde 2xx e é ignorado (um erro faria
+  o Bling desabilitar o webhook do aplicativo).
+- **Retenção:** eventos de webhook processados, 30 dias; operações terminadas,
+  180 dias.
+- **Documento:** o rótulo "Responsável" virou "Vendedor", e o número impresso
+  prefere o do Bling ao digitado.
+
+### Achados durante a implementação
+
+- **087.** A 086 chamava `uuid_generate_v4()` com `search_path` travado; no
+  Supabase a extensão mora em `extensions`, e todo claim da fila morria com
+  42883. Visto no banco logo depois de aplicar.
+- **088.** O claim comparava `created_at`, igual para duas operações da mesma
+  transação; uma sequência desempata.
+- A regra de hooks do lint (análise do React Compiler) **desiste do componente
+  inteiro** quando ele tem `try/finally` — as diretivas de desabilitar da gaveta
+  apareceram como "sem uso". A gaveta não usa mais `finally`.
+
+### Pendente
+
+1. **A homologação (D9) e o primeiro contato real com o Bling** — nada foi
+   exercitado contra a API. Os testes de contrato com respostas reais
+   anonimizadas (§5, Fase 4) dependem disso.
+2. D11 (pagamento à vista gera Contas a Receber antes da baixa?) sem resposta.
+3. Os atalhos `/andamento` e `/atendido` ainda mudam só a etapa.
+4. Arrastar para uma etapa mapeada não pergunta se é para mudar o pedido.
+5. As diferenças do cliente (D5) não aparecem na tela; limpar um vínculo de
+   contato quebrado exige o banco.
+6. Busca do contato transportador no Bling (hoje o id é digitado).
+7. Mapeamento etapa × situação configurável.
+8. Aviso ativo (sino) de conexão revogada ou renovações falhando — hoje só em
+   Configurações › Bling.
+9. `product.*` só invalida o resumo do produto; a releitura acontece na
+   próxima importação (até 24 h).

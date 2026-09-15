@@ -95,7 +95,7 @@ Cliente respondeu e existe negociação ativa.
 | Passo                                           | Dica                                                          |
 | ----------------------------------------------- | ------------------------------------------------------------- |
 | Confirmar quantidade e prazo finais             | O que mudou desde o orçamento é o que costuma travar o pedido |
-| Registrar a condição de pagamento acordada      | Nas observações da oportunidade, não no WhatsApp              |
+| Registrar a condição de pagamento acordada      | No bloco **Condição de pagamento** da oportunidade: o atalho (`30/60/90`), "Gerar parcelas", e a forma em cada parcela. O que é só da equipe vai em **Observações internas** — elas nunca saem no orçamento |
 | Atualizar o valor se a negociação mexeu nele    | Um funil com valores velhos é um funil que ninguém olha       |
 | Confirmar quem assina/aprova do lado do cliente | Descobrir isso no fim é o que faz um pedido pronto parar      |
 
@@ -104,6 +104,15 @@ etiqueta Lead por Cliente e cancela qualquer sequência antiga deste
 contato. Se a oportunidade ainda não tiver valor, preencha — Em Andamento
 significa que o cliente comprou, e uma venda sem valor não entra em
 relatório nenhum.
+
+> **Com os pedidos no Bling ligados** (Configurações › Bling), a oportunidade
+> que já é pedido muda pela área **Pedido**, em "Mudar situação" — é ali que
+> Em andamento lança as contas no Bling, e a etapa acompanha sozinha. O
+> `/andamento` continua movendo só a etapa. Antes de enviar o orçamento, a
+> lista "Pronto para o Bling" precisa estar toda verde: cliente com CPF/CNPJ e
+> endereço, produtos do Bling, peso, categoria, forma de pagamento em cada
+> parcela e transportadora. O que fazer quando algo dá errado está em
+> [operacao-bling.md](./operacao-bling.md).
 
 Se o cliente disser que compra depois, registre a data e mova para
 **Compra Futura**: na data, o CRM manda a mensagem sozinho. Se precisar de
@@ -124,7 +133,8 @@ O cliente comprou. O pedido está em produção, separação ou entrega.
 | Avisar produção sobre qualquer combinado especial    | O que foi prometido no WhatsApp não chega sozinho ao chão de fábrica |
 
 Ao enviar o pedido: mande `/atendido`. O CRM move para **Atendido** e
-começa a contar o pós-venda.
+começa a contar o pós-venda. Com o pedido no Bling, use "Mudar situação ›
+Atendido" na oportunidade: é o que muda o pedido lá e lança o estoque.
 
 ---
 

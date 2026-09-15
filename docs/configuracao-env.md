@@ -304,6 +304,47 @@ A cifragem dos tokens usa o mesmo `ENCRYPTION_KEY` — não há chave nova.
 **Não há ambiente de testes no Bling.** Conectar uma conta de verdade dá ao
 CRM acesso a ela; a conexão em si só lê os dados básicos da empresa.
 
+### O tique do Bling (cron)
+
+Uma linha a mais no agendador, **a cada minuto**, com o mesmo
+`AUTOMATION_CRON_SECRET` das automações:
+
+```
+GET https://seu-dominio/api/bling/cron   (header x-cron-secret)
+```
+
+O tique decide o que está vencido e roda em segundo plano: cadastros de
+referência uma vez por dia, produtos uma vez por dia (ou em dez minutos,
+quando a importação deixou produto para trás), a fila de pedidos das contas
+com **Pedidos no Bling** ligado, os webhooks que ficaram pendentes, a
+conferência de pedidos de 15 em 15 minutos e a retenção uma vez por dia.
+Sem as três variáveis ele responde `{ dormant: true }` e não faz nada.
+
+### O webhook
+
+Na aba **Webhooks** do aplicativo, cadastre os recursos **Pedido de venda
+(`order`)** e **Produto (`product`)** apontando para:
+
+```
+https://seu-dominio/api/bling/webhook
+```
+
+A rota não usa sessão: a prova de origem é a assinatura
+`X-Bling-Signature-256`, um HMAC do corpo com o `BLING_CLIENT_SECRET`.
+Webhook **não chega em localhost**; em desenvolvimento, a conferência de
+15 minutos cobre essa falta. O Bling desabilita o webhook depois de três
+dias falhando — o roteiro para esse caso está em
+[operacao-bling.md](./operacao-bling.md).
+
+### Pedidos no Bling (a chave geral)
+
+Conectar **não** cria pedido nenhum. Criar e mudar pedidos depende de um
+admin ligar **Configurações › Bling › Pedidos no Bling**, que só liga com a
+situação "Em aberto", a raiz das categorias de receita e ao menos uma forma
+de pagamento confirmadas. O caminho recomendado para ligar — uma semana só
+lendo, um piloto, e então todos — está em
+[operacao-bling.md](./operacao-bling.md).
+
 ## Conferindo
 
 Depois de preencher:

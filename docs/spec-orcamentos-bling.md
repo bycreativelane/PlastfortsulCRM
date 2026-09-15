@@ -2,7 +2,8 @@
 
 **Escrito em:** 14/09/2026
 **Fonte funcional:** `ESPECIFICACAO_CRM_ORCAMENTOS_INTEGRACAO_BLING.md` (14/09/2026, fora do repositório)
-**Estado:** plano. Nada implementado. Doze decisões abertas (§3).
+**Estado:** Fase 0 em andamento: F0.1 (centavos) e F0.3 (link do PDF)
+feitos em 14/09. Nada do Bling implementado. Doze decisões abertas (§3).
 
 > **Dados pessoais.** A especificação traz prints com nome, CPF, telefone e
 > endereço de clientes reais, e pede que nada disso vá para fixtures, seeds,
@@ -917,9 +918,21 @@ deles tocam coisas que ela usa.
      do mais recente estão no bucket.
    - Consequências:
      - "Abrir PDF" nunca aparece no arquivo;
-     - gerar duas vezes o mesmo conteúdo cai no UNIQUE da impressão digital e
-       devolve `pdfUrl: null`.
-   - Aberto como tarefa separada em 14/09.
+     - gerar de novo o mesmo conteúdo reaproveita a linha mas sobe o Chromium
+       outra vez, porque sem link a linha conta como "sem arquivo";
+     - dois cliques **simultâneos** caem no UNIQUE da impressão digital e o
+       segundo devolve `pdfUrl: null`.
+   - A primeira versão deste plano dizia que gerar duas vezes em sequência
+     também voltava sem link. Estava errado: a rota reaproveita e renderiza
+     de novo, e só a corrida volta vazia.
+   - **Corrigido na Fase 0 (F0.3), em 14/09.** Os links passam por um client
+     de serviço restrito a id e conta. A linha vencedora sem arquivo é
+     preenchida em vez de devolvida vazia. Um guarda lê as migrações e acusa
+     escrita em `deal_quotes` sem política pelo client da sessão.
+   - Conferido na rota real:
+     - a segunda geração volta em 296 ms com `reused: true`;
+     - a corrida gera uma linha só, com link;
+     - as duas linhas novas têm `pdf_url` gravado.
 2. **O callback da Google Agenda redireciona para a seção errada.** Ele usa
    `/settings?section=calendars` (`api/calendar/google/callback/route.ts:19`,
    `lib/releases.ts:69`), mas a página só lê `?tab=`. A pessoa cai na Visão

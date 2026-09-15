@@ -6,6 +6,8 @@ import { buildQuote } from '@/lib/quotes/quote';
 import { brandFromAccount } from '@/lib/quotes/brand';
 import { quoteFingerprint } from '@/lib/quotes/fingerprint';
 import { archiveLayers } from '@/lib/quotes/archive';
+import { attachQuoteFiles, filesDecision } from '@/lib/quotes/files';
+import { quotesAdmin } from '@/lib/quotes/admin-client';
 import { isUnknownColumn } from '@/lib/supabase/pg-errors';
 import {
   NoBrowserError,
@@ -146,7 +148,7 @@ export async function POST(request: Request) {
       .eq('fingerprint', fingerprint)
       .maybeSingle();
 
-    if (existente?.pdf_url) {
+    if (existente && filesDecision(existente) === 'reuse') {
       return NextResponse.json({
         id: existente.id,
         pdfUrl: existente.pdf_url,
@@ -197,6 +199,12 @@ export async function POST(request: Request) {
      *
      * Sem isto, o segundo clique diria "não foi possível gerar" sobre um
      * documento que existe e está pronto.
+     *
+     * E A VENCEDORA PODE AINDA NÃO TER ARQUIVO — o primeiro clique está
+     * desenhando enquanto o segundo chega aqui. Devolvê-la mesmo assim
+     * mandava `pdfUrl: null` para a tela; agora ela é preenchida por este
+     * pedido também (o upload é `upsert` no mesmo caminho), pela mesma
+     * decisão do começo da rota (`filesDecision`).
      */
     if (erroLinha?.code === '23505') {
       const { data: vencedora } = await supabase
@@ -205,13 +213,18 @@ export async function POST(request: Request) {
         .eq('account_id', accountId)
         .eq('fingerprint', fingerprint)
         .maybeSingle();
-      if (vencedora) {
+      const decisao = filesDecision(vencedora);
+      if (vencedora && decisao === 'reuse') {
         return NextResponse.json({
           id: vencedora.id,
           pdfUrl: vencedora.pdf_url,
           imageUrl: vencedora.image_url,
           reused: true,
         });
+      }
+      if (vencedora && decisao === 'fill') {
+        linha = { id: vencedora.id };
+        erroLinha = null;
       }
     }
 
@@ -283,15 +296,30 @@ export async function POST(request: Request) {
     const pdf = await enviar('orcamento.pdf', arquivos.pdf, 'application/pdf');
     const png = await enviar('orcamento.png', arquivos.png, 'image/png');
 
-    await supabase
-      .from('deal_quotes')
-      .update({
-        pdf_path: pdf?.caminho ?? null,
-        pdf_url: pdf?.url ?? null,
-        image_path: png?.caminho ?? null,
-        image_url: png?.url ?? null,
-      })
-      .eq('id', linha.id);
+    /*
+     * OS LINKS, pelo client de serviço — e só eles.
+     *
+     * Este update ia pelo `supabase` da sessão. `deal_quotes` não tem
+     * política de UPDATE (071, de propósito), então a RLS casava zero
+     * linhas, o PostgREST não dizia nada e os links nunca eram gravados:
+     * no banco de teste, 9 orçamentos e nenhum com `pdf_url`, com os
+     * arquivos de todos no bucket. Ver `lib/quotes/admin-client.ts`.
+     *
+     * A rota já provou sob RLS que a linha é desta conta — ela a inseriu
+     * ou a leu —, e `attachQuoteFiles` filtra por id E conta. O erro agora
+     * é lido: os arquivos existem e voltam na resposta, mas um link que não
+     * gravou é um "Abrir PDF" que some do arquivo, e isso precisa aparecer
+     * no log.
+     */
+    const { error: erroLinks } = await attachQuoteFiles(quotesAdmin(), {
+      quoteId: linha.id,
+      accountId,
+      pdf,
+      png,
+    });
+    if (erroLinks) {
+      console.error('[quotes] os links do orçamento não gravaram:', erroLinks);
+    }
 
     return NextResponse.json({
       id: linha.id,

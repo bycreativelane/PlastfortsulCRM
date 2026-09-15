@@ -77,7 +77,18 @@ export function archiveLayers(args: {
     gross_weight: quote.grossWeight,
   };
 
+  // Outras despesas e desconto geral. `discount_amount` é o valor em reais
+  // que saiu no papel — ver `QuoteDiscount`.
+  const da078 = {
+    ...da076,
+    other_expenses: quote.otherExpenses,
+    general_discount: quote.discount?.value ?? null,
+    general_discount_unit: quote.discount?.unit ?? null,
+    discount_amount: quote.discount?.amount ?? null,
+  };
+
   return [
+    { migration: 78, row: da078 },
     { migration: 76, row: da076 },
     { migration: 74, row: da074 },
     { migration: 71, row: da071 },

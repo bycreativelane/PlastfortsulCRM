@@ -1,5 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+import { discountUnit } from '@/lib/deals/totals';
+
 import type { Quote, QuoteInstallment, QuoteLine } from './quote';
 
 /**
@@ -54,6 +56,10 @@ interface Linha {
   freight_mode?: string | null;
   freight_volumes?: number | string | null;
   gross_weight?: number | string | null;
+  other_expenses?: number | string | null;
+  general_discount?: number | string | null;
+  general_discount_unit?: string | null;
+  discount_amount?: number | string | null;
   owner: string | null;
   notes: string | null;
   created_at: string;
@@ -113,6 +119,24 @@ function daLinha(row: Linha): StoredQuote {
     freightMode: row.freight_mode ?? null,
     freightVolumes: opcional(row.freight_volumes),
     grossWeight: opcional(row.gross_weight),
+    // Os campos da 078. O desconto sai do que FOI IMPRESSO
+    // (`discount_amount`), nunca recalculado: em PERCENTUAL, refazer a
+    // conta sobre linhas congeladas até daria o mesmo número, mas o
+    // documento reaberto tem de ser o documento enviado, não uma conta
+    // nova que por acaso concorda com ele. Linha anterior à 078 não traz
+    // as colunas e reabre como sempre abriu.
+    otherExpenses:
+      opcional(row.other_expenses) && numero(row.other_expenses) > 0
+        ? numero(row.other_expenses)
+        : null,
+    discount:
+      opcional(row.discount_amount) && numero(row.discount_amount) > 0
+        ? {
+            value: numero(row.general_discount),
+            unit: discountUnit(row.general_discount_unit),
+            amount: numero(row.discount_amount),
+          }
+        : null,
     carrier: row.carrier,
     owner: row.owner,
     notes: row.notes,

@@ -5,7 +5,11 @@ import { describe, expect, it } from 'vitest';
 
 import { archiveLayers } from '@/lib/quotes/archive';
 import { buildQuote } from '@/lib/quotes/quote';
-import { dealRow, ORDER_SHAPE_MIGRATION } from '@/lib/deals/row';
+import {
+  dealRow,
+  ORDER_SHAPE_MIGRATION,
+  ORDER_TOTALS_MIGRATION,
+} from '@/lib/deals/row';
 
 /**
  * UMA COLUNA DE MIGRAÇÃO NÃO APLICADA NÃO PODE DERRUBAR A GRAVAÇÃO INTEIRA.
@@ -174,10 +178,13 @@ const CAMPOS = {
   freightVolumes: 4,
   grossWeight: 128.5,
   paymentTerms: '30/60/90',
+  otherExpenses: 25,
+  generalDiscount: 3,
+  generalDiscountUnit: 'REAL' as const,
 };
 
 describe('a linha de `deals` que a gaveta grava', () => {
-  const { base, orderShape } = dealRow(CAMPOS);
+  const { base, orderShape, orderTotals } = dealRow(CAMPOS);
 
   it('a metade que vai SEMPRE só cita colunas anteriores à 075', () => {
     const problemas = Object.keys(base)
@@ -196,6 +203,16 @@ describe('a linha de `deals` que a gaveta grava', () => {
   it('a metade condicional é exatamente a 075', () => {
     for (const c of Object.keys(orderShape)) {
       expect(criadaEm('deals', c), c).toBe(ORDER_SHAPE_MIGRATION);
+    }
+  });
+
+  it('o terceiro grupo é exatamente a 078', () => {
+    // Outras despesas e desconto geral. Uma coluna da 078 que escorregue
+    // para `orderShape` derrubaria toda gravação num banco com a 075 e sem
+    // a 078 — o mesmo defeito, uma migração depois.
+    expect(Object.keys(orderTotals).length).toBeGreaterThan(0);
+    for (const c of Object.keys(orderTotals)) {
+      expect(criadaEm('deals', c), c).toBe(ORDER_TOTALS_MIGRATION);
     }
   });
 });

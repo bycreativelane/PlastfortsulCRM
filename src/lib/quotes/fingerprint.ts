@@ -110,6 +110,26 @@ export function quoteFingerprint(quote: Quote, dealId: string | null): string {
       String(l.discountPercent),
       l.total.toFixed(2),
     ]),
+    /*
+     * OUTRAS DESPESAS E DESCONTO GERAL (078) — imprimem, então entram.
+     *
+     * SÓ QUANDO EXISTEM, e atrás de um marcador. Acrescentar dois campos
+     * vazios ao fim de todo orçamento mudaria a impressão digital de TODOS
+     * os que já estão no arquivo: no dia do deploy, o mesmo orçamento
+     * gerado de novo viraria uma linha nova em vez de reaproveitar a
+     * antiga. Sem despesa e sem desconto a sequência fica idêntica à de
+     * antes; com eles, o marcador impede que esses valores se confundam
+     * com uma linha de produto.
+     */
+    ...(quote.otherExpenses !== null || quote.discount !== null
+      ? [
+          '078',
+          quote.otherExpenses === null ? '' : quote.otherExpenses.toFixed(2),
+          quote.discount === null
+            ? ''
+            : `${quote.discount.value}${SEPARADOR}${quote.discount.unit}${SEPARADOR}${quote.discount.amount.toFixed(2)}`,
+        ]
+      : []),
   ];
 
   return createHash('sha256').update(partes.join(SEPARADOR)).digest('hex');

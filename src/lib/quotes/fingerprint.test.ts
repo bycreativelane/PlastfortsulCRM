@@ -61,6 +61,8 @@ describe('quoteFingerprint', () => {
     ['o frete por conta', { freightMode: 'FOB' }],
     ['os volumes', { freightVolumes: 4 }],
     ['o peso bruto', { grossWeight: 128.5 }],
+    ['as outras despesas', { otherExpenses: 25 }],
+    ['o desconto geral', { generalDiscount: 3 }],
     [
       'uma parcela',
       {
@@ -129,5 +131,27 @@ describe('quoteFingerprint', () => {
 
   it('é um sha256 em hexadecimal', () => {
     expect(digital()).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it('3 reais de desconto e 3 % de desconto são documentos diferentes', () => {
+    expect(
+      digital({ generalDiscount: 3, generalDiscountUnit: 'REAL' })
+    ).not.toBe(digital({ generalDiscount: 3, generalDiscountUnit: 'PERCENTUAL' }));
+  });
+
+  /*
+   * O DIA DO DEPLOY DA 078 NÃO PODE DUPLICAR O ARQUIVO.
+   *
+   * Acrescentar os campos de despesa e desconto a todo orçamento mudaria a
+   * impressão digital de todos os que já estão guardados, e o mesmo
+   * documento gerado de novo viraria uma linha nova. O hash abaixo foi
+   * calculado pela implementação ANTERIOR à 078 (o arquivo do commit
+   * `bb61573`, rodado à parte) para este mesmo orçamento: sem despesa e sem
+   * desconto, a nova tem de dar exatamente o mesmo.
+   */
+  it('sem despesa e sem desconto, a impressão é a de antes da 078', () => {
+    expect(digital()).toBe(
+      'c68d7ccbd627818009f3c0a9edbef8623fa96df16a1c3699eed673620efc8a0a'
+    );
   });
 });

@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
 import { useCan } from '@/hooks/use-can';
-import { formatCurrencyExact } from '@/lib/currency';
+import { CURRENCIES, formatCurrencyExact } from '@/lib/currency';
+import { cn } from '@/lib/utils';
 import { fromCents, linesTotalCents, toCents } from '@/lib/money';
 import {
   FREIGHT_LABEL_KEY,
@@ -13,6 +14,12 @@ import {
   freightCode,
   freightLabelKey,
 } from '@/lib/deals/freight';
+import {
+  discountExceedsOrder,
+  discountUnit,
+  orderTotals,
+  type DiscountUnit,
+} from '@/lib/deals/totals';
 import { replaceDealItems, type DealItemDraft } from '@/lib/products/catalog';
 import { DealItemsEditor } from './deal-items';
 import { DealInstallments } from './deal-installments';
@@ -23,7 +30,7 @@ import {
   type InstallmentDraft,
 } from '@/lib/deals/installments';
 import { isUnknownColumn } from '@/lib/supabase/pg-errors';
-import { dealRow } from '@/lib/deals/row';
+import { dealRow, hasOrderTotals } from '@/lib/deals/row';
 import { loadLastOrderNumber, nextOrderNumber } from '@/lib/deals/order-number';
 import type {
   Contact,
@@ -42,6 +49,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { CurrencyInput } from '@/components/ui/currency-input';
+import { MoneyInput } from '@/components/ui/money-input';
 import {
   DealOutcomeDialogs,
   REASON_ICONS,
@@ -281,6 +289,18 @@ export function DealForm({
    * janela que dura até alguém rodar a migração.
    */
   const [installmentsPending, setInstallmentsPending] = useState(false);
+  /**
+   * OUTRAS DESPESAS E DESCONTO GERAL (078) — os dois termos que faltavam
+   * na conta do pedido de venda. Ver `lib/deals/totals.ts`.
+   *
+   * `totalsPending` segue a mesma regra de `installmentsPending`: sem a
+   * 078 os campos não aparecem e o `update` não cita as colunas.
+   */
+  const [otherExpenses, setOtherExpenses] = useState<number | null>(null);
+  const [generalDiscount, setGeneralDiscount] = useState<number | null>(null);
+  const [generalDiscountUnit, setGeneralDiscountUnit] =
+    useState<DiscountUnit>('REAL');
+  const [totalsPending, setTotalsPending] = useState(false);
   /** Transporte, o resto do que a transportadora pergunta (075). */
   const [freightMode, setFreightMode] = useState('');
   const [freightVolumes, setFreightVolumes] = useState<number | null>(null);
@@ -347,6 +367,17 @@ export function DealForm({
       setFreightMode(freightCode(deal.freight_mode) ?? '');
       setFreightVolumes(deal.freight_volumes ?? null);
       setGrossWeight(deal.gross_weight ?? null);
+      setOtherExpenses(
+        deal.other_expenses === null || deal.other_expenses === undefined
+          ? null
+          : Number(deal.other_expenses)
+      );
+      setGeneralDiscount(
+        deal.general_discount === null || deal.general_discount === undefined
+          ? null
+          : Number(deal.general_discount)
+      );
+      setGeneralDiscountUnit(discountUnit(deal.general_discount_unit));
       setCurrency(deal.currency || defaultCurrency);
       // contact_id is nullable when the contact has been deleted
       // (migration 004: ON DELETE SET NULL). "" means "no selection".
@@ -365,6 +396,9 @@ export function DealForm({
       setFreightMode('');
       setFreightVolumes(null);
       setGrossWeight(null);
+      setOtherExpenses(null);
+      setGeneralDiscount(null);
+      setGeneralDiscountUnit('REAL');
       setCurrency(defaultCurrency);
       setContactId(defaultContactId ?? '');
       /*
@@ -384,6 +418,22 @@ export function DealForm({
     }
   }, [open, deal, defaultStageId, defaultContactId, stages, defaultCurrency]);
   /* eslint-enable react-hooks/set-state-in-effect */
+
+  /**
+   * A 078 está no banco? Uma pergunta por abertura da gaveta, pela mesma
+   * razão da pergunta sobre a 075: um `update` que cite uma coluna que não
+   * existe não grava nada.
+   */
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    void hasOrderTotals(supabase).then((existe) => {
+      if (!cancelled) setTotalsPending(!existe);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, supabase]);
 
   /**
    * As parcelas desta oportunidade.
@@ -586,9 +636,24 @@ export function DealForm({
   // centavo diferente do `deals.value`.
   const lineTotalSum = fromCents(linesTotalCents(items));
   const hasLines = items.length > 0;
-  /** Produtos + frete, que é o que o item 47 manda o orçamento mostrar. */
   const produtos = hasLines ? lineTotalSum : (value ?? 0);
-  const totalGeral = fromCents(toCents(produtos) + toCents(shipping ?? 0));
+  /**
+   * O TOTAL DO PEDIDO — `Σ itens + outras despesas + frete − desconto
+   * geral`, a conta do Bling (`lib/deals/totals.ts`).
+   *
+   * Era "produtos + frete". Sem a 078 os dois termos novos simplesmente não
+   * entram: eles não aparecem na tela e não teriam onde gravar, e contar
+   * com eles aqui faria o total da gaveta discordar do que salva.
+   */
+  const totais = orderTotals({
+    productsCents: toCents(produtos),
+    otherExpenses: totalsPending ? null : otherExpenses,
+    shipping,
+    generalDiscount: totalsPending ? null : generalDiscount,
+    generalDiscountUnit,
+  });
+  const totalGeral = fromCents(totais.totalCents);
+  const descontoInvalido = discountExceedsOrder(totais);
 
   /**
    * O que vai em `deals.title` agora que ele não é mais um campo.
@@ -632,6 +697,9 @@ export function DealForm({
     value,
     currency,
     shipping,
+    otherExpenses: totalsPending ? null : otherExpenses,
+    generalDiscount: totalsPending ? null : generalDiscount,
+    generalDiscountUnit,
     paymentTerms,
     installments,
     carrier,
@@ -662,9 +730,16 @@ export function DealForm({
       toast.error(t('toastRequired'));
       return false;
     }
+    // Um desconto maior que o pedido é erro de digitação, e gravá-lo
+    // mandaria um total negativo para o documento e para as parcelas.
+    // Ver `discountExceedsOrder`.
+    if (descontoInvalido) {
+      toast.error(t('discountTooLarge'));
+      return false;
+    }
     setSaving(true);
 
-    const { base, orderShape } = dealRow({
+    const { base, orderShape, orderTotals: totaisDaLinha } = dealRow({
       title: tituloDerivado,
       salesOrder,
       value: hasLines ? lineTotalSum : (value ?? 0),
@@ -681,10 +756,13 @@ export function DealForm({
       freightVolumes,
       grossWeight,
       paymentTerms,
+      otherExpenses,
+      generalDiscount,
+      generalDiscountUnit,
     });
 
     /*
-     * AS COLUNAS DA 075 SÓ ENTRAM QUANDO EXISTEM.
+     * AS COLUNAS DE CADA MIGRAÇÃO SÓ ENTRAM QUANDO EXISTEM — em camadas.
      *
      * Um `update` que cite uma coluna inexistente é recusado INTEIRO pelo
      * PostgREST (`PGRST204`) — não grava as outras e ignora a que falta.
@@ -692,8 +770,33 @@ export function DealForm({
      * banco anterior à 075, inclusive as que ninguém tinha tocado nos
      * campos novos. Medido contra o banco de teste em 14 de setembro; o
      * argumento inteiro está em `lib/deals/row.ts`.
+     *
+     * Três camadas, da mais nova para a mais velha: 078 (despesas e
+     * desconto), 075 (pagamento e transporte), base. As sondas decidem por
+     * onde começar; o erro de coluna ausente decide descer — e desce UMA
+     * camada por vez, para uma falha da 078 não derrubar junto os campos
+     * da 075, que existem.
      */
-    const payload = installmentsPending ? base : { ...base, ...orderShape };
+    const camadas: Array<{
+      corpo: typeof base;
+      sem075: boolean;
+      sem078: boolean;
+    }> = [];
+    if (!installmentsPending && !totalsPending) {
+      camadas.push({
+        corpo: { ...base, ...orderShape, ...totaisDaLinha },
+        sem075: false,
+        sem078: false,
+      });
+    }
+    if (!installmentsPending) {
+      camadas.push({
+        corpo: { ...base, ...orderShape },
+        sem075: false,
+        sem078: true,
+      });
+    }
+    camadas.push({ corpo: base, sem075: true, sem078: true });
 
     /*
      * O CINTO, para quando a sonda acertou e a escrita não.
@@ -701,25 +804,26 @@ export function DealForm({
      * Acontece nos segundos logo depois de a migração rodar, antes de o
      * PostgREST recarregar o esquema — o comentário de `pg-errors.ts` fala
      * dessa janela. Grava-se o resto e AVISA-SE: calar seria perder em
-     * silêncio o peso bruto que a pessoa acabou de digitar.
+     * silêncio o peso bruto ou o desconto que a pessoa acabou de digitar.
      */
-    const semEstrutura = (erro: { code?: string; message?: string } | null) =>
-      !!erro && payload !== base && isUnknownColumn(erro);
+    const aoDescer = (camada: (typeof camadas)[number]) => {
+      if (camada.sem078 && !totalsPending) setTotalsPending(true);
+      if (camada.sem075 && !installmentsPending) setInstallmentsPending(true);
+      toast.error(t('toastOrderShapeFailed'));
+    };
 
     if (deal) {
-      let { error } = await supabase
-        .from('deals')
-        .update(payload)
-        .eq('id', deal.id);
-      if (semEstrutura(error)) {
+      let error: { code?: string; message?: string } | null = null;
+      for (const [i, camada] of camadas.entries()) {
         ({ error } = await supabase
           .from('deals')
-          .update(base)
+          .update(camada.corpo)
           .eq('id', deal.id));
         if (!error) {
-          setInstallmentsPending(true);
-          toast.error(t('toastOrderShapeFailed'));
+          if (i > 0) aoDescer(camada);
+          break;
         }
+        if (!isUnknownColumn(error)) break;
       }
       if (error) {
         toast.error(t('toastFailedSave'));
@@ -773,13 +877,15 @@ export function DealForm({
           // on an insert is one round trip either way.
           .select('id')
           .single();
-      let { data: created, error } = await criar(payload);
-      if (semEstrutura(error)) {
-        ({ data: created, error } = await criar(base));
+      let created: unknown = null;
+      let error: { code?: string; message?: string } | null = null;
+      for (const [i, camada] of camadas.entries()) {
+        ({ data: created, error } = await criar(camada.corpo));
         if (!error) {
-          setInstallmentsPending(true);
-          toast.error(t('toastOrderShapeFailed'));
+          if (i > 0) aoDescer(camada);
+          break;
         }
+        if (!isUnknownColumn(error)) break;
       }
       if (error || !created) {
         toast.error(t('toastFailedCreate'));
@@ -933,6 +1039,11 @@ export function DealForm({
   ): Promise<
     { pdfUrl: string | null; imageUrl: string | null } | 'no_browser' | null
   > {
+    // O mesmo portão do Salvar: um orçamento com total negativo não sai.
+    if (descontoInvalido) {
+      toast.error(t('discountTooLarge'));
+      return null;
+    }
     const res = await fetch('/api/quotes', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -947,6 +1058,9 @@ export function DealForm({
         value,
         currency,
         shipping,
+        otherExpenses: totalsPending ? null : otherExpenses,
+        generalDiscount: totalsPending ? null : generalDiscount,
+        generalDiscountUnit,
         paymentTerms,
         installments,
         carrier,
@@ -1356,15 +1470,31 @@ export function DealForm({
                   an arithmetic result is a field that makes the
                   total a lie again — which is the whole thing line
                   items were added to stop. */}
-              <CurrencyInput
-                id="deal-value"
-                value={hasLines ? lineTotalSum : value}
-                onValueChange={setValue}
-                currency={currency}
-                placeholder="0"
-                disabled={!canWrite || hasLines}
-                className="border-border bg-muted text-foreground"
-              />
+              {/* COM LINHAS, O VALOR TEM CENTAVOS — é a soma exata delas, e
+                  o campo de reais inteiros mostrava R$ 28.009.432 para
+                  R$ 28.009.431,52. Desabilitado de qualquer jeito; o que
+                  muda é o número não mentir. Sem linhas, o valor digitado
+                  continua sendo de reais inteiros, como no resto do app. */}
+              {hasLines ? (
+                <MoneyInput
+                  id="deal-value"
+                  value={lineTotalSum}
+                  onValueChange={() => {}}
+                  currency={currency}
+                  disabled
+                  className="border-border bg-muted text-foreground"
+                />
+              ) : (
+                <CurrencyInput
+                  id="deal-value"
+                  value={value}
+                  onValueChange={setValue}
+                  currency={currency}
+                  placeholder="0"
+                  disabled={!canWrite}
+                  className="border-border bg-muted text-foreground"
+                />
+              )}
               {hasLines ? (
                 <p className="text-muted-foreground text-2xs">
                   {t('valueFromItems')}
@@ -1373,27 +1503,163 @@ export function DealForm({
             </div>
 
             {/*
-              PRODUTOS · FRETE · TOTAL, a conta que o orçamento vai imprimir.
+              OUTRAS DESPESAS E DESCONTO GERAL (078) — os dois termos que a
+              conta do pedido de venda tem e esta gaveta não tinha.
 
-              Só aparece quando há frete: sem ele o total É o valor, e uma
-              linha repetindo o número que está dois campos acima seria ruído.
-              É a mesma soma que o orçamento faz — feita aqui uma vez, para
-              não existirem dois cálculos que podem discordar, que é o que o
-              item 55 proíbe em outras palavras.
+              Aqui, logo depois do Valor, e não no bloco de transporte:
+              os dois mexem no TOTAL, e é embaixo deles que o total aparece.
+              Somem inteiros num banco anterior à 078.
+
+              O desconto tem unidade, como no Bling. Os dois atalhos são
+              `ChoiceChip`, a mesma escrita dos estados de transportadora, e
+              a dica diz o que mais confunde: o desconto de cada item já
+              está na linha dele, e este aqui é outro.
+            */}
+            {!totalsPending && (
+              <div className="grid gap-4 @lg:grid-cols-2">
+                <div className="grid gap-2">
+                  <FieldLabel htmlFor="deal-other-expenses">
+                    {t('otherExpenses')}
+                  </FieldLabel>
+                  <MoneyInput
+                    id="deal-other-expenses"
+                    value={otherExpenses}
+                    onValueChange={setOtherExpenses}
+                    currency={currency}
+                    placeholder="0"
+                    disabled={!canWrite}
+                    className="border-border bg-muted text-foreground"
+                  />
+                </div>
+
+                <div className="grid gap-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <FieldLabel htmlFor="deal-general-discount">
+                      {t('generalDiscount')}
+                    </FieldLabel>
+                    <div className="flex gap-1">
+                      {(['REAL', 'PERCENTUAL'] as const).map((unidade) => (
+                        <ChoiceChip
+                          key={unidade}
+                          active={generalDiscountUnit === unidade}
+                          disabled={!canWrite}
+                          onClick={() => setGeneralDiscountUnit(unidade)}
+                        >
+                          {/* O símbolo da moeda do pedido, o mesmo que o
+                              campo de valor desenha, e não um "R$" fixo:
+                              a unidade REAL do Bling é "em dinheiro". */}
+                          {unidade === 'REAL'
+                            ? (CURRENCIES.find((c) => c.code === currency)
+                                ?.symbol ?? currency)
+                            : '%'}
+                        </ChoiceChip>
+                      ))}
+                    </div>
+                  </div>
+                  {generalDiscountUnit === 'REAL' ? (
+                    <MoneyInput
+                      id="deal-general-discount"
+                      value={generalDiscount}
+                      onValueChange={setGeneralDiscount}
+                      currency={currency}
+                      placeholder="0"
+                      disabled={!canWrite}
+                      aria-invalid={descontoInvalido || undefined}
+                      className="border-border bg-muted text-foreground"
+                    />
+                  ) : (
+                    <Input
+                      id="deal-general-discount"
+                      type="number"
+                      inputMode="decimal"
+                      min={0}
+                      max={100}
+                      step="0.01"
+                      value={generalDiscount ?? ''}
+                      onChange={(e) =>
+                        setGeneralDiscount(
+                          e.target.value === '' ? null : Number(e.target.value)
+                        )
+                      }
+                      disabled={!canWrite}
+                      aria-invalid={descontoInvalido || undefined}
+                      className="border-border bg-muted text-foreground tabular-nums"
+                    />
+                  )}
+                  <p
+                    className={cn(
+                      'text-2xs',
+                      descontoInvalido
+                        ? 'text-danger-ink'
+                        : 'text-muted-foreground'
+                    )}
+                  >
+                    {descontoInvalido
+                      ? t('discountTooLarge')
+                      : t('generalDiscountHint')}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/*
+              A CONTA QUE O ORÇAMENTO VAI IMPRIMIR — produtos, outras
+              despesas, frete, desconto, total.
+
+              Só aparece quando há algo além dos produtos: sem nada disso o
+              total É o valor, e uma linha repetindo o número que está dois
+              campos acima seria ruído. É a mesma soma que o orçamento faz —
+              `orderTotals`, feita uma vez, para não existirem dois cálculos
+              que podem discordar, que é o que o item 55 proíbe em outras
+              palavras.
 
               Fica ANTES da condição de pagamento de propósito: é este total
               que as parcelas dividem, e vê-lo na linha de cima é o que faz
               "gerar parcelas" ser conferível.
             */}
-            {shipping !== null && shipping > 0 && (
+            {(totais.shippingCents > 0 ||
+              totais.otherExpensesCents > 0 ||
+              totais.discountCents > 0) && (
               <p className="text-secondary-foreground border-border bg-muted/50 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-lg border px-3 py-2 text-xs">
                 <span className="text-muted-foreground">
-                  {t('breakdown', {
-                    products: formatCurrencyExact(produtos, currency),
-                    shipping: formatCurrencyExact(shipping, currency),
-                  })}
+                  {[
+                    t('breakdownProducts', {
+                      value: formatCurrencyExact(produtos, currency),
+                    }),
+                    totais.otherExpensesCents > 0
+                      ? t('breakdownOther', {
+                          value: formatCurrencyExact(
+                            fromCents(totais.otherExpensesCents),
+                            currency
+                          ),
+                        })
+                      : null,
+                    totais.shippingCents > 0
+                      ? t('breakdownShipping', {
+                          value: formatCurrencyExact(
+                            fromCents(totais.shippingCents),
+                            currency
+                          ),
+                        })
+                      : null,
+                    totais.discountCents > 0
+                      ? t('breakdownDiscount', {
+                          value: formatCurrencyExact(
+                            fromCents(totais.discountCents),
+                            currency
+                          ),
+                        })
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
                 </span>
-                <span className="text-foreground font-semibold">
+                <span
+                  className={cn(
+                    'font-semibold',
+                    descontoInvalido ? 'text-danger-ink' : 'text-foreground'
+                  )}
+                >
                   {t('total', {
                     total: formatCurrencyExact(totalGeral, currency),
                   })}
@@ -1510,7 +1776,7 @@ export function DealForm({
                   <FieldLabel htmlFor="deal-shipping">
                     {t('shipping')}
                   </FieldLabel>
-                  <CurrencyInput
+                  <MoneyInput
                     id="deal-shipping"
                     value={shipping}
                     onValueChange={setShipping}
@@ -1746,7 +2012,13 @@ export function DealForm({
                 // O título saiu daqui junto com o campo (item 39): quem o
                 // preenche é `tituloDerivado`, e ele nunca é vazio quando
                 // há contato — que é a condição ao lado.
-                disabled={!canWrite || saving || !contactId || !stageId}
+                disabled={
+                  !canWrite ||
+                  saving ||
+                  !contactId ||
+                  !stageId ||
+                  descontoInvalido
+                }
               >
                 {saving
                   ? t('saving')

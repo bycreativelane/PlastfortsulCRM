@@ -2,8 +2,10 @@
 
 **Escrito em:** 14/09/2026
 **Fonte funcional:** `ESPECIFICACAO_CRM_ORCAMENTOS_INTEGRACAO_BLING.md` (14/09/2026, fora do repositório)
-**Estado:** Fase 0 em andamento: F0.1 (centavos) e F0.3 (link do PDF)
-feitos em 14/09. Nada do Bling implementado. Doze decisões abertas (§3).
+**Estado:** Fase 0 em andamento. Feitos em 14/09: F0.1 (centavos), F0.2
+(total completo), F0.3 (link do PDF), F0.4 (frete por conta em código) e
+F0.8 (campos com centavos). A migração 078 está escrita e ainda não
+aplicada. Nada do Bling implementado. Doze decisões abertas (§3).
 
 > **Dados pessoais.** A especificação traz prints com nome, CPF, telefone e
 > endereço de clientes reais, e pede que nada disso vá para fixtures, seeds,
@@ -484,6 +486,17 @@ por um defeito fiscal.
     vazia é gravada e não entra no documento.
 - **F0.7 Frete em dobro.** Barrar ou avisar quando existe uma linha livre
   "Frete" junto com `shipping_cost`.
+- **F0.8 Campos de dinheiro com centavos no pedido.** Achado durante a
+  F0.2, não estava no levantamento.
+  - `CurrencyInput` é de reais inteiros por decisão escrita nele ("não
+    existem centavos em lugar nenhum deste produto"), e era o campo do
+    frete e do valor de cada parcela.
+  - Medido na gaveta: um pedido dividido em três mostrava "33", "33", "33"
+    para 33,33 + 33,33 + 33,34, e tocar num campo apagava os centavos. As
+    parcelas deixavam de fechar com o total.
+  - O frete de R$ 80,50 não podia ser digitado.
+  - Resolvido com um campo novo (`MoneyInput`) só para o pedido: "80" é
+    R$ 80,00, "80,5" é R$ 80,50. O resto do app continua em reais inteiros.
 
 **Saída:** paridade de centavo testada; gaveta atômica; frete por conta em
 código; nenhum documento divergente do banco.

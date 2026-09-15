@@ -13,7 +13,7 @@ import {
   type InstallmentDraft,
 } from '@/lib/deals/installments';
 import { Button } from '@/components/ui/button';
-import { CurrencyInput } from '@/components/ui/currency-input';
+import { MoneyInput } from '@/components/ui/money-input';
 import { DateField } from '@/components/ui/date-field';
 import { FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
@@ -196,7 +196,11 @@ export function DealInstallments({
                   <span className="text-muted-foreground text-3xs block">
                     {t('installmentAmount')}
                   </span>
-                  <CurrencyInput
+                  {/* COM CENTAVOS: R$ 100,00 em três é 33,33 + 33,33 +
+                      33,34, e o campo de reais inteiros mostrava "33" e
+                      gravava 33 ao ser tocado — as parcelas paravam de
+                      fechar com o total. Ver `money-input.tsx`. */}
+                  <MoneyInput
                     value={parcela.amount}
                     currency={currency}
                     disabled={disabled}

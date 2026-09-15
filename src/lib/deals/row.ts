@@ -21,9 +21,25 @@
  * migrações e confere que nenhuma coluna nova escorregou para `base`.
  */
 
+import type { SupabaseClient } from '@supabase/supabase-js';
+
+import { isUnknownColumn } from '@/lib/supabase/pg-errors';
+
 import { freightCode } from './freight';
+import type { DiscountUnit } from './totals';
 
 export const ORDER_SHAPE_MIGRATION = 75;
+
+/**
+ * A 078: outras despesas e desconto geral.
+ *
+ * O TERCEIRO grupo, pela mesma razão dos dois primeiros. As migrações são
+ * aplicadas à mão, e um `update` que cite uma coluna da 078 num banco que
+ * ainda não a tem é recusado inteiro — nenhuma oportunidade salvaria, que
+ * é o defeito medido em 14 de setembro com a 075. Quem grava pergunta
+ * antes (`hasOrderTotals`) e só junta `orderTotals` quando ela existe.
+ */
+export const ORDER_TOTALS_MIGRATION = 78;
 
 export interface DealFields {
   title: string;
@@ -42,6 +58,9 @@ export interface DealFields {
   freightVolumes: number | null;
   grossWeight: number | null;
   paymentTerms: string;
+  otherExpenses: number | null;
+  generalDiscount: number | null;
+  generalDiscountUnit: DiscountUnit;
 }
 
 export function dealRow(f: DealFields) {
@@ -73,5 +92,27 @@ export function dealRow(f: DealFields) {
     payment_terms: f.paymentTerms.trim() || null,
   };
 
-  return { base, orderShape };
+  const orderTotals = {
+    other_expenses: f.otherExpenses,
+    general_discount: f.generalDiscount,
+    general_discount_unit: f.generalDiscountUnit,
+  };
+
+  return { base, orderShape, orderTotals };
+}
+
+/**
+ * A 078 está no banco?
+ *
+ * A sonda é a própria coluna, com `limit(0)`: o PostgREST valida a coluna
+ * antes de aplicar a RLS (o mesmo raciocínio de `hasOrderShape`), então a
+ * resposta vem certa sem ler linha nenhuma.
+ *
+ * Um erro que NÃO seja de coluna ausente conta como "está lá" — a dúvida
+ * pende para o esquema novo, que é o estado permanente, e o recuo de
+ * `persist` segura o caso raro em que a sonda acertou e a escrita não.
+ */
+export async function hasOrderTotals(db: SupabaseClient): Promise<boolean> {
+  const { error } = await db.from('deals').select('other_expenses').limit(0);
+  return !(error && isUnknownColumn(error));
 }

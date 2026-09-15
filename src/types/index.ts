@@ -614,6 +614,14 @@ export interface Deal {
   freight_mode?: string | null;
   gross_weight?: number | null;
   freight_volumes?: number | null;
+  /**
+   * Outras despesas e desconto geral do pedido (078). O total do pedido é
+   * `Σ itens + outras despesas + frete − desconto geral`, e o desconto de
+   * item continua na linha — ver `lib/deals/totals.ts`.
+   */
+  other_expenses?: number | null;
+  general_discount?: number | null;
+  general_discount_unit?: string | null;
   created_at: string;
   updated_at?: string;
   contact?: Contact;

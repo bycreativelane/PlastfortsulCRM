@@ -1,6 +1,11 @@
 import type { DealItemDraft } from '@/lib/products/catalog';
 import type { InstallmentDraft } from '@/lib/deals/installments';
 import { fromCents, lineTotalCents, sumCents, toCents } from '@/lib/money';
+import {
+  discountUnit,
+  orderTotals,
+  type DiscountUnit,
+} from '@/lib/deals/totals';
 
 /**
  * O orçamento, como dado.
@@ -72,6 +77,21 @@ export interface QuoteInstallment {
   note: string | null;
 }
 
+/**
+ * O desconto geral, como o documento o imprime.
+ *
+ * O valor digitado E o valor em reais que ele deu. Em PERCENTUAL os dois
+ * são diferentes, e o arquivo congela os dois: recalcular "10 %" depois
+ * sobre uma soma de itens que mudou daria outro número do que o cliente
+ * recebeu.
+ */
+export interface QuoteDiscount {
+  value: number;
+  unit: DiscountUnit;
+  /** Em reais, já convertido da unidade. */
+  amount: number;
+}
+
 export interface Quote {
   /** O número do Bling, quando já foi digitado (item 39). */
   orderNumber: string | null;
@@ -87,9 +107,21 @@ export interface Quote {
   currency: string;
   /** Soma das linhas — ou o valor digitado, quando não há linhas. */
   products: number;
+  /**
+   * Outras despesas do pedido (078). `null` e zero são omitidos no papel:
+   * diferente do frete, "outras despesas R$ 0,00" não comunica decisão
+   * nenhuma.
+   */
+  otherExpenses: number | null;
   /** `null` é "não definido", que o documento omite em vez de imprimir 0. */
   shipping: number | null;
-  /** `products + (shipping ?? 0)`. A única soma do documento. */
+  /** O desconto geral (078). `null` quando não há — zero não se imprime. */
+  discount: QuoteDiscount | null;
+  /**
+   * `products + outras despesas + frete − desconto geral` — a fórmula do
+   * pedido de venda, feita em `lib/deals/totals.ts`. A única soma do
+   * documento.
+   */
   total: number;
   /**
    * CONDIÇÃO DE PAGAMENTO — o atalho e as parcelas que ele descreve.
@@ -123,6 +155,9 @@ export interface QuoteInput {
   value?: number | null;
   currency: string;
   shipping?: number | null;
+  otherExpenses?: number | null;
+  generalDiscount?: number | null;
+  generalDiscountUnit?: string | null;
   paymentTerms?: string | null;
   installments?: InstallmentDraft[];
   carrier?: string | null;
@@ -183,6 +218,15 @@ export function buildQuote(input: QuoteInput): Quote {
       ? null
       : input.shipping;
 
+  const unidade = discountUnit(input.generalDiscountUnit);
+  const totais = orderTotals({
+    productsCents: produtosCentavos,
+    otherExpenses: input.otherExpenses ?? null,
+    shipping,
+    generalDiscount: input.generalDiscount ?? null,
+    generalDiscountUnit: unidade,
+  });
+
   return {
     orderNumber: limpo(input.orderNumber),
     issuedOn: input.issuedOn,
@@ -195,8 +239,18 @@ export function buildQuote(input: QuoteInput): Quote {
     lines,
     currency: input.currency,
     products: fromCents(produtosCentavos),
+    otherExpenses:
+      totais.otherExpensesCents > 0 ? fromCents(totais.otherExpensesCents) : null,
     shipping,
-    total: fromCents(produtosCentavos + toCents(shipping ?? 0)),
+    discount:
+      totais.discountCents > 0
+        ? {
+            value: input.generalDiscount ?? 0,
+            unit: unidade,
+            amount: fromCents(totais.discountCents),
+          }
+        : null,
+    total: fromCents(totais.totalCents),
     paymentTerms: limpo(input.paymentTerms),
     // As parcelas VAZIAS não entram: uma linha sem valor e sem data é o
     // formulário no meio de uma edição, não uma condição de pagamento.

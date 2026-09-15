@@ -79,7 +79,11 @@ export interface QuoteLabels {
   colTotal: string;
   lineDiscount: string;
   subtotal: string;
+  /** Outras despesas do pedido (078). */
+  otherExpenses: string;
   shipping: string;
+  /** O desconto geral (078) — o de item fica na linha. */
+  discount: string;
   total: string;
   payment: string;
   installment: string;
@@ -305,10 +309,34 @@ export function QuoteDocument({
           <span>{labels.subtotal}</span>
           <span>{dinheiro(quote.products)}</span>
         </div>
+        {/* A ORDEM DA FÓRMULA: produtos, outras despesas, frete, desconto,
+            total. Quem confere de cima para baixo refaz a conta do Bling
+            sem pular linha. */}
+        {quote.otherExpenses !== null && (
+          <div className="q-sum-row">
+            <span>{labels.otherExpenses}</span>
+            <span>{dinheiro(quote.otherExpenses)}</span>
+          </div>
+        )}
         {quote.shipping !== null && (
           <div className="q-sum-row">
             <span>{labels.shipping}</span>
             <span>{dinheiro(quote.shipping)}</span>
+          </div>
+        )}
+        {quote.discount !== null && (
+          <div className="q-sum-row">
+            {/* Em percentual, a porcentagem vai no rótulo e o valor em
+                reais na coluna: o cliente lê "Desconto (10 %)" e confere
+                o número que saiu dela. */}
+            <span>
+              {quote.discount.unit === 'PERCENTUAL'
+                ? `${labels.discount} (${new Intl.NumberFormat(APP_LOCALE, {
+                    maximumFractionDigits: 2,
+                  }).format(quote.discount.value)}%)`
+                : labels.discount}
+            </span>
+            <span>−{dinheiro(quote.discount.amount)}</span>
           </div>
         )}
         <div className="q-total">

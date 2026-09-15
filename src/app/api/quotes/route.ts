@@ -70,6 +70,9 @@ interface Corpo {
   value?: number | null;
   currency?: string;
   shipping?: number | null;
+  otherExpenses?: number | null;
+  generalDiscount?: number | null;
+  generalDiscountUnit?: string | null;
   paymentTerms?: string | null;
   installments?: InstallmentDraft[];
   carrier?: string | null;
@@ -113,6 +116,9 @@ export async function POST(request: Request) {
       value: body.value ?? null,
       currency: body.currency || 'BRL',
       shipping: body.shipping ?? null,
+      otherExpenses: body.otherExpenses ?? null,
+      generalDiscount: body.generalDiscount ?? null,
+      generalDiscountUnit: body.generalDiscountUnit ?? null,
       paymentTerms: body.paymentTerms,
       installments: body.installments ?? [],
       carrier: body.carrier,
@@ -122,6 +128,16 @@ export async function POST(request: Request) {
       owner: body.owner,
       notes: body.notes,
     });
+
+    // Desconto geral maior que o pedido. A gaveta já recusa, e a rota
+    // recusa de novo: o que chega aqui pode não ter vindo da gaveta, e um
+    // documento com total negativo não pode sair com a marca da empresa.
+    if (quote.total < 0) {
+      return NextResponse.json(
+        { error: 'discount_exceeds_order' },
+        { status: 400 }
+      );
+    }
 
     /*
      * O MESMO DOCUMENTO NÃO VIRA DUAS LINHAS.

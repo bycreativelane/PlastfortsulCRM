@@ -34,6 +34,15 @@ import { describe, expect, it } from 'vitest';
  * vale POR NOME — um GRANT (é para chamar) ou um REVOKE (não é). Silêncio
  * sobre o papel é o padrão do Supabase, e o padrão é poder executar.
  *
+ * Uma SECURITY DEFINER que não é gatilho passa por cima da RLS, então não
+ * pode depender de ninguém lembrar: ou há GRANT para `anon` por nome (é para
+ * anon chamar), ou há REVOKE de `anon` E de PUBLIC. A 081 fechou seis que
+ * nunca tinham recebido REVOKE nenhum — quatro delas gravavam em qualquer
+ * conta com a anon key e um id.
+ *
+ * E revogar um papel sem revogar PUBLIC não fecha nada: todo papel é membro
+ * implícito de PUBLIC.
+ *
  * `DROP FUNCTION` leva o ACL junto: a contagem daquela assinatura recomeça.
  */
 
@@ -51,9 +60,12 @@ function limpar(sql: string): string {
     .replace(/'(?:[^']|'')*'/g, "''");
 }
 
+function semEsquema(nome: string): string {
+  return nome.toLowerCase().replace(/^public\./, '');
+}
+
 function assinatura(nome: string, argumentos: string): string {
-  const semEsquema = nome.toLowerCase().replace(/^public\./, '');
-  return `${semEsquema}(${argumentos.toLowerCase().replace(/\s+/g, '')})`;
+  return `${semEsquema(nome)}(${argumentos.toLowerCase().replace(/\s+/g, '')})`;
 }
 
 interface Estado {
@@ -61,13 +73,20 @@ interface Estado {
   papeis: Map<Papel, 'GRANT' | 'REVOKE'>;
 }
 
-/** assinatura → o que as migrações, em ordem, disseram sobre ela. */
+/**
+ * assinatura → o que as migrações, em ordem, disseram sobre ela; e o nome de
+ * cada SECURITY DEFINER que não é gatilho, com a migração que a criou por
+ * último. O `CREATE` é lido pelo NOME: a declaração traz nomes e defaults dos
+ * parâmetros, que o GRANT não traz.
+ */
 function lerPrivilegios(): {
   estados: Map<string, Estado>;
+  definers: Map<string, number>;
   arquivos: string[];
   sql: string[];
 } {
   const estados = new Map<string, Estado>();
+  const funcoes = new Map<string, { n: number; definer: boolean }>();
   const arquivos = readdirSync(MIGRATIONS)
     .filter((f) => /^\d+_.*\.sql$/.test(f))
     .sort();
@@ -80,6 +99,32 @@ function lerPrivilegios(): {
     const n = Number(arquivo.slice(0, arquivo.indexOf('_')));
     const sql = limpar(readFileSync(join(MIGRATIONS, arquivo), 'utf8'));
     todos.push(sql);
+
+    // CREATE e DROP na ordem em que aparecem: o último decide.
+    const eventos: { pos: number; nome: string; definer?: boolean }[] = [];
+    for (const m of sql.matchAll(
+      /CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+([\w.]+)\s*\(/gi
+    )) {
+      // Sem os corpos entre `$$`, a declaração acaba no primeiro `;`.
+      const fim = sql.indexOf(';', m.index);
+      const declaracao = sql.slice(m.index, fim < 0 ? undefined : fim);
+      // Função de gatilho não se chama pela API: o EXECUTE dela não importa.
+      if (/RETURNS\s+(?:event_)?trigger\b/i.test(declaracao)) continue;
+      eventos.push({
+        pos: m.index,
+        nome: semEsquema(m[1]),
+        definer: /SECURITY\s+DEFINER/i.test(declaracao),
+      });
+    }
+    for (const m of sql.matchAll(
+      /DROP\s+FUNCTION\s+(?:IF\s+EXISTS\s+)?([\w.]+)/gi
+    )) {
+      eventos.push({ pos: m.index, nome: semEsquema(m[1]) });
+    }
+    for (const e of eventos.sort((a, b) => a.pos - b.pos)) {
+      if (e.definer === undefined) funcoes.delete(e.nome);
+      else funcoes.set(e.nome, { n, definer: e.definer });
+    }
 
     for (const m of sql.matchAll(comando)) {
       if (m[5] !== undefined) {
@@ -98,7 +143,46 @@ function lerPrivilegios(): {
       estados.set(chave, estado);
     }
   }
-  return { estados, arquivos, sql: todos };
+  const definers = new Map(
+    [...funcoes].filter(([, f]) => f.definer).map(([nome, f]) => [nome, f.n])
+  );
+  return { estados, definers, arquivos, sql: todos };
+}
+
+/**
+ * `assinatura → anon` para cada SECURITY DEFINER que anon ainda executa sem
+ * ninguém ter dito: nem GRANT para anon, nem REVOKE de anon com PUBLIC.
+ * Sem GRANT/REVOKE nenhum para o nome, acusa o nome.
+ */
+function definersAbertas(
+  estados: Map<string, Estado>,
+  definers: Map<string, number>
+): string[] {
+  const saida: string[] = [];
+  for (const nome of definers.keys()) {
+    const assinaturas = [...estados].filter(([chave]) =>
+      chave.startsWith(`${nome}(`)
+    );
+    if (assinaturas.length === 0) saida.push(`${nome} → anon`);
+    for (const [chave, estado] of assinaturas) {
+      const anon = estado.papeis.get('anon');
+      const fechada = anon === 'REVOKE' && estado.fechadaEm !== null;
+      if (anon !== 'GRANT' && !fechada) saida.push(`${chave} → anon`);
+    }
+  }
+  return saida.sort();
+}
+
+/** `assinatura → papel` revogado por nome enquanto PUBLIC continua podendo. */
+function revogacoesInocuas(estados: Map<string, Estado>): string[] {
+  const saida: string[] = [];
+  for (const [chave, estado] of estados) {
+    if (estado.fechadaEm !== null) continue;
+    for (const [papel, verbo] of estado.papeis) {
+      if (verbo === 'REVOKE') saida.push(`${chave} → ${papel}`);
+    }
+  }
+  return saida.sort();
 }
 
 /** `assinatura → papel` para cada papel da API que ficou no padrão. */
@@ -161,8 +245,38 @@ describe('privilégio de EXECUTE nas funções das migrações', () => {
     expect(estados.has('bump_conversation_on_inbound(uuid,text)')).toBe(false);
   });
 
+  it('o leitor separa SECURITY DEFINER de INVOKER e de gatilho', () => {
+    const { estados, definers } = lerPrivilegios();
+
+    // DEFINER que a API chama.
+    expect(definers.has('claim_ai_reply_slot')).toBe(true);
+    expect(definers.has('is_account_member')).toBe(true);
+    // INVOKER (025, 078): a RLS de quem chama já vale.
+    expect(definers.has('filter_contacts_by_tags')).toBe(false);
+    expect(definers.has('save_deal_order')).toBe(false);
+    // DEFINER, mas gatilho (065): não se chama pela API.
+    expect(definers.has('deals_record_stage_event')).toBe(false);
+
+    // 029 + 081: PUBLIC e anon juntos, num REVOKE só.
+    expect(estados.get('claim_ai_reply_slot(uuid,integer)')?.fechadaEm).toBe(81);
+    // 017 + 081: aberta para anon de propósito, por escrito.
+    expect(
+      estados.get('is_account_member(uuid,account_role_enum)')?.papeis.get('anon')
+    ).toBe('GRANT');
+  });
+
   it('função fechada com FROM PUBLIC diz por nome o que anon e authenticated podem', () => {
     const { estados } = lerPrivilegios();
     expect(esquecidas(estados)).toEqual([]);
+  });
+
+  it('SECURITY DEFINER que não é gatilho diz por nome se anon executa', () => {
+    const { estados, definers } = lerPrivilegios();
+    expect(definersAbertas(estados, definers)).toEqual([]);
+  });
+
+  it('revogar anon ou authenticated vem junto com revogar PUBLIC', () => {
+    const { estados } = lerPrivilegios();
+    expect(revogacoesInocuas(estados)).toEqual([]);
   });
 });

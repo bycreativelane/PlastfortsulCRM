@@ -48,6 +48,11 @@ AUTOMATION_CRON_SECRET=
 # ---------- Ajuste fino da IA (opcional) ----------
 # AI_REQUEST_TIMEOUT_MS=30000
 # AI_CONTEXT_MESSAGE_LIMIT=20
+
+# ---------- Bling (opcional; as três juntas ou nenhuma) ----------
+# BLING_CLIENT_ID=
+# BLING_CLIENT_SECRET=
+# BLING_OAUTH_REDIRECT_URI=http://localhost:3000/api/bling/oauth/callback
 ```
 
 ---
@@ -263,6 +268,41 @@ nova. E a importação precisa do agendador chamando
 `GET /api/calendar/cron` a cada cinco minutos com o mesmo
 `AUTOMATION_CRON_SECRET` das automações; sem ele, só o botão
 "sincronizar agora" traz eventos.
+
+---
+
+## Bling — opcional
+
+Três variáveis, e as três juntas ou nenhuma. Faltando qualquer uma, a tela
+Configurações › Bling diz que a integração não está configurada e o resto
+do CRM funciona igual.
+
+| Variável                   | O que é                                             |
+| -------------------------- | --------------------------------------------------- |
+| `BLING_CLIENT_ID`          | O Client ID do aplicativo, na Central de Extensões  |
+| `BLING_CLIENT_SECRET`      | O Client Secret do mesmo aplicativo                 |
+| `BLING_OAUTH_REDIRECT_URI` | Para onde o Bling devolve a autorização             |
+
+No Bling: **Central de Extensões → Área do Integrador → Criar aplicativo**.
+Na criação ficam o **link de redirecionamento** e os **escopos**. Defina os
+escopos antes de conectar a conta de verdade: mudar escopo depois pode
+revogar a autorização que já existe. Os que a integração vai usar, fase a
+fase: dados básicos da empresa, contatos, produtos, categorias de
+receitas/despesas, formas de pagamento, vendedores, situações, pedidos de
+venda, contas a receber (leitura), depósitos e, se for o caso, logísticas.
+Para a conexão (Fase 1) basta **dados básicos da empresa**.
+
+O `BLING_OAUTH_REDIRECT_URI` precisa ser **exatamente** o link cadastrado no
+aplicativo. Em desenvolvimento:
+
+```
+BLING_OAUTH_REDIRECT_URI=http://localhost:3000/api/bling/oauth/callback
+```
+
+A cifragem dos tokens usa o mesmo `ENCRYPTION_KEY` — não há chave nova.
+
+**Não há ambiente de testes no Bling.** Conectar uma conta de verdade dá ao
+CRM acesso a ela; a conexão em si só lê os dados básicos da empresa.
 
 ## Conferindo
 

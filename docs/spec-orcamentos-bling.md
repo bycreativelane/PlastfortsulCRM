@@ -12,18 +12,29 @@
   a chamada dá 42501; com a sessão de um usuário, a função continua
   executando.
 
-**Fase 1 (conexão) escrita em 14/09**, com a **082 ainda não aplicada**. Falta
-também o que é do Gabriel (§4): cadastrar o aplicativo no Bling, as três
+**Fase 1 (conexão) escrita em 14/09; a 082 foi aplicada em 15/09 e conferida
+no banco.**
+- **Balde de fichas:** seis pedidos simultâneos liberam dois e mandam esperar
+  os outros; o teto do dia devolve -1 e zera na virada.
+- **Vez de renovar:** cinco pedidos simultâneos dão um dono e quatro negados,
+  com trava de 30 s e teto de um por minuto.
+- **Tabelas:** o navegador logado lê vazio e não grava.
+- **Colunas:** todas as que o código lê e grava existem.
+
+Falta o que é do Gabriel (§4): cadastrar o aplicativo no Bling, as três
 variáveis e a conta de homologação (D9). Sem isso a conexão nunca foi feita
-contra o Bling de verdade; o que está provado é por teste (ver §5, Fase 1,
-"Como ficou"). Nenhuma decisão de §3 foi respondida — a Fase 1 não dependia
-delas.
+contra o Bling de verdade. Nenhuma decisão de §3 foi respondida — a Fase 1
+não dependia delas.
 
 Endurecimento feito no caminho (fora das fases): a 080 e a 081 tiraram de
 `anon` dezessete funções que ele executava sem ninguém ter decidido isso;
 quatro delas gravavam em qualquer conta com a anon key e um id. A 081 também
-deixou por escrito que `is_account_member` continua aberta. 080 aplicada e
-conferida; 081 por aplicar.
+deixou por escrito que `is_account_member` continua aberta. As duas foram
+aplicadas e conferidas.
+- **Com a anon key e com o navegador logado:** as funções fechadas dão
+  `permission denied`.
+- **Service role:** executa as que são dela.
+- **`touch_presence` e `is_account_member`:** seguem abertas.
 
 > **Dados pessoais.** A especificação traz prints com nome, CPF, telefone e
 > endereço de clientes reais, e pede que nada disso vá para fixtures, seeds,

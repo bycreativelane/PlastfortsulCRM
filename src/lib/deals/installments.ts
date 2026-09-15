@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { addDays, fromISO, toISO } from '@/lib/calendar';
+import { fromCents, sumCents, toCents } from '@/lib/money';
 
 /**
  * AS PARCELAS DE UM PEDIDO — o bloco "Condição de pagamento" do Bling.
@@ -85,11 +86,11 @@ export function parseTerms(terms: string): number[] {
  */
 export function dividir(total: number, partes: number): number[] {
   if (partes <= 0) return [];
-  const centavos = Math.round(total * 100);
+  const centavos = toCents(total);
   const base = Math.floor(centavos / partes);
-  const valores = Array.from({ length: partes }, () => base / 100);
+  const valores = Array.from({ length: partes }, () => fromCents(base));
   const sobra = centavos - base * partes;
-  if (sobra !== 0) valores[partes - 1] = (base + sobra) / 100;
+  if (sobra !== 0) valores[partes - 1] = fromCents(base + sobra);
   return valores;
 }
 
@@ -126,10 +127,10 @@ export function generateInstallments(args: {
 
 /** O que as parcelas somam — para dizer, na tela, se elas fecham. */
 export function installmentsTotal(parcelas: { amount: number }[]): number {
-  return (
-    Math.round(parcelas.reduce((soma, p) => soma + (p.amount || 0), 0) * 100) /
-    100
-  );
+  // Em centavos, pela mesma razão de `dividir`: somar R$ 0,10 e R$ 0,20
+  // em float dá 0,30000000000000004, e "as parcelas fecham?" é uma
+  // pergunta de igualdade exata.
+  return fromCents(sumCents(parcelas.map((p) => toCents(p.amount))));
 }
 
 /**

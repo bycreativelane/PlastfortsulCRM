@@ -6,11 +6,8 @@ import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
 import { useCan } from '@/hooks/use-can';
 import { formatCurrencyExact } from '@/lib/currency';
-import {
-  lineTotal,
-  replaceDealItems,
-  type DealItemDraft,
-} from '@/lib/products/catalog';
+import { fromCents, linesTotalCents, toCents } from '@/lib/money';
+import { replaceDealItems, type DealItemDraft } from '@/lib/products/catalog';
 import { DealItemsEditor } from './deal-items';
 import { DealInstallments } from './deal-installments';
 import {
@@ -583,11 +580,16 @@ export function DealForm({
   // this again server-side — this is only so the row is right in the same
   // statement rather than a beat later, which is what the board reads when it
   // refreshes.
-  const lineTotalSum = items.reduce((sum, item) => sum + lineTotal(item), 0);
+  //
+  // Em CENTAVOS (`lib/money.ts`): somar os totais em float e deixar para
+  // arredondar no fim fazia esta gaveta mostrar R$ 0,52 numa linha que o
+  // banco grava como R$ 0,53, e o total que as parcelas dividem sair um
+  // centavo diferente do `deals.value`.
+  const lineTotalSum = fromCents(linesTotalCents(items));
   const hasLines = items.length > 0;
   /** Produtos + frete, que é o que o item 47 manda o orçamento mostrar. */
   const produtos = hasLines ? lineTotalSum : (value ?? 0);
-  const totalGeral = produtos + (shipping ?? 0);
+  const totalGeral = fromCents(toCents(produtos) + toCents(shipping ?? 0));
 
   /**
    * O que vai em `deals.title` agora que ele não é mais um campo.

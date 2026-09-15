@@ -85,6 +85,23 @@ describe('buildQuote — a única conta do documento', () => {
     expect(q.total).toBe(10.05);
   });
 
+  it('o meio centavo sai como o banco grava, na linha e na soma', () => {
+    // Medido contra `deal_items.total` (054): 3 × R$ 0,35 com 50 % é
+    // R$ 0,53 no Postgres. A conta antiga, em float, imprimia R$ 0,52 — e
+    // o documento discordava do `deals.value` que o gatilho grava.
+    const q = buildQuote({
+      ...BASE,
+      items: [
+        { ...SACO, quantity: 3, unitPrice: 0.35, discountPercent: 50 },
+        { ...SACO, quantity: 1, unitPrice: 2.01, discountPercent: 50 },
+      ],
+      shipping: 80,
+    });
+    expect(q.lines.map((l) => l.total)).toEqual([0.53, 1.01]);
+    expect(q.products).toBe(1.54);
+    expect(q.total).toBe(81.54);
+  });
+
   it('o que está em branco vira ausência, e o documento omite ausências', () => {
     const q = buildQuote({
       ...BASE,

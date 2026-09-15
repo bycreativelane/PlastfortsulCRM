@@ -6,6 +6,7 @@ import { Package, Plus, Trash2 } from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/client';
 import { formatCurrencyExact } from '@/lib/currency';
+import { fromCents, linesTotalCents } from '@/lib/money';
 import {
   lineTotal,
   loadDealItems,
@@ -122,10 +123,8 @@ export function DealItemsEditor({
     onChange({ items, pending });
   }, [items, pending, onChange]);
 
-  const total = useMemo(
-    () => items.reduce((sum, item) => sum + lineTotal(item), 0),
-    [items]
-  );
+  // Em centavos, e linha a linha antes da soma — a ordem do gatilho da 054.
+  const total = useMemo(() => fromCents(linesTotalCents(items)), [items]);
 
   const patch = useCallback((index: number, next: Partial<DealItemDraft>) => {
     setItems((prev) =>

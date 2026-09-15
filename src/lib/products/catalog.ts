@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { isUnknownColumn } from '@/lib/supabase/pg-errors';
+import { fromCents, lineTotalCents } from '@/lib/money';
 
 /**
  * The catalogue.
@@ -424,15 +425,18 @@ export async function replaceDealItems(
   return { error: error ? describeWriteError(error) : null };
 }
 
-/** What one line is worth. The database computes the stored copy. */
+/**
+ * What one line is worth. The database computes the stored copy.
+ *
+ * Em CENTAVOS EXATOS por baixo (`lib/money.ts`), e não mais em float.
+ * A versão anterior era `Math.round(q * p * (1 - d / 100) * 100) / 100`,
+ * que discorda da coluna GENERATED da 054 no meio centavo — medido contra
+ * o banco: 3 × R$ 0,35 com 50 % saía R$ 0,52 aqui e R$ 0,53 lá.
+ */
 export function lineTotal(item: {
   quantity: number;
   unitPrice: number;
   discountPercent: number;
 }): number {
-  return (
-    Math.round(
-      item.quantity * item.unitPrice * (1 - item.discountPercent / 100) * 100
-    ) / 100
-  );
+  return fromCents(lineTotalCents(item));
 }

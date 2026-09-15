@@ -1,5 +1,6 @@
-import { lineTotal, type DealItemDraft } from '@/lib/products/catalog';
+import type { DealItemDraft } from '@/lib/products/catalog';
 import type { InstallmentDraft } from '@/lib/deals/installments';
+import { fromCents, lineTotalCents, sumCents, toCents } from '@/lib/money';
 
 /**
  * O orçamento, como dado.
@@ -19,9 +20,14 @@ import type { InstallmentDraft } from '@/lib/deals/installments';
  * defeito mais caro que um orçamento pode ter, porque quem descobre é o
  * cliente.
  *
- * E `lineTotal` vem de `products/catalog` em vez de ser reescrito: ele já
- * é a cópia em TypeScript da coluna `total` GENERATED da 054. Uma terceira
- * versão da mesma multiplicação seria a mesma dívida com outro nome.
+ * E a multiplicação vem de `lib/money.ts` em vez de ser reescrita: ela é a
+ * cópia em TypeScript da coluna `total` GENERATED da 054, feita em
+ * centavos inteiros — a mesma que `lineTotal` do catálogo usa. Uma
+ * terceira versão da mesma conta seria a mesma dívida com outro nome.
+ *
+ * TODA SOMA DESTE ARQUIVO É EM CENTAVOS. Somar reais em float e arredondar
+ * no fim é o que fazia o documento imprimir R$ 0,52 numa linha que o banco
+ * grava como R$ 0,53 (ver `lib/money.ts`).
  *
  * ------------------------------------------------------------------
  * O QUE ESTE CRM AINDA NÃO SABE DIZER
@@ -156,19 +162,21 @@ function numero(valor: number | null | undefined): number | null {
  * número que alguém digitou antes de montar a lista é um número velho.
  */
 export function buildQuote(input: QuoteInput): Quote {
-  const lines: QuoteLine[] = input.items.map((item) => ({
+  const centavosPorLinha = input.items.map((item) => lineTotalCents(item));
+
+  const lines: QuoteLine[] = input.items.map((item, i) => ({
     name: item.name.trim(),
     sku: limpo(item.sku),
     unit: limpo(item.unit),
     quantity: item.quantity,
     unitPrice: item.unitPrice,
     discountPercent: item.discountPercent,
-    total: lineTotal(item),
+    total: fromCents(centavosPorLinha[i]),
   }));
 
-  const products = lines.length
-    ? Math.round(lines.reduce((soma, l) => soma + l.total, 0) * 100) / 100
-    : (input.value ?? 0);
+  const produtosCentavos = lines.length
+    ? sumCents(centavosPorLinha)
+    : toCents(input.value ?? 0);
 
   const shipping =
     input.shipping === null || input.shipping === undefined
@@ -186,9 +194,9 @@ export function buildQuote(input: QuoteInput): Quote {
     },
     lines,
     currency: input.currency,
-    products,
+    products: fromCents(produtosCentavos),
     shipping,
-    total: Math.round((products + (shipping ?? 0)) * 100) / 100,
+    total: fromCents(produtosCentavos + toCents(shipping ?? 0)),
     paymentTerms: limpo(input.paymentTerms),
     // As parcelas VAZIAS não entram: uma linha sem valor e sem data é o
     // formulário no meio de uma edição, não uma condição de pagamento.

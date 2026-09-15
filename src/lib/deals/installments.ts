@@ -211,19 +211,31 @@ export async function loadInstallments(
  * aqui não há trigger nenhum dependendo do resultado — as parcelas não
  * somam para `deals.value`, elas dividem o que ele já é.
  */
-export async function replaceInstallments(
-  db: SupabaseClient,
-  args: { accountId: string; dealId: string; items: InstallmentDraft[] }
-): Promise<{ error: string | null }> {
-  const rows = args.items.map((p, index) => ({
-    account_id: args.accountId,
-    deal_id: args.dealId,
+/**
+ * As parcelas como o banco as grava — sem conta e sem oportunidade.
+ *
+ * A mesma normalização para os dois caminhos de gravação (este e
+ * `save_deal_order`, da 078), pela razão escrita em `dealItemRows`.
+ */
+export function installmentRows(items: InstallmentDraft[]) {
+  return items.map((p, index) => ({
     position: index,
     days: Math.max(0, Math.round(p.days || 0)),
     due_on: p.dueOn || null,
     amount: p.amount || 0,
     method: (p.method ?? '').trim().slice(0, 80) || null,
     note: (p.note ?? '').trim().slice(0, 240) || null,
+  }));
+}
+
+export async function replaceInstallments(
+  db: SupabaseClient,
+  args: { accountId: string; dealId: string; items: InstallmentDraft[] }
+): Promise<{ error: string | null }> {
+  const rows = installmentRows(args.items).map((row) => ({
+    account_id: args.accountId,
+    deal_id: args.dealId,
+    ...row,
   }));
 
   const { error: erroApagar } = await db

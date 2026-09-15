@@ -380,15 +380,21 @@ export interface DealItemDraft {
  * the delete happens last on the happy path only, and the caller reloads
  * from the database rather than trusting local state.
  */
-export async function replaceDealItems(
-  db: SupabaseClient,
-  args: { accountId: string; dealId: string; items: DealItemDraft[] }
-): Promise<{ error: string | null }> {
-  const rows = args.items
+/**
+ * As linhas como o banco as grava — sem conta e sem oportunidade.
+ *
+ * Uma função só para os dois caminhos de gravação: este aqui, em três
+ * chamadas, e `save_deal_order` (078), numa transação. Se cada um
+ * normalizasse por conta própria, um cortaria o nome em 160 e o outro não,
+ * e a mesma oportunidade gravaria diferente conforme a migração aplicada.
+ *
+ * Linha sem nome ou com quantidade zero não é linha: é o formulário no
+ * meio de uma edição.
+ */
+export function dealItemRows(items: DealItemDraft[]) {
+  return items
     .filter((item) => item.name.trim() && item.quantity > 0)
     .map((item, index) => ({
-      account_id: args.accountId,
-      deal_id: args.dealId,
       product_id: item.productId,
       name: item.name.trim().slice(0, 160),
       sku: (item.sku ?? '').trim().slice(0, 60) || null,
@@ -398,6 +404,17 @@ export async function replaceDealItems(
       discount_percent: item.discountPercent,
       position: index,
     }));
+}
+
+export async function replaceDealItems(
+  db: SupabaseClient,
+  args: { accountId: string; dealId: string; items: DealItemDraft[] }
+): Promise<{ error: string | null }> {
+  const rows = dealItemRows(args.items).map((row) => ({
+    account_id: args.accountId,
+    deal_id: args.dealId,
+    ...row,
+  }));
 
   const { error: delError } = await db
     .from('deal_items')

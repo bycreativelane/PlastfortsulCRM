@@ -29,6 +29,7 @@ import {
   replaceInstallments,
   type InstallmentDraft,
 } from '@/lib/deals/installments';
+import { saveDealOrder } from '@/lib/deals/save';
 import { isUnknownColumn } from '@/lib/supabase/pg-errors';
 import { dealRow, hasOrderTotals } from '@/lib/deals/row';
 import { loadLastOrderNumber, nextOrderNumber } from '@/lib/deals/order-number';
@@ -716,26 +717,30 @@ export function DealForm({
     t('newDeal');
 
   /**
-   * Grava o que está no formulário. Devolve `false` quando não deu.
+   * Grava o que está no formulário. Devolve o id da oportunidade gravada,
+   * ou `null` quando não deu.
+   *
+   * O id, e não mais `true`: quem gera o orçamento precisa dele para a rota
+   * ler o pedido do BANCO, inclusive numa oportunidade que acabou de nascer.
    *
    * Separado do `handleSave` porque o DESFECHO também precisa dele: marcar
    * como ganho tem de levar junto o que a pessoa acabou de digitar. Com
    * `silent`, não avisa nem fecha a ficha — quem chamou continua a conversa.
    */
-  async function persist({ silent = false } = {}): Promise<boolean> {
+  async function persist({ silent = false } = {}): Promise<string | null> {
     // O título saiu da lista de obrigatórios porque saiu da tela: quem
     // o preenche agora é `tituloDerivado`, e ele nunca é vazio quando
     // há contato. Contato e etapa continuam sendo o mínimo.
     if (!contactId || !stageId) {
       toast.error(t('toastRequired'));
-      return false;
+      return null;
     }
     // Um desconto maior que o pedido é erro de digitação, e gravá-lo
     // mandaria um total negativo para o documento e para as parcelas.
     // Ver `discountExceedsOrder`.
     if (descontoInvalido) {
       toast.error(t('discountTooLarge'));
-      return false;
+      return null;
     }
     setSaving(true);
 
@@ -812,6 +817,51 @@ export function DealForm({
       toast.error(t('toastOrderShapeFailed'));
     };
 
+    /*
+     * NUMA TRANSAÇÃO SÓ, quando a 078 está no banco.
+     *
+     * `save_deal_order` grava a oportunidade, as linhas e as parcelas de
+     * uma vez; qualquer falha desfaz tudo. Ver `lib/deals/save.ts` para a
+     * classificação do erro — e principalmente para por que um defeito na
+     * função cai no caminho antigo em vez de impedir de salvar.
+     */
+    if (!totalsPending && !installmentsPending && accountId) {
+      const resultado = await saveDealOrder(supabase, {
+        dealId: deal?.id ?? null,
+        deal: deal
+          ? camadas[0].corpo
+          : { ...camadas[0].corpo, account_id: accountId },
+        items: itemsPending ? null : items,
+        installments,
+      });
+
+      if (resultado.status === 'saved') {
+        setSaving(false);
+        if (!silent) {
+          toast.success(deal ? t('toastUpdated') : t('toastCreated'));
+          onOpenChange(false);
+          onSaved();
+        }
+        return resultado.dealId;
+      }
+
+      if (resultado.status === 'rejected') {
+        toast.error(deal ? t('toastFailedSave') : t('toastFailedCreate'));
+        setSaving(false);
+        return null;
+      }
+
+      if (resultado.status === 'broken') {
+        // Alto, no console: a gravação ainda vai acontecer pelo caminho
+        // antigo, e sem esta linha ninguém saberia que a transação não
+        // está sendo usada.
+        console.error(
+          '[deals] save_deal_order falhou; gravando pelo caminho antigo:',
+          resultado.error
+        );
+      }
+    }
+
     if (deal) {
       let error: { code?: string; message?: string } | null = null;
       for (const [i, camada] of camadas.entries()) {
@@ -828,7 +878,7 @@ export function DealForm({
       if (error) {
         toast.error(t('toastFailedSave'));
         setSaving(false);
-        return false;
+        return null;
       }
       if (!itemsPending && accountId) {
         const { error: itemsError } = await replaceDealItems(supabase, {
@@ -857,12 +907,12 @@ export function DealForm({
       if (!user) {
         toast.error(t('toastNotSignedIn'));
         setSaving(false);
-        return false;
+        return null;
       }
       if (!accountId) {
         toast.error(t('toastNotLinked'));
         setSaving(false);
-        return false;
+        return null;
       }
       const criar = (corpo: typeof base) =>
         supabase
@@ -890,7 +940,7 @@ export function DealForm({
       if (error || !created) {
         toast.error(t('toastFailedCreate'));
         setSaving(false);
-        return false;
+        return null;
       }
       const novoId = (created as { id: string }).id;
       if (!itemsPending && items.length > 0) {
@@ -909,15 +959,22 @@ export function DealForm({
         });
         if (erroParcelas) toast.error(t('toastInstallmentsFailed'));
       }
+      setSaving(false);
+      if (!silent) {
+        toast.success(t('toastCreated'));
+        onOpenChange(false);
+        onSaved();
+      }
+      return novoId;
     }
 
     setSaving(false);
     if (!silent) {
-      toast.success(deal ? t('toastUpdated') : t('toastCreated'));
+      toast.success(t('toastUpdated'));
       onOpenChange(false);
       onSaved();
     }
-    return true;
+    return deal.id;
   }
 
   async function handleSave() {

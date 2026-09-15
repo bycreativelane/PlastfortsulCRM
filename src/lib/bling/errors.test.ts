@@ -157,3 +157,18 @@ describe('describeBlingFailure', () => {
     });
   });
 });
+
+describe('sanitizeBlingText — o que a auditoria da 0.11.0 achou passando', () => {
+  it('RG e inscrição estadual com pontuação', () => {
+    expect(sanitizeBlingText('RG 12.345.678-9 inválido')).toBe('RG [documento] inválido');
+    expect(sanitizeBlingText('IE 123.456.789.012 não confere')).toBe('IE [documento] não confere');
+  });
+
+  it('CEP e número comprido sem pontuação', () => {
+    expect(sanitizeBlingText('CEP 90000-000 inexistente')).toBe('CEP [cep] inexistente');
+    // Dez dígitos também parecem telefone: o marcador pode ser qualquer um.
+    expect(sanitizeBlingText('IE 1234567890 inválida')).not.toMatch(/\d{4}/);
+    expect(sanitizeBlingText('IE 123456789012 inválida')).toBe('IE [número] inválida');
+    expect(sanitizeBlingText('CEP 90000000 inexistente')).toBe('CEP [número] inexistente');
+  });
+});

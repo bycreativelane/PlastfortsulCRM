@@ -101,9 +101,9 @@ function banco(extras: Record<string, Array<Record<string, unknown>>> = {}) {
           shipping_cost: 0,
         },
       ],
-      deal_items: [{ deal_id: 'd-1', name: 'Lona', quantity: 2, unit_price: 50, discount_percent: 0 }],
+      deal_items: [{ account_id: 'acc-1', deal_id: 'd-1', name: 'Lona', quantity: 2, unit_price: 50, discount_percent: 0 }],
       pipeline_stages: [{ id: 's-andamento', name: 'Em Andamento', pipeline_id: 'p-1' }],
-      profiles: [{ id: 'prof-1', user_id: 'u-vendedor' }],
+      profiles: [{ id: 'prof-1', account_id: 'acc-1', user_id: 'u-vendedor' }],
       bling_operations: [],
       deal_order_events: [],
       notifications: [],
@@ -113,12 +113,15 @@ function banco(extras: Record<string, Array<Record<string, unknown>>> = {}) {
     unique: { bling_webhook_events: ['event_id'] },
     rpcs: {
       bling_take_request: () => 0,
+      // A 090: uma linha por vez com o dono do lease.
       bling_claim_webhook_events: (args, tables) =>
         tables.bling_webhook_events
           .filter((e) => (args.p_event_id ? e.id === args.p_event_id : true) && e.status === undefined)
+          .slice(0, Number(args.p_limit ?? 20))
           .map((e) => {
             e.status = 'processing';
-            return e.id;
+            e.lock_token = `L-${String(e.id)}`;
+            return { id: e.id, lock_token: e.lock_token };
           }),
     },
   });
@@ -197,8 +200,10 @@ describe('processWebhookEvents', () => {
     expect(db.tables.deals[0]).toMatchObject({ order_status: 'atendido', stage_id: 's-atendido' });
   });
 
-  it('eco do próprio CRM (operação na fila): não mexe', async () => {
-    const db = banco({ bling_operations: [{ id: 'op-1', deal_id: 'd-1', status: 'running' }] });
+  it('eco do próprio CRM (a mudança pedida para esta situação): não mexe', async () => {
+    const db = banco({
+      bling_operations: [{ id: 'op-1', account_id: 'acc-1', deal_id: 'd-1', kind: 'change_status', params: { to: 'em_andamento' }, status: 'running' }],
+    });
     await receber(db);
     await processWebhookEvents(db.client, {}, opcoes(blingFalso(15).impl));
     expect(db.tables.deals[0].order_status).toBe('em_aberto');
@@ -228,5 +233,42 @@ describe('processWebhookEvents', () => {
     expect(db.tables.bling_webhook_events[0]).toMatchObject({ status: 'pending' });
     expect(String(db.tables.bling_webhook_events[0].error)).toContain('503');
     expect(db.tables.deals[0].order_status).toBe('em_aberto');
+  });
+});
+
+describe('processWebhookEvents — auditoria da 0.11.0', () => {
+  it('um de cada vez, até o limite', async () => {
+    const db = banco();
+    await receber(db);
+    await receber(db, { eventId: 'ev-2' });
+    await receber(db, { eventId: 'ev-3' });
+    expect(await processWebhookEvents(db.client, { limit: 2 }, opcoes(blingFalso(15).impl))).toBe(2);
+    expect(db.tables.bling_webhook_events.filter((e) => e.status === 'processed')).toHaveLength(2);
+    // O terceiro nem foi pego: nenhum lease corre para evento que ninguém processa.
+    expect(db.tables.bling_webhook_events.filter((e) => e.status === 'processing')).toHaveLength(0);
+    const claims = db.log.filter((l) => l === 'rpc bling_claim_webhook_events');
+    expect(claims).toHaveLength(2);
+  });
+
+  it('quem perdeu o lease não sobrescreve o evento', async () => {
+    const db = banco();
+    await receber(db);
+    const bling: FetchLike = async (url, init) => {
+      // Enquanto este processo relia o pedido, outro pegou o evento.
+      db.tables.bling_webhook_events[0].lock_token = 'OUTRO';
+      db.tables.bling_webhook_events[0].status = 'processing';
+      return blingFalso(15).impl(url, init);
+    };
+    await processWebhookEvents(db.client, {}, opcoes(bling));
+    expect(db.tables.bling_webhook_events[0]).toMatchObject({ status: 'processing', lock_token: 'OUTRO' });
+  });
+
+  it('falha ao achar a conexão não vira empresa desconhecida', async () => {
+    const db = fakeDb({
+      tables: { bling_connections: [], bling_webhook_events: [] },
+      errors: { 'select bling_connections': { code: '57014', message: 'canceling statement due to statement timeout' } },
+    });
+    const corpo = corpoDe();
+    await expect(receiveWebhook(db.client, corpo, assinar(corpo), SEGREDO, () => AGORA)).rejects.toThrow('conexão do webhook');
   });
 });

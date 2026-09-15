@@ -36,12 +36,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ dea
 
 /**
  * O estado do pedido desta oportunidade no Bling: o que a oportunidade diz e
- * a última operação da fila. A tela consulta enquanto sincroniza.
+ * uma operação da fila — a pedida (`?operationId=`), ou a última. A tela
+ * acompanha a operação QUE ELA PEDIU: pelo estado da oportunidade, uma
+ * operação mais velha terminando parecia o desfecho desta.
  *
  * `bling_operations` não tem política (086); a leitura é daqui, depois de
  * conferir que a oportunidade é da conta de quem pergunta.
  */
-export async function GET(_request: Request, { params }: { params: Promise<{ dealId: string }> }) {
+export async function GET(request: Request, { params }: { params: Promise<{ dealId: string }> }) {
   try {
     const ctx = await requireRole('viewer');
     const { dealId } = await params;
@@ -57,11 +59,14 @@ export async function GET(_request: Request, { params }: { params: Promise<{ dea
       .maybeSingle();
     if (!deal) return NextResponse.json({ error: 'not_found' }, { status: 404 });
 
-    const { data: ops, error } = await db
+    const pedida = new URL(request.url).searchParams.get('operationId');
+    let consulta = db
       .from('bling_operations')
       .select('id, kind, status, attempts, max_attempts, error, next_attempt_at, finished_at, created_at, result')
       .eq('deal_id', dealId)
-      .eq('account_id', ctx.accountId)
+      .eq('account_id', ctx.accountId);
+    if (pedida && /^[0-9a-f-]{36}$/i.test(pedida)) consulta = consulta.eq('id', pedida);
+    const { data: ops, error } = await consulta
       .order('created_at', { ascending: false })
       .limit(1);
     if (error && !isMissingObject(error)) throw new Error(error.message);

@@ -29,6 +29,13 @@ export interface ClientDeps {
   fetchImpl?: FetchLike;
   sleep?: (ms: number) => Promise<void>;
   now?: () => number;
+  /**
+   * Chamado logo antes de cada ESCRITA (todo método que não é GET), depois
+   * da ficha do limitador — e de novo antes de repetir a escrita por 401 ou
+   * 429. A fila renova o lease aqui e lança `BlingLeaseLostError` se outro
+   * processo pegou a operação (090): quem perdeu a vez não escreve.
+   */
+  beforeWrite?: () => Promise<void>;
 }
 
 const dormir = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -52,8 +59,11 @@ export async function blingRequest<T>(
   let jaRenovou = false;
   let jaEsperouOSegundo = false;
 
+  const escrita = (call.method ?? 'GET') !== 'GET';
+
   for (;;) {
     await pegarFicha(db, connectionId, sleep, now);
+    if (escrita && deps.beforeWrite) await deps.beforeWrite();
     const resultado = await blingFetch<T>(token, path, call, deps.fetchImpl);
 
     if (resultado.ok) {

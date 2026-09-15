@@ -3,9 +3,9 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { isOrderStatus, type OrderStatus } from '@/lib/deals/order-lock';
 
 import { blingRequest, type ClientDeps } from './client';
-import { BlingApiError, BlingConnectionError } from './errors';
+import { BlingApiError, BlingConnectionError, BlingLeaseLostError } from './errors';
 import type { Reference } from './health';
-import { textoDoErro, type LoadedOrder, type OrderEvent, type OrderOutcome } from './orders';
+import { orderMatchesBling, textoDoErro, type LoadedOrder, type OrderEvent, type OrderOutcome } from './orders';
 import {
   blingStatusId,
   canChangeStatus,
@@ -13,6 +13,7 @@ import {
   planStatusChange,
   stageForStatus,
   statusFromBlingId,
+  statusNeedsSyncedOrder,
   transitionActions,
   type ActionKind,
 } from './transitions';
@@ -27,18 +28,26 @@ import {
  *   1. GET do pedido: ele está onde o CRM acha que está? Se já está no
  *      destino (uma repetição), pula o PATCH. Se está em outro lugar, para:
  *      alguém mexeu no Bling, e a reconciliação (Fase 6) resolve.
- *   2. PATCH `/situacoes/{id}`. Recusa do Bling ("não é possível alterar o
+ *   2. Em andamento lança contas a partir do pedido DO BLING: só com o
+ *      pedido do CRM igual ao que o Bling recebeu (`bling_source_hash`, 090).
+ *   3. PATCH `/situacoes/{id}`. Recusa do Bling ("não é possível alterar o
  *      pedido, pois já foram realizadas…") volta COMO ESTÁ, e nada no CRM
  *      muda — nunca parecer que salvou.
- *   3. Contas: consulta o Contas a Receber com origem nesta venda. Achou,
- *      carimba. Não achou e a passagem exige, chama `lancar-contas` e
- *      consulta de novo. `accounts_launched_at` é o que impede o segundo
- *      lançamento quando o job roda três vezes.
- *   4. Estoque: a API não expõe consulta de movimento por pedido. Se a
+ *   4. Contas: consulta o Contas a Receber com origem nesta venda, desde a
+ *      data DO PEDIDO. Achou, carimba. Não achou e a passagem exige, chama
+ *      `lancar-contas`, CARIMBA na hora e consulta de novo.
+ *      `accounts_launched_at` é o que impede o segundo lançamento quando o
+ *      job roda três vezes.
+ *   5. Estoque: a API não expõe consulta de movimento por pedido. Se a
  *      transição do Bling lança sozinha, carimba; senão chama
  *      `lancar-estoque`, uma vez, e carimba.
- *   5. A oportunidade: situação, etapa que acompanha (D1-B), ganho/perdido
+ *   6. A oportunidade: situação, etapa que acompanha (D1-B), ganho/perdido
  *      (D3), e uma linha em `deal_order_events` por passo.
+ *
+ * Depois do PATCH a situação JÁ mudou no Bling. Uma falha nos lançamentos
+ * que não se resolve repetindo leva a situação para o CRM junto com o erro
+ * (e não "recusado"): o CRM dizendo Em aberto de um pedido Em andamento lá
+ * seria a divergência que ninguém vê.
  */
 
 interface ContaReceber {
@@ -47,6 +56,9 @@ interface ContaReceber {
   origem?: { id?: number | string; tipoOrigem?: string };
 }
 
+const PAGINAS_DE_CONTAS = 5;
+const LIMITE_POR_PAGINA = 100;
+
 /** As contas a receber que nasceram desta venda, e se estão vivas. */
 async function contasDaVenda(
   db: SupabaseClient,
@@ -54,27 +66,60 @@ async function contasDaVenda(
   args: { contactBlingId: string | null; blingOrderId: string; desde: string },
   deps: ClientDeps
 ): Promise<{ vivas: number; canceladas: number }> {
-  const resposta = await blingRequest<{ data?: ContaReceber[] }>(
-    db,
-    connectionId,
-    '/contas/receber',
-    {
-      query: {
-        idContato: args.contactBlingId ?? undefined,
-        tipoFiltroData: 'E',
-        dataInicial: args.desde,
-        pagina: 1,
-        limite: 100,
+  const daVenda: ContaReceber[] = [];
+  for (let pagina = 1; pagina <= PAGINAS_DE_CONTAS; pagina++) {
+    const resposta = await blingRequest<{ data?: ContaReceber[] }>(
+      db,
+      connectionId,
+      '/contas/receber',
+      {
+        query: {
+          idContato: args.contactBlingId ?? undefined,
+          tipoFiltroData: 'E',
+          dataInicial: args.desde,
+          pagina,
+          limite: LIMITE_POR_PAGINA,
+        },
       },
-    },
-    deps
-  );
-  const daVenda = (resposta?.data ?? []).filter(
-    (c) => c.origem?.tipoOrigem === 'venda' && String(c.origem?.id) === args.blingOrderId
-  );
+      deps
+    );
+    const lidas = resposta?.data ?? [];
+    daVenda.push(
+      ...lidas.filter((c) => c.origem?.tipoOrigem === 'venda' && String(c.origem?.id) === args.blingOrderId)
+    );
+    if (lidas.length < LIMITE_POR_PAGINA) break;
+  }
   // 5 cancelado · 4 devolvido: estornadas.
   const canceladas = daVenda.filter((c) => c.situacao === 5 || c.situacao === 4).length;
   return { vivas: daVenda.length - canceladas, canceladas };
+}
+
+const DIAS_DE_FOLGA = 7;
+const DATA_ISO = /^\d{4}-\d{2}-\d{2}/;
+
+/**
+ * Desde quando procurar as contas: a data do pedido NO BLING (a emissão das
+ * contas não é anterior a ela), com folga de fuso e de pedido redatado.
+ *
+ * A consulta usava a data da venda no CRM ou, sem ela, HOJE em UTC — e
+ * cancelar dez dias depois de lançar não achava conta nenhuma: o estorno
+ * era pulado e o CRM carimbava "estornado" com as contas vivas no Bling.
+ */
+export function receivablesSince(args: {
+  remoteOrderDate: string | null | undefined;
+  saleDate: string | null | undefined;
+  createdAt: string | null | undefined;
+  now: string;
+}): string {
+  const valida = (v: string | null | undefined): v is string => typeof v === 'string' && DATA_ISO.test(v);
+  // A data do Bling decide; sem ela, a mais antiga que o CRM conhece.
+  const base = valida(args.remoteOrderDate)
+    ? args.remoteOrderDate.slice(0, 10)
+    : ([args.saleDate, args.createdAt, args.now].filter(valida).map((v) => v.slice(0, 10)).sort()[0] ??
+      args.now.slice(0, 10));
+  const data = new Date(`${base}T00:00:00.000Z`);
+  data.setUTCDate(data.getUTCDate() - DIAS_DE_FOLGA);
+  return data.toISOString().slice(0, 10);
 }
 
 export interface StatusChangeContext {
@@ -111,15 +156,17 @@ export async function changeOrderStatus(
 
   const id = encodeURIComponent(String(deal.bling_order_id));
   let jaNoDestino = false;
+  let dataDoPedido: string | null = null;
 
   try {
-    const atual = await blingRequest<{ data?: { situacao?: { id?: number | string } } }>(
+    const atual = await blingRequest<{ data?: { situacao?: { id?: number | string }; data?: string } }>(
       db,
       connection.id,
       `/pedidos/vendas/${id}`,
       {},
       deps
     );
+    dataDoPedido = typeof atual?.data?.data === 'string' ? atual.data.data : null;
     const remoto = statusFromBlingId(settings, atual?.data?.situacao?.id);
     if (remoto === destino) {
       jaNoDestino = true;
@@ -133,6 +180,11 @@ export async function changeOrderStatus(
           dealPatch: { sync_status: 'divergent', sync_error: 'remote_status_mismatch' },
         };
       }
+      // A rota conferiu; isto fecha a janela entre a rota e a operação.
+      // Repetição que já passou do PATCH (jaNoDestino) completa o que falta.
+      if (statusNeedsSyncedOrder(destino) && !orderMatchesBling(pedido)) {
+        return { status: 'failed', error: 'order_not_synced' };
+      }
     }
 
     if (!jaNoDestino) {
@@ -140,22 +192,30 @@ export async function changeOrderStatus(
     }
     eventos.push({ kind: 'status_changed', from_status: origem, to_status: destino, detail: { alreadyThere: jaNoDestino } });
   } catch (erro) {
-    return desfechoDaMudanca(erro, eventos, origem, destino);
+    return desfechoDaMudanca(erro, eventos, origem, destino, { depoisDaSituacao: false, acao: null });
   }
 
-  // A partir daqui a situação JÁ mudou no Bling. Uma falha nos lançamentos
-  // repete a operação — o GET do começo vê o destino e pula o PATCH.
+  // A partir daqui a situação JÁ mudou no Bling. Uma falha passageira repete
+  // a operação — o GET do começo vê o destino e pula o PATCH.
   const plano = planStatusChange({
     to: destino,
     accountsLaunched: !!deal.accounts_launched_at,
     stockLaunched: !!deal.stock_launched_at,
   });
   const automaticas = transitionActions(ctx.references, settings, origem, destino).actions;
+  const etapa = stageForStatus(ctx.stages, deal.pipeline_id ?? '', destino);
   const patch: Record<string, unknown> = {};
+  let acaoAtual: ActionKind | null = null;
+  let naoEstornadas = 0;
 
   try {
     if (plano.accounts) {
-      const desde = deal.sale_date || agora.slice(0, 10);
+      const desde = receivablesSince({
+        remoteOrderDate: dataDoPedido,
+        saleDate: deal.sale_date,
+        createdAt: deal.created_at,
+        now: agora,
+      });
       const contato = pedido.contact?.bling_contact_id ?? null;
       const consulta = () =>
         contasDaVenda(db, connection.id, { contactBlingId: contato, blingOrderId: String(deal.bling_order_id), desde }, deps);
@@ -164,7 +224,12 @@ export async function changeOrderStatus(
         let contas = await consulta();
         let como: string = automaticas.has('launch_accounts') ? 'transition' : 'found';
         if (contas.vivas === 0) {
+          acaoAtual = 'launch_accounts';
           await chamarAcao(db, connection.id, id, 'launch_accounts', deps);
+          acaoAtual = null;
+          // Carimba ANTES de conferir: se a conferência cair, a repetição
+          // não lança de novo.
+          patch.accounts_launched_at = agora;
           como = 'explicit';
           contas = await consulta();
         }
@@ -174,19 +239,33 @@ export async function changeOrderStatus(
         let contas = await consulta();
         let como: string = automaticas.has('reverse_accounts') ? 'transition' : 'found';
         if (contas.vivas > 0) {
+          acaoAtual = 'reverse_accounts';
           await chamarAcao(db, connection.id, id, 'reverse_accounts', deps);
+          acaoAtual = null;
           como = 'explicit';
           contas = await consulta();
         }
-        patch.accounts_launched_at = null;
-        eventos.push({ kind: 'accounts_reversed', to_status: destino, detail: { by: como, verified: contas.vivas === 0 } });
+        // O carimbo só sai com as contas estornadas DE FATO. Com contas vivas
+        // depois do estorno, o pedido fica divergente e o carimbo continua
+        // dizendo que há lançamento.
+        if (contas.vivas === 0) patch.accounts_launched_at = null;
+        else naoEstornadas = contas.vivas;
+        eventos.push({
+          kind: 'accounts_reversed',
+          to_status: destino,
+          detail: { by: como, verified: contas.vivas === 0, remaining: contas.vivas },
+        });
       }
     }
 
     if (plano.stock) {
       const tipo: ActionKind = plano.stock === 'launch' ? 'launch_stock' : 'reverse_stock';
       const pelaTransicao = automaticas.has(tipo);
-      if (!pelaTransicao) await chamarAcao(db, connection.id, id, tipo, deps);
+      if (!pelaTransicao) {
+        acaoAtual = tipo;
+        await chamarAcao(db, connection.id, id, tipo, deps);
+        acaoAtual = null;
+      }
       patch.stock_launched_at = plano.stock === 'launch' ? agora : null;
       eventos.push({
         kind: plano.stock === 'launch' ? 'stock_launched' : 'stock_reversed',
@@ -195,21 +274,32 @@ export async function changeOrderStatus(
       });
     }
   } catch (erro) {
-    // Os carimbos do que JÁ deu certo vão junto: repetir não relança.
-    const saida = desfechoDaMudanca(erro, eventos, origem, destino);
-    if (saida.status === 'succeeded' || Object.keys(patch).length === 0) return saida;
-    return { ...saida, dealPatch: { ...(saida.dealPatch ?? {}), ...patch } };
+    const doDestino = {
+      ...dealPatchForStatus(destino, etapa?.id ?? null),
+      last_synced_at: agora,
+      sync_version: (deal.sync_version ?? 0) + 1,
+    };
+    const saida = desfechoDaMudanca(erro, eventos, origem, destino, { depoisDaSituacao: true, acao: acaoAtual });
+    // Repetindo: só os carimbos do que JÁ deu certo — repetir não relança, e
+    // a próxima tentativa ainda precisa ver a situação de antes.
+    if (saida.status === 'retry') {
+      return { ...saida, dealPatch: { ...patch }, finalDealPatch: { ...doDestino, ...patch } };
+    }
+    if (saida.status === 'failed') return { ...saida, dealPatch: { ...doDestino, ...patch } };
+    return saida;
   }
 
-  const etapa = stageForStatus(ctx.stages, deal.pipeline_id ?? '', destino);
+  if (naoEstornadas > 0) {
+    eventos.push({ kind: 'divergence', to_status: destino, detail: { reason: 'accounts_not_reversed', remaining: naoEstornadas } });
+  }
   return {
     status: 'succeeded',
     result: { from: origem, to: destino, alreadyThere: jaNoDestino, stageId: etapa?.id ?? null },
     dealPatch: {
       ...patch,
       ...dealPatchForStatus(destino, etapa?.id ?? null),
-      sync_status: 'synced',
-      sync_error: null,
+      sync_status: naoEstornadas > 0 ? 'divergent' : 'synced',
+      sync_error: naoEstornadas > 0 ? 'accounts_not_reversed' : null,
       last_synced_at: agora,
       sync_version: (deal.sync_version ?? 0) + 1,
     },
@@ -247,11 +337,26 @@ function desfechoDaMudanca(
   erro: unknown,
   eventos: Evento[],
   origem: string,
-  destino: string
+  destino: string,
+  quando: { depoisDaSituacao: boolean; acao: ActionKind | null }
 ): OrderOutcome {
+  if (erro instanceof BlingLeaseLostError) {
+    return { status: 'retry', error: 'lease_lost', uncertain: false, events: eventos };
+  }
   if (erro instanceof BlingApiError) {
     if (erro.isTransient || erro.isRateLimited) {
       return { status: 'retry', error: textoDoErro(erro), uncertain: false, events: eventos };
+    }
+    if (quando.depoisDaSituacao) {
+      // A situação mudou; o lançamento é que falhou. Não é recusa da
+      // passagem — é o pedido lá e o financeiro/estoque por fazer.
+      eventos.push({
+        kind: 'divergence',
+        from_status: origem,
+        to_status: destino,
+        detail: { reason: 'action_failed', action: quando.acao, status: erro.status },
+      });
+      return { status: 'failed', error: textoDoErro(erro), events: eventos };
     }
     // A recusa do Bling, como está (§5, Fase 5): "nunca parecer que salvou".
     eventos.push({ kind: 'refused', from_status: origem, to_status: destino, detail: { status: erro.status } });

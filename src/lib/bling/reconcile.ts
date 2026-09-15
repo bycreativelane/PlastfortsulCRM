@@ -14,14 +14,19 @@ import { dealPatchForStatus, stageForStatus, statusFromBlingId } from './transit
  * O QUE MUDA NA OPORTUNIDADE
  * ------------------------------------------------------------------
  *
- * - Situação diferente da do CRM, sem operação do CRM em andamento para
- *   este pedido: foi mudança manual no Bling. `order_status` acompanha, a
- *   etapa acompanha (D1-B), fica em `deal_order_events` com a origem, e o
- *   responsável é avisado.
- * - Com operação do CRM na fila ou rodando: é o eco do que o próprio CRM
- *   pediu. Não se mexe — a operação termina e registra.
- * - Total diferente do gravado: "Divergente", com a diferença, uma vez.
+ * - Situação diferente da do CRM: foi mudança manual no Bling.
+ *   `order_status` acompanha, a etapa acompanha (D1-B), fica em
+ *   `deal_order_events` com a origem, e o responsável é avisado.
+ * - ECO é só o que uma operação do CRM na fila explica: a mudança de
+ *   situação pedida para ESTA situação, ou a criação que ainda não terminou.
+ *   Qualquer operação pendente fazendo tudo virar eco engolia o cancelamento
+ *   feito à mão enquanto uma atualização esperava a próxima tentativa.
+ * - Total diferente do gravado: "Divergente", com a diferença, uma vez — a
+ *   não ser com criação ou atualização por terminar, que é o CRM mandando.
  * - Pedido apagado no Bling: "Divergente" (`remote_missing`).
+ * - A chave achou uma oportunidade já ligada a OUTRO pedido: é um duplicado
+ *   lá (`duplicate_remote`), e nada dele é aplicado — nem número, nem
+ *   situação, nem cancelamento.
  * - Pedido que não nasceu no CRM (sem `CRM-ORC-`): ignorado no MVP.
  */
 
@@ -47,6 +52,7 @@ interface DealRow {
   bling_order_id: string | null;
   bling_order_number: string | null;
   sync_status: string | null;
+  sync_error?: string | null;
   sync_version: number | null;
   shipping_cost?: number | string | null;
   other_expenses?: number | string | null;
@@ -76,7 +82,12 @@ export async function notifyOrderOwner(
 ): Promise<void> {
   let destinatario: string | null = null;
   if (deal.assigned_to) {
-    const { data } = await db.from('profiles').select('user_id').eq('id', deal.assigned_to).maybeSingle();
+    const { data } = await db
+      .from('profiles')
+      .select('user_id')
+      .eq('id', deal.assigned_to)
+      .eq('account_id', deal.account_id)
+      .maybeSingle();
     destinatario = (data as { user_id?: string } | null)?.user_id ?? null;
   }
   destinatario ??= deal.user_id;
@@ -108,7 +119,7 @@ export async function applyRemoteOrder(
   const { remote, settings } = args;
   const agora = new Date((args.now ?? Date.now)()).toISOString();
   const colunas =
-    'id, account_id, user_id, assigned_to, contact_id, pipeline_id, order_status, bling_order_id, bling_order_number, sync_status, sync_version, shipping_cost, other_expenses, general_discount, general_discount_unit';
+    'id, account_id, user_id, assigned_to, contact_id, pipeline_id, order_status, bling_order_id, bling_order_number, sync_status, sync_error, sync_version, shipping_cost, other_expenses, general_discount, general_discount_unit';
 
   let { data: achado } = await db
     .from('deals')
@@ -129,14 +140,43 @@ export async function applyRemoteOrder(
   if (!achado) return 'ignored';
   const deal = achado as DealRow;
 
-  // Eco: o CRM tem operação por terminar para este pedido.
+  // A chave achou uma oportunidade ligada a OUTRO pedido: este é um
+  // duplicado no Bling. Nada dele vale para a oportunidade — o número dele
+  // no PDF, o cancelamento dele perdendo a venda do pedido de verdade.
+  if (deal.bling_order_id && deal.bling_order_id !== remote.id) {
+    // Apagar o duplicado é a solução, não uma divergência.
+    if (remote.deleted || deal.sync_error === 'duplicate_remote') return 'ignored';
+    const { error } = await db
+      .from('deals')
+      .update({ sync_status: 'divergent', sync_error: 'duplicate_remote' })
+      .eq('id', deal.id)
+      .eq('account_id', deal.account_id);
+    if (error) throw new Error(`[bling] não consegui marcar o pedido duplicado: ${error.message}`);
+    await db.from('deal_order_events').insert({
+      account_id: deal.account_id,
+      deal_id: deal.id,
+      source: args.source,
+      kind: 'divergence',
+      detail: { reason: 'duplicate_remote', remoteId: remote.id, number: remote.numero },
+    });
+    await notifyOrderOwner(db, deal, 'divergent');
+    return 'diverged';
+  }
+
+  // O que as operações do CRM por terminar explicam (o eco).
   const { data: pendentes } = await db
     .from('bling_operations')
-    .select('id')
+    .select('kind, params')
+    .eq('account_id', args.accountId)
     .eq('deal_id', deal.id)
-    .in('status', ['queued', 'running', 'uncertain'])
-    .limit(1);
-  if ((pendentes ?? []).length > 0) return 'echo';
+    .in('status', ['queued', 'running', 'uncertain']);
+  const operacoes = (pendentes ?? []) as Array<{ kind: string; params: Record<string, unknown> | null }>;
+  const conteudoPendente = operacoes.some((o) => o.kind === 'create_order' || o.kind === 'update_order');
+  const situacoesPedidas = new Set(
+    operacoes.filter((o) => o.kind === 'change_status').map((o) => String(o.params?.to ?? ''))
+  );
+  const criacaoPendente = operacoes.some((o) => o.kind === 'create_order');
+  let eco = false;
 
   const origem = args.source;
   const eventos: Array<Record<string, unknown>> = [];
@@ -154,7 +194,11 @@ export async function applyRemoteOrder(
     }
   } else {
     const status = statusFromBlingId(settings, remote.situacaoId);
-    if (status && status !== deal.order_status) {
+    const pedidoPeloCrm =
+      status !== null && (situacoesPedidas.has(status) || (criacaoPendente && !deal.order_status && status === 'em_aberto'));
+    if (status && status !== deal.order_status && pedidoPeloCrm) {
+      eco = true;
+    } else if (status && status !== deal.order_status) {
       let etapaId: string | null = null;
       if (deal.pipeline_id) {
         const { data: etapas } = await db
@@ -179,8 +223,15 @@ export async function applyRemoteOrder(
       aviso = 'manual_change';
     }
 
-    if (remote.total !== null) {
-      const { data: itens } = await db.from('deal_items').select('name, quantity, unit_price, discount_percent').eq('deal_id', deal.id);
+    if (remote.total !== null && conteudoPendente) {
+      // O CRM está mandando o pedido: o total de lá ainda é o de antes.
+      eco = true;
+    } else if (remote.total !== null) {
+      const { data: itens } = await db
+        .from('deal_items')
+        .select('name, quantity, unit_price, discount_percent')
+        .eq('deal_id', deal.id)
+        .eq('account_id', deal.account_id);
       const local = sourceTotals(deal as Parameters<typeof sourceTotals>[0], (itens ?? []) as OrderSourceItem[]).totalCents;
       const remoto = toCents(remote.total);
       if (remoto !== local && deal.sync_status !== 'divergent') {
@@ -191,9 +242,9 @@ export async function applyRemoteOrder(
     }
   }
 
-  if (Object.keys(patch).length === 0) return 'unchanged';
+  if (Object.keys(patch).length === 0) return eco ? 'echo' : 'unchanged';
 
-  const { error } = await db.from('deals').update(patch).eq('id', deal.id);
+  const { error } = await db.from('deals').update(patch).eq('id', deal.id).eq('account_id', deal.account_id);
   if (error) throw new Error(`[bling] não consegui aplicar o pedido do Bling: ${error.message}`);
 
   if (eventos.length) {

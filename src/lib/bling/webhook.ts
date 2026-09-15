@@ -91,12 +91,15 @@ export async function receiveWebhook(
   const env = parseWebhook(corpo);
   if (!env) return { status: 400, body: { error: 'invalid_payload' } };
 
-  const { data: conexao } = await db
+  const { data: conexao, error: erroConexao } = await db
     .from('bling_connections')
     .select('id, account_id')
     .eq('company_id', env.companyId)
     .neq('status', 'revoked')
     .maybeSingle();
+  // Uma falha de leitura não é "empresa desconhecida": 500, e o Bling
+  // retenta. (Duas conexões vivas da mesma empresa não existem desde a 090.)
+  if (erroConexao) throw new Error(`[bling] não consegui achar a conexão do webhook: ${erroConexao.message}`);
   // Empresa que ninguém conectou: 2xx assim mesmo. Um erro faria o Bling
   // retentar por três dias e desabilitar o webhook do aplicativo inteiro.
   if (!conexao) return { status: 200, body: { ignored: 'unknown_company' } };
@@ -137,30 +140,47 @@ interface EventoLinha {
   summary: Record<string, unknown>;
 }
 
-/** Processa eventos pegos com lease: um específico (after) ou os pendentes (cron). */
+/** Uma linha do claim: `{ id, lock_token }` desde a 090 (a 089 devolvia só o id). */
+function lerPega(bruto: unknown): { id: string; lockToken: string | null } | null {
+  if (typeof bruto === 'string') return { id: bruto, lockToken: null };
+  if (!bruto || typeof bruto !== 'object') return null;
+  const o = bruto as { id?: unknown; lock_token?: unknown; bling_claim_webhook_events?: unknown };
+  const id = typeof o.id === 'string' ? o.id : typeof o.bling_claim_webhook_events === 'string' ? o.bling_claim_webhook_events : null;
+  if (!id) return null;
+  return { id, lockToken: typeof o.lock_token === 'string' ? o.lock_token : null };
+}
+
+/**
+ * Processa eventos pegos com lease, UM de cada vez: um específico (after) ou
+ * os pendentes (cron), até `limit`. Cada um com lease próprio, e o término
+ * com compare-and-set pelo `lock_token` (090): um processo que demorou mais
+ * que o lease não sobrescreve o que o outro gravou.
+ */
 export async function processWebhookEvents(
   db: SupabaseClient,
   alvo: { eventRowId?: string | null; limit?: number },
   opcoes: { deps?: ClientDeps; now?: () => number } = {}
 ): Promise<number> {
-  const { data: ids, error } = await db.rpc('bling_claim_webhook_events', {
-    p_event_id: alvo.eventRowId ?? null,
-    p_limit: alvo.limit ?? 20,
-    p_lease_seconds: 120,
-  });
-  if (error) {
-    console.error('[bling] não consegui pegar webhooks:', error.message);
-    return 0;
-  }
-
+  const limite = alvo.eventRowId ? 1 : Math.max(1, Math.min(alvo.limit ?? 20, 100));
   let feitos = 0;
-  for (const bruto of (ids ?? []) as Array<string | { bling_claim_webhook_events?: string }>) {
-    const id = typeof bruto === 'string' ? bruto : bruto.bling_claim_webhook_events;
-    if (!id) continue;
+
+  for (let volta = 0; volta < limite; volta++) {
+    const { data, error } = await db.rpc('bling_claim_webhook_events', {
+      p_event_id: alvo.eventRowId ?? null,
+      p_limit: 1,
+      p_lease_seconds: 120,
+    });
+    if (error) {
+      console.error('[bling] não consegui pegar webhooks:', error.message);
+      break;
+    }
+    const pega = lerPega(((data ?? []) as unknown[])[0]);
+    if (!pega) break;
+
     const { data: linha } = await db
       .from('bling_webhook_events')
       .select('id, account_id, connection_id, event, resource_id, summary')
-      .eq('id', id)
+      .eq('id', pega.id)
       .maybeSingle();
     if (!linha) continue;
 
@@ -175,15 +195,18 @@ export async function processWebhookEvents(
       status = passageiro ? 'pending' : 'failed';
       erro = (e instanceof Error ? e.message : String(e)).slice(0, 600);
     }
-    await db
+    let termino = db
       .from('bling_webhook_events')
       .update({
         status,
         error: erro,
         locked_until: null,
+        lock_token: null,
         processed_at: status === 'pending' ? null : new Date((opcoes.now ?? Date.now)()).toISOString(),
       })
-      .eq('id', id);
+      .eq('id', pega.id);
+    if (pega.lockToken) termino = termino.eq('lock_token', pega.lockToken);
+    await termino;
     feitos++;
   }
   return feitos;

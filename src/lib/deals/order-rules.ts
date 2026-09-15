@@ -201,11 +201,39 @@ export interface ReadinessCarrier {
   bling_contact_id: string | null;
 }
 
+/**
+ * O produto como está AGORA no catálogo — o que a linha congelou dele tem de
+ * bater, ou a linha foi montada com um produto que mudou (ou foi forjada:
+ * o snapshot é escrito pelo navegador).
+ */
+export interface ProductFacts {
+  blingProductId: string | null;
+  blingProductType: string | null;
+  /** A categoria que o produto resolve hoje (produto → família → padrão). */
+  revenueCategoryBlingId: string | null;
+  definesOrderCategory: boolean;
+}
+
+/** O snapshot da linha ainda é o do produto? */
+export function snapshotMatches(linha: ReadinessLine, produto: ProductFacts): boolean {
+  return (
+    (linha.blingProductId ?? null) === produto.blingProductId &&
+    (linha.blingProductType ?? null) === produto.blingProductType &&
+    (linha.revenueCategoryBlingId ?? null) === produto.revenueCategoryBlingId &&
+    (linha.definesOrderCategory !== false) === produto.definesOrderCategory
+  );
+}
+
 export interface ReadinessInput {
   contact: FiscalFacts | null;
   lines: ReadinessLine[];
   /** Produtos do catálogo ativos, por id — linha de produto fora dele está inativa. */
   activeProductIds: ReadonlySet<string> | null;
+  /**
+   * Os produtos ativos como estão agora, por id. Com ele, a linha cujo
+   * snapshot não bate com o produto conta como sem vínculo (`staleLines`).
+   */
+  currentProducts?: ReadonlyMap<string, ProductFacts> | null;
   weightExceptionNote: string | null;
   chosenCategoryId: string | null;
   installments: InstallmentLine[];
@@ -223,6 +251,8 @@ export interface Readiness {
   installments: InstallmentsCheck;
   /** Índices das linhas sem vínculo com o Bling, ou de produto inativo. */
   unlinkedLines: number[];
+  /** Entre as sem vínculo: as de produto ativo que mudou depois de entrar na linha. */
+  staleLines: number[];
 }
 
 /**
@@ -244,13 +274,26 @@ export function orderReadiness(input: ReadinessInput): Readiness {
 
   // D6: com a integração ligada, produto sem vínculo não entra em pedido — e
   // texto livre também não, porque o Bling não tem de onde tirar o item.
+  const produtos = input.currentProducts ?? null;
+  const staleLines = produtos
+    ? input.lines
+        .map((linha, i) => ({ linha, i }))
+        .filter(({ linha }) => {
+          if (linha.productId === null) return false;
+          const produto = produtos.get(linha.productId);
+          return produto !== undefined && !snapshotMatches(linha, produto);
+        })
+        .map(({ i }) => i)
+    : [];
   const unlinkedLines = input.lines
     .map((linha, i) => ({ linha, i }))
     .filter(
-      ({ linha }) =>
+      ({ linha, i }) =>
         !linha.blingProductId ||
         linha.productId === null ||
-        (input.activeProductIds !== null && !input.activeProductIds.has(linha.productId))
+        (input.activeProductIds !== null && !input.activeProductIds.has(linha.productId)) ||
+        (produtos !== null && !produtos.has(linha.productId)) ||
+        staleLines.includes(i)
     )
     .map(({ i }) => i);
 
@@ -311,5 +354,6 @@ export function orderReadiness(input: ReadinessInput): Readiness {
     category,
     installments,
     unlinkedLines,
+    staleLines,
   };
 }

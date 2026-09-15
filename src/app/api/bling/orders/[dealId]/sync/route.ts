@@ -4,7 +4,7 @@ import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import { blingAdmin } from '@/lib/bling/admin-client';
 import { blingOAuthConfig } from '@/lib/bling/oauth';
 import { enqueueOrderSync, runOperations } from '@/lib/bling/operations';
-import { activeProductIds, loadOrderForBling, readinessOfLoaded } from '@/lib/bling/orders';
+import { loadOrderForBling, readinessOfLoaded } from '@/lib/bling/orders';
 import { orderLock } from '@/lib/deals/order-lock';
 
 /**
@@ -35,9 +35,14 @@ export async function POST(_request: Request, { params }: { params: Promise<{ de
     if (orderLock(pedido.deal.order_status, pedido.deal.accounts_launched_at) !== 'open') {
       return NextResponse.json({ error: 'order_locked' }, { status: 409 });
     }
+    // Compra futura destrava o pedido no CRM, mas o Bling só aceita PUT Em
+    // aberto: volte para Em aberto, sincronize, e siga.
+    if (pedido.deal.order_status && pedido.deal.order_status !== 'em_aberto') {
+      return NextResponse.json({ error: 'order_not_open' }, { status: 409 });
+    }
 
-    const ids = pedido.items.map((i) => i.product_id).filter((id): id is string => !!id);
-    const prontidao = readinessOfLoaded(pedido, await activeProductIds(db, ctx.accountId, ids));
+    // Com o snapshot de cada linha conferido contra o produto de agora.
+    const prontidao = readinessOfLoaded(pedido);
     if (!prontidao.ready) {
       return NextResponse.json(
         { error: 'not_ready', missing: prontidao.items.filter((i) => !i.ok).map((i) => i.key) },

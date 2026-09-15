@@ -91,3 +91,13 @@ export function isJobDue(job: SyncJobRow | null, maxAgeMs: number, now: number =
   const ultimo = Date.parse(job.last_success_at);
   return Number.isNaN(ultimo) || now - ultimo >= maxAgeMs;
 }
+
+/**
+ * O que o tique do cron conta como trabalho LONGO — um por tique: cadastros
+ * ou produtos. A fila de pedidos, os webhooks, a reconciliação e a retenção
+ * não contam. Contavam: com os pedidos ligados, todo tique tinha "webhooks",
+ * e cadastros e produtos nunca mais eram importados.
+ */
+export function isLongCronJob(iniciado: string): boolean {
+  return iniciado.startsWith('references:') || iniciado.startsWith('products:');
+}

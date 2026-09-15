@@ -5,7 +5,16 @@ import { encrypt } from '@/lib/whatsapp/encryption';
 import { fakeDb } from './fake-db';
 import { BLING_TOKEN_URL, type FetchLike } from './oauth';
 import { externalKey } from './order-payload';
-import { loadOrderForBling, orderSourceHash, syncOrder } from './orders';
+import { BlingApiError } from './errors';
+import {
+  loadOrderForBling,
+  orderIsSynced,
+  orderMatchesBling,
+  orderSourceHash,
+  readinessOfLoaded,
+  syncOrder,
+  textoDoErro,
+} from './orders';
 
 const CONFIG = { clientId: 'id', clientSecret: 's', redirectUri: 'https://crm.example.com/cb' };
 const AGORA = Date.parse('2026-09-15T12:00:00.000Z');
@@ -56,6 +65,7 @@ function banco(extras: { deal?: Linha; settings?: Linha | null } = {}) {
       ],
       deal_items: [
         {
+          account_id: 'acc-1',
           deal_id: DEAL,
           product_id: 'p-1',
           name: 'Lona 4x5',
@@ -71,11 +81,12 @@ function banco(extras: { deal?: Linha; settings?: Linha | null } = {}) {
         },
       ],
       deal_installments: [
-        { deal_id: DEAL, position: 0, due_on: '2026-10-15', amount: 100, note: null, payment_method_bling_id: '7001' },
+        { account_id: 'acc-1', deal_id: DEAL, position: 0, due_on: '2026-10-15', amount: 100, note: null, payment_method_bling_id: '7001' },
       ],
       contacts: [
         {
           id: 'c-1',
+          account_id: 'acc-1',
           name: 'Cliente Exemplo',
           company: 'Empresa Exemplo',
           tax_id: CNPJ,
@@ -90,9 +101,13 @@ function banco(extras: { deal?: Linha; settings?: Linha | null } = {}) {
         },
       ],
       carriers: [
-        { id: 'car-1', name: 'Cliente retira', bling_contact_id: null, bling_contact_name: null, default_freight_payer_code: '9', is_customer_pickup: true },
+        { id: 'car-1', account_id: 'acc-1', name: 'Cliente retira', bling_contact_id: null, bling_contact_name: null, default_freight_payer_code: '9', is_customer_pickup: true },
       ],
-      profiles: [{ id: 'prof-1', user_id: 'user-1' }],
+      profiles: [{ id: 'prof-1', account_id: 'acc-1', user_id: 'user-1' }],
+      // O produto como está agora: o snapshot da linha tem de bater (090).
+      products: [
+        { id: 'p-1', account_id: 'acc-1', active: true, bling_product_id: '1600', bling_product_type: null, bling_family_id: null, revenue_category_bling_id: '901', defines_order_category: true },
+      ],
       bling_seller_links: [{ account_id: 'acc-1', user_id: 'user-1', bling_seller_id: '321', company_id: 'emp-1' }],
       bling_references: [{ account_id: 'acc-1', kind: 'contact_type', bling_id: '44', label: 'Cliente', removed_at: null }],
     },
@@ -312,5 +327,119 @@ describe('syncOrder — atualizar', () => {
     const r = await syncOrder(db.client, (await loadOrderForBling(db.client, 'acc-1', DEAL))!, 'update_order', opcoes(bling.impl));
     expect(r).toMatchObject({ status: 'failed', error: 'order_launched' });
     expect(bling.chamadas).toEqual([]);
+  });
+});
+
+describe('auditoria da 0.11.0 — o que o servidor confere antes de mandar', () => {
+  it('cadastro de outra conta apontado pela oportunidade não entra no pedido', async () => {
+    const db = banco();
+    db.tables.contacts[0].account_id = 'outra-conta';
+    db.tables.carriers[0].account_id = 'outra-conta';
+    db.tables.deal_items[0].account_id = 'outra-conta';
+    const pedido = (await loadOrderForBling(db.client, 'acc-1', DEAL))!;
+    expect(pedido.contact).toBeNull();
+    expect(pedido.carrier).toBeNull();
+    expect(pedido.items).toHaveLength(0);
+  });
+
+  it('snapshot que não bate com o produto de agora: a linha conta como sem vínculo, e nada vai ao Bling', async () => {
+    const db = banco();
+    // O navegador gravou outro produto do Bling na linha.
+    db.tables.deal_items[0].bling_product_id = '9999';
+    const bling = blingFalso();
+    const pedido = (await loadOrderForBling(db.client, 'acc-1', DEAL))!;
+    expect(readinessOfLoaded(pedido).staleLines).toEqual([0]);
+    const r = await syncOrder(db.client, pedido, 'create_order', opcoes(bling.impl));
+    expect(r).toMatchObject({ status: 'failed', error: 'payload:item_not_linked' });
+    expect(bling.chamadas).toEqual([]);
+  });
+
+  it('categoria forjada na linha também não passa', async () => {
+    const db = banco();
+    db.tables.deal_items[0].revenue_category_bling_id = '902';
+    const pedido = (await loadOrderForBling(db.client, 'acc-1', DEAL))!;
+    expect(readinessOfLoaded(pedido).unlinkedLines).toEqual([0]);
+  });
+
+  it('produto inativo ou texto livre com vínculo forjado: sem vínculo', async () => {
+    const db = banco();
+    db.tables.products[0].active = false;
+    let pedido = (await loadOrderForBling(db.client, 'acc-1', DEAL))!;
+    expect(readinessOfLoaded(pedido).unlinkedLines).toEqual([0]);
+    db.tables.products[0].active = true;
+    db.tables.deal_items[0].product_id = null;
+    pedido = (await loadOrderForBling(db.client, 'acc-1', DEAL))!;
+    expect(readinessOfLoaded(pedido).unlinkedLines).toEqual([0]);
+  });
+
+  it('exceção de peso só vale autorizada por admin da conta', async () => {
+    const db = banco({ deal: { weight_exception_note: 'sem balança hoje', weight_exception_by: 'user-1' } });
+    const itemSemPeso = (p: Awaited<ReturnType<typeof loadOrderForBling>>) =>
+      readinessOfLoaded(p!).items.find((i) => i.key === 'weight')?.ok;
+    // user-1 é agente (sem papel de admin no perfil).
+    db.tables.profiles[0].account_role = 'agent';
+    expect(itemSemPeso(await loadOrderForBling(db.client, 'acc-1', DEAL))).toBe(false);
+    db.tables.profiles[0].account_role = 'admin';
+    expect(itemSemPeso(await loadOrderForBling(db.client, 'acc-1', DEAL))).toBe(true);
+  });
+
+  it('o resumo ignora o vínculo do contato e as colunas que não vão ao Bling', async () => {
+    const db = banco();
+    const a = orderSourceHash((await loadOrderForBling(db.client, 'acc-1', DEAL))!);
+    db.tables.contacts[0].bling_contact_id = '7777';
+    db.tables.contacts[0].last_message_at = '2026-09-15T12:00:00Z';
+    db.tables.contacts[0].tags = ['vip'];
+    db.tables.carriers[0].updated_at = '2026-09-15T12:00:00Z';
+    expect(orderSourceHash((await loadOrderForBling(db.client, 'acc-1', DEAL))!)).toBe(a);
+    db.tables.contacts[0].street_number = '2';
+    expect(orderSourceHash((await loadOrderForBling(db.client, 'acc-1', DEAL))!)).not.toBe(a);
+  });
+
+  it('criar grava o resumo do que o Bling recebeu; mudar o pedido depois dessincroniza', async () => {
+    const db = banco();
+    const bling = blingFalso();
+    const pedido = (await loadOrderForBling(db.client, 'acc-1', DEAL))!;
+    const r = await syncOrder(db.client, pedido, 'create_order', opcoes(bling.impl));
+    expect(r.status).toBe('succeeded');
+    if (r.status !== 'succeeded') return;
+    expect(r.dealPatch.bling_source_hash).toBe(orderSourceHash(pedido));
+
+    Object.assign(db.tables.deals[0], r.dealPatch);
+    expect(orderIsSynced((await loadOrderForBling(db.client, 'acc-1', DEAL))!)).toBe(true);
+    db.tables.deal_installments[0].due_on = '2026-10-20';
+    const mudado = (await loadOrderForBling(db.client, 'acc-1', DEAL))!;
+    expect(orderMatchesBling(mudado)).toBe(false);
+    expect(orderIsSynced(mudado)).toBe(false);
+  });
+
+  it('Compra futura: atualizar não consulta o Bling nem marca divergente', async () => {
+    const db = banco({ deal: { bling_order_id: '5001', order_status: 'compra_futura' } });
+    const bling = blingFalso({ existentes: [{ id: 5001, numero: 14501, numeroLoja: externalKey(DEAL) }] });
+    const r = await syncOrder(db.client, (await loadOrderForBling(db.client, 'acc-1', DEAL))!, 'update_order', opcoes(bling.impl));
+    expect(r).toEqual({ status: 'failed', error: 'order_not_open' });
+    expect(bling.chamadas).toEqual([]);
+  });
+
+  it('já ligado pela reconciliação: termina sincronizado e Em aberto', async () => {
+    const db = banco({ deal: { bling_order_id: '77' } });
+    const r = await syncOrder(db.client, (await loadOrderForBling(db.client, 'acc-1', DEAL))!, 'create_order', opcoes(blingFalso().impl));
+    expect(r).toMatchObject({ status: 'succeeded', dealPatch: { sync_status: 'synced', order_status: 'em_aberto' } });
+  });
+});
+
+describe('textoDoErro — sem dado do cliente', () => {
+  it('mensagem de campo do contato ou do endereço sai só com o nome do campo', () => {
+    const erro = new BlingApiError(400, 'VALIDATION_ERROR', 'Não foi possível salvar', {
+      fields: [
+        { code: 1, message: 'CEP 90000000 da Rua de Teste inválido', element: 'contato.endereco.cep' },
+        { code: 2, message: 'IE não confere com a UF', element: 'ie' },
+        { code: 3, message: 'Id da forma de pagamento inválido.', element: 'parcelas[0].formaPagamento' },
+      ],
+    });
+    const texto = textoDoErro(erro);
+    expect(texto).toContain('contato.endereco.cep: [omitido]');
+    expect(texto).toContain('ie: [omitido]');
+    expect(texto).not.toContain('Rua de Teste');
+    expect(texto).toContain('Id da forma de pagamento inválido.');
   });
 });

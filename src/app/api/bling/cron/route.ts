@@ -2,7 +2,7 @@ import { timingSafeEqual } from 'crypto';
 import { after, NextResponse } from 'next/server';
 
 import { blingAdmin } from '@/lib/bling/admin-client';
-import { claimSync, isJobDue, loadJob } from '@/lib/bling/jobs';
+import { claimSync, isJobDue, isLongCronJob, loadJob } from '@/lib/bling/jobs';
 import { blingOAuthConfig } from '@/lib/bling/oauth';
 import type { BlingSettingsRow } from '@/lib/bling/health';
 import { runOperations } from '@/lib/bling/operations';
@@ -116,9 +116,8 @@ export async function GET(request: Request) {
   }
 
   for (const conexao of (conexoes ?? []) as Array<{ id: string; account_id: string; company_id: string }>) {
-    // Um trabalho LONGO por tique (cadastros ou produtos); a fila acima não
-    // conta, porque são chamadas curtas.
-    if (iniciados.some((i) => !i.startsWith('operations:'))) break;
+    // Um trabalho LONGO por tique (cadastros ou produtos) — `isLongCronJob`.
+    if (iniciados.some(isLongCronJob)) break;
 
     // Cadastros primeiro: a importação de produtos lê o rótulo das famílias
     // do cache que eles preenchem.

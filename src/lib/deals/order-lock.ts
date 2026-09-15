@@ -47,6 +47,7 @@ export const SERVER_COLUMNS = [
   'bling_order_id',
   'bling_external_key',
   'bling_order_number',
+  'bling_source_hash',
   'sync_status',
   'sync_version',
   'sync_error',

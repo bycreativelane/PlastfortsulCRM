@@ -208,3 +208,39 @@ describe('completeAuthorization — a ordem do callback', () => {
     expect(bling.trocas()).toBe(0);
   });
 });
+
+describe('completeAuthorization — uma empresa do Bling, uma conta do CRM (090)', () => {
+  it('a empresa já está conectada em OUTRA conta: recusa, revoga a nova e não grava', async () => {
+    const db = montar({
+      tables: { bling_connections: [conexaoExistente({ id: 'conn-9', account_id: 'outra-conta', company_id: 'empresa-b' })] },
+    });
+    const bling = blingFalso(db);
+
+    const resultado = await completeAuthorization(ENTRADA, { db: db.client, fetchImpl: bling.impl });
+    expect(resultado.outcome).toBe('company_in_use');
+    expect(bling.revogados).toEqual(['refresh-novo']);
+    expect(db.tables.bling_connections).toHaveLength(1);
+    expect(db.tables.bling_connections[0].account_id).toBe('outra-conta');
+  });
+
+  it('conexão REVOGADA da mesma empresa em outra conta não impede', async () => {
+    const db = montar({
+      tables: {
+        bling_connections: [conexaoExistente({ id: 'conn-9', account_id: 'outra-conta', company_id: 'empresa-b', status: 'revoked' })],
+      },
+    });
+    const bling = blingFalso(db);
+    const resultado = await completeAuthorization(ENTRADA, { db: db.client, fetchImpl: bling.impl, now: () => AGORA });
+    expect(resultado.outcome).toBe('connected');
+  });
+
+  it('a corrida que o índice da 090 pega: também é empresa em uso, e revoga', async () => {
+    const db = montar({
+      errors: { 'upsert bling_connections': { code: '23505', message: 'idx_bling_connections_company_live' } },
+    });
+    const bling = blingFalso(db);
+    const resultado = await completeAuthorization(ENTRADA, { db: db.client, fetchImpl: bling.impl });
+    expect(resultado.outcome).toBe('company_in_use');
+    expect(bling.revogados).toEqual(['refresh-novo']);
+  });
+});

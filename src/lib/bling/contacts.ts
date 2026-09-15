@@ -204,7 +204,7 @@ export async function resolveBlingContact(
   db: SupabaseClient,
   connectionId: string,
   contato: CrmContact,
-  opcoes: { clientTypeId?: string | null; deps?: ClientDeps } = {}
+  opcoes: { clientTypeId?: string | null; deps?: ClientDeps; accountId?: string } = {}
 ): Promise<ResolvedContact> {
   const deps = opcoes.deps ?? {};
   const local = contactToBling(contato, opcoes.clientTypeId ?? null);
@@ -296,7 +296,10 @@ export async function resolveBlingContact(
   }
 
   if (contato.bling_contact_id !== blingId) {
-    const { error } = await db.from('contacts').update({ bling_contact_id: blingId }).eq('id', contato.id);
+    // Com a conta no filtro: o service role passa por cima da RLS.
+    let gravacao = db.from('contacts').update({ bling_contact_id: blingId }).eq('id', contato.id);
+    if (opcoes.accountId) gravacao = gravacao.eq('account_id', opcoes.accountId);
+    const { error } = await gravacao;
     // 23505: outro contato do CRM já aponta para este cliente do Bling — dois
     // cadastros da mesma pessoa. Não liga; a pessoa resolve.
     if (error?.code === '23505') throw new BlingContactError('contact_ambiguous', 'crm');

@@ -98,6 +98,18 @@ export class BlingConnectionError extends Error {
   }
 }
 
+/**
+ * O processo perdeu o lease da operação antes de escrever no Bling (090).
+ *
+ * Outro processo é o dono agora: quem recebe este erro para sem escrever, e
+ * o término dele não grava nada (o compare-and-set pelo `lock_token` falha).
+ */
+export class BlingLeaseLostError extends Error {
+  constructor(readonly operationId: string) {
+    super(`[bling] a operação ${operationId} passou para outro processo antes da escrita`);
+  }
+}
+
 function texto(valor: unknown): string | null {
   return typeof valor === 'string' && valor.trim() ? valor.trim() : null;
 }
@@ -171,7 +183,12 @@ export function sanitizeBlingText(valor: string): string {
     .replace(/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g, '[e-mail]')
     .replace(/\b\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2}\b/g, '[documento]')
     .replace(/\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b/g, '[documento]')
+    // RG e inscrição estadual com pontuação: "12.345.678-9", "123.456.789.012".
+    .replace(/\b\d{1,3}(?:\.\d{3}){2,}(?:[-/][\dXx]{1,2})?\b/g, '[documento]')
     .replace(/(?:\+?55\s?)?\(?\b\d{2}\)?\s?9?\d{4}[-\s]?\d{4}\b/g, '[telefone]')
+    .replace(/\b\d{5}-\d{3}\b/g, '[cep]')
+    // Número comprido sem pontuação: RG, IE, CEP e documento digitados crus.
+    .replace(/\b\d{8,}\b/g, '[número]')
     .replace(/\b[A-Za-z0-9_-]{32,}\b/g, '[token]')
     .replace(/\s+/g, ' ')
     .trim()

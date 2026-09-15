@@ -44,7 +44,7 @@ function banco(deal: Record<string, unknown> = {}) {
           ...deal,
         },
       ],
-      deal_items: [{ deal_id: 'd-1', name: 'Lona', quantity: 2, unit_price: 50, discount_percent: 0 }],
+      deal_items: [{ account_id: 'acc-1', deal_id: 'd-1', name: 'Lona', quantity: 2, unit_price: 50, discount_percent: 0 }],
       pipeline_stages: [
         { id: 's-atendido', name: 'Atendido', pipeline_id: 'p-1' },
         { id: 's-perdida', name: 'Venda Perdida', pipeline_id: 'p-1' },
@@ -160,5 +160,63 @@ describe('saúde', () => {
     expect(webhookLooksSilent({ ordersEnabled: true, lastWebhookAt: '2026-09-15T10:00:00Z', reconcileFoundAt: '2026-09-15T12:00:00Z' })).toBe(true);
     expect(webhookLooksSilent({ ordersEnabled: true, lastWebhookAt: '2026-09-15T11:50:00Z', reconcileFoundAt: '2026-09-15T12:00:00Z' })).toBe(false);
     expect(webhookLooksSilent({ ordersEnabled: false, lastWebhookAt: null, reconcileFoundAt: '2026-09-15T12:00:00Z' })).toBe(false);
+  });
+});
+
+describe('applyRemoteOrder — auditoria da 0.11.0', () => {
+  it('a chave acha uma oportunidade ligada a OUTRO pedido: duplicado, e nada dele é aplicado', async () => {
+    const db = banco();
+    const duplicado = remoto({ id: '5002', numero: '14502', situacaoId: '12' });
+    expect(await applyRemoteOrder(db.client, { accountId: 'acc-1', settings: SETTINGS, remote: duplicado, source: 'bling' })).toBe('diverged');
+    expect(db.tables.deals[0]).toMatchObject({
+      bling_order_id: '5001',
+      bling_order_number: '14501',
+      order_status: 'em_andamento',
+      sync_status: 'divergent',
+      sync_error: 'duplicate_remote',
+    });
+    expect(db.tables.deals[0]).not.toHaveProperty('lost_reason');
+    expect(db.tables.deal_order_events[0]).toMatchObject({ kind: 'divergence', detail: { reason: 'duplicate_remote', remoteId: '5002' } });
+    expect(db.tables.notifications).toHaveLength(1);
+    // Uma vez só; e apagar o duplicado é a solução, não outra divergência.
+    expect(await applyRemoteOrder(db.client, { accountId: 'acc-1', settings: SETTINGS, remote: duplicado, source: 'bling' })).toBe('ignored');
+  });
+
+  it('duplicado apagado no Bling: ignorado', async () => {
+    const db = banco();
+    expect(
+      await applyRemoteOrder(db.client, { accountId: 'acc-1', settings: SETTINGS, remote: remoto({ id: '5002', deleted: true }), source: 'bling' })
+    ).toBe('ignored');
+    expect(db.tables.deals[0]).toMatchObject({ sync_status: 'synced' });
+  });
+
+  it('atualização do CRM esperando a próxima tentativa não engole o cancelamento feito à mão', async () => {
+    const db = banco();
+    db.tables.bling_operations.push({ id: 'op-1', account_id: 'acc-1', deal_id: 'd-1', kind: 'update_order', params: {}, status: 'queued' });
+    const r = await applyRemoteOrder(db.client, {
+      accountId: 'acc-1',
+      settings: SETTINGS,
+      remote: remoto({ situacaoId: '12', total: 99.99 }),
+      source: 'reconcile',
+      now: () => AGORA,
+    });
+    expect(r).toBe('updated');
+    expect(db.tables.deals[0]).toMatchObject({ order_status: 'cancelado', status: 'lost' });
+    // O total de lá ainda é o de antes da atualização: não é divergência.
+    expect(db.tables.deals[0].sync_status).toBe('synced');
+  });
+
+  it('eco de verdade: a mudança pedida pelo CRM para esta situação', async () => {
+    const db = banco();
+    db.tables.bling_operations.push({ id: 'op-1', account_id: 'acc-1', deal_id: 'd-1', kind: 'change_status', params: { to: 'atendido' }, status: 'running' });
+    expect(await applyRemoteOrder(db.client, { accountId: 'acc-1', settings: SETTINGS, remote: remoto({ situacaoId: '9' }), source: 'bling' })).toBe('echo');
+    expect(db.tables.deals[0].order_status).toBe('em_andamento');
+    expect(db.tables.notifications).toHaveLength(0);
+  });
+
+  it('linha de outra conta não entra na soma do total', async () => {
+    const db = banco();
+    db.tables.deal_items.push({ account_id: 'outra', deal_id: 'd-1', name: 'Forjada', quantity: 1, unit_price: 1000, discount_percent: 0 });
+    expect(await applyRemoteOrder(db.client, { accountId: 'acc-1', settings: SETTINGS, remote: remoto(), source: 'reconcile' })).toBe('unchanged');
   });
 });

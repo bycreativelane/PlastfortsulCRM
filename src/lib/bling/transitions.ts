@@ -50,6 +50,20 @@ export function canChangeStatus(from: OrderStatus, to: OrderStatus): boolean {
   return NEXT_STATUSES[from].includes(to);
 }
 
+/**
+ * A passagem que lança contas a partir do pedido COMO ESTÁ NO BLING — e por
+ * isso só com o pedido do CRM sincronizado (auditoria da 0.11.0): uma parcela
+ * trocada e nunca enviada viraria conta a receber errada, e depois de Em
+ * andamento o CRM não atualiza mais o pedido.
+ *
+ * Atendido não entra: vem de Em andamento, quando os itens e as parcelas já
+ * estão travados, e as datas da produção que continuam livres não mudam o
+ * financeiro.
+ */
+export function statusNeedsSyncedOrder(to: OrderStatus): boolean {
+  return to === 'em_andamento';
+}
+
 /** O id da situação no Bling para um status do CRM, pelos papéis confirmados. */
 export function blingStatusId(
   settings: Partial<BlingSettingsRow> | null | undefined,

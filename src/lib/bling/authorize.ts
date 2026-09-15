@@ -45,6 +45,7 @@ export type BlingCallbackOutcome =
   | 'exchange_failed'
   | 'company_failed'
   | 'company_mismatch'
+  | 'company_in_use'
   | 'save_failed';
 
 export interface CompleteAuthorizationInput {
@@ -140,6 +141,27 @@ export async function completeAuthorization(
     return { outcome: 'company_mismatch', company };
   }
 
+  // A mesma empresa do Bling já conectada em OUTRA conta do CRM: o webhook
+  // acha a conta pelo `companyId`, e duas conexões vivas da mesma empresa
+  // fariam os eventos de uma caírem na outra (ou em nenhuma). A 090 tem o
+  // índice único; esta pergunta é para responder com o motivo.
+  const { data: outra, error: erroOutra } = await db
+    .from('bling_connections')
+    .select('account_id')
+    .eq('company_id', company.id)
+    .neq('status', 'revoked')
+    .neq('account_id', input.accountId)
+    .limit(1);
+  if (erroOutra) {
+    console.error('[bling] não consegui conferir a empresa em outras contas:', erroOutra.message);
+    await descartar();
+    return { outcome: 'save_failed' };
+  }
+  if ((outra ?? []).length > 0) {
+    await descartar();
+    return { outcome: 'company_in_use', company };
+  }
+
   // 5. Grava.
   const agora = new Date(now()).toISOString();
   const { error: erroGravacao } = await db.from('bling_connections').upsert(
@@ -169,8 +191,10 @@ export async function completeAuthorization(
     { onConflict: 'account_id' }
   );
   if (erroGravacao) {
-    console.error('[bling] não consegui gravar a conexão:', erroGravacao.message);
     await descartar();
+    // A corrida com outra conta conectando a mesma empresa: o índice da 090.
+    if (erroGravacao.code === '23505') return { outcome: 'company_in_use', company };
+    console.error('[bling] não consegui gravar a conexão:', erroGravacao.message);
     return { outcome: 'save_failed' };
   }
 

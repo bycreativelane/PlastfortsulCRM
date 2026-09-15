@@ -1081,6 +1081,73 @@ BEGIN
     RAISE EXCEPTION 'bling_purge/bling_claim_webhook_events must be executable by service_role only (089)';
   END IF;
 
+  -- 090: the queue has one owner per operation (touch + finish, both
+  -- service_role only); the finish is a single transaction; a re-queued
+  -- failure goes to the back; the webhook claim hands out a lock token.
+  IF NOT has_function_privilege('service_role', 'public.bling_touch_operation(uuid, uuid, integer)', 'EXECUTE')
+     OR has_function_privilege('authenticated', 'public.bling_touch_operation(uuid, uuid, integer)', 'EXECUTE')
+     OR has_function_privilege('anon', 'public.bling_touch_operation(uuid, uuid, integer)', 'EXECUTE')
+     OR NOT has_function_privilege('service_role', 'public.bling_finish_operation(uuid, uuid, text, text, jsonb, integer, jsonb, jsonb)', 'EXECUTE')
+     OR has_function_privilege('authenticated', 'public.bling_finish_operation(uuid, uuid, text, text, jsonb, integer, jsonb, jsonb)', 'EXECUTE')
+     OR has_function_privilege('anon', 'public.bling_finish_operation(uuid, uuid, text, text, jsonb, integer, jsonb, jsonb)', 'EXECUTE')
+     OR NOT has_function_privilege('service_role', 'public.bling_claim_webhook_events(uuid, integer, integer)', 'EXECUTE')
+  THEN
+    RAISE EXCEPTION 'bling_touch_operation/bling_finish_operation must be executable by service_role only (090)';
+  END IF;
+
+  IF (SELECT prosrc FROM pg_proc WHERE proname = 'bling_enqueue_operation' LIMIT 1) NOT ILIKE '%seq = DEFAULT%'
+     OR (SELECT prosrc FROM pg_proc WHERE proname = 'bling_claim_operations' LIMIT 1) NOT ILIKE '%a.locked_until >= NOW()%'
+     OR (SELECT prosrc FROM pg_proc WHERE proname = 'bling_claim_operations' LIMIT 1) NOT ILIKE '%abandoned%'
+  THEN
+    RAISE EXCEPTION 'the Bling queue is not the 090 design (re-queue to the back, one running op per deal, abandoned ops)';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_proc p
+     WHERE p.proname = 'bling_claim_webhook_events'
+       AND pg_get_function_result(p.oid) ILIKE '%lock_token%'
+  ) THEN
+    RAISE EXCEPTION 'bling_claim_webhook_events does not return the lock token (090)';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+     WHERE table_schema = 'public' AND table_name = 'deals' AND column_name = 'bling_source_hash'
+  ) OR (SELECT prosrc FROM pg_proc WHERE proname = 'guard_deal_order_columns' LIMIT 1) NOT ILIKE '%''bling_source_hash''%'
+    OR (SELECT prosrc FROM pg_proc WHERE proname = 'guard_deal_order_columns' LIMIT 1) NOT ILIKE '%OLD.bling_external_key IS NOT NULL%'
+  THEN
+    RAISE EXCEPTION 'deals.bling_source_hash is not a server column, or the delete guard ignores the order key (090)';
+  END IF;
+
+  -- 090: the guards the audits asked for, each on its table.
+  IF (
+    SELECT count(*) FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid
+     WHERE NOT t.tgisinternal
+       AND (c.relname, t.tgname) IN (
+         ('deals', 'deals_guard_same_account'),
+         ('deal_items', 'deal_items_same_account'),
+         ('deal_installments', 'deal_installments_same_account'),
+         ('deals', 'deals_guard_weight_exception'),
+         ('products', 'products_guard_bling'),
+         ('pipelines', 'pipelines_guard_orders'),
+         ('contacts', 'contacts_guard_orders')
+       )
+  ) <> 7 THEN
+    RAISE EXCEPTION 'one of the 090 guard triggers is missing (same account, weight exception, product Bling columns, order parents)';
+  END IF;
+
+  IF (SELECT prosrc FROM pg_proc WHERE proname = 'guard_deal_children_locked' LIMIT 1) NOT ILIKE '%OLD.deal_id%' THEN
+    RAISE EXCEPTION 'guard_deal_children_locked does not check the row''s previous deal (090)';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_indexes
+     WHERE schemaname = 'public' AND tablename = 'bling_connections'
+       AND indexname = 'idx_bling_connections_company_live' AND indexdef ILIKE '%UNIQUE%'
+  ) THEN
+    RAISE EXCEPTION 'a Bling company can be live in two accounts — idx_bling_connections_company_live is missing (090)';
+  END IF;
+
   RAISE NOTICE 'schema verification passed';
 END
 $$;

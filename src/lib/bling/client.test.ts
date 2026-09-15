@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { encrypt } from '@/lib/whatsapp/encryption';
 
 import { blingRequest } from './client';
-import { BlingApiError, BlingConnectionError } from './errors';
+import { BlingApiError, BlingConnectionError, BlingLeaseLostError } from './errors';
 import { fakeDb, type FakeDbOptions } from './fake-db';
 import { BLING_TOKEN_URL, type FetchLike } from './oauth';
 
@@ -203,5 +203,63 @@ describe('blingRequest', () => {
     const erro = await blingRequest(db.client, 'conn-1', '/x').catch((e: unknown) => e);
     expect((erro as BlingConnectionError).code).toBe('not_configured');
     expect(db.log).toEqual([]);
+  });
+});
+
+describe('blingRequest — antes de escrever (090)', () => {
+  it('beforeWrite vem depois da ficha e antes de cada escrita; leitura não chama', async () => {
+    const db = montar([0]);
+    const bling = blingFalso(db, () => ({ status: 200, body: { data: { id: 'x' } } }));
+    const antes = vi.fn(async () => {
+      db.log.push('beforeWrite');
+    });
+    const deps = { config: CONFIG, fetchImpl: bling.impl, now: agoraFixo, beforeWrite: antes };
+
+    await blingRequest(db.client, 'conn-1', '/pedidos/vendas/1', {}, deps);
+    expect(antes).not.toHaveBeenCalled();
+
+    db.log.length = 0;
+    await blingRequest(db.client, 'conn-1', '/pedidos/vendas', { method: 'POST', body: {} }, deps);
+    expect(db.log).toEqual([
+      'select bling_connections',
+      'rpc bling_take_request',
+      'beforeWrite',
+      'fetch api Bearer access-valido',
+      'update bling_connections',
+    ]);
+  });
+
+  it('lease perdido: a escrita não sai', async () => {
+    const db = montar([0]);
+    const bling = blingFalso(db, () => ({ status: 200, body: {} }));
+    await expect(
+      blingRequest(db.client, 'conn-1', '/pedidos/vendas/1/situacoes/15', { method: 'PATCH' }, {
+        config: CONFIG,
+        fetchImpl: bling.impl,
+        now: agoraFixo,
+        beforeWrite: async () => {
+          throw new BlingLeaseLostError('op-1');
+        },
+      })
+    ).rejects.toBeInstanceOf(BlingLeaseLostError);
+    expect(bling.api()).toBe(0);
+  });
+
+  it('401 numa escrita: confere o lease de novo antes de repetir', async () => {
+    const db = montar([0], { rpcs: { bling_take_request: balde([0]), bling_claim_refresh: claimSimples } });
+    const bling = blingFalso(db, (n) =>
+      n === 1
+        ? { status: 401, body: { error: { type: 'invalid_token', description: 'expirou' } } }
+        : { status: 200, body: { data: {} } }
+    );
+    const antes = vi.fn(async () => {});
+    await blingRequest(db.client, 'conn-1', '/pedidos/vendas/1', { method: 'PUT', body: {} }, {
+      config: CONFIG,
+      fetchImpl: bling.impl,
+      now: agoraFixo,
+      beforeWrite: antes,
+    });
+    expect(bling.api()).toBe(2);
+    expect(antes).toHaveBeenCalledTimes(2);
   });
 });

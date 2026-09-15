@@ -77,8 +77,11 @@ export function fakeDb(options: FakeDbOptions = {}): FakeDb {
         const chaves = options.unique?.[nome] ?? [];
         const gravadas: Linha[] = [];
         for (const nova of novas) {
+          // Cada chave pode ser composta: "connection_id,kind,bling_id".
           const chave = op === 'upsert' && conflito ? [conflito] : chaves;
-          const existente = linhas.find((l) => chave.some((c) => l[c] === nova[c]));
+          const existente = linhas.find((l) =>
+            chave.some((composta) => composta.split(',').every((c) => l[c.trim()] === nova[c.trim()]))
+          );
           if (existente && op === 'insert') {
             return { data: null, error: { code: '23505', message: 'duplicate key value' } };
           }
@@ -135,6 +138,14 @@ export function fakeDb(options: FakeDbOptions = {}): FakeDb {
       },
       lt(coluna: string, valor: string) {
         filtros.push((l) => l[coluna] != null && String(l[coluna]) < valor);
+        return b;
+      },
+      is(coluna: string, valor: null) {
+        filtros.push((l) => (valor === null ? l[coluna] === null || l[coluna] === undefined : l[coluna] === valor));
+        return b;
+      },
+      in(coluna: string, valores: unknown[]) {
+        filtros.push((l) => valores.includes(l[coluna]));
         return b;
       },
       or(expressao: string) {

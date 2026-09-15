@@ -34,6 +34,7 @@ export const AUDIT_ACTIONS = [
   'whatsapp.config_updated',
   'bling.connected',
   'bling.disconnected',
+  'bling.mapping_updated',
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

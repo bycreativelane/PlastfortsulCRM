@@ -6,6 +6,7 @@ import { useLocale, useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { Loader2, PlugZap, RefreshCw, Unplug } from 'lucide-react';
 
+import { BlingReferences } from '@/components/settings/bling-references';
 import { SettingsPanelHead } from '@/components/settings/settings-panel-head';
 import { sectionHref } from '@/components/settings/settings-sections';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -332,6 +333,7 @@ export function BlingPanel() {
           </Button>
         </div>
       </section>
+      {conexao.status !== 'revoked' ? <BlingReferences /> : null}
     </div>
   );
 }

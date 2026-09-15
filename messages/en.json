@@ -3226,6 +3226,7 @@
       "actionWhatsappUpdated": "changed the WhatsApp settings",
       "actionBlingConnected": "connected Bling to the company",
       "actionBlingDisconnected": "disconnected Bling from the company",
+      "actionBlingMappingUpdated": "confirmed the Bling registries for",
       "caps": {
         "inboxView": "Open the shared inbox",
         "contactsView": "See contacts",
@@ -4079,6 +4080,94 @@
       "company_mismatch": "This account is already connected to another Bling company. Disconnect before switching.",
       "save_failed": "Could not save the connection. Connect again.",
       "failed": "Something went wrong while connecting. Connect again."
+    },
+    "references": {
+      "title": "Bling registries",
+      "description": "What the order references by Bling ID: statuses, categories, payment methods, sellers. The list comes from Bling; which status is \"In progress\" an admin confirms here.",
+      "loading": "Loading registries…",
+      "loadFailed": "Could not load the Bling registries.",
+      "pending": "The Bling registries are not in the database yet: migration {migration} needs to be applied.",
+      "syncStarted": "Sync started. The screen refreshes on its own.",
+      "syncBusy": "A sync is already running.",
+      "syncFailed": "Could not start the sync.",
+      "saved": "Saved",
+      "saveFailed": "Could not save.",
+      "choose": "Choose…",
+      "suggestion": "Suggested by name: {label}",
+      "state": {
+        "ok": "Ready",
+        "unconfirmed": "Confirm",
+        "missing": "Not in Bling",
+        "inactive": "Inactive in Bling",
+        "removed": "No longer exists",
+        "incompatible": "Not usable"
+      },
+      "syncing": "Syncing…",
+      "lastSync": "Last sync: {when}",
+      "neverSynced": "Never synced",
+      "green": "Ready for orders",
+      "pendingItems": "{count, plural, one {# pending item} other {# pending items}}",
+      "syncNow": "Refresh now",
+      "syncError": "The last sync failed: {message}",
+      "kindErrors": "Some registries did not come through:",
+      "kinds": {
+        "order_module": "Modules",
+        "order_status": "Statuses",
+        "order_action": "Actions",
+        "order_transition": "Transitions",
+        "revenue_category": "Revenue categories",
+        "product_category": "Product families",
+        "payment_method": "Payment methods",
+        "seller": "Sellers",
+        "warehouse": "Warehouses",
+        "contact_type": "Contact types",
+        "logistics": "Logistics"
+      },
+      "otherCompany": "The confirmed roles belonged to another Bling company. Confirm them again for this one.",
+      "syncFirst": "Sync to bring in the Bling registries.",
+      "statusesTitle": "Sales order statuses",
+      "statusesDescription": "Each status the CRM uses must point to the right Bling status. \"Compra futura\" is a custom status and must exist in the account.",
+      "confirmSuggestions": "Confirm {count, plural, one {the suggestion} other {the # suggestions}}",
+      "orderModule": "Orders module",
+      "roles": {
+        "open": "Open",
+        "in_progress": "In progress",
+        "fulfilled": "Fulfilled",
+        "canceled": "Canceled",
+        "future_purchase": "Future purchase"
+      },
+      "transitionsTitle": "Transitions",
+      "noActions": "No actions configured",
+      "transitionState": {
+        "ok": "Configured",
+        "missing": "Not in Bling",
+        "inactive": "Inactive in Bling",
+        "unmapped": "Confirm the statuses"
+      },
+      "actionsNote": "Whether changing the status through the API runs these actions (posting receivables, stock) is not documented by Bling: it is confirmed during homologation, before any posting.",
+      "revenueTitle": "Order revenue category",
+      "revenueDescription": "The category sent with the order must sit under this root. Product families point to the categories below it.",
+      "revenueRoot": "Root category",
+      "noChildren": "The root has no categories below it.",
+      "paymentsTitle": "Payment methods in the CRM",
+      "paymentsDescription": "Tick the methods the seller can pick. To create receivables, the method must accept receipts and have the \"Conta a receber/pagar\" destination.",
+      "noPayments": "No payment methods came from Bling.",
+      "destination": {
+        "1": "Receivables/payables",
+        "2": "Financial record",
+        "3": "Cash and banks"
+      },
+      "destinationUnknown": "Unknown destination",
+      "purpose": {
+        "1": "Payments only",
+        "2": "Receipts",
+        "3": "Payments and receipts"
+      },
+      "sellers": "{count, plural, =0 {No active sellers} one {# active seller} other {# active sellers}}",
+      "warehouses": "{count, plural, =0 {No active warehouses} one {# active warehouse} other {# active warehouses}}",
+      "logistics": "{count, plural, =0 {No enabled logistics} one {# enabled logistics} other {# enabled logistics}}",
+      "customerTypeOk": "\"Cliente\" contact type found",
+      "customerTypeMissing": "\"Cliente\" contact type not found"
     }
   },
   "TasksPage": {

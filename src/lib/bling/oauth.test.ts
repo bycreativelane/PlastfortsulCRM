@@ -152,12 +152,14 @@ describe('troca do código e renovação', () => {
 
 describe('parseTokens', () => {
   it('sem refresh_token, recusa — a conexão morreria em seis horas', () => {
-    const { refresh_token: _, ...semRefresh } = TOKENS;
+    const semRefresh: Record<string, unknown> = { ...TOKENS };
+    delete semRefresh.refresh_token;
     expect(() => parseTokens(200, JSON.stringify(semRefresh))).toThrow(BlingApiError);
   });
 
   it('expires_in ausente vira uma hora, para renovar cedo', () => {
-    const { expires_in: _, ...semValidade } = TOKENS;
+    const semValidade: Record<string, unknown> = { ...TOKENS };
+    delete semValidade.expires_in;
     expect(parseTokens(200, JSON.stringify(semValidade)).expiresIn).toBe(3600);
   });
 

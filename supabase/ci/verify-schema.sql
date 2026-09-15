@@ -907,6 +907,30 @@ BEGIN
     RAISE EXCEPTION 'bling_claim_refresh must be executable by service_role only (082)';
   END IF;
 
+  -- 083: the Bling registries cache and the confirmed roles are READABLE by
+  -- members (the order drawer lists payment methods) and written only by the
+  -- service role; the job table has no policy at all.
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+     WHERE schemaname = 'public' AND tablename = 'bling_references'
+       AND cmd = 'SELECT' AND qual LIKE '%is_account_member%'
+  ) OR EXISTS (
+    SELECT 1 FROM pg_policies
+     WHERE schemaname = 'public' AND tablename IN ('bling_references', 'bling_settings')
+       AND cmd <> 'SELECT'
+  ) OR EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'bling_sync_jobs'
+  ) THEN
+    RAISE EXCEPTION 'bling_references/bling_settings/bling_sync_jobs policies are not the 083 design';
+  END IF;
+
+  IF NOT has_function_privilege('service_role', 'public.bling_claim_sync(uuid, text)', 'EXECUTE')
+     OR has_function_privilege('anon', 'public.bling_claim_sync(uuid, text)', 'EXECUTE')
+     OR has_function_privilege('authenticated', 'public.bling_claim_sync(uuid, text)', 'EXECUTE')
+  THEN
+    RAISE EXCEPTION 'bling_claim_sync must be executable by service_role only (083)';
+  END IF;
+
   RAISE NOTICE 'schema verification passed';
 END
 $$;

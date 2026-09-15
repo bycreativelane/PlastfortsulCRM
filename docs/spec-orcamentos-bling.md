@@ -289,6 +289,20 @@ especificação:
 
 Cada decisão traz a recomendação. **D1, D2, D5 e D9 bloqueiam a Fase 3.**
 
+**Respondidas pelo Gabriel em 15/09/2026, todas pela recomendação:**
+- **D6:** o Bling é a fonte dos produtos; vínculo por SKU, ambíguos para um
+  admin confirmar; o preço do Bling vira o preço de lista.
+- **D7:** família → categoria de receita, mapeada uma vez, com exceção por
+  produto e flag de item auxiliar.
+- **D8:** transportadora, vendedor e forma de pagamento viram seleção por ID
+  já na Fase 2.
+
+**As demais seguem a recomendação por instrução do Gabriel (15/09/2026):**
+"termina todas as fases e segue o recomendado e depois eu reviso". Valem,
+portanto, D1 = B, D2, D3, D4, D5, D9, D10, D11 e D12 como estão escritas
+abaixo. Onde a recomendação deixa uma pergunta em aberto, a escolha feita na
+implementação está registrada na fase correspondente, para revisão.
+
 ### D1 — Quem manda: a situação do pedido ou a etapa do funil?
 
 Hoje a etapa faz o papel de situação. `outcome.ts` classifica "Em Andamento" e

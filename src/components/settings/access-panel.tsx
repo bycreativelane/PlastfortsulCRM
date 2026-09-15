@@ -405,6 +405,7 @@ const ACTION_ICON: Record<string, ComponentType<{ className?: string }>> = {
   // The same glyph the Bling section wears in the rail.
   'bling.connected': ReceiptText,
   'bling.disconnected': ReceiptText,
+  'bling.mapping_updated': ReceiptText,
 };
 
 const AREAS: AuditArea[] = [
@@ -688,6 +689,7 @@ function AuditRowView({ entry }: { entry: AuditRow }) {
     'whatsapp.config_updated': t('actionWhatsappUpdated'),
     'bling.connected': t('actionBlingConnected'),
     'bling.disconnected': t('actionBlingDisconnected'),
+    'bling.mapping_updated': t('actionBlingMappingUpdated'),
   };
 
   const detail = describe(entry);
@@ -791,6 +793,13 @@ function describe(entry: AuditRow): string | null {
     typeof meta.phone_number_id === 'string'
   ) {
     return meta.phone_number_id;
+  }
+  if (entry.action === 'bling.mapping_updated' && meta.changes && typeof meta.changes === 'object') {
+    // `status_in_progress_id: Em aberto → Em andamento` — rótulos do Bling,
+    // que a rota gravou no lugar dos ids.
+    return Object.entries(meta.changes as Record<string, { from?: unknown; to?: unknown }>)
+      .map(([field, c]) => `${field}: ${typeof c.from === 'string' ? c.from : '—'} → ${typeof c.to === 'string' ? c.to : '—'}`)
+      .join(' · ');
   }
   return null;
 }

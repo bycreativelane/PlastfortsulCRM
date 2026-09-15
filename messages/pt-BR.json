@@ -3226,6 +3226,7 @@
       "actionWhatsappUpdated": "mexeu nas configurações do WhatsApp",
       "actionBlingConnected": "conectou o Bling à empresa",
       "actionBlingDisconnected": "desconectou o Bling da empresa",
+      "actionBlingMappingUpdated": "confirmou os cadastros do Bling de",
       "caps": {
         "inboxView": "Abrir o atendimento",
         "contactsView": "Ver contatos",
@@ -4079,6 +4080,94 @@
       "company_mismatch": "Esta conta já está conectada a outra empresa do Bling. Desconecte antes de trocar.",
       "save_failed": "Não foi possível gravar a conexão. Conecte de novo.",
       "failed": "Algo deu errado ao conectar. Conecte de novo."
+    },
+    "references": {
+      "title": "Cadastros do Bling",
+      "description": "O que o pedido vai referenciar pelo ID do Bling: situações, categorias, formas de pagamento, vendedores. A lista vem do Bling; qual situação é \"Em andamento\" um admin confirma aqui.",
+      "loading": "Carregando os cadastros…",
+      "loadFailed": "Não foi possível carregar os cadastros do Bling.",
+      "pending": "Os cadastros do Bling ainda não estão no banco: falta aplicar a migração {migration}.",
+      "syncStarted": "Sincronização iniciada. A tela atualiza sozinha.",
+      "syncBusy": "Já há uma sincronização em andamento.",
+      "syncFailed": "Não foi possível iniciar a sincronização.",
+      "saved": "Salvo",
+      "saveFailed": "Não foi possível salvar.",
+      "choose": "Escolher…",
+      "suggestion": "Sugestão pelo nome: {label}",
+      "state": {
+        "ok": "Pronto",
+        "unconfirmed": "Confirmar",
+        "missing": "Não existe no Bling",
+        "inactive": "Inativo no Bling",
+        "removed": "Não existe mais",
+        "incompatible": "Não serve"
+      },
+      "syncing": "Sincronizando…",
+      "lastSync": "Última sincronização: {when}",
+      "neverSynced": "Nunca sincronizado",
+      "green": "Pronto para pedidos",
+      "pendingItems": "{count, plural, one {# pendência} other {# pendências}}",
+      "syncNow": "Atualizar agora",
+      "syncError": "A última sincronização falhou: {message}",
+      "kindErrors": "Alguns cadastros não vieram:",
+      "kinds": {
+        "order_module": "Módulos",
+        "order_status": "Situações",
+        "order_action": "Ações",
+        "order_transition": "Transições",
+        "revenue_category": "Categorias de receita",
+        "product_category": "Famílias de produto",
+        "payment_method": "Formas de pagamento",
+        "seller": "Vendedores",
+        "warehouse": "Depósitos",
+        "contact_type": "Tipos de contato",
+        "logistics": "Logísticas"
+      },
+      "otherCompany": "Os papéis confirmados eram de outra empresa do Bling. Confirme de novo para esta.",
+      "syncFirst": "Sincronize para trazer os cadastros do Bling.",
+      "statusesTitle": "Situações do pedido de venda",
+      "statusesDescription": "Cada situação que o CRM usa precisa apontar para a situação certa do Bling. \"Compra futura\" é personalizada e precisa existir na conta.",
+      "confirmSuggestions": "Confirmar {count, plural, one {a sugestão} other {as # sugestões}}",
+      "orderModule": "Módulo de pedidos",
+      "roles": {
+        "open": "Em aberto",
+        "in_progress": "Em andamento",
+        "fulfilled": "Atendido",
+        "canceled": "Cancelado",
+        "future_purchase": "Compra futura"
+      },
+      "transitionsTitle": "Transições",
+      "noActions": "Nenhuma ação configurada",
+      "transitionState": {
+        "ok": "Configurada",
+        "missing": "Não existe no Bling",
+        "inactive": "Inativa no Bling",
+        "unmapped": "Confirme as situações"
+      },
+      "actionsNote": "Se mudar a situação pela API executa essas ações (lançar contas, estoque) não é documentado pelo Bling: é confirmado na homologação, antes de qualquer lançamento.",
+      "revenueTitle": "Categoria de receita do pedido",
+      "revenueDescription": "A categoria mandada no pedido precisa estar dentro desta raiz. As famílias de produto apontam para as categorias embaixo dela.",
+      "revenueRoot": "Categoria raiz",
+      "noChildren": "A raiz não tem categorias embaixo.",
+      "paymentsTitle": "Formas de pagamento no CRM",
+      "paymentsDescription": "Marque as formas que o vendedor pode escolher. Para gerar Contas a Receber, a forma precisa receber e ter destino \"Conta a receber/pagar\".",
+      "noPayments": "Nenhuma forma de pagamento veio do Bling.",
+      "destination": {
+        "1": "Conta a receber/pagar",
+        "2": "Ficha financeira",
+        "3": "Caixa e bancos"
+      },
+      "destinationUnknown": "Destino desconhecido",
+      "purpose": {
+        "1": "Só pagamentos",
+        "2": "Recebimentos",
+        "3": "Pagamentos e recebimentos"
+      },
+      "sellers": "{count, plural, =0 {Nenhum vendedor ativo} one {# vendedor ativo} other {# vendedores ativos}}",
+      "warehouses": "{count, plural, =0 {Nenhum depósito ativo} one {# depósito ativo} other {# depósitos ativos}}",
+      "logistics": "{count, plural, =0 {Nenhuma logística habilitada} one {# logística habilitada} other {# logísticas habilitadas}}",
+      "customerTypeOk": "Tipo de contato \"Cliente\" encontrado",
+      "customerTypeMissing": "Tipo de contato \"Cliente\" não encontrado"
     }
   },
   "TasksPage": {

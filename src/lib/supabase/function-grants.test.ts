@@ -19,7 +19,8 @@ import { describe, expect, it } from 'vitest';
  * Medido em 14 de setembro de 2026, só com a anon key: `save_deal_order`
  * EXECUTOU (respondeu o 22023 da própria função); a
  * `increment_automation_execution_count`, que a 007 revoga de `anon` por
- * nome, respondeu 42501. A 079 corrigiu a da 078.
+ * nome, respondeu 42501. A 079 corrigiu a da 078; a 080, doze funções
+ * antigas (018 a 051) que tinham o mesmo engano desde que foram escritas.
  *
  * Nenhum teste de unidade vê isso: é privilégio de banco, e o SQL "parece"
  * certo. O que dá para ler é a combinação nas migrações.
@@ -40,38 +41,6 @@ const MIGRATIONS = join(process.cwd(), 'supabase', 'migrations');
 
 const PAPEIS_DA_API = ['anon', 'authenticated'] as const;
 type Papel = (typeof PAPEIS_DA_API)[number];
-
-/**
- * Fechadas com FROM PUBLIC antes desta regra existir e que não dizem nada
- * sobre o papel. Nenhuma faz estrago pelo papel que sobrou, conferido na
- * leitura de 14/09/2026:
- *
- *   - as SECURITY DEFINER (018, 019, 050, 051) param em
- *     `auth.uid() IS NULL` antes de tocar em qualquer linha;
- *   - as SECURITY INVOKER (025, 032) rodam sob a RLS de quem chama, e
- *     `anon` não passa em nenhuma;
- *   - as duas de mesclagem (022, 036) não acham o que mesclar: os índices
- *     únicos criados logo depois delas impedem o duplicado que procuram.
- *
- * Revogar é endurecimento, não conserto — e a lista só pode encolher: o
- * último teste deste arquivo acusa a entrada que deixou de ser verdade.
- */
-const LEGADO = new Set<string>([
-  'filter_contacts_by_tags(uuid[],text,int,int) → anon',
-  'match_ai_knowledge_fts(uuid,text,integer) → anon',
-  'match_ai_knowledge_semantic(uuid,text,integer) → anon',
-  'merge_duplicate_contacts() → anon',
-  'merge_duplicate_contacts() → authenticated',
-  'merge_duplicate_conversations() → anon',
-  'merge_duplicate_conversations() → authenticated',
-  'record_sign_in() → anon',
-  'redeem_invitation(text) → anon',
-  'remove_account_member(uuid) → anon',
-  'set_member_auto_assign(uuid,boolean) → anon',
-  'set_member_permissions(uuid,jsonb) → anon',
-  'set_member_role(uuid,account_role_enum) → anon',
-  'transfer_account_ownership(uuid) → anon',
-]);
 
 /** Comentários, corpos entre `$$` e literais citam GRANT sem executá-lo. */
 function limpar(sql: string): string {
@@ -155,7 +124,7 @@ describe('privilégio de EXECUTE nas funções das migrações', () => {
     ).toBe(false);
   });
 
-  it('o leitor enxerga os três jeitos certos de fechar', () => {
+  it('o leitor enxerga os jeitos certos de fechar', () => {
     const { estados } = lerPrivilegios();
     const papeis = (chave: string) =>
       Object.fromEntries(estados.get(chave)?.papeis ?? new Map());
@@ -175,6 +144,16 @@ describe('privilégio de EXECUTE nas funções das migrações', () => {
       anon: 'REVOKE',
       authenticated: 'GRANT',
     });
+    // 022 + 080: dois papéis num REVOKE só, e o GRANT de uma migração
+    // anterior não some quando a posterior revoga só o outro papel (025).
+    expect(papeis('merge_duplicate_contacts()')).toEqual({
+      anon: 'REVOKE',
+      authenticated: 'REVOKE',
+    });
+    expect(papeis('filter_contacts_by_tags(uuid[],text,int,int)')).toEqual({
+      anon: 'REVOKE',
+      authenticated: 'GRANT',
+    });
     // 047: o DROP da assinatura antiga não apaga a nova.
     expect(
       estados.get('bump_conversation_on_inbound(uuid,text,text,text)')?.fechadaEm
@@ -184,14 +163,6 @@ describe('privilégio de EXECUTE nas funções das migrações', () => {
 
   it('função fechada com FROM PUBLIC diz por nome o que anon e authenticated podem', () => {
     const { estados } = lerPrivilegios();
-    const novas = esquecidas(estados).filter((e) => !LEGADO.has(e));
-    expect(novas).toEqual([]);
-  });
-
-  it('a lista de legado só encolhe: cada entrada ainda é verdade', () => {
-    const { estados } = lerPrivilegios();
-    const agora = new Set(esquecidas(estados));
-    const resolvidas = [...LEGADO].filter((e) => !agora.has(e));
-    expect(resolvidas).toEqual([]);
+    expect(esquecidas(estados)).toEqual([]);
   });
 });

@@ -1,6 +1,6 @@
 # Estado do projeto — 15 de setembro de 2026
 
-> Escrito no fim da sessão que preparou a 0.11.0, para que o contexto não
+> Escrito no fim da sessão que publicou a 0.11.0, para que o contexto não
 > dependa da memória de uma conversa. Se você está começando agora, leia
 > este arquivo antes de qualquer outro.
 >
@@ -11,19 +11,19 @@
 
 ## Onde o código está
 
-**A `main` local tem a 0.11.0 preparada e não publicada.** A versão está no
-`package.json`, as notas em `docs/releases/v0.11.0.md` e as Novidades do app
-em `src/lib/releases.ts` — mas **não há tag, push nem release no GitHub**: a
-publicação é decisão do Gabriel, depois da revisão. A última versão publicada
-continua sendo a `v0.10.0` (7 de setembro).
+**A 0.11.0 está publicada.** Tag `v0.11.0` em `cb01957`, com o
+[release no GitHub](https://github.com/bycreativelane/PlastfortsulCRM/releases/tag/v0.11.0)
+marcado como Latest e as notas de `docs/releases/v0.11.0.md`. A tag só foi
+criada depois de o CI e a reaplicação limpa das migrações passarem nesse
+commit da `main`. A versão anterior é a `v0.10.0` (7 de setembro).
 
-Entre as duas, ~130 commits: o pacote de correções de 7 de setembro, o
+Entre as duas, 125 commits: o pacote de correções de 7 de setembro, o
 redesenho das telas de trabalho, a oportunidade no formato do pedido de venda,
 o orçamento (documento, PDF no servidor, arquivo, envio pelo WhatsApp), a sala
 da equipe com `@menção` e som, as tarefas em três visões, o endurecimento das
 funções do banco (079–081), a integração com o Bling (Fases 1–7) e as
 correções das três auditorias que leram a integração antes do release (090
-e 091, `7d473fa`, `a439ad8` e o commit da revisão).
+e 091, `7d473fa`, `a439ad8` e `cb01957`).
 
 | Verificação | Estado |
 | --- | --- |
@@ -31,6 +31,8 @@ e 091, `7d473fa`, `a439ad8` e o commit da revisão).
 | `npm run typecheck` | limpo |
 | `npm run lint` | 0 erros (52 avisos, todos anteriores) |
 | `npm run build` | passa (Next 16.2.12, 127 páginas) |
+| CI · Lint, typecheck, test, build | passa em `cb01957` |
+| CI · Apply to a clean database | passa em `cb01957` — a primeira reaplicação do zero com 070–091 e a conferência do esquema |
 
 ### As auditorias de 15 de setembro
 
@@ -39,9 +41,9 @@ e correção do fluxo de pedidos — e acharam 36 problemas, um crítico (a fila
 podia criar o mesmo pedido duas vezes com o Bling lento). Todos foram
 corrigidos na própria 0.11.0, e cada correção foi desfeita de propósito para
 ver o teste acusar. Uma quarta leitura, das próprias correções, achou mais
-sete pontos (nenhum crítico), corrigidos na 091 e no commit seguinte — 74
+sete pontos (nenhum crítico), corrigidos na 091 e em `cb01957` — 74
 mutações ao todo, 74 acusadas. O que cada um era está nas mensagens de
-`7d473fa` (servidor e banco), `a439ad8` (tela) e do commit da revisão. As
+`7d473fa` (servidor e banco), `a439ad8` (tela) e `cb01957` (a revisão). As
 regras que ficaram, para não desfazer sem querer:
 
 - **A fila pega uma operação por vez** e renova o lease antes de cada escrita
@@ -102,7 +104,16 @@ entrar como ele não se faz.
 
 ## Pendências
 
-### 1. A integração com o Bling nunca falou com o Bling
+### 1. Publicar não é implantar
+
+O release existe no GitHub, mas nenhum deploy foi registrado para `cb01957`
+(nem implantação, nem status de host no commit). Onde a 0.11.0 for posta no
+ar, as migrações **070 a 091** vão antes, no Supabase daquele ambiente e em
+ordem ([deploy.md](./deploy.md#checklist-antes-de-apontar-o-whatsapp-para-produção)):
+a gaveta da oportunidade já lê colunas da 070 (`sales_order_number`,
+`shipping_cost`), e a fila do Bling chama funções da 090.
+
+### 2. A integração com o Bling nunca falou com o Bling
 
 Oito fases escritas e testadas contra dublês; nenhuma chamada real. Falta o que
 é do Gabriel (`docs/spec-orcamentos-bling.md` §4): cadastrar o aplicativo
@@ -113,19 +124,19 @@ elas, pedidos só são criados depois que um admin liga **Pedidos no Bling**.
 O que ficou de fora e as escolhas feitas estão em §11 do plano; o roteiro de
 operação em `docs/operacao-bling.md`.
 
-### 2. O OAuth da Google nunca falou com a Google
+### 3. O OAuth da Google nunca falou com a Google
 
 Mesma situação desde a 0.10.0: falta o app no Google Cloud Console
 (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_OAUTH_REDIRECT_URI`).
 
-### 3. Telas nunca vistas com sessão de admin
+### 4. Telas nunca vistas com sessão de admin
 
 As verificações em tela desta sessão usaram um usuário de teste com papel de
 agente. Promover o usuário a admin foi recusado pelo controle de permissões, e
 não foi contornado. Configurações › Bling, Transportadoras e Vendedor no Bling
 estão testadas nas funções e nas rotas, não na tela.
 
-### 4. Sincronizar os templates da Meta
+### 5. Sincronizar os templates da Meta
 
 `message_templates` continua vazia no ambiente de desenvolvimento.
 

@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/client';
 import { formatCurrencyExact } from '@/lib/currency';
 import { fromCents, linesTotalCents } from '@/lib/money';
 import {
+  itemSnapshot,
   lineTotal,
   loadDealItems,
   loadProducts,
@@ -56,6 +57,8 @@ export interface DealItemsHandle {
   items: DealItemDraft[];
   /** True when this account has no catalogue yet (migration 054). */
   pending: boolean;
+  /** O catálogo ativo — a área Pedido confere vínculo e situação por ele. */
+  products: Product[];
 }
 
 export function DealItemsEditor({
@@ -64,6 +67,7 @@ export function DealItemsEditor({
   currency,
   disabled,
   onChange,
+  resolveCategory,
 }: {
   accountId: string | null;
   /** Null while creating — lines are saved after the deal has an id. */
@@ -71,6 +75,11 @@ export function DealItemsEditor({
   currency: string;
   disabled?: boolean;
   onChange: (state: DealItemsHandle) => void;
+  /**
+   * A categoria de receita que a linha congela ao receber um produto
+   * (exceção → família → padrão, 084). Sem ela, a exceção do próprio produto.
+   */
+  resolveCategory?: (product: Product) => string | null;
 }) {
   const t = useTranslations('Pipelines.items');
   const [products, setProducts] = useState<Product[]>([]);
@@ -107,6 +116,14 @@ export function DealItemsEditor({
           quantity: Number(row.quantity),
           unitPrice: Number(row.unit_price),
           discountPercent: Number(row.discount_percent),
+          // Os snapshots da 085 voltam como foram congelados — nunca
+          // relidos do produto, que pode ter mudado desde o orçamento.
+          listPrice: numeroOuNulo(row.list_price),
+          unitGrossWeightKg: numeroOuNulo(row.unit_gross_weight_kg),
+          blingProductId: row.bling_product_id ?? null,
+          revenueCategoryBlingId: row.revenue_category_bling_id ?? null,
+          definesOrderCategory: row.defines_order_category !== false,
+          blingProductType: row.bling_product_type ?? null,
         }))
       );
     });
@@ -120,8 +137,8 @@ export function DealItemsEditor({
   // all, because on a pre-054 database the manual value field is the
   // only thing that works.
   useEffect(() => {
-    onChange({ items, pending });
-  }, [items, pending, onChange]);
+    onChange({ items, pending, products });
+  }, [items, pending, products, onChange]);
 
   // Em centavos, e linha a linha antes da soma — a ordem do gatilho da 054.
   const total = useMemo(() => fromCents(linesTotalCents(items)), [items]);
@@ -143,6 +160,7 @@ export function DealItemsEditor({
         quantity: 1,
         unitPrice: 0,
         discountPercent: 0,
+        ...itemSnapshot(null),
       },
     ]);
   }, []);
@@ -150,7 +168,9 @@ export function DealItemsEditor({
   if (pending) return null;
 
   return (
-    <div className="space-y-2">
+    // `id` e `tabIndex` para a lista "Pronto para o Bling" poder trazer o
+    // bloco para a vista quando o que falta é um produto.
+    <div id="deal-items" tabIndex={-1} className="space-y-2 outline-none">
       <div className="flex items-center justify-between gap-2">
         <FieldLabel>{t('title')}</FieldLabel>
         {!disabled && (
@@ -207,6 +227,10 @@ export function DealItemsEditor({
                         sku: product?.sku ?? (product ? null : item.sku),
                         unit: product?.unit ?? (product ? null : item.unit),
                         unitPrice: product?.price ?? item.unitPrice,
+                        // Preço de lista, peso, vínculo, tipo e categoria,
+                        // congelados agora (085) — voltar a texto livre
+                        // limpa tudo, porque não há mais de onde vieram.
+                        ...itemSnapshot(product, resolveCategory),
                       });
                     }}
                   >
@@ -329,6 +353,11 @@ export function DealItemsEditor({
       )}
     </div>
   );
+}
+
+/** NUMERIC chega como número ou texto; ausência continua ausência. */
+function numeroOuNulo(valor: number | string | null | undefined): number | null {
+  return valor === null || valor === undefined || valor === '' ? null : Number(valor);
 }
 
 /** Um campo de texto pequeno com rótulo — o irmão do `NumberField`. */

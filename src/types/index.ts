@@ -175,6 +175,22 @@ export interface Contact {
   opted_out?: boolean;
   opted_out_at?: string | null;
 
+  /* ---- Dados fiscais e endereço (085) ------------------------------
+   * O que o Bling precisa para emitir. Ver `lib/contacts/fiscal.ts`. */
+  person_type?: string | null;
+  trade_name?: string | null;
+  state_registration?: string | null;
+  taxpayer_indicator?: string | null;
+  rg?: string | null;
+  zip_code?: string | null;
+  street?: string | null;
+  street_number?: string | null;
+  complement?: string | null;
+  district?: string | null;
+  nfe_email?: string | null;
+  landline_phone?: string | null;
+  bling_contact_id?: string | null;
+
   created_at: string;
   updated_at: string;
   /** Hydrated by queries that embed `contact_tags(tags(*))` (e.g. the
@@ -622,6 +638,40 @@ export interface Deal {
   other_expenses?: number | null;
   general_discount?: number | null;
   general_discount_unit?: string | null;
+  /**
+   * O pedido completo (085). A transportadora do cadastro (`carrier` fica
+   * como rótulo congelado), as datas do pedido, as observações internas —
+   * que nunca vão ao documento —, a categoria escolhida no pedido misto, os
+   * volumes confirmados e a exceção de peso autorizada.
+   */
+  carrier_id?: string | null;
+  sale_date?: string | null;
+  departure_date?: string | null;
+  expected_date?: string | null;
+  delivery_days?: number | null;
+  valid_until?: string | null;
+  internal_notes?: string | null;
+  revenue_category_bling_id?: string | null;
+  revenue_category_chosen_by?: string | null;
+  revenue_category_note?: string | null;
+  freight_volumes_confirmed?: boolean | null;
+  weight_exception_note?: string | null;
+  weight_exception_by?: string | null;
+  /**
+   * O pedido no Bling (085) — só o servidor escreve; o gatilho
+   * `guard_deal_order_columns` recusa qualquer PATCH do navegador. Ver
+   * `lib/deals/order-lock.ts`.
+   */
+  order_status?: string | null;
+  bling_order_id?: string | null;
+  bling_external_key?: string | null;
+  bling_order_number?: string | null;
+  sync_status?: string | null;
+  sync_version?: number | null;
+  sync_error?: string | null;
+  last_synced_at?: string | null;
+  accounts_launched_at?: string | null;
+  stock_launched_at?: string | null;
   created_at: string;
   updated_at?: string;
   contact?: Contact;

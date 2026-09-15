@@ -62,6 +62,8 @@ interface Linha {
   discount_amount?: number | string | null;
   owner: string | null;
   notes: string | null;
+  valid_until?: string | null;
+  delivery_days?: number | string | null;
   created_at: string;
   pdf_url: string | null;
   image_url: string | null;
@@ -140,6 +142,9 @@ function daLinha(row: Linha): StoredQuote {
     carrier: row.carrier,
     owner: row.owner,
     notes: row.notes,
+    // Validade e prazo (086). Linha anterior não traz as colunas.
+    validUntil: row.valid_until ?? null,
+    deliveryDays: opcional(row.delivery_days),
   };
 }
 

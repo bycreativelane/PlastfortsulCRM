@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { dealItemRows } from '@/lib/products/catalog';
 
 import { installmentRows } from './installments';
+import { dealRow } from './row';
 import { classifySaveError } from './save';
 
 describe('classifySaveError — quando o caminho antigo ainda serve', () => {
@@ -40,15 +41,45 @@ describe('a função e o caminho antigo gravam as mesmas colunas', () => {
    * oportunidade grava diferente conforme a migração — um `sku` que some
    * só depois da 078, sem erro nenhum.
    */
-  const sql = readFileSync(
-    join(
-      process.cwd(),
-      'supabase',
-      'migrations',
-      '078_order_totals_and_atomic_save.sql'
-    ),
-    'utf8'
-  );
+  // A migração MAIS NOVA que (re)define a função — a 078 criou, a 085
+  // acrescentou os campos do pedido. Ler sempre a 078 deixaria passar uma
+  // coluna nova que a função vigente não grava.
+  const pasta = join(process.cwd(), 'supabase', 'migrations');
+  const sql = readdirSync(pasta)
+    .filter((f) => /^\d+_.*\.sql$/.test(f))
+    .sort()
+    .map((f) => readFileSync(join(pasta, f), 'utf8'))
+    .filter((texto) => /FUNCTION\s+public\.save_deal_order\s*\(/.test(texto))
+    .pop() ?? '';
+
+  it('a oportunidade: toda coluna que a gaveta monta a função grava', () => {
+    const { base, orderShape, orderTotals, orderFields } = dealRow({
+      title: 't',
+      salesOrder: '',
+      value: 0,
+      shipping: null,
+      carrier: '',
+      currency: 'BRL',
+      contactId: 'c',
+      pipelineId: 'p',
+      stageId: 's',
+      assignedTo: '',
+      notes: '',
+      expectedCloseDate: '',
+      freightMode: '',
+      freightVolumes: null,
+      grossWeight: null,
+      paymentTerms: '',
+      otherExpenses: null,
+      generalDiscount: null,
+      generalDiscountUnit: 'REAL',
+    });
+    const colunas = Object.keys({ ...base, ...orderShape, ...orderTotals, ...orderFields });
+    for (const coluna of colunas) {
+      // No UPDATE a função só mexe no que veio: `p_deal ? 'coluna'`.
+      expect(sql.includes(`p_deal ? '${coluna}'`), `deals.${coluna}`).toBe(true);
+    }
+  });
 
   const colunasDoInsert = (tabela: string) => {
     const m = sql.match(

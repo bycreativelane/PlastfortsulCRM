@@ -19,6 +19,7 @@ import { FieldLabel } from '@/components/ui/field';
 import { useTranslations } from 'next-intl';
 import { SettingsPanelHead } from './settings-panel-head';
 import { OptionSelect } from '@/components/ui/option-select';
+import { CarriersPanel } from './carriers-panel';
 
 /**
  * Deals settings — account-wide default currency.
@@ -119,6 +120,10 @@ export function DealsSettings() {
           )}
         </PanelBody>
       </Panel>
+      {/* O cadastro de transportadoras da 085 — some num banco sem ela. */}
+      <div className="mt-4">
+        <CarriersPanel />
+      </div>
     </section>
   );
 }

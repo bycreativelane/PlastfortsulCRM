@@ -98,6 +98,18 @@ export interface QuoteLabels {
   grossWeight: string;
   notes: string;
   footer: string;
+  /**
+   * 085. Opcionais porque os rótulos chegam do navegador na rota: uma aba
+   * aberta antes do deploy manda o conjunto antigo, e o documento omite o
+   * que não tem rótulo em vez de imprimir "undefined".
+   */
+  /** Molde com `{date}`. */
+  validUntil?: string;
+  deliveryDays?: string;
+  /** Molde com `{days}`. */
+  deliveryDaysValue?: string;
+  /** "Este documento é um orçamento, não é nota fiscal." */
+  disclaimer?: string;
 }
 
 /** A empresa que emite. Tudo opcional — o documento omite o que falta. */
@@ -185,6 +197,15 @@ export function QuoteDocument({
      palavras: "transportadora, quantidade e peso bruto e o valor do frete". */
   if (quote.shipping !== null)
     transporte.push([labels.shipping, dinheiro(quote.shipping)]);
+  // O prazo de entrega é o que o cliente mais pergunta depois do preço.
+  if (quote.deliveryDays !== null && labels.deliveryDays)
+    transporte.push([
+      labels.deliveryDays,
+      (labels.deliveryDaysValue ?? '{days}').replace(
+        '{days}',
+        quantidade(quote.deliveryDays)
+      ),
+    ]);
 
   return (
     <article className="q">
@@ -212,6 +233,11 @@ export function QuoteDocument({
             </p>
           ) : null}
           <p className="q-date">{data}</p>
+          {quote.validUntil && labels.validUntil ? (
+            <p className="q-date">
+              {labels.validUntil.replace('{date}', dataCurta(quote.validUntil))}
+            </p>
+          ) : null}
         </div>
       </header>
 
@@ -402,6 +428,8 @@ export function QuoteDocument({
       <footer className="q-foot">
         {contato.length > 0 && <p>{contato.join(' · ')}</p>}
         <p>{labels.footer}</p>
+        {/* A frase que a especificação exige no documento (Fase 3). */}
+        {labels.disclaimer ? <p>{labels.disclaimer}</p> : null}
       </footer>
     </article>
   );

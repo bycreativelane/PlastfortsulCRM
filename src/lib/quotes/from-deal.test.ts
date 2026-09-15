@@ -148,4 +148,27 @@ describe('quoteInputFromRows — o documento é o pedido gravado', () => {
     expect(e.customerName).toBeNull();
     expect(e.customerPhone).toBeNull();
   });
+
+  it('validade e prazo entram; as observações internas nunca (085)', () => {
+    const q = buildQuote(
+      entrada({
+        deal: {
+          ...DEAL,
+          valid_until: '2026-09-30',
+          delivery_days: '15',
+          internal_notes: 'margem apertada — não mostrar ao cliente',
+        } as unknown as typeof DEAL,
+      })
+    );
+    expect(q.validUntil).toBe('2026-09-30');
+    expect(q.deliveryDays).toBe(15);
+    // Nenhum campo do documento carrega o texto interno.
+    expect(JSON.stringify(q)).not.toContain('margem apertada');
+  });
+
+  it('sem a 085 no banco, validade e prazo ficam de fora', () => {
+    const q = buildQuote(entrada());
+    expect(q.validUntil).toBeNull();
+    expect(q.deliveryDays).toBeNull();
+  });
 });

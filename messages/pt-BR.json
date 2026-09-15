@@ -919,7 +919,30 @@
       "taxIdInvalid": "Os dígitos verificadores não batem — vale conferir.",
       "taxIdDuplicate": "“{name}” já tem esse número. Dois cadastros para uma empresa significa metade do histórico em cada um.",
       "birthdayHint": "A data completa; só o dia e o mês são usados.",
-      "phoneIncomplete": "O número parece incompleto — confira os dígitos."
+      "phoneIncomplete": "O número parece incompleto — confira os dígitos.",
+      "fiscal": {
+        "title": "Dados fiscais e endereço",
+        "hint": "O que o Bling precisa para emitir o pedido. O CPF/CNPJ, a cidade e a UF ficam em Dados comerciais.",
+        "personType": "Tipo de pessoa",
+        "personF": "Física",
+        "personJ": "Jurídica",
+        "tradeName": "Nome fantasia",
+        "rg": "RG",
+        "taxpayer": "Contribuinte de ICMS",
+        "taxpayerNone": "Não informado",
+        "taxpayer1": "Contribuinte",
+        "taxpayer2": "Isento",
+        "taxpayer9": "Não contribuinte",
+        "stateRegistration": "Inscrição estadual",
+        "zipCode": "CEP",
+        "zipIncomplete": "O CEP tem oito dígitos.",
+        "street": "Logradouro",
+        "streetNumber": "Número",
+        "complement": "Complemento",
+        "district": "Bairro",
+        "nfeEmail": "E-mail para nota fiscal",
+        "landline": "Telefone fixo"
+      }
     },
     "detailView": {
       "tabs": {
@@ -1362,7 +1385,13 @@
       "freightOwnSender": "Próprio, do remetente",
       "freightOwnReceiver": "Próprio, do destinatário",
       "freightNone": "Sem frete",
-      "toastOrderShapeFailed": "A oportunidade foi salva, mas pagamento e transporte não puderam ser gravados."
+      "toastOrderShapeFailed": "A oportunidade foi salva, mas pagamento e transporte não puderam ser gravados.",
+      "carrierNotMapped": "Esta transportadora ainda não está ligada a um contato no Bling (Configurações › Oportunidades).",
+      "toastOrderLocked": "Este pedido está travado nesta situação no Bling — o que mudou não pode ser salvo.",
+      "deleteBlockedOrder": "Esta oportunidade já é pedido no Bling e não pode ser excluída.",
+      "installmentMethodNone": "Escolha a forma",
+      "installmentMethodRemoved": "Forma fora da lista",
+      "installmentNote": "Observação"
     },
     "settings": {
       "managePipeline": "Gerenciar pipeline",
@@ -1449,6 +1478,83 @@
       "sku": "Código",
       "unit": "Un",
       "lineTotal": "Preço total"
+    },
+    "order": {
+      "title": "Pedido",
+      "lineN": "Linha {n}",
+      "categoryUnknown": "Categoria {id}",
+      "blingNumber": "Nº {number} no Bling",
+      "status": {
+        "em_aberto": "Em aberto",
+        "em_andamento": "Em andamento",
+        "atendido": "Atendido",
+        "cancelado": "Cancelado",
+        "compra_futura": "Compra futura"
+      },
+      "sync": {
+        "not_sent": "Não enviado",
+        "syncing": "Sincronizando",
+        "synced": "Sincronizado",
+        "pending": "Envio pendente",
+        "error": "Erro no Bling",
+        "divergent": "Divergente"
+      },
+      "lockedInProgress": "Pedido em andamento: cliente, itens, preços, descontos, categoria, frete e parcelas não mudam mais. Datas de saída e prevista, volumes e peso continuam editáveis.",
+      "lockedClosed": "Pedido {status}: só o que é do CRM (observações, responsável e etapa) continua editável.",
+      "saleDate": "Data da venda",
+      "saleDateHint": "Vazia, vale a data de hoje no envio.",
+      "validUntil": "Validade do orçamento",
+      "deliveryDays": "Prazo de entrega (dias)",
+      "departureDate": "Data de saída",
+      "expectedDate": "Data prevista",
+      "category": "Categoria de receita",
+      "categoryAuto": "{name} — pelos produtos do pedido.",
+      "categoryAuxiliary": "{name} — pelos itens auxiliares, os únicos do pedido.",
+      "categoryChoose": "Este pedido mistura categorias. Escolha a que vale para o pedido inteiro.",
+      "categoryNotePlaceholder": "Por que esta categoria (opcional)",
+      "weightComputed": "Peso calculado: {kg} kg",
+      "useWeight": "Usar no peso bruto",
+      "weightExceptionPlaceholder": "Motivo da exceção de peso (autoriza emitir sem o peso)",
+      "weightExceptionAdminOnly": "Só um admin autoriza emitir sem o peso",
+      "volumesConfirmed": "Volumes conferidos com a produção",
+      "internalNotes": "Observações internas",
+      "internalNotesHint": "Nunca saem no orçamento nem vão ao cliente.",
+      "readyTitle": "Pronto para o Bling",
+      "readyTitleOk": "Pronto para o Bling — tudo certo",
+      "ready": {
+        "customer": "Cliente com documento e endereço",
+        "products": "Produtos vinculados ao Bling e ativos",
+        "weight": "Peso de todos os produtos",
+        "category": "Categoria de receita resolvida",
+        "payment": "Forma de pagamento confirmada em cada parcela",
+        "installments": "Parcelas fechando com o total",
+        "carrier": "Transportadora ligada ao Bling"
+      },
+      "detail": {
+        "documentMissing": "Falta o CPF ou CNPJ do cliente.",
+        "documentInvalid": "O CPF ou CNPJ do cliente não confere.",
+        "documentMismatch": "O documento não combina com o tipo de pessoa.",
+        "addressMissing": "Falta no endereço: {fields}.",
+        "stateRegistration": "Contribuinte de ICMS sem inscrição estadual.",
+        "noLines": "O pedido ainda não tem produtos.",
+        "unlinked": "Sem vínculo com o Bling ou inativo: {names}.",
+        "noWeight": "Sem peso: {names}.",
+        "categoryAmbiguous": "Escolha a categoria do pedido na área Pedido.",
+        "categoryMissing": "Sem categoria: {names}.",
+        "methodMissing": "{count, plural, one {# parcela sem forma de pagamento.} other {# parcelas sem forma de pagamento.}}",
+        "methodNotAllowed": "{count, plural, one {# parcela com forma que o admin não confirmou.} other {# parcelas com forma que o admin não confirmou.}}",
+        "installmentsShort": "Faltam {value} para fechar com o total.",
+        "installmentsOver": "As parcelas passam do total em {value}.",
+        "dueMissing": "Há parcela sem vencimento."
+      },
+      "address": {
+        "zip_code": "CEP",
+        "street": "logradouro",
+        "street_number": "número",
+        "district": "bairro",
+        "city": "cidade",
+        "state": "UF"
+      }
     }
   },
   "Broadcasts": {
@@ -2530,7 +2636,18 @@
       "removeBtn": "Remover pessoa",
       "toastServerUnreachable": "Não foi possível falar com o servidor",
       "lastAccess": "Último acesso {when}",
-      "neverAccessed": "Nunca acessou"
+      "neverAccessed": "Nunca acessou",
+      "blingSellers": {
+        "title": "Vendedor no Bling",
+        "description": "O pedido vai ao Bling com o vendedor do responsável pela oportunidade.",
+        "taken": "Este vendedor já está ligado a outra pessoa.",
+        "saveFailed": "Não foi possível salvar o vendedor.",
+        "saved": "Vendedor salvo",
+        "unnamed": "Sem nome",
+        "selectLabel": "Vendedor no Bling de {name}",
+        "none": "Sem vendedor",
+        "inactiveSeller": "{name} (inativo)"
+      }
     },
     "invite": {
       "inviteCreated": "Convite criado",
@@ -3507,6 +3624,35 @@
         "task_due": "Quando uma tarefa sua está chegando na hora.",
         "team_mention": "Quando alguém escreve @você na sala da equipe."
       }
+    },
+    "carriers": {
+      "title": "Transportadoras",
+      "description": "A oportunidade escolhe a transportadora daqui. Ligue cada uma ao contato dela no Bling para o pedido sair com o transportador certo.",
+      "loading": "Carregando…",
+      "loadFailed": "Não foi possível carregar as transportadoras.",
+      "empty": "Nenhuma transportadora cadastrada.",
+      "pickup": "Cliente retira",
+      "mapped": "Ligada ao Bling",
+      "notMapped": "Sem contato no Bling",
+      "inactive": "Inativa",
+      "edit": "Editar",
+      "name": "Nome",
+      "defaultFreight": "Frete por conta (padrão)",
+      "blingContactId": "ID do contato no Bling",
+      "blingContactHint": "O número do cadastro do transportador no Bling (Contatos › tipo Transportador).",
+      "blingContactName": "Nome no Bling",
+      "pickupLabel": "É retirada pelo cliente",
+      "requiresFreight": "Exige valor de frete",
+      "activeLabel": "Ativa",
+      "cancel": "Cancelar",
+      "save": "Salvar",
+      "saved": "Transportadora salva",
+      "saveFailed": "Não foi possível salvar a transportadora.",
+      "duplicate": "Já existe uma transportadora com este nome.",
+      "created": "Transportadora cadastrada",
+      "newPlaceholder": "Nome da nova transportadora",
+      "add": "Adicionar",
+      "adminOnly": "Só admins cadastram e editam transportadoras."
     }
   },
   "Notifications": {
@@ -4305,7 +4451,7 @@
     "shipping": "Frete",
     "discount": "Desconto",
     "total": "Total",
-    "owner": "Responsável",
+    "owner": "Vendedor",
     "notes": "Observações",
     "footer": "Orçamento sujeito a confirmação de estoque e prazo.",
     "close": "Fechar",
@@ -4346,7 +4492,11 @@
     "sendWindowClosed": "A janela de 24h fechou e o orçamento não foi enviado. Use um template na conversa.",
     "caption": "Orçamento {order} · Total {total}",
     "captionNoOrder": "Orçamento · Total {total}",
-    "sendShort": "Enviar"
+    "sendShort": "Enviar",
+    "validUntil": "Válido até {date}",
+    "deliveryDays": "Prazo de entrega",
+    "deliveryDaysValue": "{days} dias",
+    "disclaimer": "Este documento é um orçamento, não é nota fiscal."
   },
   "Quotes": {
     "title": "Orçamentos",

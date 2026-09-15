@@ -951,6 +951,54 @@ BEGIN
     RAISE EXCEPTION 'bling_product_matches/bling_family_categories policies are not the 084 design';
   END IF;
 
+  -- 085: the order state is server-only and the per-status locks live in
+  -- triggers — on deals AND on its children, which the atomic save
+  -- rewrites. A missing trigger is a PATCH that unlocks an order with
+  -- launched accounts.
+  IF (
+    SELECT count(*) FROM pg_trigger
+     WHERE NOT tgisinternal
+       AND tgname IN ('deals_guard_order_columns', 'deal_items_guard_locked', 'deal_installments_guard_locked')
+  ) <> 3 THEN
+    RAISE EXCEPTION 'order lock triggers missing — migration 085 did not apply';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_indexes
+     WHERE schemaname = 'public' AND tablename = 'deals'
+       AND indexname = 'idx_deals_account_bling_order' AND indexdef ILIKE '%UNIQUE%'
+  ) OR NOT EXISTS (
+    SELECT 1 FROM pg_indexes
+     WHERE schemaname = 'public' AND tablename = 'contacts'
+       AND indexname = 'idx_contacts_account_bling' AND indexdef ILIKE '%UNIQUE%'
+  ) THEN
+    RAISE EXCEPTION 'deals.bling_order_id / contacts.bling_contact_id are not unique per account (085)';
+  END IF;
+
+  -- carriers: members read, admins write, nobody deletes (orders point at
+  -- them). Seller links: read-only for members, written by the admin route.
+  IF EXISTS (
+    SELECT 1 FROM pg_policies
+     WHERE schemaname = 'public' AND tablename = 'carriers' AND cmd = 'DELETE'
+  ) OR NOT EXISTS (
+    SELECT 1 FROM pg_policies
+     WHERE schemaname = 'public' AND tablename = 'carriers' AND cmd = 'INSERT'
+       AND with_check LIKE '%admin%'
+  ) OR EXISTS (
+    SELECT 1 FROM pg_policies
+     WHERE schemaname = 'public' AND tablename = 'bling_seller_links' AND cmd <> 'SELECT'
+  ) THEN
+    RAISE EXCEPTION 'carriers/bling_seller_links policies are not the 085 design';
+  END IF;
+
+  IF public.deal_order_locked('em_andamento', NULL) <> 'in_progress'
+     OR public.deal_order_locked('em_aberto', now()) <> 'in_progress'
+     OR public.deal_order_locked('cancelado', NULL) <> 'closed'
+     OR public.deal_order_locked(NULL, NULL) <> 'open'
+  THEN
+    RAISE EXCEPTION 'deal_order_locked does not implement the 085 lock table';
+  END IF;
+
   RAISE NOTICE 'schema verification passed';
 END
 $$;

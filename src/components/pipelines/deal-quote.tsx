@@ -214,6 +214,11 @@ export function DealQuote({
     grossWeight: t('grossWeight'),
     notes: t('notes'),
     footer: t('footer'),
+    // 085. Os dois moldes vão crus, pela razão escrita acima.
+    validUntil: t.raw('validUntil'),
+    deliveryDays: t('deliveryDays'),
+    deliveryDaysValue: t.raw('deliveryDaysValue'),
+    disclaimer: t('disclaimer'),
   };
 
   /**

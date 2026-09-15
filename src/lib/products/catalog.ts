@@ -54,6 +54,13 @@ export interface Product {
    */
   bling_product_id?: string | null;
   gross_weight_kg?: number | null;
+  /** P produto · S serviço · N serviço de comunicação (084). */
+  bling_product_type?: string | null;
+  bling_family_id?: string | null;
+  /** A exceção de categoria do produto (084); a regra está em `lib/bling/categories.ts`. */
+  revenue_category_bling_id?: string | null;
+  /** `false` é item auxiliar: não decide a categoria do pedido (D7). */
+  defines_order_category?: boolean | null;
   created_at: string;
   updated_at: string;
 }
@@ -84,6 +91,17 @@ export interface DealItem {
   /** GENERATED in the database. Never write it. */
   total: number;
   position: number;
+  /**
+   * O que o documento e o Bling precisam, congelado na linha (085): preço de
+   * lista, peso bruto unitário, o produto no Bling, a categoria e se o item
+   * decide a categoria. Ausentes num banco sem a 085.
+   */
+  list_price?: number | string | null;
+  unit_gross_weight_kg?: number | string | null;
+  bling_product_id?: string | null;
+  revenue_category_bling_id?: string | null;
+  defines_order_category?: boolean | null;
+  bling_product_type?: string | null;
 }
 
 /**
@@ -99,11 +117,26 @@ const PRODUCT_COLUMNS_BASE =
 
 const PRODUCT_SELECT = `${PRODUCT_COLUMNS_BASE}, width_cm, height_cm, thickness_micron, material, color, size_label`;
 
-/** O degrau da 084: o vínculo com o Bling e o peso que veio de lá. */
-const PRODUCT_SELECT_084 = `${PRODUCT_SELECT}, bling_product_id, gross_weight_kg`;
+/**
+ * O degrau da 084: o vínculo com o Bling, o peso que veio de lá, o tipo, a
+ * família e a exceção de categoria — o que a linha do pedido congela (085).
+ */
+const PRODUCT_SELECT_084 = `${PRODUCT_SELECT}, bling_product_id, gross_weight_kg, bling_product_type, bling_family_id, revenue_category_bling_id, defines_order_category`;
 
 const ITEM_SELECT =
   'id, account_id, deal_id, product_id, name, sku, unit, quantity, unit_price, discount_percent, total, position';
+
+/** As colunas de snapshot da 085 em `deal_items`. */
+export const ITEM_SNAPSHOT_COLUMNS = [
+  'list_price',
+  'unit_gross_weight_kg',
+  'bling_product_id',
+  'revenue_category_bling_id',
+  'defines_order_category',
+  'bling_product_type',
+] as const;
+
+const ITEM_SELECT_085 = `${ITEM_SELECT}, ${ITEM_SNAPSHOT_COLUMNS.join(', ')}`;
 
 /**
  * O mesmo conjunto sem o que a 075 acrescentou.
@@ -360,7 +393,12 @@ export async function loadDealItems(
       .eq('deal_id', dealId)
       .order('position', { ascending: true });
 
-  let { data, error } = await ler(ITEM_SELECT);
+  let { data, error } = await ler(ITEM_SELECT_085);
+
+  // Sem os snapshots da 085, o conjunto da 075.
+  if (error && isUnknownColumn(error)) {
+    ({ data, error } = await ler(ITEM_SELECT));
+  }
 
   // A janela entre escrever a 075 e aplica-la. Sem esta segunda tentativa
   // a gaveta abriria com "nenhum produto" numa oportunidade que tem tres.
@@ -385,6 +423,61 @@ export interface DealItemDraft {
   quantity: number;
   unitPrice: number;
   discountPercent: number;
+  /**
+   * Os snapshots da 085, tirados do produto na hora em que ele entra na
+   * linha (`itemSnapshot`). Opcionais: texto livre não tem de onde tirar, e
+   * uma linha lida de um banco sem a 085 não os traz.
+   */
+  listPrice?: number | null;
+  unitGrossWeightKg?: number | null;
+  blingProductId?: string | null;
+  revenueCategoryBlingId?: string | null;
+  definesOrderCategory?: boolean;
+  blingProductType?: string | null;
+}
+
+/**
+ * O que a linha congela do produto — preço de lista, peso, vínculo, tipo e a
+ * categoria RESOLVIDA naquele momento (exceção do produto → família → padrão).
+ *
+ * A categoria vem de fora (`resolver`) porque ela depende do mapa de
+ * famílias da conta, que o catálogo não carrega. Sem ele — conta sem Bling —
+ * vale a exceção do próprio produto, ou nada.
+ */
+export function itemSnapshot(
+  product: Product | null | undefined,
+  resolver?: (product: Product) => string | null
+): Pick<
+  DealItemDraft,
+  | 'listPrice'
+  | 'unitGrossWeightKg'
+  | 'blingProductId'
+  | 'revenueCategoryBlingId'
+  | 'definesOrderCategory'
+  | 'blingProductType'
+> {
+  if (!product) {
+    return {
+      listPrice: null,
+      unitGrossWeightKg: null,
+      blingProductId: null,
+      revenueCategoryBlingId: null,
+      definesOrderCategory: true,
+      blingProductType: null,
+    };
+  }
+  const numero = (v: unknown) =>
+    v === null || v === undefined || v === '' ? null : Number(v);
+  return {
+    listPrice: numero(product.price),
+    unitGrossWeightKg: numero(product.gross_weight_kg),
+    blingProductId: product.bling_product_id ?? null,
+    revenueCategoryBlingId: resolver
+      ? resolver(product)
+      : (product.revenue_category_bling_id ?? null),
+    definesOrderCategory: product.defines_order_category !== false,
+    blingProductType: product.bling_product_type ?? null,
+  };
 }
 
 /**
@@ -425,6 +518,15 @@ export function dealItemRows(items: DealItemDraft[]) {
       unit_price: item.unitPrice,
       discount_percent: item.discountPercent,
       position: index,
+      // Os snapshots da 085. A `save_deal_order` anterior a ela lê as chaves
+      // que conhece e ignora estas; o caminho direto tira-as num banco sem
+      // as colunas (ver `replaceDealItems`).
+      list_price: item.listPrice ?? null,
+      unit_gross_weight_kg: item.unitGrossWeightKg ?? null,
+      bling_product_id: item.blingProductId ?? null,
+      revenue_category_bling_id: item.revenueCategoryBlingId ?? null,
+      defines_order_category: item.definesOrderCategory !== false,
+      bling_product_type: item.blingProductType ?? null,
     }));
 }
 
@@ -448,6 +550,17 @@ export async function replaceDealItems(
 
   let { error } = await db.from('deal_items').insert(rows);
 
+  // Sem os snapshots num banco anterior à 085 — o mesmo raciocínio de
+  // sku/unit logo abaixo, um degrau acima.
+  if (error && isUnknownColumn(error)) {
+    const sem085 = rows.map((row) => {
+      const resto: Record<string, unknown> = { ...row };
+      for (const coluna of ITEM_SNAPSHOT_COLUMNS) delete resto[coluna];
+      return resto;
+    });
+    ({ error } = await db.from('deal_items').insert(sem085));
+  }
+
   /*
    * Sem `sku`/`unit` num banco anterior a 075.
    *
@@ -457,7 +570,11 @@ export async function replaceDealItems(
    * produto reaparece assim que a migracao rodar e alguem reeditar.
    */
   if (error && isUnknownColumn(error)) {
-    const antigas = rows.map(({ sku: _sku, unit: _unit, ...resto }) => resto);
+    const antigas = rows.map(({ sku: _sku, unit: _unit, ...resto }) => {
+      const semSnapshot: Record<string, unknown> = { ...resto };
+      for (const coluna of ITEM_SNAPSHOT_COLUMNS) delete semSnapshot[coluna];
+      return semSnapshot;
+    });
     ({ error } = await db.from('deal_items').insert(antigas));
   }
 

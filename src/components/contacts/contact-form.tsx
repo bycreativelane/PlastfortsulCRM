@@ -21,6 +21,16 @@ import {
   normalizeTaxId,
 } from '@/lib/contacts/tax-id';
 import {
+  EMPTY_FISCAL,
+  fiscalFromContact,
+  fiscalRow,
+  hasAnyFiscal,
+  hasContactFiscal,
+  personTypeFromTaxId,
+  type FiscalDraft,
+} from '@/lib/contacts/fiscal';
+import { ContactFiscalSection } from './contact-fiscal-section';
+import {
   findExistingContact,
   isExactMatch,
   isUniqueViolation,
@@ -146,6 +156,15 @@ export function ContactForm({
   const [averageTicket, setAverageTicket] = useState<number | null>(null);
   const [optedOut, setOptedOut] = useState(false);
 
+  /*
+   * Dados fiscais e endereço (085). `fiscalAvailable` é a sonda: sem a
+   * migração a seção não aparece e o payload não cita as colunas — um
+   * `update` com coluna ausente não grava o contato inteiro.
+   */
+  const [fiscal, setFiscal] = useState<FiscalDraft>(EMPTY_FISCAL);
+  const [showFiscal, setShowFiscal] = useState(false);
+  const [fiscalAvailable, setFiscalAvailable] = useState(false);
+
   const [saving, setSaving] = useState(false);
 
   // Duplicate-phone detection for NEW contacts. `exact` (same digits)
@@ -212,9 +231,13 @@ export function ContactForm({
       setProductInterest(
         Array.isArray(contact?.product_interest) ? contact.product_interest : []
       );
+      const rascunhoFiscal = fiscalFromContact(contact);
+      setFiscal(rascunhoFiscal);
+      setShowFiscal(hasAnyFiscal(rascunhoFiscal));
       setDupMatch(null);
       fetchTags();
       void fetchCatalog();
+      void hasContactFiscal(supabase).then(setFiscalAvailable);
     }
   }, [open, contact]);
 
@@ -370,6 +393,8 @@ export function ContactForm({
               opted_out_at: optedOut
                 ? (contact?.opted_out_at ?? new Date().toISOString())
                 : null,
+              // 085, só quando as colunas existem.
+              ...(fiscalAvailable ? fiscalRow(fiscal) : {}),
               updated_at: new Date().toISOString(),
             })
             .eq('id', contactId)
@@ -416,6 +441,8 @@ export function ContactForm({
               opted_out_at: optedOut
                 ? (contact?.opted_out_at ?? new Date().toISOString())
                 : null,
+              // 085, só quando as colunas existem.
+              ...(fiscalAvailable ? fiscalRow(fiscal) : {}),
             })
             .select('id')
             .single()
@@ -664,6 +691,15 @@ export function ContactForm({
                         setTaxIdInvalid(isValidTaxId(digits) === false);
                         if (!digits) return;
                         setTaxId(formatTaxId(digits));
+                        // O documento diz o tipo de pessoa; só preenche o
+                        // que ninguém escolheu (085).
+                        if (fiscalAvailable) {
+                          setFiscal((atual) =>
+                            atual.personType
+                              ? atual
+                              : { ...atual, personType: personTypeFromTaxId(digits) }
+                          );
+                        }
                         if (!accountId || digits.length < 11) return;
                         // Both spellings reduce to the same digits, which
                         // is what makes the twin findable at all.
@@ -852,6 +888,15 @@ export function ContactForm({
               </div>
             )}
           </div>
+
+          {fiscalAvailable && (
+            <ContactFiscalSection
+              open={showFiscal}
+              onToggle={() => setShowFiscal((v) => !v)}
+              value={fiscal}
+              onChange={(patch) => setFiscal((atual) => ({ ...atual, ...patch }))}
+            />
+          )}
 
           <div className="space-y-2">
             <FieldLabel>{t('tagsLabel')}</FieldLabel>

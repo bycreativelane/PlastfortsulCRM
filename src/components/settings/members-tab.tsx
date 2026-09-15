@@ -79,6 +79,7 @@ import { ROLE_META } from './role-meta';
 import { APP_LOCALE } from '@/lib/i18n/locale';
 import { avatarInitials } from '@/lib/avatar-color';
 import { SettingsChip } from './settings-chip';
+import { BlingSellerLinks } from './bling-seller-links';
 
 interface Member {
   user_id: string;
@@ -526,6 +527,11 @@ export function MembersTab() {
           </ul>
         </PanelBody>
       </Panel>
+
+      {/* Vendedor no Bling (085) — admin, e só com a conexão ativa. */}
+      {canManageMembers && !loading && members.length > 0 && (
+        <BlingSellerLinks members={members} />
+      )}
 
       {/* Pending invitations — admin+ only */}
       <RequireRole min="admin">

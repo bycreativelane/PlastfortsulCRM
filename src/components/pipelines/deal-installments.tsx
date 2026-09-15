@@ -17,6 +17,7 @@ import { MoneyInput } from '@/components/ui/money-input';
 import { DateField } from '@/components/ui/date-field';
 import { FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
+import { OptionSelect } from '@/components/ui/option-select';
 
 /**
  * CONDIÇÃO DE PAGAMENTO — o bloco do pedido de venda do Bling.
@@ -57,6 +58,7 @@ export function DealInstallments({
   currency,
   issuedOn,
   disabled,
+  paymentMethods,
 }: {
   terms: string;
   onTermsChange: (terms: string) => void;
@@ -68,8 +70,15 @@ export function DealInstallments({
   /** A data do pedido, de onde os vencimentos são contados. */
   issuedOn: string;
   disabled?: boolean;
+  /**
+   * As formas de pagamento confirmadas pelo admin no Bling (D8). Com elas a
+   * forma deixa de ser texto livre e vira seleção por id — o texto continua
+   * gravado em `method`, como rótulo congelado da escolha.
+   */
+  paymentMethods?: { id: string; label: string }[];
 }) {
   const t = useTranslations('Pipelines.form');
+  const porId = (paymentMethods?.length ?? 0) > 0;
 
   const soma = installmentsTotal(value);
   const fecha = Math.abs(soma - total) < 0.005;
@@ -84,6 +93,7 @@ export function DealInstallments({
         // parcelada a forma é quase sempre a mesma, e digitá-la três
         // vezes é trabalho que o botão existe para poupar.
         method: value[0]?.method ?? null,
+        paymentMethodBlingId: value[0]?.paymentMethodBlingId ?? null,
       })
     );
   };
@@ -118,6 +128,7 @@ export function DealInstallments({
         amount: 0,
         method: anterior?.method ?? null,
         note: null,
+        paymentMethodBlingId: anterior?.paymentMethodBlingId ?? null,
       },
     ]);
   };
@@ -211,18 +222,66 @@ export function DealInstallments({
                 </label>
               </div>
 
-              <label className="block space-y-1">
-                <span className="text-muted-foreground text-3xs block">
-                  {t('installmentMethod')}
-                </span>
-                <Input
-                  value={parcela.method ?? ''}
-                  disabled={disabled}
-                  aria-label={t('installmentMethod')}
-                  onChange={(e) => patch(index, { method: e.target.value })}
-                  className="border-border bg-muted text-foreground"
-                />
-              </label>
+              <div className="grid grid-cols-1 gap-2 @xs:grid-cols-2">
+                <label className="block space-y-1">
+                  <span className="text-muted-foreground text-3xs block">
+                    {t('installmentMethod')}
+                  </span>
+                  {porId ? (
+                    <OptionSelect
+                      value={parcela.paymentMethodBlingId ?? ''}
+                      disabled={disabled}
+                      aria-label={t('installmentMethod')}
+                      onValueChange={(id) => {
+                        const forma = paymentMethods?.find((f) => f.id === id);
+                        patch(index, {
+                          paymentMethodBlingId: id || null,
+                          // O rótulo congelado da escolha: o documento
+                          // imprime o nome que valia quando a parcela saiu.
+                          method: forma?.label ?? null,
+                        });
+                      }}
+                      className="border-border bg-muted text-foreground"
+                    >
+                      <option value="">{t('installmentMethodNone')}</option>
+                      {/* Uma forma já gravada que saiu da lista confirmada
+                          continua aparecendo pelo nome — nunca pelo id. */}
+                      {parcela.paymentMethodBlingId &&
+                        !paymentMethods?.some((f) => f.id === parcela.paymentMethodBlingId) && (
+                          <option value={parcela.paymentMethodBlingId}>
+                            {parcela.method || t('installmentMethodRemoved')}
+                          </option>
+                        )}
+                      {paymentMethods?.map((forma) => (
+                        <option key={forma.id} value={forma.id}>
+                          {forma.label}
+                        </option>
+                      ))}
+                    </OptionSelect>
+                  ) : (
+                    <Input
+                      value={parcela.method ?? ''}
+                      disabled={disabled}
+                      aria-label={t('installmentMethod')}
+                      onChange={(e) => patch(index, { method: e.target.value })}
+                      className="border-border bg-muted text-foreground"
+                    />
+                  )}
+                </label>
+                <label className="block space-y-1">
+                  <span className="text-muted-foreground text-3xs block">
+                    {t('installmentNote')}
+                  </span>
+                  <Input
+                    value={parcela.note ?? ''}
+                    disabled={disabled}
+                    maxLength={240}
+                    aria-label={t('installmentNote')}
+                    onChange={(e) => patch(index, { note: e.target.value })}
+                    className="border-border bg-muted text-foreground"
+                  />
+                </label>
+              </div>
             </li>
           ))}
         </ul>

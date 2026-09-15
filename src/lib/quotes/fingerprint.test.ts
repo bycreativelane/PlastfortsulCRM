@@ -63,6 +63,8 @@ describe('quoteFingerprint', () => {
     ['o peso bruto', { grossWeight: 128.5 }],
     ['as outras despesas', { otherExpenses: 25 }],
     ['o desconto geral', { generalDiscount: 3 }],
+    ['a validade', { validUntil: '2026-09-30' }],
+    ['o prazo de entrega', { deliveryDays: 15 }],
     [
       'uma parcela',
       {
@@ -149,6 +151,15 @@ describe('quoteFingerprint', () => {
    * `bb61573`, rodado à parte) para este mesmo orçamento: sem despesa e sem
    * desconto, a nova tem de dar exatamente o mesmo.
    */
+  it('trocar a validade ou o prazo é outro documento (085)', () => {
+    // Contra outro valor, e não contra a ausência: sem o campo nem o
+    // marcador entra, e isso mudaria a impressão por si só.
+    expect(digital({ validUntil: '2026-09-30' })).not.toBe(
+      digital({ validUntil: '2026-10-30' })
+    );
+    expect(digital({ deliveryDays: 15 })).not.toBe(digital({ deliveryDays: 20 }));
+  });
+
   it('sem despesa e sem desconto, a impressão é a de antes da 078', () => {
     expect(digital()).toBe(
       'c68d7ccbd627818009f3c0a9edbef8623fa96df16a1c3699eed673620efc8a0a'

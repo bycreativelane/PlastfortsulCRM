@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { addDays, fromISO, toISO } from '@/lib/calendar';
 import { fromCents, sumCents, toCents } from '@/lib/money';
+import { isUnknownColumn } from '@/lib/supabase/pg-errors';
 
 /**
  * AS PARCELAS DE UM PEDIDO — o bloco "Condição de pagamento" do Bling.
@@ -43,6 +44,8 @@ export interface Installment {
   amount: number;
   method: string | null;
   note: string | null;
+  /** A forma de pagamento do Bling (085); `method` fica como rótulo congelado. */
+  payment_method_bling_id?: string | null;
 }
 
 export interface InstallmentDraft {
@@ -51,6 +54,7 @@ export interface InstallmentDraft {
   amount: number;
   method: string | null;
   note: string | null;
+  paymentMethodBlingId?: string | null;
 }
 
 /** Quantas parcelas cabem numa tela antes de o formulário virar planilha. */
@@ -109,6 +113,7 @@ export function generateInstallments(args: {
   total: number;
   issuedOn: string;
   method?: string | null;
+  paymentMethodBlingId?: string | null;
 }): InstallmentDraft[] {
   const dias = parseTerms(args.terms);
   if (dias.length === 0) return [];
@@ -122,6 +127,7 @@ export function generateInstallments(args: {
     amount: valores[i] ?? 0,
     method: args.method?.trim() || null,
     note: null,
+    paymentMethodBlingId: args.paymentMethodBlingId ?? null,
   }));
 }
 
@@ -151,6 +157,11 @@ export function isMissingInstallments(error: {
 
 const SELECT =
   'id, account_id, deal_id, position, days, due_on, amount, method, note';
+
+/** A forma de pagamento por id chega com a 085. */
+export const INSTALLMENT_METHOD_COLUMN = 'payment_method_bling_id';
+
+const SELECT_085 = `${SELECT}, ${INSTALLMENT_METHOD_COLUMN}`;
 
 /**
  * A 075 está no banco?
@@ -188,11 +199,16 @@ export async function loadInstallments(
   db: SupabaseClient,
   dealId: string
 ): Promise<Installment[] | 'missing-table'> {
-  const { data, error } = await db
-    .from('deal_installments')
-    .select(SELECT)
-    .eq('deal_id', dealId)
-    .order('position', { ascending: true });
+  const ler = (colunas: string) =>
+    db
+      .from('deal_installments')
+      .select(colunas)
+      .eq('deal_id', dealId)
+      .order('position', { ascending: true });
+
+  let { data, error } = await ler(SELECT_085);
+  // Sem a 085, o conjunto da 075.
+  if (error && isUnknownColumn(error)) ({ data, error } = await ler(SELECT));
 
   if (error) {
     if (isMissingInstallments(error)) return 'missing-table';
@@ -225,6 +241,9 @@ export function installmentRows(items: InstallmentDraft[]) {
     amount: p.amount || 0,
     method: (p.method ?? '').trim().slice(0, 80) || null,
     note: (p.note ?? '').trim().slice(0, 240) || null,
+    // 085. A `save_deal_order` anterior ignora a chave; o caminho direto a
+    // tira num banco sem a coluna.
+    payment_method_bling_id: p.paymentMethodBlingId || null,
   }));
 }
 
@@ -249,6 +268,14 @@ export async function replaceInstallments(
 
   if (rows.length === 0) return { error: null };
 
-  const { error } = await db.from('deal_installments').insert(rows);
+  let { error } = await db.from('deal_installments').insert(rows);
+  if (error && isUnknownColumn(error)) {
+    const sem085 = rows.map((linha) => {
+      const resto: Record<string, unknown> = { ...linha };
+      delete resto.payment_method_bling_id;
+      return resto;
+    });
+    ({ error } = await db.from('deal_installments').insert(sem085));
+  }
   return { error: error ? error.message : null };
 }

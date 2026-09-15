@@ -141,6 +141,12 @@ export interface Quote {
   grossWeight: number | null;
   owner: string | null;
   notes: string | null;
+  /**
+   * Validade do orçamento e prazo de entrega em dias (085). As observações
+   * INTERNAS nunca chegam aqui — o tipo não tem onde pô-las, de propósito.
+   */
+  validUntil: string | null;
+  deliveryDays: number | null;
 }
 
 export interface QuoteInput {
@@ -166,6 +172,8 @@ export interface QuoteInput {
   grossWeight?: number | null;
   owner?: string | null;
   notes?: string | null;
+  validUntil?: string | null;
+  deliveryDays?: number | null;
 }
 
 /** Texto que não é texto vira ausência, e o documento omite ausências. */
@@ -269,6 +277,8 @@ export function buildQuote(input: QuoteInput): Quote {
     grossWeight: numero(input.grossWeight),
     owner: limpo(input.owner),
     notes: limpo(input.notes),
+    validUntil: limpo(input.validUntil),
+    deliveryDays: numero(input.deliveryDays),
   };
 }
 

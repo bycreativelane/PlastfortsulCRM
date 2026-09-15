@@ -58,6 +58,9 @@ interface LinhaDeal {
   other_expenses?: number | string | null;
   general_discount?: number | string | null;
   general_discount_unit?: string | null;
+  /** 085. `internal_notes` também vem no `*` e NUNCA é lido aqui. */
+  valid_until?: string | null;
+  delivery_days?: number | string | null;
 }
 
 interface LinhaContato {
@@ -126,6 +129,8 @@ export function quoteInputFromRows(args: {
     grossWeight: numero(deal.gross_weight),
     owner: args.ownerName,
     notes: deal.notes,
+    validUntil: deal.valid_until ?? null,
+    deliveryDays: numero(deal.delivery_days),
   };
 }
 

@@ -919,7 +919,30 @@
       "taxIdInvalid": "The check digits do not agree — worth a second look.",
       "taxIdDuplicate": "“{name}” already has this number. Two records for one company means half the history is on each.",
       "birthdayHint": "The full date; only the day and month are used.",
-      "phoneIncomplete": "That number looks incomplete — check the digits."
+      "phoneIncomplete": "That number looks incomplete — check the digits.",
+      "fiscal": {
+        "title": "Tax details and address",
+        "hint": "What Bling needs to issue the order. CPF/CNPJ, city and state live under Commercial details.",
+        "personType": "Person type",
+        "personF": "Individual",
+        "personJ": "Company",
+        "tradeName": "Trade name",
+        "rg": "ID (RG)",
+        "taxpayer": "ICMS taxpayer",
+        "taxpayerNone": "Not informed",
+        "taxpayer1": "Taxpayer",
+        "taxpayer2": "Exempt",
+        "taxpayer9": "Non-taxpayer",
+        "stateRegistration": "State registration",
+        "zipCode": "ZIP code",
+        "zipIncomplete": "The ZIP code has eight digits.",
+        "street": "Street",
+        "streetNumber": "Number",
+        "complement": "Complement",
+        "district": "District",
+        "nfeEmail": "Invoice email",
+        "landline": "Landline"
+      }
     },
     "detailView": {
       "tabs": {
@@ -1362,7 +1385,13 @@
       "freightOwnSender": "Sender's own transport",
       "freightOwnReceiver": "Receiver's own transport",
       "freightNone": "No freight",
-      "toastOrderShapeFailed": "The opportunity was saved, but payment and shipping details could not be."
+      "toastOrderShapeFailed": "The opportunity was saved, but payment and shipping details could not be.",
+      "carrierNotMapped": "This carrier is not linked to a Bling contact yet (Settings › Deals).",
+      "toastOrderLocked": "This order is locked in its current Bling status — the changes cannot be saved.",
+      "deleteBlockedOrder": "This deal is already an order in Bling and cannot be deleted.",
+      "installmentMethodNone": "Pick a method",
+      "installmentMethodRemoved": "Method no longer listed",
+      "installmentNote": "Note"
     },
     "settings": {
       "managePipeline": "Manage Pipeline",
@@ -1449,6 +1478,83 @@
       "sku": "Code",
       "unit": "Unit",
       "lineTotal": "Line total"
+    },
+    "order": {
+      "title": "Order",
+      "lineN": "Line {n}",
+      "categoryUnknown": "Category {id}",
+      "blingNumber": "No. {number} in Bling",
+      "status": {
+        "em_aberto": "Open",
+        "em_andamento": "In progress",
+        "atendido": "Fulfilled",
+        "cancelado": "Canceled",
+        "compra_futura": "Future purchase"
+      },
+      "sync": {
+        "not_sent": "Not sent",
+        "syncing": "Syncing",
+        "synced": "Synced",
+        "pending": "Send pending",
+        "error": "Bling error",
+        "divergent": "Out of sync"
+      },
+      "lockedInProgress": "Order in progress: customer, items, prices, discounts, category, freight and installments can no longer change. Departure and expected dates, volumes and weight are still editable.",
+      "lockedClosed": "Order {status}: only CRM fields (notes, owner and stage) remain editable.",
+      "saleDate": "Sale date",
+      "saleDateHint": "Empty means today's date when sent.",
+      "validUntil": "Quote valid until",
+      "deliveryDays": "Delivery time (days)",
+      "departureDate": "Departure date",
+      "expectedDate": "Expected date",
+      "category": "Revenue category",
+      "categoryAuto": "{name} — from the order's products.",
+      "categoryAuxiliary": "{name} — from the auxiliary items, the only ones in the order.",
+      "categoryChoose": "This order mixes categories. Pick the one that applies to the whole order.",
+      "categoryNotePlaceholder": "Why this category (optional)",
+      "weightComputed": "Computed weight: {kg} kg",
+      "useWeight": "Use as gross weight",
+      "weightExceptionPlaceholder": "Reason for the weight exception (allows issuing without weight)",
+      "weightExceptionAdminOnly": "Only an admin can allow issuing without weight",
+      "volumesConfirmed": "Volumes checked with production",
+      "internalNotes": "Internal notes",
+      "internalNotesHint": "Never printed on the quote or sent to the customer.",
+      "readyTitle": "Ready for Bling",
+      "readyTitleOk": "Ready for Bling — all set",
+      "ready": {
+        "customer": "Customer with tax ID and address",
+        "products": "Products linked to Bling and active",
+        "weight": "Weight for every product",
+        "category": "Revenue category resolved",
+        "payment": "Confirmed payment method on each installment",
+        "installments": "Installments add up to the total",
+        "carrier": "Carrier linked to Bling"
+      },
+      "detail": {
+        "documentMissing": "The customer's CPF or CNPJ is missing.",
+        "documentInvalid": "The customer's CPF or CNPJ does not check out.",
+        "documentMismatch": "The tax ID does not match the person type.",
+        "addressMissing": "Missing from the address: {fields}.",
+        "stateRegistration": "ICMS taxpayer without a state registration.",
+        "noLines": "The order has no products yet.",
+        "unlinked": "Not linked to Bling or inactive: {names}.",
+        "noWeight": "No weight: {names}.",
+        "categoryAmbiguous": "Pick the order's category in the Order area.",
+        "categoryMissing": "No category: {names}.",
+        "methodMissing": "{count, plural, one {# installment without a payment method.} other {# installments without a payment method.}}",
+        "methodNotAllowed": "{count, plural, one {# installment with a method the admin has not confirmed.} other {# installments with a method the admin has not confirmed.}}",
+        "installmentsShort": "{value} short of the total.",
+        "installmentsOver": "Installments exceed the total by {value}.",
+        "dueMissing": "An installment has no due date."
+      },
+      "address": {
+        "zip_code": "ZIP code",
+        "street": "street",
+        "street_number": "number",
+        "district": "district",
+        "city": "city",
+        "state": "state"
+      }
     }
   },
   "Broadcasts": {
@@ -2530,7 +2636,18 @@
       "removeBtn": "Remove member",
       "toastServerUnreachable": "Could not reach the server",
       "lastAccess": "Last access {when}",
-      "neverAccessed": "Has never signed in"
+      "neverAccessed": "Has never signed in",
+      "blingSellers": {
+        "title": "Bling salesperson",
+        "description": "Orders go to Bling with the salesperson of the deal owner.",
+        "taken": "This salesperson is already linked to someone else.",
+        "saveFailed": "Could not save the salesperson.",
+        "saved": "Salesperson saved",
+        "unnamed": "Unnamed",
+        "selectLabel": "Bling salesperson for {name}",
+        "none": "No salesperson",
+        "inactiveSeller": "{name} (inactive)"
+      }
     },
     "invite": {
       "inviteCreated": "Invite created",
@@ -3507,6 +3624,35 @@
         "task_due": "When one of your tasks is coming due.",
         "team_mention": "When somebody writes @you in the team room."
       }
+    },
+    "carriers": {
+      "title": "Carriers",
+      "description": "Deals pick their carrier from this list. Link each one to its Bling contact so orders go out with the right carrier.",
+      "loading": "Loading…",
+      "loadFailed": "Could not load carriers.",
+      "empty": "No carriers yet.",
+      "pickup": "Customer pickup",
+      "mapped": "Linked to Bling",
+      "notMapped": "No Bling contact",
+      "inactive": "Inactive",
+      "edit": "Edit",
+      "name": "Name",
+      "defaultFreight": "Freight paid by (default)",
+      "blingContactId": "Bling contact ID",
+      "blingContactHint": "The carrier's record number in Bling (Contacts › type Carrier).",
+      "blingContactName": "Name in Bling",
+      "pickupLabel": "Customer pickup",
+      "requiresFreight": "Requires a freight amount",
+      "activeLabel": "Active",
+      "cancel": "Cancel",
+      "save": "Save",
+      "saved": "Carrier saved",
+      "saveFailed": "Could not save the carrier.",
+      "duplicate": "A carrier with this name already exists.",
+      "created": "Carrier added",
+      "newPlaceholder": "New carrier name",
+      "add": "Add",
+      "adminOnly": "Only admins add and edit carriers."
     }
   },
   "Notifications": {
@@ -4305,7 +4451,7 @@
     "shipping": "Freight",
     "discount": "Discount",
     "total": "Total",
-    "owner": "Owner",
+    "owner": "Salesperson",
     "notes": "Notes",
     "footer": "Quote subject to stock and lead-time confirmation.",
     "close": "Close",
@@ -4346,7 +4492,11 @@
     "sendWindowClosed": "The 24-hour window closed and the quote was not sent. Use a template in the conversation.",
     "caption": "Quote {order} · Total {total}",
     "captionNoOrder": "Quote · Total {total}",
-    "sendShort": "Send"
+    "sendShort": "Send",
+    "validUntil": "Valid until {date}",
+    "deliveryDays": "Delivery time",
+    "deliveryDaysValue": "{days} days",
+    "disclaimer": "This document is a quote, not an invoice."
   },
   "Quotes": {
     "title": "Quotes",

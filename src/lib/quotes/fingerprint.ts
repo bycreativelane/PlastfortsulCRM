@@ -130,6 +130,16 @@ export function quoteFingerprint(quote: Quote, dealId: string | null): string {
             : `${quote.discount.value}${SEPARADOR}${quote.discount.unit}${SEPARADOR}${quote.discount.amount.toFixed(2)}`,
         ]
       : []),
+    // VALIDADE E PRAZO DE ENTREGA (085) — pela mesma regra e com o mesmo
+    // cuidado: só quando existem, atrás de um marcador, para não mudar a
+    // impressão digital dos orçamentos que já estão no arquivo.
+    ...(quote.validUntil !== null || quote.deliveryDays !== null
+      ? [
+          '085',
+          quote.validUntil ?? '',
+          quote.deliveryDays === null ? '' : String(quote.deliveryDays),
+        ]
+      : []),
   ];
 
   return createHash('sha256').update(partes.join(SEPARADOR)).digest('hex');

@@ -919,7 +919,30 @@
       "taxIdInvalid": "검증 숫자가 맞지 않습니다 — 확인해 보세요.",
       "taxIdDuplicate": "“{name}”에 이미 이 번호가 있습니다. 한 회사에 두 개의 레코드가 있으면 이력이 나뉩니다.",
       "birthdayHint": "전체 날짜를 입력하세요. 사용되는 것은 일과 월뿐입니다.",
-      "phoneIncomplete": "번호가 불완전해 보입니다. 자릿수를 확인하세요."
+      "phoneIncomplete": "번호가 불완전해 보입니다. 자릿수를 확인하세요.",
+      "fiscal": {
+        "title": "세금 정보 및 주소",
+        "hint": "Bling에서 주문을 발행하는 데 필요한 정보입니다. CPF/CNPJ, 도시, 주는 영업 정보에 있습니다.",
+        "personType": "구분",
+        "personF": "개인",
+        "personJ": "법인",
+        "tradeName": "상호",
+        "rg": "신분증(RG)",
+        "taxpayer": "ICMS 납세 구분",
+        "taxpayerNone": "미입력",
+        "taxpayer1": "납세자",
+        "taxpayer2": "면세",
+        "taxpayer9": "비납세자",
+        "stateRegistration": "주 등록번호",
+        "zipCode": "우편번호",
+        "zipIncomplete": "우편번호는 8자리입니다.",
+        "street": "도로명",
+        "streetNumber": "번지",
+        "complement": "상세 주소",
+        "district": "동네",
+        "nfeEmail": "세금계산서 이메일",
+        "landline": "유선 전화"
+      }
     },
     "detailView": {
       "tabs": {
@@ -1362,7 +1385,13 @@
       "freightOwnSender": "발송인 자체 운송",
       "freightOwnReceiver": "수취인 자체 운송",
       "freightNone": "운임 없음",
-      "toastOrderShapeFailed": "기회는 저장되었지만 결제와 배송 정보는 저장되지 않았습니다."
+      "toastOrderShapeFailed": "기회는 저장되었지만 결제와 배송 정보는 저장되지 않았습니다.",
+      "carrierNotMapped": "이 운송사는 아직 Bling 연락처에 연결되지 않았습니다(설정 › 영업 기회).",
+      "toastOrderLocked": "이 주문은 현재 Bling 상태에서 잠겨 있어 변경 사항을 저장할 수 없습니다.",
+      "deleteBlockedOrder": "이미 Bling 주문이 된 영업 기회는 삭제할 수 없습니다.",
+      "installmentMethodNone": "결제 수단 선택",
+      "installmentMethodRemoved": "목록에 없는 결제 수단",
+      "installmentNote": "메모"
     },
     "settings": {
       "managePipeline": "파이프라인 관리",
@@ -1449,6 +1478,83 @@
       "sku": "코드",
       "unit": "단위",
       "lineTotal": "금액"
+    },
+    "order": {
+      "title": "주문",
+      "lineN": "{n}번째 줄",
+      "categoryUnknown": "카테고리 {id}",
+      "blingNumber": "Bling 번호 {number}",
+      "status": {
+        "em_aberto": "접수",
+        "em_andamento": "진행 중",
+        "atendido": "완료",
+        "cancelado": "취소",
+        "compra_futura": "향후 구매"
+      },
+      "sync": {
+        "not_sent": "전송 안 됨",
+        "syncing": "동기화 중",
+        "synced": "동기화됨",
+        "pending": "전송 대기",
+        "error": "Bling 오류",
+        "divergent": "불일치"
+      },
+      "lockedInProgress": "진행 중인 주문입니다. 고객, 품목, 가격, 할인, 카테고리, 운임, 할부는 더 이상 바꿀 수 없습니다. 출고일·예정일, 포장 수량과 중량은 수정할 수 있습니다.",
+      "lockedClosed": "{status} 주문입니다. CRM 항목(메모, 담당자, 단계)만 수정할 수 있습니다.",
+      "saleDate": "판매일",
+      "saleDateHint": "비워 두면 전송하는 날짜가 적용됩니다.",
+      "validUntil": "견적 유효기간",
+      "deliveryDays": "납기(일)",
+      "departureDate": "출고일",
+      "expectedDate": "예정일",
+      "category": "매출 카테고리",
+      "categoryAuto": "{name} — 주문 상품 기준.",
+      "categoryAuxiliary": "{name} — 주문에 있는 보조 품목 기준.",
+      "categoryChoose": "이 주문에는 여러 카테고리가 섞여 있습니다. 주문 전체에 적용할 카테고리를 고르세요.",
+      "categoryNotePlaceholder": "이 카테고리를 고른 이유(선택)",
+      "weightComputed": "계산된 중량: {kg} kg",
+      "useWeight": "총중량에 사용",
+      "weightExceptionPlaceholder": "중량 예외 사유(중량 없이 발행 허용)",
+      "weightExceptionAdminOnly": "중량 없이 발행하려면 관리자 승인이 필요합니다",
+      "volumesConfirmed": "생산팀과 포장 수량 확인함",
+      "internalNotes": "내부 메모",
+      "internalNotesHint": "견적서에 인쇄되거나 고객에게 가지 않습니다.",
+      "readyTitle": "Bling 전송 준비",
+      "readyTitleOk": "Bling 전송 준비 — 모두 완료",
+      "ready": {
+        "customer": "고객의 세금 번호와 주소",
+        "products": "Bling에 연결된 활성 상품",
+        "weight": "모든 상품의 중량",
+        "category": "매출 카테고리 확정",
+        "payment": "각 할부에 확인된 결제 수단",
+        "installments": "할부 합계가 총액과 일치",
+        "carrier": "Bling에 연결된 운송사"
+      },
+      "detail": {
+        "documentMissing": "고객의 CPF 또는 CNPJ가 없습니다.",
+        "documentInvalid": "고객의 CPF 또는 CNPJ가 올바르지 않습니다.",
+        "documentMismatch": "세금 번호가 개인/법인 구분과 맞지 않습니다.",
+        "addressMissing": "주소에 빠진 항목: {fields}.",
+        "stateRegistration": "ICMS 납세자인데 주 등록번호가 없습니다.",
+        "noLines": "주문에 아직 상품이 없습니다.",
+        "unlinked": "Bling 미연결 또는 비활성: {names}.",
+        "noWeight": "중량 없음: {names}.",
+        "categoryAmbiguous": "주문 영역에서 카테고리를 고르세요.",
+        "categoryMissing": "카테고리 없음: {names}.",
+        "methodMissing": "{count, plural, other {결제 수단이 없는 할부 #건.}}",
+        "methodNotAllowed": "{count, plural, other {관리자가 확인하지 않은 결제 수단의 할부 #건.}}",
+        "installmentsShort": "총액까지 {value} 부족합니다.",
+        "installmentsOver": "할부 합계가 총액보다 {value} 많습니다.",
+        "dueMissing": "만기일이 없는 할부가 있습니다."
+      },
+      "address": {
+        "zip_code": "우편번호",
+        "street": "도로명",
+        "street_number": "번지",
+        "district": "동네",
+        "city": "도시",
+        "state": "주"
+      }
     }
   },
   "Broadcasts": {
@@ -2530,7 +2636,18 @@
       "removeBtn": "멤버 제거",
       "toastServerUnreachable": "서버에 연결하지 못했습니다",
       "lastAccess": "마지막 접속 {when}",
-      "neverAccessed": "접속한 적 없음"
+      "neverAccessed": "접속한 적 없음",
+      "blingSellers": {
+        "title": "Bling 영업 담당자",
+        "description": "주문은 영업 기회 담당자의 영업 담당자로 Bling에 전송됩니다.",
+        "taken": "이 영업 담당자는 이미 다른 사람과 연결되어 있습니다.",
+        "saveFailed": "영업 담당자를 저장하지 못했습니다.",
+        "saved": "영업 담당자를 저장했습니다",
+        "unnamed": "이름 없음",
+        "selectLabel": "{name}의 Bling 영업 담당자",
+        "none": "영업 담당자 없음",
+        "inactiveSeller": "{name}(비활성)"
+      }
     },
     "invite": {
       "inviteCreated": "초대가 생성되었습니다",
@@ -3507,6 +3624,35 @@
         "task_due": "내 할 일의 기한이 다가올 때.",
         "team_mention": "팀 방에서 누군가 @나를 언급할 때."
       }
+    },
+    "carriers": {
+      "title": "운송사",
+      "description": "영업 기회는 이 목록에서 운송사를 고릅니다. 주문이 올바른 운송사로 나가도록 각 운송사를 Bling 연락처에 연결하세요.",
+      "loading": "불러오는 중…",
+      "loadFailed": "운송사를 불러오지 못했습니다.",
+      "empty": "등록된 운송사가 없습니다.",
+      "pickup": "고객 직접 수령",
+      "mapped": "Bling 연결됨",
+      "notMapped": "Bling 연락처 없음",
+      "inactive": "비활성",
+      "edit": "편집",
+      "name": "이름",
+      "defaultFreight": "운임 부담(기본값)",
+      "blingContactId": "Bling 연락처 ID",
+      "blingContactHint": "Bling에 등록된 운송사 번호(연락처 › 운송사 유형).",
+      "blingContactName": "Bling상의 이름",
+      "pickupLabel": "고객 직접 수령",
+      "requiresFreight": "운임 금액 필수",
+      "activeLabel": "활성",
+      "cancel": "취소",
+      "save": "저장",
+      "saved": "운송사를 저장했습니다",
+      "saveFailed": "운송사를 저장하지 못했습니다.",
+      "duplicate": "같은 이름의 운송사가 이미 있습니다.",
+      "created": "운송사를 추가했습니다",
+      "newPlaceholder": "새 운송사 이름",
+      "add": "추가",
+      "adminOnly": "관리자만 운송사를 추가하고 편집할 수 있습니다."
     }
   },
   "Notifications": {
@@ -4305,7 +4451,7 @@
     "shipping": "운송비",
     "discount": "할인",
     "total": "합계",
-    "owner": "담당자",
+    "owner": "영업 담당자",
     "notes": "비고",
     "footer": "재고 및 납기 확인 후 확정되는 견적입니다.",
     "close": "닫기",
@@ -4346,7 +4492,11 @@
     "sendWindowClosed": "24시간 창이 닫혀 견적서를 보내지 못했습니다. 대화에서 템플릿을 사용하세요.",
     "caption": "견적서 {order} · 합계 {total}",
     "captionNoOrder": "견적서 · 합계 {total}",
-    "sendShort": "보내기"
+    "sendShort": "보내기",
+    "validUntil": "{date}까지 유효",
+    "deliveryDays": "납기",
+    "deliveryDaysValue": "{days}일",
+    "disclaimer": "이 문서는 견적서이며 세금계산서가 아닙니다."
   },
   "Quotes": {
     "title": "견적서",

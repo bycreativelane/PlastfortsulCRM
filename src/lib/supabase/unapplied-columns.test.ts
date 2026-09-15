@@ -7,9 +7,21 @@ import { archiveLayers } from '@/lib/quotes/archive';
 import { buildQuote } from '@/lib/quotes/quote';
 import {
   dealRow,
+  EMPTY_ORDER_FIELDS,
+  ORDER_FIELDS_MIGRATION,
   ORDER_SHAPE_MIGRATION,
   ORDER_TOTALS_MIGRATION,
 } from '@/lib/deals/row';
+import { dealItemRows, ITEM_SNAPSHOT_COLUMNS } from '@/lib/products/catalog';
+import {
+  INSTALLMENT_METHOD_COLUMN,
+  installmentRows,
+} from '@/lib/deals/installments';
+import {
+  CONTACT_FISCAL_MIGRATION,
+  EMPTY_FISCAL,
+  fiscalRow,
+} from '@/lib/contacts/fiscal';
 
 /**
  * UMA COLUNA DE MIGRAÇÃO NÃO APLICADA NÃO PODE DERRUBAR A GRAVAÇÃO INTEIRA.
@@ -181,10 +193,11 @@ const CAMPOS = {
   otherExpenses: 25,
   generalDiscount: 3,
   generalDiscountUnit: 'REAL' as const,
+  order: { ...EMPTY_ORDER_FIELDS, internalNotes: 'margem', carrierId: 'c1' },
 };
 
 describe('a linha de `deals` que a gaveta grava', () => {
-  const { base, orderShape, orderTotals } = dealRow(CAMPOS);
+  const { base, orderShape, orderTotals, orderFields } = dealRow(CAMPOS);
 
   it('a metade que vai SEMPRE só cita colunas anteriores à 075', () => {
     const problemas = Object.keys(base)
@@ -213,6 +226,52 @@ describe('a linha de `deals` que a gaveta grava', () => {
     expect(Object.keys(orderTotals).length).toBeGreaterThan(0);
     for (const c of Object.keys(orderTotals)) {
       expect(criadaEm('deals', c), c).toBe(ORDER_TOTALS_MIGRATION);
+    }
+  });
+
+  it('o quarto grupo é exatamente a 085', () => {
+    // O pedido completo. Uma coluna dele em `orderTotals` derrubaria toda
+    // gravação num banco com a 078 e sem a 085.
+    expect(Object.keys(orderFields).length).toBeGreaterThan(0);
+    for (const c of Object.keys(orderFields)) {
+      expect(criadaEm('deals', c), c).toBe(ORDER_FIELDS_MIGRATION);
+    }
+  });
+});
+
+describe('as linhas, as parcelas e o contato — o que o caminho direto grava', () => {
+  it('itens: os snapshots são a 085, e o resto é da 075 ou mais velho', () => {
+    const [linha] = dealItemRows([
+      { productId: 'p1', name: 'Lona', quantity: 1, unitPrice: 10, discountPercent: 0 },
+    ]);
+    const snapshots = new Set<string>(ITEM_SNAPSHOT_COLUMNS);
+    for (const c of Object.keys(linha)) {
+      const n = criadaEm('deal_items', c);
+      if (snapshots.has(c)) expect(n, c).toBe(85);
+      else expect(n !== null && n <= ORDER_SHAPE_MIGRATION, `${c}: da ${n}`).toBe(true);
+    }
+    // `replaceDealItems` tira exatamente estas num banco sem a 085: uma que
+    // faltasse na lista seria a linha recusada inteira.
+    const da085 = Object.keys(linha).filter((c) => criadaEm('deal_items', c) === 85);
+    expect(da085.sort()).toEqual([...ITEM_SNAPSHOT_COLUMNS].sort());
+  });
+
+  it('parcelas: só a forma por id é da 085', () => {
+    const [parcela] = installmentRows([
+      { days: 30, dueOn: '2026-10-15', amount: 10, method: 'Boleto', note: null },
+    ]);
+    const da085 = Object.keys(parcela).filter(
+      (c) => criadaEm('deal_installments', c) === 85
+    );
+    expect(da085).toEqual([INSTALLMENT_METHOD_COLUMN]);
+    for (const c of Object.keys(parcela)) {
+      expect(criadaEm('deal_installments', c), c).not.toBeNull();
+    }
+  });
+
+  it('contato: a seção fiscal é inteira da 085', () => {
+    for (const c of Object.keys(fiscalRow(EMPTY_FISCAL))) {
+      expect(criadaEm('contacts', c), c).toBe(CONTACT_FISCAL_MIGRATION);
     }
   });
 });

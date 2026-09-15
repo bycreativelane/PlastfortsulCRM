@@ -32,7 +32,27 @@ import {
 } from '@/lib/deals/installments';
 import { saveDealOrder } from '@/lib/deals/save';
 import { isUnknownColumn } from '@/lib/supabase/pg-errors';
-import { dealRow, hasOrderTotals } from '@/lib/deals/row';
+import {
+  dealRow,
+  EMPTY_ORDER_FIELDS,
+  hasOrderFields,
+  hasOrderTotals,
+  type DealOrderFields,
+} from '@/lib/deals/row';
+import {
+  isColumnFree,
+  isOrderLockedError,
+  orderLock,
+  pickFreeColumns,
+} from '@/lib/deals/order-lock';
+import { orderReadiness } from '@/lib/deals/order-rules';
+import {
+  EMPTY_ORDER_CONTEXT,
+  loadOrderContext,
+  type OrderContext,
+} from '@/lib/deals/order-context';
+import type { Product } from '@/lib/products/catalog';
+import { DealOrderSection } from './deal-order-section';
 import { loadLastOrderNumber, nextOrderNumber } from '@/lib/deals/order-number';
 import type {
   Contact,
@@ -225,6 +245,9 @@ export function DealForm({
   // answer by pressing them and reading an error toast. Say no before the
   // click, not after it.
   const canWrite = useCan('send-messages');
+  // A exceção de peso é uma autorização, e não um campo de digitação: só
+  // admin assina (o nome fica em `weight_exception_by`).
+  const canAuthorize = useCan('edit-settings');
 
   /**
    * A data que o orçamento carimba: hoje, no fuso da CONTA.
@@ -307,10 +330,29 @@ export function DealForm({
   const [freightMode, setFreightMode] = useState('');
   const [freightVolumes, setFreightVolumes] = useState<number | null>(null);
   const [grossWeight, setGrossWeight] = useState<number | null>(null);
+  /**
+   * O PEDIDO COMPLETO (085) — datas, transportadora do cadastro, categoria
+   * do misto, volumes confirmados, exceção de peso e observações internas.
+   *
+   * `orderFieldsPending` segue a regra das outras duas: sem a 085 a área
+   * Pedido não aparece e o `update` não cita as colunas.
+   */
+  const [orderFields, setOrderFields] =
+    useState<DealOrderFields>(EMPTY_ORDER_FIELDS);
+  const [orderFieldsPending, setOrderFieldsPending] = useState(false);
+  const [orderContext, setOrderContext] =
+    useState<OrderContext>(EMPTY_ORDER_CONTEXT);
+  /** O catálogo ativo, que o editor de itens já carrega. */
+  const [catalog, setCatalog] = useState<Product[]>([]);
   const handleItems = useCallback(
-    (state: { items: DealItemDraft[]; pending: boolean }) => {
+    (state: {
+      items: DealItemDraft[];
+      pending: boolean;
+      products: Product[];
+    }) => {
       setItems(state.items);
       setItemsPending(state.pending);
+      setCatalog(state.products);
     },
     []
   );
@@ -399,7 +441,23 @@ export function DealForm({
       setAssignedTo(deal.assigned_to ?? '');
       setExpectedCloseDate(deal.expected_close_date ?? '');
       setNotes(deal.notes ?? '');
+      setOrderFields({
+        carrierId: deal.carrier_id ?? '',
+        saleDate: deal.sale_date ?? '',
+        departureDate: deal.departure_date ?? '',
+        expectedDate: deal.expected_date ?? '',
+        deliveryDays: deal.delivery_days ?? null,
+        validUntil: deal.valid_until ?? '',
+        internalNotes: deal.internal_notes ?? '',
+        revenueCategoryBlingId: deal.revenue_category_bling_id ?? '',
+        revenueCategoryChosenBy: deal.revenue_category_chosen_by ?? null,
+        revenueCategoryNote: deal.revenue_category_note ?? '',
+        freightVolumesConfirmed: deal.freight_volumes_confirmed === true,
+        weightExceptionNote: deal.weight_exception_note ?? '',
+        weightExceptionBy: deal.weight_exception_by ?? null,
+      });
     } else {
+      setOrderFields(EMPTY_ORDER_FIELDS);
       setSalesOrder('');
       setValue(null);
       setShipping(null);
@@ -449,6 +507,24 @@ export function DealForm({
   }, [open, supabase]);
 
   /**
+   * A 085 está no banco? E o que a área Pedido precisa saber da conta —
+   * transportadoras, formas confirmadas, categorias —, na mesma abertura.
+   */
+  useEffect(() => {
+    if (!open || !accountId) return;
+    let cancelled = false;
+    void hasOrderFields(supabase).then((existe) => {
+      if (!cancelled) setOrderFieldsPending(!existe);
+    });
+    void loadOrderContext(supabase, accountId).then((contexto) => {
+      if (!cancelled) setOrderContext(contexto);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, accountId, supabase]);
+
+  /**
    * As parcelas desta oportunidade.
    *
    * Separado do efeito de reidratação acima porque elas moram em OUTRA
@@ -483,6 +559,7 @@ export function DealForm({
           amount: Number(linha.amount),
           method: linha.method,
           note: linha.note,
+          paymentMethodBlingId: linha.payment_method_bling_id ?? null,
         }))
       );
     });
@@ -684,6 +761,60 @@ export function DealForm({
    */
   const contatoAtual = contacts.find((c) => c.id === contactId);
 
+  /**
+   * A TRAVA DA SITUAÇÃO (085) — a mesma regra do gatilho, lida do pedido
+   * GRAVADO. O que ela segura aparece apagado e não vai no `update`; ver
+   * `lib/deals/order-lock.ts`.
+   */
+  const trava = orderLock(deal?.order_status, deal?.accounts_launched_at);
+  const livre = (coluna: string) => canWrite && isColumnFree(coluna, trava);
+  const pedidoAberto = trava === 'open';
+
+  /** A transportadora do cadastro escolhida, quando há cadastro. */
+  const transportadoraAtual =
+    orderContext.carriers.find((c) => c.id === orderFields.carrierId) ?? null;
+  const usaCadastroDeTransportadora =
+    !orderFieldsPending && orderContext.available && orderContext.carriers.length > 0;
+
+  /**
+   * "PRONTO PARA O BLING" — calculado a cada quadro, sobre o que está na
+   * tela. É barato: meia dúzia de somas sobre as linhas que já estão aqui.
+   */
+  const prontidao = orderReadiness({
+    contact: contatoAtual ?? null,
+    lines: items,
+    activeProductIds: catalog.length ? new Set(catalog.map((p) => p.id)) : null,
+    weightExceptionNote: orderFields.weightExceptionNote,
+    chosenCategoryId: orderFields.revenueCategoryBlingId || null,
+    installments,
+    totalCents: totais.totalCents,
+    allowedPaymentMethods: orderContext.paymentMethods.length
+      ? new Set(orderContext.paymentMethods.map((f) => f.id))
+      : null,
+    carrier: transportadoraAtual,
+  });
+
+  /**
+   * Muda um campo do pedido carimbando quem, quando o campo é uma decisão:
+   * a categoria escolhida no misto e a exceção de peso guardam o autor.
+   */
+  const mudarPedido = (patch: Partial<DealOrderFields>) => {
+    setOrderFields((atual) => {
+      const proximo = { ...atual, ...patch };
+      if ('revenueCategoryBlingId' in patch) {
+        proximo.revenueCategoryChosenBy = patch.revenueCategoryBlingId
+          ? (user?.id ?? null)
+          : null;
+      }
+      if ('weightExceptionNote' in patch) {
+        proximo.weightExceptionBy = patch.weightExceptionNote?.trim()
+          ? (user?.id ?? atual.weightExceptionBy)
+          : null;
+      }
+      return proximo;
+    });
+  };
+
   /** O rótulo do frete por conta, que o documento imprime — do código. */
   const chaveFrete = freightLabelKey(freightMode);
   const rotuloFrete = chaveFrete ? t(chaveFrete) : null;
@@ -722,6 +853,10 @@ export function DealForm({
     grossWeight,
     owner: profiles.find((pf) => pf.id === assignedTo)?.full_name,
     notes,
+    // As observações INTERNAS ficam fora, e não por esquecimento: o
+    // documento vai ao cliente (Fase 3: "nunca entram").
+    validUntil: orderFieldsPending ? null : orderFields.validUntil,
+    deliveryDays: orderFieldsPending ? null : orderFields.deliveryDays,
   });
   const tituloDerivado =
     deal?.title?.trim() ||
@@ -757,7 +892,12 @@ export function DealForm({
     }
     setSaving(true);
 
-    const { base, orderShape, orderTotals: totaisDaLinha } = dealRow({
+    const {
+      base,
+      orderShape,
+      orderTotals: totaisDaLinha,
+      orderFields: camposDoPedido,
+    } = dealRow({
       title: tituloDerivado,
       salesOrder,
       value: hasLines ? lineTotalSum : (value ?? 0),
@@ -777,6 +917,16 @@ export function DealForm({
       otherExpenses,
       generalDiscount,
       generalDiscountUnit,
+      order: {
+        ...orderFields,
+        // A escolha do misto só vale enquanto o misto existe: tirar o item
+        // que trazia a segunda categoria derruba a escolha, e gravá-la
+        // deixaria o pedido com uma categoria que nenhum item tem.
+        revenueCategoryBlingId:
+          prontidao.category.status === 'chosen'
+            ? prontidao.category.categoryId
+            : '',
+      },
     });
 
     /*
@@ -795,26 +945,46 @@ export function DealForm({
      * camada por vez, para uma falha da 078 não derrubar junto os campos
      * da 075, que existem.
      */
+    /*
+     * A TRAVA DA SITUAÇÃO reduz cada camada ao que pode mudar (085). Com o
+     * pedido travado, itens e parcelas nem vão: a gravação atômica apaga e
+     * reinsere as duas, e o gatilho recusa isso em qualquer situação que
+     * não seja Em aberto.
+     */
+    const livres = <T extends Record<string, unknown>>(corpo: T) =>
+      (pedidoAberto ? corpo : pickFreeColumns(corpo, trava)) as T;
+
     const camadas: Array<{
-      corpo: typeof base;
+      corpo: Record<string, unknown>;
       sem075: boolean;
       sem078: boolean;
+      sem085: boolean;
     }> = [];
-    if (!installmentsPending && !totalsPending) {
+    if (!installmentsPending && !totalsPending && !orderFieldsPending) {
       camadas.push({
-        corpo: { ...base, ...orderShape, ...totaisDaLinha },
+        corpo: livres({ ...base, ...orderShape, ...totaisDaLinha, ...camposDoPedido }),
         sem075: false,
         sem078: false,
+        sem085: false,
+      });
+    }
+    if (!installmentsPending && !totalsPending) {
+      camadas.push({
+        corpo: livres({ ...base, ...orderShape, ...totaisDaLinha }),
+        sem075: false,
+        sem078: false,
+        sem085: true,
       });
     }
     if (!installmentsPending) {
       camadas.push({
-        corpo: { ...base, ...orderShape },
+        corpo: livres({ ...base, ...orderShape }),
         sem075: false,
         sem078: true,
+        sem085: true,
       });
     }
-    camadas.push({ corpo: base, sem075: true, sem078: true });
+    camadas.push({ corpo: livres(base), sem075: true, sem078: true, sem085: true });
 
     /*
      * O CINTO, para quando a sonda acertou e a escrita não.
@@ -825,9 +995,17 @@ export function DealForm({
      * silêncio o peso bruto ou o desconto que a pessoa acabou de digitar.
      */
     const aoDescer = (camada: (typeof camadas)[number]) => {
+      if (camada.sem085 && !orderFieldsPending) setOrderFieldsPending(true);
       if (camada.sem078 && !totalsPending) setTotalsPending(true);
       if (camada.sem075 && !installmentsPending) setInstallmentsPending(true);
       toast.error(t('toastOrderShapeFailed'));
+    };
+
+    /** A trava recusou: a frase diz qual é a saída (mudar a situação). */
+    const recusaDaTrava = (erro: { code?: string; message?: string; hint?: string } | null) => {
+      if (!isOrderLockedError(erro)) return false;
+      toast.error(t('toastOrderLocked'));
+      return true;
     };
 
     /*
@@ -848,8 +1026,8 @@ export function DealForm({
         deal: existente
           ? camadas[0].corpo
           : { ...camadas[0].corpo, account_id: accountId },
-        items: itemsPending ? null : items,
-        installments,
+        items: itemsPending || !pedidoAberto ? null : items,
+        installments: pedidoAberto ? installments : null,
       });
 
       if (resultado.status === 'saved') {
@@ -864,7 +1042,9 @@ export function DealForm({
       }
 
       if (resultado.status === 'rejected') {
-        toast.error(existente ? t('toastFailedSave') : t('toastFailedCreate'));
+        if (!recusaDaTrava({ code: '42501', message: resultado.error })) {
+          toast.error(existente ? t('toastFailedSave') : t('toastFailedCreate'));
+        }
         setSaving(false);
         return null;
       }
@@ -894,11 +1074,11 @@ export function DealForm({
         if (!isUnknownColumn(error)) break;
       }
       if (error) {
-        toast.error(t('toastFailedSave'));
+        if (!recusaDaTrava(error)) toast.error(t('toastFailedSave'));
         setSaving(false);
         return null;
       }
-      if (!itemsPending && accountId) {
+      if (!itemsPending && accountId && pedidoAberto) {
         const { error: itemsError } = await replaceDealItems(supabase, {
           accountId,
           dealId: existente,
@@ -909,7 +1089,7 @@ export function DealForm({
         // already correct on the row above.
         if (itemsError) toast.error(t('toastItemsFailed'));
       }
-      if (!installmentsPending && accountId) {
+      if (!installmentsPending && accountId && pedidoAberto) {
         const { error: erroParcelas } = await replaceInstallments(supabase, {
           accountId,
           dealId: existente,
@@ -932,7 +1112,7 @@ export function DealForm({
         setSaving(false);
         return null;
       }
-      const criar = (corpo: typeof base) =>
+      const criar = (corpo: Record<string, unknown>) =>
         supabase
           .from('deals')
           .insert({
@@ -1424,7 +1604,7 @@ export function DealForm({
                 onChange={(e) => setSalesOrder(e.target.value)}
                 placeholder={t('salesOrderPlaceholder')}
                 inputMode="numeric"
-                disabled={!canWrite}
+                disabled={!livre('sales_order_number')}
                 className="border-border bg-muted text-foreground"
               />
             </div>
@@ -1444,7 +1624,7 @@ export function DealForm({
                   id="deal-contact"
                   value={contactId}
                   onValueChange={setContactId}
-                  disabled={!canWrite}
+                  disabled={!livre('contact_id')}
                   className="border-border bg-muted text-foreground"
                 >
                   <option value="">{t('selectContact')}</option>
@@ -1496,7 +1676,7 @@ export function DealForm({
                   id="deal-assignee"
                   value={assignedTo}
                   onValueChange={setAssignedTo}
-                  disabled={!canWrite}
+                  disabled={!livre('assigned_to')}
                   className="border-border bg-muted text-foreground"
                 >
                   <option value="">{t('unassigned')}</option>
@@ -1532,8 +1712,9 @@ export function DealForm({
               accountId={accountId}
               dealId={deal?.id ?? null}
               currency={currency}
-              disabled={!canWrite}
+              disabled={!canWrite || !pedidoAberto}
               onChange={handleItems}
+              resolveCategory={orderContext.resolveCategory}
             />
 
             {/*
@@ -1574,7 +1755,7 @@ export function DealForm({
                   onValueChange={setValue}
                   currency={currency}
                   placeholder="0"
-                  disabled={!canWrite}
+                  disabled={!livre('value')}
                   className="border-border bg-muted text-foreground"
                 />
               )}
@@ -1610,7 +1791,7 @@ export function DealForm({
                     onValueChange={setOtherExpenses}
                     currency={currency}
                     placeholder="0"
-                    disabled={!canWrite}
+                    disabled={!livre('other_expenses')}
                     className="border-border bg-muted text-foreground"
                   />
                 </div>
@@ -1625,7 +1806,7 @@ export function DealForm({
                         <ChoiceChip
                           key={unidade}
                           active={generalDiscountUnit === unidade}
-                          disabled={!canWrite}
+                          disabled={!livre('general_discount_unit')}
                           onClick={() => setGeneralDiscountUnit(unidade)}
                         >
                           {/* O símbolo da moeda do pedido, o mesmo que o
@@ -1646,7 +1827,7 @@ export function DealForm({
                       onValueChange={setGeneralDiscount}
                       currency={currency}
                       placeholder="0"
-                      disabled={!canWrite}
+                      disabled={!livre('general_discount')}
                       aria-invalid={descontoInvalido || undefined}
                       className="border-border bg-muted text-foreground"
                     />
@@ -1664,7 +1845,7 @@ export function DealForm({
                           e.target.value === '' ? null : Number(e.target.value)
                         )
                       }
-                      disabled={!canWrite}
+                      disabled={!livre('general_discount')}
                       aria-invalid={descontoInvalido || undefined}
                       className="border-border bg-muted text-foreground tabular-nums"
                     />
@@ -1765,8 +1946,13 @@ export function DealForm({
                 onChange={setInstallments}
                 total={totalGeral}
                 currency={currency}
-                issuedOn={hojeIso}
-                disabled={!canWrite}
+                // A prazo = data base + dias. A base é a data da venda
+                // quando ela foi preenchida (085), e hoje quando não.
+                issuedOn={orderFields.saleDate || hojeIso}
+                disabled={!canWrite || !pedidoAberto}
+                paymentMethods={
+                  orderFieldsPending ? undefined : orderContext.paymentMethods
+                }
               />
             )}
 
@@ -1795,6 +1981,59 @@ export function DealForm({
             <div className="space-y-4">
               <p className="text-muted-foreground eyebrow">{t('transport')}</p>
 
+              {/*
+                COM O CADASTRO (085, D8), a transportadora é uma seleção por
+                id — "A definir" é não escolher. O nome continua indo para
+                `carrier`, congelado, porque é o que o documento imprime e o
+                que o histórico mostra se o cadastro mudar de nome.
+
+                Escolher uma transportadora com frete-por-conta padrão
+                preenche o frete por conta, se ele estiver vazio.
+
+                Sem cadastro — banco sem a 085, ou conta que ainda não
+                cadastrou nenhuma — continua o texto livre com os dois
+                atalhos, como antes.
+              */}
+              {usaCadastroDeTransportadora ? (
+                <div className="grid gap-2">
+                  <FieldLabel htmlFor="deal-carrier">{t('carrier')}</FieldLabel>
+                  <OptionSelect
+                    id="deal-carrier"
+                    value={orderFields.carrierId}
+                    onValueChange={(id) => {
+                      const escolhida =
+                        orderContext.carriers.find((c) => c.id === id) ?? null;
+                      mudarPedido({ carrierId: id });
+                      setCarrier(escolhida?.name ?? '');
+                      if (
+                        escolhida?.default_freight_payer_code &&
+                        !freightMode &&
+                        livre('freight_mode')
+                      ) {
+                        setFreightMode(escolhida.default_freight_payer_code);
+                      }
+                    }}
+                    disabled={!livre('carrier_id')}
+                    className="border-border bg-muted text-foreground"
+                  >
+                    <option value="">{t('carrierTbd')}</option>
+                    {orderContext.carriers
+                      .filter((c) => c.active || c.id === orderFields.carrierId)
+                      .map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                  </OptionSelect>
+                  {transportadoraAtual &&
+                    !transportadoraAtual.is_customer_pickup &&
+                    !transportadoraAtual.bling_contact_id && (
+                      <p className="text-human-ink text-2xs">
+                        {t('carrierNotMapped')}
+                      </p>
+                    )}
+                </div>
+              ) : (
               <div className="grid gap-2">
                 <FieldLabel htmlFor="deal-carrier">{t('carrier')}</FieldLabel>
                 <Input
@@ -1802,7 +2041,7 @@ export function DealForm({
                   value={carrier}
                   onChange={(e) => setCarrier(e.target.value)}
                   placeholder={t('carrierPlaceholder')}
-                  disabled={!canWrite}
+                  disabled={!livre('carrier')}
                   className="border-border bg-muted text-foreground"
                 />
                 <div className="flex flex-wrap gap-1.5">
@@ -1812,7 +2051,7 @@ export function DealForm({
                       <ChoiceChip
                         key={chave}
                         active={carrier === rotulo}
-                        disabled={!canWrite}
+                        disabled={!livre('carrier')}
                         onClick={() =>
                           setCarrier(carrier === rotulo ? '' : rotulo)
                         }
@@ -1823,6 +2062,7 @@ export function DealForm({
                   })}
                 </div>
               </div>
+              )}
 
               {/* Os três campos da 075 somem juntos quando ela não rodou —
                   frete por conta, volumes e peso bruto. O valor do frete e
@@ -1837,7 +2077,7 @@ export function DealForm({
                       id="deal-freight-mode"
                       value={freightMode}
                       onValueChange={setFreightMode}
-                      disabled={!canWrite}
+                      disabled={!livre('freight_mode')}
                       className="border-border bg-muted text-foreground"
                     >
                       <option value="">{t('freightModeNone')}</option>
@@ -1865,7 +2105,7 @@ export function DealForm({
                     onValueChange={setShipping}
                     currency={currency}
                     placeholder="0"
-                    disabled={!canWrite}
+                    disabled={!livre('shipping_cost')}
                     aria-describedby={
                       freteEmDobro ? 'deal-shipping-twice' : undefined
                     }
@@ -1907,7 +2147,7 @@ export function DealForm({
                           e.target.value === '' ? null : Number(e.target.value)
                         )
                       }
-                      disabled={!canWrite}
+                      disabled={!livre('freight_volumes')}
                       className="border-border bg-muted text-foreground tabular-nums"
                     />
                   </div>
@@ -1928,13 +2168,40 @@ export function DealForm({
                           e.target.value === '' ? null : Number(e.target.value)
                         )
                       }
-                      disabled={!canWrite}
+                      disabled={!livre('gross_weight')}
                       className="border-border bg-muted text-foreground tabular-nums"
                     />
                   </div>
                 </div>
               )}
             </div>
+
+            {/*
+              A ÁREA PEDIDO (085) — depois do transporte, porque ela resume
+              tudo o que veio antes: a lista "Pronto para o Bling" aponta
+              para o cliente, os produtos, as parcelas e a transportadora lá
+              em cima. Some inteira num banco sem a 085.
+            */}
+            {!orderFieldsPending && !installmentsPending && !totalsPending && (
+              <DealOrderSection
+                orderStatus={deal?.order_status ?? null}
+                syncStatus={deal?.sync_status ?? null}
+                syncError={deal?.sync_error ?? null}
+                blingOrderNumber={deal?.bling_order_number ?? null}
+                lock={trava}
+                disabled={!canWrite}
+                canAuthorizeWeight={canAuthorize}
+                fields={orderFields}
+                onChange={mudarPedido}
+                readiness={prontidao}
+                lines={items}
+                categoryLabels={orderContext.categoryLabels}
+                grossWeight={grossWeight}
+                onUseWeight={(kg) => setGrossWeight(kg)}
+                currency={currency}
+                showReadiness={orderContext.blingConfigured}
+              />
+            )}
 
             <div className="grid gap-2">
               <FieldLabel htmlFor="deal-notes">{t('notes')}</FieldLabel>
@@ -1943,7 +2210,7 @@ export function DealForm({
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder={t('notesPlaceholder')}
-                disabled={!canWrite}
+                disabled={!livre('notes')}
                 className="border-border bg-muted text-foreground min-h-[100px]"
               />
             </div>
@@ -1975,7 +2242,7 @@ export function DealForm({
                   id="deal-stage"
                   value={stageId}
                   onValueChange={setStageId}
-                  disabled={!canWrite}
+                  disabled={!livre('stage_id')}
                   className="border-border bg-muted text-foreground"
                 >
                   {stages.map((s) => (
@@ -2126,8 +2393,18 @@ export function DealForm({
               </Button>
             </div>
 
+            {/* Oportunidade que já é pedido no Bling não se apaga — o
+                gatilho da 085 recusa, e o pedido ficaria órfão lá. A frase
+                no lugar do botão diz por quê. */}
+            {deal && canWrite && (deal.order_status || deal.bling_order_id) && (
+              <p className="text-muted-foreground text-2xs mt-3">
+                {t('deleteBlockedOrder')}
+              </p>
+            )}
             {deal &&
               canWrite &&
+              !deal.order_status &&
+              !deal.bling_order_id &&
               (confirmDelete ? (
                 // Real buttons, not styled spans: these are the two smallest
                 // targets in a sheet that gets used one-handed, and only

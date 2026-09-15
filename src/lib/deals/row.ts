@@ -41,6 +41,45 @@ export const ORDER_SHAPE_MIGRATION = 75;
  */
 export const ORDER_TOTALS_MIGRATION = 78;
 
+/**
+ * A 085: o pedido completo — transportadora do cadastro, datas, observações
+ * internas, a categoria escolhida no misto, volumes confirmados e a exceção
+ * de peso. O QUARTO grupo, pela mesma razão dos outros três.
+ */
+export const ORDER_FIELDS_MIGRATION = 85;
+
+export interface DealOrderFields {
+  carrierId: string;
+  saleDate: string;
+  departureDate: string;
+  expectedDate: string;
+  deliveryDays: number | null;
+  validUntil: string;
+  internalNotes: string;
+  revenueCategoryBlingId: string;
+  revenueCategoryChosenBy: string | null;
+  revenueCategoryNote: string;
+  freightVolumesConfirmed: boolean;
+  weightExceptionNote: string;
+  weightExceptionBy: string | null;
+}
+
+export const EMPTY_ORDER_FIELDS: DealOrderFields = {
+  carrierId: '',
+  saleDate: '',
+  departureDate: '',
+  expectedDate: '',
+  deliveryDays: null,
+  validUntil: '',
+  internalNotes: '',
+  revenueCategoryBlingId: '',
+  revenueCategoryChosenBy: null,
+  revenueCategoryNote: '',
+  freightVolumesConfirmed: false,
+  weightExceptionNote: '',
+  weightExceptionBy: null,
+};
+
 export interface DealFields {
   title: string;
   salesOrder: string;
@@ -61,6 +100,8 @@ export interface DealFields {
   otherExpenses: number | null;
   generalDiscount: number | null;
   generalDiscountUnit: DiscountUnit;
+  /** A 085. Ausente = os valores vazios. */
+  order?: DealOrderFields;
 }
 
 export function dealRow(f: DealFields) {
@@ -98,7 +139,31 @@ export function dealRow(f: DealFields) {
     general_discount_unit: f.generalDiscountUnit,
   };
 
-  return { base, orderShape, orderTotals };
+  const o = f.order ?? EMPTY_ORDER_FIELDS;
+  const orderFields = {
+    carrier_id: o.carrierId || null,
+    sale_date: o.saleDate || null,
+    departure_date: o.departureDate || null,
+    expected_date: o.expectedDate || null,
+    delivery_days:
+      o.deliveryDays === null || !Number.isFinite(o.deliveryDays)
+        ? null
+        : Math.max(0, Math.min(3650, Math.round(o.deliveryDays))),
+    valid_until: o.validUntil || null,
+    internal_notes: o.internalNotes.trim().slice(0, 4000) || null,
+    revenue_category_bling_id: o.revenueCategoryBlingId || null,
+    revenue_category_chosen_by: o.revenueCategoryBlingId
+      ? o.revenueCategoryChosenBy
+      : null,
+    revenue_category_note: o.revenueCategoryNote.trim().slice(0, 240) || null,
+    freight_volumes_confirmed: o.freightVolumesConfirmed,
+    weight_exception_note: o.weightExceptionNote.trim().slice(0, 240) || null,
+    weight_exception_by: o.weightExceptionNote.trim()
+      ? o.weightExceptionBy
+      : null,
+  };
+
+  return { base, orderShape, orderTotals, orderFields };
 }
 
 /**
@@ -114,5 +179,11 @@ export function dealRow(f: DealFields) {
  */
 export async function hasOrderTotals(db: SupabaseClient): Promise<boolean> {
   const { error } = await db.from('deals').select('other_expenses').limit(0);
+  return !(error && isUnknownColumn(error));
+}
+
+/** A 085 está no banco? A mesma sonda de `hasOrderTotals`, na coluna dela. */
+export async function hasOrderFields(db: SupabaseClient): Promise<boolean> {
+  const { error } = await db.from('deals').select('internal_notes').limit(0);
   return !(error && isUnknownColumn(error));
 }

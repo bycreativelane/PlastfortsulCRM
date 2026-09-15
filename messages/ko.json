@@ -4478,6 +4478,16 @@
         "no_open_status": "\"접수\" 상태를 확인하세요.",
         "no_revenue_root": "매출 카테고리의 최상위를 확인하세요.",
         "no_payment_methods": "결제 수단을 하나 이상 고르세요."
+      },
+      "lastWebhook": "마지막 Bling 알림: {when}",
+      "lastReconcile": "마지막 확인: {when}",
+      "never": "없음",
+      "alerts": {
+        "revoked": "Bling 접근이 취소되었습니다. 다시 연결할 때까지 아무것도 주고받지 않습니다.",
+        "webhookSilent": "Bling이 CRM에 알림을 보내지 않습니다. 15분마다 하는 확인에서 웹훅이 전달하지 않은 변경을 찾았습니다. Bling 앱에서 웹훅이 켜져 있는지 확인하세요.",
+        "failing": "접근 갱신이 계속 실패하고 있습니다.",
+        "stuck": "{count, plural, other {작업 #건이 30분 넘게 대기열에 있습니다.}}",
+        "failed": "{count, plural, other {지난 24시간 동안 작업 #건이 실패했습니다.}}"
       }
     }
   },

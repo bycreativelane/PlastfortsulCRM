@@ -6,6 +6,7 @@ import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import { isMissingObject, loadAccountConnection } from '@/lib/bling/account-connection';
 import { blingAdmin } from '@/lib/bling/admin-client';
 import { ordersEnableBlockers } from '@/lib/bling/orders-flag';
+import { webhookLooksSilent } from '@/lib/bling/reconcile';
 
 /**
  * A CHAVE GERAL dos pedidos no Bling (086, Fase 7 item 1).
@@ -28,10 +29,54 @@ export async function GET() {
       if (isMissingObject(error) || error.code === '42703') return NextResponse.json({ state: 'pending' });
       throw new Error(error.message);
     }
+    const enabled = (data as { orders_enabled?: boolean } | null)?.orders_enabled === true;
+
+    // A SAÚDE DOS PEDIDOS (Fase 6): webhook calado, operações presas ou
+    // falhando. Cada consulta falha sozinha num banco sem a 089.
+    const [conexao, presas, falhas] = await Promise.all([
+      db
+        .from('bling_connections')
+        .select('last_webhook_at, last_reconcile_at, reconcile_found_at, status, consecutive_failures')
+        .eq('account_id', ctx.accountId)
+        .maybeSingle(),
+      db
+        .from('bling_operations')
+        .select('id', { count: 'exact', head: true })
+        .eq('account_id', ctx.accountId)
+        .in('status', ['queued', 'running', 'uncertain'])
+        .lt('created_at', new Date(Date.now() - 30 * 60_000).toISOString()),
+      db
+        .from('bling_operations')
+        .select('id', { count: 'exact', head: true })
+        .eq('account_id', ctx.accountId)
+        .eq('status', 'failed')
+        .gt('updated_at', new Date(Date.now() - 24 * 60 * 60_000).toISOString()),
+    ]);
+    const c = (conexao.error ? null : conexao.data) as {
+      last_webhook_at: string | null;
+      last_reconcile_at: string | null;
+      reconcile_found_at: string | null;
+      status: string;
+      consecutive_failures: number;
+    } | null;
+
     return NextResponse.json({
       state: 'ok',
-      enabled: (data as { orders_enabled?: boolean } | null)?.orders_enabled === true,
+      enabled,
       blockers: ordersEnableBlockers(data as Parameters<typeof ordersEnableBlockers>[0]),
+      health: {
+        lastWebhookAt: c?.last_webhook_at ?? null,
+        lastReconcileAt: c?.last_reconcile_at ?? null,
+        webhookSilent: webhookLooksSilent({
+          ordersEnabled: enabled,
+          lastWebhookAt: c?.last_webhook_at ?? null,
+          reconcileFoundAt: c?.reconcile_found_at ?? null,
+        }),
+        revoked: c?.status === 'revoked',
+        failing: (c?.consecutive_failures ?? 0) >= 3,
+        stuckOperations: presas.error ? 0 : (presas.count ?? 0),
+        failedOperations24h: falhas.error ? 0 : (falhas.count ?? 0),
+      },
     });
   } catch (err) {
     return toErrorResponse(err);

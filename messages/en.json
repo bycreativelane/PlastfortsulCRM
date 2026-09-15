@@ -4478,6 +4478,16 @@
         "no_open_status": "Confirm the \"Open\" status.",
         "no_revenue_root": "Confirm the revenue category root.",
         "no_payment_methods": "Pick at least one payment method."
+      },
+      "lastWebhook": "Last Bling notice: {when}",
+      "lastReconcile": "last check: {when}",
+      "never": "never",
+      "alerts": {
+        "revoked": "Bling access was revoked: nothing goes out or comes back until you connect again.",
+        "webhookSilent": "Bling stopped notifying the CRM: the 15-minute check found changes the webhook did not deliver. Check that the webhook is enabled in the Bling app.",
+        "failing": "Access renewals keep failing.",
+        "stuck": "{count, plural, one {# operation has been queued for over half an hour.} other {# operations have been queued for over half an hour.}}",
+        "failed": "{count, plural, one {# operation failed in the last 24 hours.} other {# operations failed in the last 24 hours.}}"
       }
     }
   },

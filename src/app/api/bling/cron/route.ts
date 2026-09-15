@@ -4,7 +4,10 @@ import { after, NextResponse } from 'next/server';
 import { blingAdmin } from '@/lib/bling/admin-client';
 import { claimSync, isJobDue, loadJob } from '@/lib/bling/jobs';
 import { blingOAuthConfig } from '@/lib/bling/oauth';
+import type { BlingSettingsRow } from '@/lib/bling/health';
 import { runOperations } from '@/lib/bling/operations';
+import { reconcileOrders, RECONCILE_EVERY_MS } from '@/lib/bling/reconcile';
+import { processWebhookEvents } from '@/lib/bling/webhook';
 import { productsMaxAgeMs, runProductsImport, runReferencesSync } from '@/lib/bling/run';
 
 /**
@@ -67,6 +70,49 @@ export async function GET(request: Request) {
     const accountId = conexao.account_id;
     iniciados.push(`operations:${accountId}`);
     after(() => runOperations(db, { accountId, limit: 10 }).then(() => undefined));
+  }
+
+  // Fase 6 (089): os webhooks que o `after()` da rota não terminou, a
+  // reconciliação a cada ~15 min das contas com pedidos, e a retenção uma
+  // vez por dia — chamada de fato, e não só escrita.
+  if (contasComPedido.size > 0) {
+    iniciados.push('webhooks');
+    after(() => processWebhookEvents(db, { limit: 50 }).then(() => undefined));
+
+    const { data: saude, error: semColunas } = await db
+      .from('bling_connections')
+      .select('id, account_id, orders_cursor, last_reconcile_at')
+      .neq('status', 'revoked')
+      .limit(200);
+    if (!semColunas) {
+      const agora = Date.now();
+      for (const c of (saude ?? []) as Array<{ id: string; account_id: string; orders_cursor: string | null; last_reconcile_at: string | null }>) {
+        if (!contasComPedido.has(c.account_id)) continue;
+        const ultima = c.last_reconcile_at ? Date.parse(c.last_reconcile_at) : 0;
+        if (agora - ultima < RECONCILE_EVERY_MS) continue;
+        iniciados.push(`reconcile:${c.id}`);
+        after(async () => {
+          const { data: ajustes } = await db.from('bling_settings').select('*').eq('account_id', c.account_id).maybeSingle();
+          await reconcileOrders(db, c, ajustes as Partial<BlingSettingsRow> | null).catch((erro) =>
+            console.error('[bling] reconciliação:', erro instanceof Error ? erro.message : erro)
+          );
+        });
+      }
+    }
+  }
+
+  const { data: manutencao, error: semManutencao } = await db
+    .from('bling_maintenance')
+    .select('last_run_at')
+    .eq('task', 'retention')
+    .maybeSingle();
+  const ultimaRetencao = (manutencao as { last_run_at?: string | null } | null)?.last_run_at;
+  if (!semManutencao && (!ultimaRetencao || Date.now() - Date.parse(ultimaRetencao) > 24 * 60 * 60_000)) {
+    iniciados.push('retention');
+    after(async () => {
+      const { error: erro } = await db.rpc('bling_purge', { p_event_days: 30, p_operation_days: 180 });
+      if (erro) console.error('[bling] retenção:', erro.message);
+    });
   }
 
   for (const conexao of (conexoes ?? []) as Array<{ id: string; account_id: string; company_id: string }>) {

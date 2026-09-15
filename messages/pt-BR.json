@@ -4478,6 +4478,16 @@
         "no_open_status": "Confirme a situação \"Em aberto\".",
         "no_revenue_root": "Confirme a raiz das categorias de receita.",
         "no_payment_methods": "Escolha ao menos uma forma de pagamento."
+      },
+      "lastWebhook": "Último aviso do Bling: {when}",
+      "lastReconcile": "última conferência: {when}",
+      "never": "nunca",
+      "alerts": {
+        "revoked": "O acesso ao Bling foi revogado: nada vai nem volta até conectar de novo.",
+        "webhookSilent": "O Bling parou de avisar o CRM: a conferência de 15 em 15 minutos achou mudanças que o webhook não trouxe. Confira se o webhook está habilitado no aplicativo do Bling.",
+        "failing": "As renovações de acesso estão falhando seguidas vezes.",
+        "stuck": "{count, plural, one {# operação está na fila há mais de meia hora.} other {# operações estão na fila há mais de meia hora.}}",
+        "failed": "{count, plural, one {# operação falhou nas últimas 24 horas.} other {# operações falharam nas últimas 24 horas.}}"
       }
     }
   },

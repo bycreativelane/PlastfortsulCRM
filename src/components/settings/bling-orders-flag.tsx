@@ -21,6 +21,15 @@ interface Resposta {
   state: 'ok' | 'pending';
   enabled?: boolean;
   blockers?: string[];
+  health?: {
+    lastWebhookAt: string | null;
+    lastReconcileAt: string | null;
+    webhookSilent: boolean;
+    revoked: boolean;
+    failing: boolean;
+    stuckOperations: number;
+    failedOperations24h: number;
+  };
 }
 
 export function BlingOrdersFlag() {
@@ -85,6 +94,36 @@ export function BlingOrdersFlag() {
         </div>
         <StatusBadge variant={ligado ? 'ok' : 'neutral'}>{ligado ? t('on') : t('off')}</StatusBadge>
       </div>
+      {/* OS ALERTAS DE SAÚDE (Fase 6) — o roteiro de cada um está em
+          docs/operacao-bling.md. */}
+      {ligado && dados.health && (
+        <div className="mt-3 grid gap-1.5 text-xs">
+          {dados.health.revoked && <p className="bg-danger-soft text-danger-ink rounded-md px-2.5 py-1.5">{t('alerts.revoked')}</p>}
+          {dados.health.webhookSilent && (
+            <p className="bg-human-soft text-human-ink rounded-md px-2.5 py-1.5">{t('alerts.webhookSilent')}</p>
+          )}
+          {dados.health.failing && <p className="bg-danger-soft text-danger-ink rounded-md px-2.5 py-1.5">{t('alerts.failing')}</p>}
+          {dados.health.stuckOperations > 0 && (
+            <p className="bg-human-soft text-human-ink rounded-md px-2.5 py-1.5">
+              {t('alerts.stuck', { count: dados.health.stuckOperations })}
+            </p>
+          )}
+          {dados.health.failedOperations24h > 0 && (
+            <p className="bg-danger-soft text-danger-ink rounded-md px-2.5 py-1.5">
+              {t('alerts.failed', { count: dados.health.failedOperations24h })}
+            </p>
+          )}
+          <p className="text-muted-foreground">
+            {t('lastWebhook', {
+              when: dados.health.lastWebhookAt ? new Date(dados.health.lastWebhookAt).toLocaleString() : t('never'),
+            })}
+            {' · '}
+            {t('lastReconcile', {
+              when: dados.health.lastReconcileAt ? new Date(dados.health.lastReconcileAt).toLocaleString() : t('never'),
+            })}
+          </p>
+        </div>
+      )}
       {!ligado && bloqueios.length > 0 && (
         <ul className="text-human-ink mt-3 list-disc space-y-0.5 pl-5 text-xs">
           {bloqueios.map((b) => (

@@ -1059,6 +1059,28 @@ BEGIN
     RAISE EXCEPTION 'notifications.type does not accept bling_order (088)';
   END IF;
 
+  -- 089: webhook events are server-only and deduplicated by event_id; the
+  -- retention and the webhook claim run as service_role only.
+  IF EXISTS (
+    SELECT 1 FROM pg_policies
+     WHERE schemaname = 'public' AND tablename IN ('bling_webhook_events', 'bling_maintenance')
+  ) OR NOT EXISTS (
+    SELECT 1 FROM pg_indexes
+     WHERE schemaname = 'public' AND tablename = 'bling_webhook_events'
+       AND indexname = 'idx_bling_webhook_events_event' AND indexdef ILIKE '%UNIQUE%'
+  ) THEN
+    RAISE EXCEPTION 'bling_webhook_events is not the 089 design (no policy, unique event_id)';
+  END IF;
+
+  IF NOT has_function_privilege('service_role', 'public.bling_purge(integer, integer)', 'EXECUTE')
+     OR has_function_privilege('authenticated', 'public.bling_purge(integer, integer)', 'EXECUTE')
+     OR has_function_privilege('anon', 'public.bling_purge(integer, integer)', 'EXECUTE')
+     OR has_function_privilege('authenticated', 'public.bling_claim_webhook_events(uuid, integer, integer)', 'EXECUTE')
+     OR has_function_privilege('anon', 'public.bling_claim_webhook_events(uuid, integer, integer)', 'EXECUTE')
+  THEN
+    RAISE EXCEPTION 'bling_purge/bling_claim_webhook_events must be executable by service_role only (089)';
+  END IF;
+
   RAISE NOTICE 'schema verification passed';
 END
 $$;

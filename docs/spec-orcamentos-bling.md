@@ -2,10 +2,14 @@
 
 **Escrito em:** 14/09/2026
 **Fonte funcional:** `ESPECIFICACAO_CRM_ORCAMENTOS_INTEGRACAO_BLING.md` (14/09/2026, fora do repositório)
-**Estado:** Fase 0 em andamento. Feitos em 14/09: F0.1 (centavos), F0.2
-(total completo), F0.3 (link do PDF), F0.4 (frete por conta em código) e
-F0.8 (campos com centavos). A migração 078 está escrita e ainda não
-aplicada. Nada do Bling implementado. Doze decisões abertas (§3).
+**Estado:** Fase 0 com todos os itens implementados em 14/09 (F0.1 a F0.8).
+- A migração 078 está escrita e **ainda não aplicada**. Sem ela, os campos
+  de outras despesas e desconto geral não aparecem e a gravação segue pelo
+  caminho antigo.
+- Depois de aplicá-la, falta exercitar na tela a `save_deal_order` e os dois
+  campos novos.
+
+Nada do Bling implementado. Doze decisões abertas (§3).
 
 > **Dados pessoais.** A especificação traz prints com nome, CPF, telefone e
 > endereço de clientes reais, e pede que nada disso vá para fixtures, seeds,

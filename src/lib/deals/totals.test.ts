@@ -2,7 +2,12 @@ import { describe, expect, it } from 'vitest';
 
 import { linesTotalCents } from '@/lib/money';
 
-import { discountExceedsOrder, discountUnit, orderTotals } from './totals';
+import {
+  discountExceedsOrder,
+  discountUnit,
+  orderTotals,
+  shippingCountedTwice,
+} from './totals';
 
 /*
  * O pedido de exemplo da especificação de 14/09/2026, só com os NÚMEROS —
@@ -118,6 +123,33 @@ describe('discountExceedsOrder', () => {
     });
     expect(t.totalCents).toBe(0);
     expect(discountExceedsOrder(t)).toBe(false);
+  });
+});
+
+describe('shippingCountedTwice — a linha "Frete" junto do campo de frete', () => {
+  const livre = (name: string) => ({ productId: null, name });
+
+  it('linha livre "Frete" com frete preenchido: avisa', () => {
+    expect(shippingCountedTwice([livre('Frete')], 80)).toBe(true);
+    expect(shippingCountedTwice([livre('  FRETE Braspress')], 80)).toBe(true);
+  });
+
+  it('sem valor no campo de frete, a linha é o frete — não há dobra', () => {
+    expect(shippingCountedTwice([livre('Frete')], null)).toBe(false);
+    expect(shippingCountedTwice([livre('Frete')], 0)).toBe(false);
+  });
+
+  it('produto de catálogo com "frete" no nome é cadastro, não engano', () => {
+    expect(
+      shippingCountedTwice([{ productId: 'p-1', name: 'Frete especial' }], 80)
+    ).toBe(false);
+  });
+
+  it('"frete" no meio do nome não conta', () => {
+    expect(shippingCountedTwice([livre('Saco com frete grátis')], 80)).toBe(
+      false
+    );
+    expect(shippingCountedTwice([livre('Fretes antigos')], 80)).toBe(false);
   });
 });
 

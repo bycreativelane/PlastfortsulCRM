@@ -94,3 +94,29 @@ export function orderTotals(input: OrderTotalsInput): OrderTotals {
 export function discountExceedsOrder(totais: OrderTotals): boolean {
   return totais.discountCents > totais.grossCents;
 }
+
+/**
+ * O FRETE CONTADO DUAS VEZES.
+ *
+ * A 054 permitiu uma linha de texto livre porque "frete e montagem estão
+ * em metade dos orçamentos e em nenhum catálogo" — e isso era verdade
+ * antes de a 070 criar o campo de frete. Com os dois, quem já tinha o
+ * hábito de pôr "Frete" como produto e agora também preenche o campo
+ * cobra o frete duas vezes: uma nos itens, outra no total. No Bling o
+ * frete é um campo do transporte, e uma linha "Frete" viraria item de
+ * venda com categoria de produto.
+ *
+ * Só linha LIVRE (sem produto do catálogo) cujo nome COMEÇA com "frete":
+ * "Frete", "FRETE Braspress". Um produto de catálogo com "frete" no nome
+ * é decisão de cadastro, e não este engano.
+ *
+ * Aviso, e não bloqueio: pode existir o caso legítimo (um frete de retorno
+ * cobrado à parte), e quem sabe é quem está montando o pedido.
+ */
+export function shippingCountedTwice(
+  itens: Array<{ productId: string | null; name: string }>,
+  shipping: number | null
+): boolean {
+  if ((shipping ?? 0) <= 0) return false;
+  return itens.some((item) => !item.productId && /^\s*frete\b/i.test(item.name));
+}

@@ -1289,6 +1289,7 @@
       "salesOrder": "Pedido de venda",
       "salesOrderPlaceholder": "Número do pedido, ex.: 14349",
       "shipping": "Frete",
+      "shippingCountedTwice": "Há uma linha “Frete” nos produtos e um valor de frete aqui — o frete vai somar duas vezes.",
       "carrier": "Transportador",
       "carrierPlaceholder": "Nome da transportadora",
       "carrierPickup": "Cliente retira",

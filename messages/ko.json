@@ -1289,6 +1289,7 @@
       "salesOrder": "판매 주문",
       "salesOrderPlaceholder": "주문 번호, 예: 14349",
       "shipping": "운송비",
+      "shippingCountedTwice": "상품에 “Frete” 줄이 있고 여기에도 배송비가 있습니다 — 배송비가 두 번 합산됩니다.",
       "carrier": "운송업체",
       "carrierPlaceholder": "운송업체 이름",
       "carrierPickup": "고객 직접 수령",

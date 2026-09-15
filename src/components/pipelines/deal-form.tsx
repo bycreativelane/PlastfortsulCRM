@@ -18,6 +18,7 @@ import {
   discountExceedsOrder,
   discountUnit,
   orderTotals,
+  shippingCountedTwice,
   type DiscountUnit,
 } from '@/lib/deals/totals';
 import { replaceDealItems, type DealItemDraft } from '@/lib/products/catalog';
@@ -347,6 +348,16 @@ export function DealForm({
   const [janela, setJanela] = useState<SessionState | null>(null);
 
   const [saving, setSaving] = useState(false);
+  /**
+   * A oportunidade que ESTA gaveta criou sem fechar — ao gerar o orçamento
+   * de um negócio novo.
+   *
+   * O documento sai do pedido gravado (`lib/quotes/from-deal.ts`), então
+   * gerar um orçamento numa oportunidade nova grava ela antes. Sem guardar
+   * o id, o próximo "Salvar" — ou o segundo orçamento — faria um segundo
+   * INSERT, e o quadro ganharia duas oportunidades iguais.
+   */
+  const [criadaId, setCriadaId] = useState<string | null>(null);
   const [statusAction, setStatusAction] = useState<DealStatus | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -358,6 +369,7 @@ export function DealForm({
   useEffect(() => {
     if (!open) return;
     setConfirmDelete(false);
+    setCriadaId(null);
     if (deal) {
       setSalesOrder(deal.sales_order_number ?? '');
       setValue(deal.value ?? null);
@@ -655,6 +667,7 @@ export function DealForm({
   });
   const totalGeral = fromCents(totais.totalCents);
   const descontoInvalido = discountExceedsOrder(totais);
+  const freteEmDobro = shippingCountedTwice(items, shipping);
 
   /**
    * O que vai em `deals.title` agora que ele não é mais um campo.
@@ -825,10 +838,14 @@ export function DealForm({
      * classificação do erro — e principalmente para por que um defeito na
      * função cai no caminho antigo em vez de impedir de salvar.
      */
+    // O id em que se grava: o da oportunidade aberta, ou o da que esta
+    // mesma gaveta criou ao gerar um orçamento (`criadaId`).
+    const existente = deal?.id ?? criadaId;
+
     if (!totalsPending && !installmentsPending && accountId) {
       const resultado = await saveDealOrder(supabase, {
-        dealId: deal?.id ?? null,
-        deal: deal
+        dealId: existente,
+        deal: existente
           ? camadas[0].corpo
           : { ...camadas[0].corpo, account_id: accountId },
         items: itemsPending ? null : items,
@@ -836,9 +853,10 @@ export function DealForm({
       });
 
       if (resultado.status === 'saved') {
+        if (!existente) setCriadaId(resultado.dealId);
         setSaving(false);
         if (!silent) {
-          toast.success(deal ? t('toastUpdated') : t('toastCreated'));
+          toast.success(existente ? t('toastUpdated') : t('toastCreated'));
           onOpenChange(false);
           onSaved();
         }
@@ -846,7 +864,7 @@ export function DealForm({
       }
 
       if (resultado.status === 'rejected') {
-        toast.error(deal ? t('toastFailedSave') : t('toastFailedCreate'));
+        toast.error(existente ? t('toastFailedSave') : t('toastFailedCreate'));
         setSaving(false);
         return null;
       }
@@ -862,13 +880,13 @@ export function DealForm({
       }
     }
 
-    if (deal) {
+    if (existente) {
       let error: { code?: string; message?: string } | null = null;
       for (const [i, camada] of camadas.entries()) {
         ({ error } = await supabase
           .from('deals')
           .update(camada.corpo)
-          .eq('id', deal.id));
+          .eq('id', existente));
         if (!error) {
           if (i > 0) aoDescer(camada);
           break;
@@ -883,7 +901,7 @@ export function DealForm({
       if (!itemsPending && accountId) {
         const { error: itemsError } = await replaceDealItems(supabase, {
           accountId,
-          dealId: deal.id,
+          dealId: existente,
           items,
         });
         // The deal saved. Saying so and naming the part that did not is
@@ -894,7 +912,7 @@ export function DealForm({
       if (!installmentsPending && accountId) {
         const { error: erroParcelas } = await replaceInstallments(supabase, {
           accountId,
-          dealId: deal.id,
+          dealId: existente,
           items: installments,
         });
         if (erroParcelas) toast.error(t('toastInstallmentsFailed'));
@@ -943,6 +961,7 @@ export function DealForm({
         return null;
       }
       const novoId = (created as { id: string }).id;
+      setCriadaId(novoId);
       if (!itemsPending && items.length > 0) {
         const { error: itemsError } = await replaceDealItems(supabase, {
           accountId,
@@ -974,11 +993,24 @@ export function DealForm({
       onOpenChange(false);
       onSaved();
     }
-    return deal.id;
+    return existente;
   }
 
   async function handleSave() {
     await persist();
+  }
+
+  /**
+   * Fechar a gaveta — avisando o quadro quando ela criou uma oportunidade.
+   *
+   * Gerar o orçamento de um negócio novo grava a oportunidade em silêncio
+   * (ver `criadaId`). Quem fecha depois com "Cancelar", ou clicando fora,
+   * não apertou Salvar — e sem este aviso a oportunidade existiria no banco
+   * e não apareceria no quadro até alguém recarregar a página.
+   */
+  function fecharOuAbrir(aberta: boolean) {
+    if (!aberta && criadaId && !deal) onSaved();
+    onOpenChange(aberta);
   }
 
   /**
@@ -1088,8 +1120,11 @@ export function DealForm({
    * digital da 074 é o que torna a segunda barata — apertar "Enviar" logo
    * depois de "Gerar PDF" devolve os mesmos arquivos, sem Chromium de novo.
    *
-   * O que sobe é INSUMO e não resultado: linhas, valor digitado, frete.
-   * A conta é refeita lá pelo mesmo `buildQuote`.
+   * SALVA ANTES, E MANDA SÓ O ID. O corpo carregava as linhas, as parcelas,
+   * o frete e o cliente, e o documento arquivado podia dizer o que o banco
+   * não dizia — o que estava na tela e não tinha sido gravado, uma linha
+   * sem nome que a gravação descarta. Agora a rota lê o pedido gravado
+   * (`lib/quotes/from-deal.ts`); daqui só sobe tradução.
    */
   async function gerarArquivos(
     labels: QuoteLabels
@@ -1097,39 +1132,30 @@ export function DealForm({
     { pdfUrl: string | null; imageUrl: string | null } | 'no_browser' | null
   > {
     // O mesmo portão do Salvar: um orçamento com total negativo não sai.
+    // `persist` também recusa, mas avisar antes poupa uma ida ao banco.
     if (descontoInvalido) {
       toast.error(t('discountTooLarge'));
       return null;
     }
+
+    // `persist` já avisa quando não grava; aqui só não se segue adiante.
+    const dealId = await persist({ silent: true });
+    if (!dealId) return null;
+
     const res = await fetch('/api/quotes', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        dealId: deal?.id ?? null,
-        orderNumber: salesOrder,
-        issuedOn: hojeIso,
-        customerName: contatoAtual?.name || contatoAtual?.phone,
-        customerCompany: contatoAtual?.company,
-        customerPhone: contatoAtual?.phone,
-        items,
-        value,
-        currency,
-        shipping,
-        otherExpenses: totalsPending ? null : otherExpenses,
-        generalDiscount: totalsPending ? null : generalDiscount,
-        generalDiscountUnit,
-        paymentTerms,
-        installments,
-        carrier,
-        // Traduzido AQUI, onde existe o provider de i18n: a rota desenha
-        // o documento longe dele e recebe o rótulo pronto, como já recebe
-        // todos os outros.
-        freightMode: rotuloFrete,
-        freightVolumes,
-        grossWeight,
-        owner: profiles.find((pf) => pf.id === assignedTo)?.full_name,
-        notes,
+        dealId,
         labels,
+        // Traduzido AQUI, onde existe o provider de i18n: a rota lê o
+        // CÓDIGO do banco e escolhe o rótulo neste mapa.
+        freightModeLabels: Object.fromEntries(
+          FREIGHT_PAYER_CODES.map((codigo) => [
+            codigo,
+            t(FREIGHT_LABEL_KEY[codigo]),
+          ])
+        ),
       }),
     });
     const dados = await res.json().catch(() => ({}));
@@ -1224,7 +1250,7 @@ export function DealForm({
   }
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet open={open} onOpenChange={fecharOuAbrir}>
       <SheetContent
         side="right"
         size="record"
@@ -1840,8 +1866,23 @@ export function DealForm({
                     currency={currency}
                     placeholder="0"
                     disabled={!canWrite}
+                    aria-describedby={
+                      freteEmDobro ? 'deal-shipping-twice' : undefined
+                    }
                     className="border-border bg-muted text-foreground"
                   />
+                  {/* ÂMBAR, e não vermelho: não é erro, é algo que só quem
+                      monta o pedido sabe resolver — a regra de cor da casa
+                      para "uma pessoa precisa agir". Ver
+                      `shippingCountedTwice`. */}
+                  {freteEmDobro ? (
+                    <p
+                      id="deal-shipping-twice"
+                      className="text-human-ink text-2xs"
+                    >
+                      {t('shippingCountedTwice')}
+                    </p>
+                  ) : null}
                 </div>
               </div>
 
@@ -2059,7 +2100,7 @@ export function DealForm({
             <div className="flex justify-end gap-2">
               <Button
                 variant="outline"
-                onClick={() => onOpenChange(false)}
+                onClick={() => fecharOuAbrir(false)}
                 className="border-border text-muted-foreground hover:bg-muted bg-transparent"
               >
                 {t('cancel')}

@@ -1289,6 +1289,7 @@
       "salesOrder": "Sales order",
       "salesOrderPlaceholder": "Order number, e.g. 14349",
       "shipping": "Freight",
+      "shippingCountedTwice": "There is a “Frete” line in the products and a shipping amount here — shipping will be counted twice.",
       "carrier": "Carrier",
       "carrierPlaceholder": "Carrier name",
       "carrierPickup": "Customer picks up",

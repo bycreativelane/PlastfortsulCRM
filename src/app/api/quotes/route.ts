@@ -15,8 +15,11 @@ import {
   renderQuoteFiles,
 } from '@/lib/quotes/render';
 import type { QuoteLabels } from '@/components/quotes/quote-document';
-import type { DealItemDraft } from '@/lib/products/catalog';
-import type { InstallmentDraft } from '@/lib/deals/installments';
+import { loadQuoteInputFromDeal } from '@/lib/quotes/from-deal';
+import {
+  DEFAULT_TIMEZONE,
+  localParts,
+} from '@/lib/automations/local-time';
 
 /**
  * Gera o orçamento: arquiva a linha, produz o PDF e a imagem, devolve os
@@ -59,29 +62,22 @@ export const runtime = 'nodejs';
 // mataria a requisição no meio e deixaria uma linha sem arquivo.
 export const maxDuration = 60;
 
+/*
+ * O CORPO SÓ TEM TRADUÇÃO E O ID.
+ *
+ * Linhas, parcelas, frete, cliente e totais vinham daqui, do navegador, e
+ * o documento arquivado podia dizer o que o banco não dizia — uma linha
+ * sem nome que a gravação descarta, o que estava na tela e não tinha sido
+ * salvo. Agora a gaveta salva antes de gerar, e esta rota lê o pedido
+ * gravado: `lib/quotes/from-deal.ts`.
+ *
+ * A data também saiu do corpo: é hoje no fuso da conta, calculado aqui.
+ */
 interface Corpo {
   dealId?: string | null;
-  orderNumber?: string | null;
-  issuedOn?: string;
-  customerName?: string | null;
-  customerCompany?: string | null;
-  customerPhone?: string | null;
-  items?: DealItemDraft[];
-  value?: number | null;
-  currency?: string;
-  shipping?: number | null;
-  otherExpenses?: number | null;
-  generalDiscount?: number | null;
-  generalDiscountUnit?: string | null;
-  paymentTerms?: string | null;
-  installments?: InstallmentDraft[];
-  carrier?: string | null;
-  freightMode?: string | null;
-  freightVolumes?: number | null;
-  grossWeight?: number | null;
-  owner?: string | null;
-  notes?: string | null;
   labels?: QuoteLabels;
+  /** Código do frete por conta → rótulo no idioma de quem gera. */
+  freightModeLabels?: Record<string, string>;
 }
 
 export async function POST(request: Request) {
@@ -89,9 +85,9 @@ export async function POST(request: Request) {
     const { accountId, userId } = await requireRole('agent');
     const body = (await request.json()) as Corpo;
 
-    if (!body.issuedOn || !body.labels) {
+    if (!body.dealId || !body.labels) {
       return NextResponse.json(
-        { error: 'issuedOn and labels are required' },
+        { error: 'dealId and labels are required' },
         { status: 400 }
       );
     }
@@ -105,29 +101,26 @@ export async function POST(request: Request) {
       .maybeSingle();
     const brand = brandFromAccount(conta ?? null);
 
-    const quote = buildQuote({
-      orderNumber: body.orderNumber,
-      issuedOn: body.issuedOn,
-      company: conta?.legal_name || conta?.name,
-      customerName: body.customerName,
-      customerCompany: body.customerCompany,
-      customerPhone: body.customerPhone,
-      items: body.items ?? [],
-      value: body.value ?? null,
-      currency: body.currency || 'BRL',
-      shipping: body.shipping ?? null,
-      otherExpenses: body.otherExpenses ?? null,
-      generalDiscount: body.generalDiscount ?? null,
-      generalDiscountUnit: body.generalDiscountUnit ?? null,
-      paymentTerms: body.paymentTerms,
-      installments: body.installments ?? [],
-      carrier: body.carrier,
-      freightMode: body.freightMode,
-      freightVolumes: body.freightVolumes ?? null,
-      grossWeight: body.grossWeight ?? null,
-      owner: body.owner,
-      notes: body.notes,
+    // Hoje no fuso da CONTA — `localParts`, e não `toISOString()`, pela
+    // razão escrita na gaveta: meia-noite UTC é ontem no Brasil.
+    const issuedOn = localParts(
+      new Date(),
+      (conta as { timezone?: string | null } | null)?.timezone ??
+        DEFAULT_TIMEZONE
+    ).dateKey;
+
+    const entrada = await loadQuoteInputFromDeal(supabase, {
+      accountId,
+      dealId: body.dealId,
+      issuedOn,
+      company: conta?.legal_name || conta?.name || null,
+      freightModeLabels: body.freightModeLabels ?? {},
     });
+    if (!entrada) {
+      return NextResponse.json({ error: 'deal_not_found' }, { status: 404 });
+    }
+
+    const quote = buildQuote(entrada);
 
     // Desconto geral maior que o pedido. A gaveta já recusa, e a rota
     // recusa de novo: o que chega aqui pode não ter vindo da gaveta, e um
